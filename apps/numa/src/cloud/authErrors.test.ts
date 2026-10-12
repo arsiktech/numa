@@ -1,5 +1,5 @@
 import { ConvexError } from 'convex/values';
-import { authErrorText, isAuthGone, passwordErrorText } from './authErrors';
+import { authErrorText, isAuthGone, passwordErrorText, resetErrorText } from './authErrors';
 
 describe('authErrorText', () => {
   it('never echoes server internals on sign-in', () => {
@@ -28,5 +28,16 @@ describe('isAuthGone', () => {
   it('spots a session the server no longer accepts', () => {
     expect(isAuthGone(new Error('[CONVEX Q(spaces:listMine)] Uncaught ConvexError: {"code":"UNAUTHENTICATED","message":"Account no longer exists. Sign in again."}'))).toBe(true);
     expect(isAuthGone(new Error('Server Error'))).toBe(false);
+  });
+});
+
+describe('resetErrorText', () => {
+  it('says plainly when reset is not switched on', () => {
+    expect(resetErrorText(new Error('[CONVEX A(auth:signIn)] Uncaught Error: Password reset is not enabled for password'), 'resetEmail')).toBe('Password reset isn’t switched on yet. Try again later.');
+  });
+  it('passes on password rules and hides everything else', () => {
+    expect(resetErrorText(new Error('Use at least 10 characters.'), 'resetCode')).toBe('Use at least 10 characters.');
+    expect(resetErrorText(new Error('InvalidSecret'), 'resetCode')).toMatch(/^That code didn’t work/);
+    expect(resetErrorText(new Error('Server Error'), 'resetEmail')).toMatch(/^Couldn’t send a code/);
   });
 });

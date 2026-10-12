@@ -149,6 +149,21 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   await page.getByLabel('Password').fill('Wrong-password-11');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.getByText('That email and password don’t match.').waitFor({ timeout: 15000 });
+
+  // Forgot password: this throwaway backend has no email key, so the flow must say so plainly.
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+  await page.getByRole('heading', { name: 'Reset your password' }).waitFor({ timeout: 10000 });
+  await page.getByLabel('Email').fill(EMAIL);
+  await page.getByRole('button', { name: 'Send code' }).click();
+  // The first step answers the same whether or not anything was sent, so nobody can probe for accounts.
+  await page.getByRole('heading', { name: 'Check your email' }).waitFor({ timeout: 15000 });
+  await page.getByLabel('Code').fill('12345678');
+  await page.getByLabel('New password').fill('Harbor-Lantern-82?');
+  await page.getByRole('button', { name: 'Set password and sign in' }).click();
+  await page.getByText('Password reset isn’t switched on yet. Try again later.').waitFor({ timeout: 15000 });
+  check('forgot password: code step, and a plain message when email is not set up', true);
+  await page.getByRole('button', { name: 'Back to sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in' }).waitFor({ timeout: 10000 });
   check('wrong password shows a plain message', true);
   await page.screenshot({ path: OUT + '/09-wrong-password-dark-390.png' });
 
@@ -172,8 +187,8 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   check('sign in on desktop width', (await w.locator('body').innerText()).includes(euro(expected.net)));
   await w.screenshot({ path: OUT + '/11-home-dark-1440.png' });
 
-  // The deliberate wrong-password attempt is logged by the Convex client; anything else is a failure.
-  const filtered = errors.filter((e) => !/favicon|Download the React DevTools/i.test(e) && !/auth:signIn[\s\S]*InvalidSecret/.test(e));
+  // The deliberate wrong-password and reset attempts are logged by the Convex client; anything else is a failure.
+  const filtered = errors.filter((e) => !/favicon|Download the React DevTools/i.test(e) && !/auth:signIn[\s\S]*(InvalidSecret|Password reset is not enabled)/.test(e));
   check('no page or console errors', filtered.length === 0, filtered.slice(0, 5).join(' | '));
   await browser.close();
   const failed = results.filter((r) => !r.ok).length;

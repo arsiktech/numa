@@ -1,0 +1,65 @@
+name: Convex deploy
+
+# arsiktech/numa owns the Convex backend (owner decision, 2026-10-12). Every merge
+# to main that touches the backend deploys it to DEV, then to production. Convex
+# refuses a schema that existing data does not fit, so a bad schema stops here.
+# Without the deploy-key secrets the jobs skip, so forks and new clones stay safe.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'convex/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/convex-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: convex-deploy
+  cancel-in-progress: false
+
+jobs:
+  dev:
+    runs-on: ubuntu-latest
+    env:
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY_DEV }}
+    steps:
+      - name: Skip without a DEV deploy key
+        if: env.CONVEX_DEPLOY_KEY == ''
+        run: echo "CONVEX_DEPLOY_KEY_DEV is not set; nothing deployed."
+      - uses: actions/checkout@v4
+        if: env.CONVEX_DEPLOY_KEY != ''
+      - uses: actions/setup-node@v4
+        if: env.CONVEX_DEPLOY_KEY != ''
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        if: env.CONVEX_DEPLOY_KEY != ''
+        run: npm ci
+      - name: Deploy to DEV
+        if: env.CONVEX_DEPLOY_KEY != ''
+        run: npx convex deploy --yes
+
+  production:
+    needs: dev
+    runs-on: ubuntu-latest
+    env:
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY_PROD }}
+    steps:
+      - name: Skip without a production deploy key
+        if: env.CONVEX_DEPLOY_KEY == ''
+        run: echo "CONVEX_DEPLOY_KEY_PROD is not set; nothing deployed."
+      - uses: actions/checkout@v4
+        if: env.CONVEX_DEPLOY_KEY != ''
+      - uses: actions/setup-node@v4
+        if: env.CONVEX_DEPLOY_KEY != ''
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        if: env.CONVEX_DEPLOY_KEY != ''
+        run: npm ci
+      - name: Deploy to production
+        if: env.CONVEX_DEPLOY_KEY != ''
+        run: npx convex deploy --yes

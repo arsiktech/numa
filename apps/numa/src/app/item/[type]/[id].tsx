@@ -21,6 +21,7 @@ import { CurrencyScope, useMoney } from '@/ui/money';
 import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
+import { WalletDetail } from '@/wallets/WalletDetail';
 
 export default function ItemScreen() {
   const { type, id } = useLocalSearchParams<{ type: ItemType; id: string }>();
@@ -35,7 +36,7 @@ function Detail({ source, type, id, editable }: { source: ItemsSource; type: Ite
   if (!item) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>This isn’t here anymore. It may have been deleted.</Txt></Screen>;
   return (
     <CurrencyScope currency={source.currency}>
-      <Screen>{editable ? <Editable item={item} now={source.now} /> : <View><Facts item={item} now={source.now} /><Txt v="body" c="ink2" style={{ marginTop: 24 }}>This is demo data, so it can’t be changed. Sign in to track your own.</Txt></View>}</Screen>
+      <Screen>{item.type === 'wallet' ? <WalletDetail item={item} now={source.now} editable={editable} /> : editable ? <Editable item={item as EditableItem} now={source.now} /> : <View><Facts item={item} now={source.now} /><Txt v="body" c="ink2" style={{ marginTop: 24 }}>This is demo data, so it can’t be changed. Sign in to track your own.</Txt></View>}</Screen>
     </CurrencyScope>
   );
 }
@@ -80,16 +81,17 @@ function Facts({ item, gainCents, now }: { item: Item; gainCents?: number | null
         {item.type === 'asset' && <Fact label="Updated" value={shortDay((raw as CloudAsset).updatedAt, now)} />}
         {item.type === 'liability' && <Fact label="Kind" value={item.detail ?? ''} />}
         {item.type === 'liability' && <Fact label="Due" value={(raw as CloudLiability).dueDate ? shortDay((raw as CloudLiability).dueDate!, now) : 'No due date'} />}
-        {item.raw.currency !== undefined && <Fact label="Currency" value={(raw as { currency: string }).currency} />}
+        {'currency' in raw && <Fact label="Currency" value={raw.currency} />}
       </View>
     </View>
   );
 }
 
+type EditableItem = Item & { type: Exclude<ItemType, 'wallet'> };
 const fieldsOf = (item: Item): Fields => (item.type === 'asset' ? assetFields(item.raw as CloudAsset) : item.type === 'liability' ? debtFields(item.raw as CloudLiability) : holdingFields(item.raw as CloudHolding));
 const noun = (t: ItemType) => (t === 'holding' ? 'holding' : t === 'liability' ? 'debt' : 'account');
 
-function Editable({ item, now }: { item: Item; now: number }) {
+function Editable({ item, now }: { item: EditableItem; now: number }) {
   const { c } = useTheme();
   const cloud = useCloudData();
   const run = useWriter();

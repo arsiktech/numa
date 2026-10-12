@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { usePushTaps } from '@/alerts/push';
 import { CloudBoundary } from '@/cloud/CloudBoundary';
 import { CloudProvider } from '@/cloud/CloudProvider';
 import { useSession } from '@/cloud/session';
@@ -13,6 +14,7 @@ import { CloudDataProvider } from '@/data/cloud';
 import { PrefsProvider } from '@/state/prefs';
 import { ThemeProvider, useTheme } from '@/theme/theme';
 import { OfflineNotice } from '@/ui/Offline';
+import { clearWidget, WidgetSync } from '@/widget/WidgetSync';
 import { ToastProvider } from '@/ui/Toast';
 
 SplashScreen.preventAutoHideAsync();
@@ -21,6 +23,9 @@ function Root() {
   const { name, c } = useTheme();
   const session = useSession();
   const loading = session.kind === 'loading';
+  usePushTaps();
+  const signedOut = session.kind === 'signedOut';
+  useEffect(() => { if (signedOut) clearWidget(); }, [signedOut]);
   useEffect(() => { if (!loading) SplashScreen.hide(); }, [loading]);
   if (loading) return null;
   const inside = session.kind !== 'signedOut';
@@ -46,7 +51,7 @@ function Root() {
   return (
     <>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
-      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><CloudDataProvider>{stack}<OfflineNotice /></CloudDataProvider></CloudBoundary> : stack}</ToastProvider>
+      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><CloudDataProvider>{stack}<OfflineNotice /><WidgetSync /></CloudDataProvider></CloudBoundary> : stack}</ToastProvider>
     </>
   );
 }

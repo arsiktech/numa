@@ -1,4 +1,4 @@
-import { draftProblems, parse, parseDate, parseMoney, type AskContext, type Draft } from './parse';
+import { draftProblems, looksLikeSeveral, parse, parseDate, parseMoney, type AskContext, type Draft } from './parse';
 
 const now = new Date(2026, 9, 12, 10, 0); // 12 Oct 2026, local time
 const ctx: AskContext = {
@@ -93,5 +93,18 @@ describe('draftProblems', () => {
     expect(draftProblems(draft('I own 3 AAPL'))).toEqual(['Add the price you paid per AAPL.']);
     expect(draftProblems(draft('bought 10 VOO at 500'))).toEqual([]);
     expect(draftProblems({ ...draft('coffee 4.50'), amountCents: 0 } as Draft)).toEqual(['Add an amount.']);
+  });
+});
+
+describe('looksLikeSeveral', () => {
+  it('spots several entries in one sentence', () => {
+    expect(looksLikeSeveral('Had dinner with Ana yesterday for 60, and my Visa is at 800 now')).toBe(true);
+    expect(looksLikeSeveral('Coffee 4.50, lunch 18')).toBe(true);
+    expect(looksLikeSeveral('Bought 0.5 BTC for 30,000 and 2 ETH at 2,500')).toBe(true);
+  });
+  it('leaves single entries to the device', () => {
+    for (const s of ['Coffee 4.50', 'Got paid 3,000 from Client A', 'Bank balance 12,500', 'Bought 10 VOO at $500', 'Owe 420 on card due 20 Oct', 'Rent 1,200.50 and utilities']) {
+      expect(looksLikeSeveral(s)).toBe(false);
+    }
   });
 });

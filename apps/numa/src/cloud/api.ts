@@ -86,6 +86,24 @@ export type CloudRevenue = { currency: CloudCurrency; mrr: number; arr: number }
 
 export type CloudCategory = { id: string; name: string; kind: 'income' | 'expense'; monthlyLimit?: number | null; budgetCurrency?: CloudCurrency };
 
+/** One entry Claude proposed in Ask. The app turns it into a draft; nothing is saved until the person presses Save. */
+export type AskProposal = {
+  kind: 'expense' | 'income' | 'account' | 'debt' | 'holding';
+  name: string;
+  amount: number | null;
+  currency: CloudCurrency | null;
+  date: string | null;
+  category: string | null;
+  assetKind: CloudAsset['kind'] | null;
+  debtKind: CloudLiability['kind'] | null;
+  holdingKind: CloudHolding['kind'] | null;
+  symbol: string | null;
+  quantity: number | null;
+  holdingMode: 'add' | 'set' | null;
+};
+export type AskTurn = { role: 'user' | 'assistant'; text: string };
+export type AskReply = { status: 'ok'; text: string; proposals: AskProposal[] } | { status: 'unavailable' | 'busy' | 'limited' | 'declined' };
+
 export type CloudGoal = { id: string; scope: 'net_worth' | 'monthly_income' | 'income_category' | 'asset_value' | 'holding_value'; target: number; currency: CloudCurrency; startAt: number; deadline: number | null; label: string | null; categoryId: string | null; assetId: string | null; holdingId: string | null; createdAt: number };
 
 export type CloudWealthSnapshot = { takenAt: number; netWorth: number; liquid?: number; invested?: number; hardAssets?: number; liabilities?: number; currency: CloudCurrency };
@@ -101,7 +119,29 @@ export type CloudSnapshot = {
   recurring?: CloudRecurring[];
   goals?: CloudGoal[];
   revenue?: CloudRevenue;
+  /** Tracked public wallets, loaded beside the snapshot. */
+  wallets?: CloudWallet[];
 };
+
+/** A tracked public address. Balances come from public explorers; values are in US dollars. */
+export type CloudWallet = {
+  id: string;
+  label: string;
+  address: string;
+  addressType: 'bitcoin' | 'evm' | 'solana';
+  includeInNetWorth: boolean;
+  createdAt: number;
+  snapshot: {
+    provider: 'public' | 'moralis';
+    totalValueUsd: number;
+    tokens: { id: string; chainName: string; symbol: string; name: string; quantity: string; valueUsd?: number }[];
+    chains: string[];
+    failedChains: string[];
+    updatedAt: number;
+    partial: boolean;
+  } | null;
+};
+export type CloudWalletDoc = Omit<CloudWallet, 'id' | 'snapshot'> & { _id: string; snapshot?: CloudWallet['snapshot'] };
 
 export type CloudBootstrap = {
   profile: CloudProfile;
@@ -149,6 +189,14 @@ export const cloud = {
   listSpaces: makeFunctionReference<'query', Record<string, never>, CloudSpace[]>('spaces:listMine'),
   createSpace: makeFunctionReference<'mutation', WithReceipt<{ name: string; spaceKind: 'personal' | 'business'; currency: CloudCurrency }>, Receipt>('spaces:create'),
   updatePortfolio: makeFunctionReference<'mutation', WithReceipt<{ id: string; patch: { name?: string; defaultCurrency?: CloudCurrency } }>, Receipt>('portfolios:update'),
+  listWallets: makeFunctionReference<'query', { portfolioId: string }, CloudWalletDoc[]>('cryptoWallets:listForPortfolio'),
+  addWallet: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; address: string; addressType: 'bitcoin' | 'evm'; label: string; includeInNetWorth: boolean }>, string | Receipt>('cryptoWallets:add'),
+  removeWallet: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, unknown>('cryptoWallets:remove'),
+  refreshWallet: makeFunctionReference<'action', { walletId: string }, { status: 'ok' | 'partial' | 'failed' | 'recent' | 'unsupported' }>('walletSync:refresh'),
+  registerDevice: makeFunctionReference<'mutation', { token: string; platform: 'ios' | 'android'; timeZone: string }, null>('pushAlerts:registerDevice'),
+  unregisterDevice: makeFunctionReference<'mutation', { token: string }, null>('pushAlerts:unregisterDevice'),
+  deviceRegistered: makeFunctionReference<'query', { token: string }, boolean>('pushAlerts:deviceRegistered'),
+  askReply: makeFunctionReference<'action', { message: string; context: string; history: AskTurn[] }, AskReply>('ask:reply'),
   changePassword: makeFunctionReference<'action', { currentPassword: string; newPassword: string }, { ok: true }>('authManagement:changePassword'),
   deleteMyAccount: makeFunctionReference<'mutation', Record<string, never>, null>('users:deleteMyAccount'),
   cancelMyDeletion: makeFunctionReference<'mutation', Record<string, never>, { ok: true } | { ok: false; reason: 'already-started' | 'already-deleted' | string }>('users:cancelMyDeletion'),

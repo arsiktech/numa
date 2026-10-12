@@ -17,6 +17,12 @@ crons.weekly(
 // table. Ticker symbols only; US equities need FINNHUB_API_KEY on Convex.
 crons.interval("refresh market quotes", { minutes: 15 }, internal.marketQuotes.refreshQuotes);
 
+// Public wallet balances from free explorers (mempool.space, Blockscout). No key, no cost.
+crons.interval("refresh public wallets", { minutes: 30 }, internal.walletSync.refreshDue);
+
+// Phone alerts: hourly, so quiet hours end on time. At most three a day per person.
+crons.hourly("send phone alerts", { minuteUTC: 5 }, internal.pushAlerts.sendDue);
+
 // Bounded expiry of newly-stamped application abuse counters only.
 crons.hourly("expire application rate-limit counters", { minuteUTC: 20 }, internal.privacyRetention.expireRateLimitBuckets);
 

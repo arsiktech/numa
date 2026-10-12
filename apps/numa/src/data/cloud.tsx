@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from 'convex/react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { cloud, type CloudBootstrap, type CloudCurrency, type CloudSnapshot, type CloudSpace } from '@/cloud/api';
+import { cloud, type CloudBootstrap, type CloudCurrency, type CloudSnapshot, type CloudSpace, type CloudWallet, type CloudWalletDoc } from '@/cloud/api';
 import { storage } from '@/cloud/storage';
 import { usePrefs } from '@/state/prefs';
 import { summarize, type Summary } from '@/domain/summary';
@@ -38,6 +38,8 @@ function useFx(): { fx: FxRate | null; settled: boolean } {
   return { fx, settled };
 }
 
+const toWallet = ({ _id, snapshot, ...w }: CloudWalletDoc): CloudWallet => ({ ...w, id: _id, snapshot: snapshot ?? null });
+
 export function newMutationId(op: string) {
   return `${op}:mut_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -68,7 +70,10 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
   const space = spaces?.find((s) => s.id === portfolioId) ?? null;
   const { set } = prefs;
   const selectSpace = useCallback((id: string) => set('space', id), [set]);
-  const snapshot = useQuery(cloud.portfolioSnapshot, portfolioId ? { portfolioId } : 'skip');
+  const base = useQuery(cloud.portfolioSnapshot, portfolioId ? { portfolioId } : 'skip');
+  const walletDocs = useQuery(cloud.listWallets, portfolioId ? { portfolioId } : 'skip');
+  // Wallets ride along with the snapshot. Until they load, the snapshot waits, so no total jumps.
+  const snapshot = useMemo<CloudSnapshot | undefined>(() => (base && walletDocs ? { ...base, wallets: walletDocs.map(toWallet) } : undefined), [base, walletDocs]);
   const retry = useCallback(() => { setError(null); setAttempt((a) => a + 1); }, []);
   const create = useCallback(async (currency: CloudCurrency) => {
     await createPortfolio({ name: 'Personal', type: 'personal', tagline: '', defaultCurrency: currency, seedDefaults: true, clientMutationId: newMutationId('portfolios.create') });

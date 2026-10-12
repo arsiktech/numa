@@ -5,8 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cloudEnabled } from '@/cloud/CloudProvider';
 import { useSession } from '@/cloud/session';
 import { AccountSection, DataSection, DeletionBanner } from '@/settings/AccountSection';
+import { AlertsSection } from '@/settings/AlertsSection';
 import { Action, Row, Section } from '@/settings/rows';
 import { SpaceSection } from '@/settings/SpaceSection';
+import { WalletSection } from '@/settings/WalletSection';
 import { usePrefs, type ThemeChoice } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
 import { ProBadge } from '@/ui/ProBadge';
@@ -46,6 +48,8 @@ export default function Settings() {
 
         {session.kind === 'signedIn' ? (
           <>
+            <AlertsSection />
+            <WalletSection />
             <DataSection />
             <AccountSection />
           </>

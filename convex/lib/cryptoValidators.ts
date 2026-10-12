@@ -49,7 +49,8 @@ export const cryptoDefiPositionValidator = v.object({
 });
 
 export const cryptoWalletSnapshotValidator = v.object({
-  provider: v.literal("moralis"),
+  // "public": keyless explorers (mempool.space, Blockscout) used by the rebuilt app.
+  provider: v.union(v.literal("moralis"), v.literal("public")),
   addressType: cryptoWalletAddressTypeValidator,
   tokenValueUsd: v.number(),
   defiValueUsd: v.number(),

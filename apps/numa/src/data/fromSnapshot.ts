@@ -3,6 +3,7 @@ import type { Attention, CategoryId, Currency, Debt, Holding, Liquidity, MonthFl
 import { monthFlow, monthOf as monthOfMs } from '@/flow/month';
 import { convertCents, type FxRate } from './fx';
 import type { Point, PointParts } from './series';
+import { walletHolding } from './wallets';
 
 /** Home's view of one portfolio, in the portfolio's currency. */
 export type HomeData = {
@@ -88,6 +89,11 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
     if (mapped) holdings.push(mapped); else unconverted.push(h.name || h.symbol);
   }
 
+  for (const w of s.wallets ?? []) {
+    const mapped = walletHolding(w, currency, fx, nowMs, attention);
+    if (mapped === 'unconverted') unconverted.push(w.label); else if (mapped) holdings.push(mapped);
+  }
+
   for (const a of s.assets) {
     const cents = convertCents(Math.round(a.balance * 100), a.currency, currency, fx);
     if (cents === null) { unconverted.push(a.name); continue; }
@@ -147,6 +153,6 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
     history,
     month,
     attention,
-    empty: s.holdings.length === 0 && s.liabilities.length === 0 && s.assets.every((a) => a.balance === 0) && s.transactions.length === 0,
+    empty: s.holdings.length === 0 && !(s.wallets ?? []).length && s.liabilities.length === 0 && s.assets.every((a) => a.balance === 0) && s.transactions.length === 0,
   };
 }

@@ -82,7 +82,9 @@ The app version is `2.0.0`, above the SwiftUI app's 1.2.0 builds. EAS keeps the 
 Numa Pro shows your net worth as it moves: cash, stocks, crypto, property and the debts against them, in one live number.
 
 - **Live net worth.** Prices update through the day. Every figure says how fresh it is.
-- **Ask or add.** Type "Coffee 4.50" or "Bought 10 VOO at $500". Numa drafts it, and nothing is saved until you press Save. Undo is always there.
+- **Ask or add.** Type "Coffee 4.50" or "Bought 10 VOO at $500", or ask anything about your money. Numa drafts it, and nothing is saved until you press Save. Undo is always there.
+- **Wallets.** Track a Bitcoin or Ethereum address. Public balances only, never keys.
+- **Alerts and widget.** Bills due and spending limits on your phone, at most three a day and never at night. Net worth on your home screen.
 - **Flow.** See where each month's money came from and where it went, and what you kept.
 - **Plan.** Runway at your real pace, goals, and spending limits that warn you at 80%.
 - **Needs you.** At most three things a day that deserve a look, like a bill due soon or a price that's gone stale.
@@ -100,5 +102,8 @@ Numa never moves money and doesn't link to your bank. Unknown values are shown a
   - Contact info: email address, for the account.
   - Financial info: what you enter. It is linked to you and used only for app functionality.
 - **Tracking:** none.
-- **Third parties:** none, apart from the hosting providers (Convex for data, Cloudflare for the web app).
-- **Exchange rates:** fetched from the ECB via Frankfurter without any user data.
+- **Service providers:**
+  - hosting: Convex for data, Cloudflare for the web app;
+  - Anthropic (Claude): only when Ask can't answer on the device, it receives the question and a short summary of the person's own numbers (names and amounts; no email or account ids). Nothing is used for tracking;
+  - Expo push service: the alert text, for people who turn on phone alerts.
+- **Public data, no user data attached:** exchange rates from the ECB via Frankfurter; wallet balances for the public addresses a person chooses to track, from mempool.space and Blockscout.
