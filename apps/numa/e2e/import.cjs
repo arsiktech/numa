@@ -1,0 +1,80 @@
+const { launch, watchErrors, signUp, client, checker, wait, APP, outDir } = require('./lib.cjs');
+const OUT = outDir('import');
+const EMAIL = `qa-import-${Date.now()}@example.com`;
+const { check, finish } = checker();
+
+(async () => {
+  const browser = await launch();
+  const errors = [];
+  const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', deviceScaleFactor: 2 })).newPage();
+  watchErrors(page, errors);
+  await signUp(page, APP, EMAIL);
+  const { snap } = await client(EMAIL);
+
+  await page.getByRole('link', { name: 'Or import a sheet or CSV ›' }).click();
+  await page.getByRole('heading', { name: 'Import' }).waitFor({ timeout: 10000 });
+  const box = page.getByLabel('Pasted table');
+  await box.fill('Name\tType\tValue\nCash\tBank\t12.500\nFlat\tProperty\t250000\nCar loan\tLoan\t20000\nNo value row\tBank\t');
+  await wait(300);
+  let b = await page.locator('body').innerText();
+  check('balance sheet preview reads three rows and flags one', b.includes('3 accounts and debts ready') && b.includes('Row 5: No value') && b.includes('Cash (update)'), b.split('\n').filter((l) => /ready|Row|update/.test(l)).join(' | '));
+  await page.screenshot({ path: OUT + '/01-preview-dark-390.png', fullPage: true });
+  await page.getByRole('button', { name: 'Import 3' }).click();
+  await page.getByText('Imported 3').first().waitFor({ timeout: 20000 });
+  await wait(800);
+  let s = await snap();
+  check('import saves updates and new records', s.assets.find((a) => a.name === 'Cash')?.balance === 12500 && s.assets.some((a) => a.name === 'Flat' && a.kind === 'real_estate' && a.balance === 250000) && s.liabilities.some((l) => l.name === 'Car loan' && l.kind === 'loan'));
+  await page.getByRole('button', { name: 'Undo this import' }).click();
+  await page.getByText('Import undone').first().waitFor({ timeout: 20000 });
+  await wait(800);
+  s = await snap();
+  check('undo reverses the whole import', s.assets.find((a) => a.name === 'Cash')?.balance === 0 && !s.assets.some((a) => a.name === 'Flat') && s.liabilities.length === 0);
+
+  const tx = 'Date,Description,Amount,Category\n2026-10-03,October rent,"-1,200.00",Rent\n03/10/2026,Client A,5000,Freelance';
+  await box.fill(tx);
+  await wait(300);
+  await page.getByRole('button', { name: 'Import 2' }).click();
+  await page.getByText('Imported 2').first().waitFor({ timeout: 20000 });
+  await wait(800);
+  s = await snap();
+  const rent = s.transactions.find((t) => t.description === 'October rent');
+  check('bank CSV imports with sign, date and category', !!rent && rent.kind === 'expense' && rent.amount === 1200 && new Date(rent.occurredAt).getDate() === 3 && s.categories.find((c) => c.id === rent.categoryId)?.name === 'Rent' && s.transactions.find((t) => t.description === 'Client A')?.kind === 'income');
+  await box.fill(tx);
+  await wait(400);
+  b = await page.locator('body').innerText();
+  check('pasting the same file again skips duplicates', b.includes('0 transactions ready') && b.includes('2 already in Numa, skipped'));
+
+  await box.fill('Symbol,Quantity,Total cost,Currency\nVOO,10,5000,USD\nBTC,0.12345678,4000,USD\nAAPL,3,,');
+  await wait(300);
+  b = await page.locator('body').innerText();
+  check('holdings preview keeps every decimal and refuses a missing cost', b.includes('2 holdings ready') && b.includes('0.12345678 BTC') && b.includes('Row 4: No cost or price paid'));
+  await page.getByRole('button', { name: 'Import 2' }).click();
+  await page.getByText('Imported 2').first().waitFor({ timeout: 20000 });
+  await wait(800);
+  s = await snap();
+  const btc = s.holdings.find((h) => h.symbol === 'BTC');
+  check('holdings import with cost in their currency', !!btc && btc.quantity === 0.12345678 && btc.costBasis === 4000 && btc.currency === 'USD' && s.holdings.find((h) => h.symbol === 'VOO')?.costBasis === 5000);
+
+  await box.fill('foo,bar\n1,2');
+  await wait(300);
+  check('an unknown table says so', (await page.locator('body').innerText()).includes('can’t tell what this table is'));
+
+  const w = await (await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'light' })).newPage();
+  watchErrors(w, errors);
+  await w.goto(APP + '/sign-in');
+  await w.getByLabel('Email').fill(EMAIL);
+  await w.getByLabel('Password').fill('Ledger-Harbor-47!');
+  await w.getByRole('button', { name: 'Sign in' }).click();
+  await w.getByText('What you own').waitFor({ timeout: 20000 });
+  await w.getByRole('link', { name: 'Settings' }).click();
+  await w.getByRole('button', { name: 'Import from a sheet or CSV' }).click();
+  await w.getByLabel('Pasted table').fill('Name\tValue\nSavings\t3000');
+  await wait(300);
+  check('Settings opens Import on wide screens', (await w.locator('body').innerText()).includes('1 accounts and debts ready'));
+  await w.screenshot({ path: OUT + '/02-import-light-1440.png' });
+
+  const filtered = errors.filter((e) => !/favicon|Download the React DevTools/i.test(e));
+  check('no page or console errors', filtered.length === 0, filtered.slice(0, 4).join(' | '));
+  await browser.close();
+  process.exit(finish() ? 1 : 0);
+})().catch((e) => { console.error('JOURNEY CRASH', e); process.exit(2); });
