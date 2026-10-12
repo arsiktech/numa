@@ -113,21 +113,21 @@ describe('fromSnapshot', () => {
 
   it('sums this month by category and ignores other months', () => {
     const transactions = [
-      { id: 't1', occurredAt: now.getTime() - DAY, description: 'Client A', categoryId: null, kind: 'income' as const, amountMinor: 500_000, currency: 'EUR' as const },
-      { id: 't2', occurredAt: now.getTime() - 2 * DAY, description: 'October rent', categoryId: 'c-rent', kind: 'expense' as const, amountMinor: 120_000, currency: 'EUR' as const },
-      { id: 't3', occurredAt: now.getTime() - 40 * DAY, description: 'Old', categoryId: null, kind: 'expense' as const, amountMinor: 999_999, currency: 'EUR' as const },
+      { id: 't1', occurredAt: now.getTime() - DAY, description: 'Client A', categoryId: null, kind: 'income' as const, amountMinor: 500_000, currency: 'EUR' as const, accountId: null, notes: null },
+      { id: 't2', occurredAt: now.getTime() - 2 * DAY, description: 'October rent', categoryId: 'c-rent', kind: 'expense' as const, amountMinor: 120_000, currency: 'EUR' as const, accountId: null, notes: null },
+      { id: 't3', occurredAt: now.getTime() - 40 * DAY, description: 'Old', categoryId: null, kind: 'expense' as const, amountMinor: 999_999, currency: 'EUR' as const, accountId: null, notes: null },
     ];
     const home = fromSnapshot(snapshot({ transactions }), fx, now);
     expect(home.month).toEqual({
       month: 'October',
-      incoming: [{ id: 'Client A', label: 'Client A', cents: 500_000 }],
-      outgoing: [{ id: 'Rent', label: 'Rent', cents: 120_000 }],
+      incoming: [{ id: 'income:Client A', label: 'Client A', cents: 500_000, txIds: ['t1'] }],
+      outgoing: [{ id: 'expense:Rent', label: 'Rent', cents: 120_000, txIds: ['t2'] }],
     });
   });
 
   it('counts a transaction saved moments after the screen clock', () => {
-    const transactions = [{ id: 't1', occurredAt: now.getTime() + 45_000, description: 'Coffee', categoryId: null, kind: 'expense' as const, amountMinor: 450, currency: 'EUR' as const }];
-    expect(fromSnapshot(snapshot({ transactions }), fx, now).month.outgoing).toEqual([{ id: 'Coffee', label: 'Coffee', cents: 450 }]);
+    const transactions = [{ id: 't1', occurredAt: now.getTime() + 45_000, description: 'Coffee', categoryId: null, kind: 'expense' as const, amountMinor: 450, currency: 'EUR' as const, accountId: null, notes: null }];
+    expect(fromSnapshot(snapshot({ transactions }), fx, now).month.outgoing).toEqual([{ id: 'expense:Coffee', label: 'Coffee', cents: 450, txIds: ['t1'] }]);
   });
 
   it('orders saved net-worth points and converts them', () => {

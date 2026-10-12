@@ -1,5 +1,6 @@
 import type { CloudAsset, CloudHolding, CloudSnapshot } from '@/cloud/api';
-import type { Attention, CategoryId, Currency, Debt, FlowLine, Holding, Liquidity, MonthFlow } from '@/domain/types';
+import type { Attention, CategoryId, Currency, Debt, Holding, Liquidity, MonthFlow } from '@/domain/types';
+import { monthFlow, monthOf as monthOfMs } from '@/flow/month';
 import { convertCents, type FxRate } from './fx';
 
 /** Home's view of one portfolio, in the portfolio's currency. */
@@ -63,23 +64,6 @@ function holdingOf(h: CloudHolding, currency: Currency, fx: FxRate | null, now: 
   return { ...base, valuation: { kind: 'synced', valueCents, asOf, source: providerNames[h.quoteProvider!] ?? h.quoteProvider! }, changeTodayCents };
 }
 
-function monthOf(s: CloudSnapshot, currency: Currency, fx: FxRate | null, now: Date, unconverted: string[]): MonthFlow {
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  const names = new Map(s.categories.map((c) => [c.id, c.name]));
-  const groups = { income: new Map<string, number>(), expense: new Map<string, number>() };
-  for (const tx of s.transactions) {
-    if (tx.occurredAt < start || tx.occurredAt > now.getTime() + CLOCK_SLACK) continue;
-    const cents = convertCents(Math.abs(tx.amountMinor), tx.currency, currency, fx);
-    if (cents === null) { unconverted.push(tx.description); continue; }
-    const label = (tx.categoryId && names.get(tx.categoryId)) || tx.description || (tx.kind === 'income' ? 'Income' : 'Spending');
-    const g = groups[tx.kind];
-    g.set(label, (g.get(label) ?? 0) + cents);
-  }
-  const lines = (g: Map<string, number>): FlowLine[] =>
-    [...g.entries()].sort((a, b) => b[1] - a[1]).map(([label, cents]) => ({ id: label, label, cents }));
-  return { month: months[now.getMonth()], incoming: lines(groups.income), outgoing: lines(groups.expense) };
-}
-
 /** Maps the server's portfolio snapshot to Home. Pure, so it is tested without a backend. */
 export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): HomeData {
   const currency = s.portfolio.defaultCurrency;
@@ -121,7 +105,8 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
     .filter((p): p is { t: number; cents: number } => p.cents !== null && p.t <= nowMs + CLOCK_SLACK)
     .sort((a, b) => a.t - b.t);
 
-  const month = monthOf(s, currency, fx, now, unconverted);
+  const { unconverted: monthUnconverted, ...month } = monthFlow(s, monthOfMs(now.getTime()), currency, fx, now);
+  unconverted.push(...monthUnconverted);
   if (unconverted.length > 0) {
     attention.push({ id: 'fx', urgency: 'watch', title: 'Exchange rate unavailable', body: `${unconverted.length} ${unconverted.length === 1 ? 'record is' : 'records are'} in another currency. Totals come back when the rate loads.`, primary: 'Got it', secondary: 'Later', doneText: 'Hidden until you reopen Numa.', raisedAt: iso(nowMs) });
   }

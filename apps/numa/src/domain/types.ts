@@ -32,7 +32,7 @@ export type Holding = {
 
 export type Debt = { id: string; name: string; balanceCents: number };
 
-export type FlowLine = { id: string; label: string; cents: number; recurring?: boolean };
+export type FlowLine = { id: string; label: string; cents: number; recurring?: boolean; /** The transactions behind this stream. */ txIds?: string[] };
 
 export type MonthFlow = { month: string; incoming: FlowLine[]; outgoing: FlowLine[] };
 
