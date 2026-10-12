@@ -131,7 +131,7 @@ jobs:
       - name: Build and serve the web app
         working-directory: apps/numa
         run: |
-          EXPO_PUBLIC_CONVEX_URL=http://127.0.0.1:3210 npx expo export --platform web
+          EXPO_PUBLIC_CONVEX_URL=http://127.0.0.1:3210 npm run export:web
           npx -y serve@14.2.4 -s -l 5196 dist > "$RUNNER_TEMP/serve.log" 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:5196/ > /dev/null && exit 0; sleep 1; done
           exit 1

@@ -31,7 +31,8 @@ Production web deploys and public store releases need an explicit go-ahead each 
 
 Settings for the Pages project:
 - **Root directory:** `apps/numa`
-- **Build command:** `npm ci && npx expo export --platform web`
+- **Build command:** `npm ci && npm run export:web`
+  (runs `expo export --platform web`, then `scripts/pages-assets.cjs`. Pages never uploads folders named `node_modules`, and Expo puts fonts under `dist/assets/node_modules/`. The script moves them to `dist/assets/vendor/` and rewrites the bundle's paths. Without it the fonts 404 and the app stays blank.)
 - **Output directory:** `dist`
 
 Environment variables:
