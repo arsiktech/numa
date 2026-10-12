@@ -22,7 +22,9 @@ export default tseslint.config(
       "outputs/brand/numa-shared-2027/**",
       "ios/Numa/build-device/**",
       // Local scratch (gitignored): QA scripts, generated reports, refactor tmp.
-      "tmp/**"
+      "tmp/**",
+      // The rebuild app has its own toolchain (Expo lint, Jest, tsc).
+      "apps/**"
     ]
   },
   js.configs.recommended,
