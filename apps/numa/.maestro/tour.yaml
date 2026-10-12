@@ -5,12 +5,12 @@ appId: com.arsiktech.numa
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "What you own"
+    visible: "What you own.*"
     timeout: 60000
 - waitForAnimationToEnd
 - takeScreenshot: ${SHOT}-01-home
 - scrollUntilVisible:
-    element: "Needs you"
+    element: "Needs you.*"
     direction: DOWN
     timeout: 10000
 - takeScreenshot: ${SHOT}-02-home-scrolled
