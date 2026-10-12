@@ -17,6 +17,9 @@ describe('answer', () => {
     expect(answer('owe', data)).toBe('You owe €420 across 1 debt. The biggest is Card, €420.');
     expect(answer('spent', data)).toBe('You’ve spent €1,200 in October so far. The biggest is Rent, €1,200.');
     expect(answer('kept', data)).toBe('You kept €3,800 in October, 76% of what came in.');
+    const small = { ...month, outgoing: [{ id: 'd', label: 'Dining', cents: 450 }] };
+    const coffee = { ...data, month: small, flow: summarizeFlow(small) };
+    expect(answer('spent', coffee)).toBe('You’ve spent €4.50 in October so far. The biggest is Dining, €4.50.');
   });
   it('refuses to state totals without an exchange rate', () => {
     expect(answer('net', { ...data, available: false })).toMatch(/exchange rate/);

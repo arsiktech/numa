@@ -96,7 +96,7 @@ function StartSpace({ create }: { create: (currency: CloudCurrency) => Promise<v
         <View style={{ gap: 4 }}>
           <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 999, backgroundColor: c.s2, alignSelf: 'flex-start', marginTop: 6 }} accessibilityRole="radiogroup">
             {(['EUR', 'USD'] as const).map((cur) => (
-              <Pressable key={cur} onPress={() => setCurrency(cur)} accessibilityRole="radio" aria-checked={currency === cur} style={{ minWidth: 72, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: currency === cur ? c.bg : 'transparent' }}>
+              <Pressable key={cur} onPress={() => setCurrency(cur)} accessibilityRole="radio" aria-checked={currency === cur} style={{ minWidth: 72, minHeight: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: currency === cur ? c.bg : 'transparent' }}>
                 <Txt v="body" c={currency === cur ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{cur === 'EUR' ? '€ Euro' : '$ Dollar'}</Txt>
               </Pressable>
             ))}
@@ -118,9 +118,9 @@ function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens
   const demo = model.status === 'ready' && model.source === 'demo';
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-      <View style={{ flexDirection: 'row', gap: wide ? 22 : 16 }} accessibilityRole="tablist">
+      <View style={{ flexDirection: 'row', gap: wide ? 22 : demo ? 12 : 16 }} accessibilityRole="tablist">
         {tabs.map((t) => (
-          <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={{ height: 44, justifyContent: 'center' }}>
+          <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={{ minHeight: 44, justifyContent: 'center' }}>
             <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }}>{t.label}</Txt>
           </Pressable>
         ))}
@@ -129,12 +129,12 @@ function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens
         {demo && (
           canSignIn ? (
             <Pressable onPress={() => set('demo', false)} accessibilityRole="button" accessibilityLabel="Demo data. Sign in" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>
-              <View style={{ height: 24, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-                <Txt v="label" c="ink2" style={{ fontSize: 10 }}>Demo · Sign in</Txt>
+              <View style={{ minHeight: 24, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
+                <Txt v="label" c="ink2" style={{ fontSize: 10 }}>{wide ? 'Demo · Sign in' : 'Demo'}</Txt>
               </View>
             </Pressable>
           ) : (
-            <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
+            <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
               <Txt v="label" c="ink2" style={{ fontSize: 10 }}>Demo data</Txt>
             </View>
           )
@@ -224,7 +224,7 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
           model.empty ? null : <Txt v="body" c="ink2">{lens !== 'net' && !chartFollowsLens ? 'Today' : 'History starts today'}</Txt>
         )}
         {scrub === null && model.live && range === '1D' && model.available && (
-          <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.upBg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.upBg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.up }} />
             <Txt v="label" c="upInk">Live</Txt>
           </View>

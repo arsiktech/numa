@@ -23,7 +23,7 @@ export default function Settings() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}>
       <View style={{ width: '100%', maxWidth: 640, alignSelf: 'center' }}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} accessibilityRole="button" accessibilityLabel="Back" style={{ height: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
+        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} accessibilityRole="button" accessibilityLabel="Back" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
           <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>‹ Back</Txt>
         </Pressable>
         <Txt v="title" accessibilityRole="header" style={{ marginTop: 8 }}>Settings</Txt>
@@ -34,7 +34,7 @@ export default function Settings() {
         <Row title="Theme" detail="Auto follows your device.">
           <View style={{ flexDirection: 'row', gap: 2, padding: 3, borderRadius: 999, backgroundColor: c.s1 }} accessibilityRole="radiogroup">
             {themes.map((t) => (
-              <Pressable key={t.id} onPress={() => setChoice(t.id)} accessibilityRole="radio" aria-checked={choice === t.id} style={{ minWidth: 56, height: 34, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: choice === t.id ? c.s2 : 'transparent' }}>
+              <Pressable key={t.id} onPress={() => setChoice(t.id)} accessibilityRole="radio" aria-checked={choice === t.id} style={{ minWidth: 56, minHeight: 34, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: choice === t.id ? c.s2 : 'transparent' }}>
                 <Txt v="small" c={choice === t.id ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{t.label}</Txt>
               </Pressable>
             ))}

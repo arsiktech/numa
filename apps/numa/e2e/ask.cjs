@@ -100,7 +100,7 @@ const lastDraft = (page) => page.getByLabel(/^Draft\./).last();
   const body = await page.locator('body').innerText();
   check('net worth answer matches records', body.includes(`Net worth is ${euro(own - owe)}`), body.split('\n').filter((l) => l.startsWith('Net worth')).join(' / '));
   await ask(page, 'what did I spend this month?');
-  check('spending answer', (await page.locator('body').innerText()).includes('You’ve spent €4 in October'));
+  check('spending answer', (await page.locator('body').innerText()).includes('You’ve spent €4.50 in October'));
   await page.screenshot({ path: OUT + '/03-ask-conversation-dark-390.png', fullPage: true });
 
   await page.getByRole('button', { name: 'Close' }).click();

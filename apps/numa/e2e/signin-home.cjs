@@ -38,10 +38,22 @@ async function seed() {
   ] })], { cwd: ROOT, stdio: 'pipe' });
   const fx = JSON.parse(execFileSync('curl', ['-sS', '-m', '15', 'https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD']).toString());
   const rate = fx.rates.USD;
-  // Expected totals, computed the same way the app should: each record rounded to cents first.
-  const own = 1250000 + 9000000 + Math.round(500000 / rate) + Math.round(3000000 / rate) + 100000;
+  const live = () => fromServer(client, p, rate);
+  return { rate, live, ...(await live()) };
+}
+
+// Expected totals from what the server holds now, computed the way the app should: each record
+// rounded to cents first. Prices are read back because the backend's market job can refresh BTC mid-run.
+async function fromServer(client, p, rate) {
+  const s = await client.query('mobile:portfolioSnapshot', { portfolioId: p });
+  let own = 1250000 + 9000000 + 100000, today = 0;
+  for (const h of s.holdings.filter((x) => x.symbol !== 'ACME')) {
+    const v = Math.round(Math.round(h.marketPrice * h.quantity * 100) / rate);
+    own += v;
+    today += Math.round(v - v / (1 + h.changePercent / 100));
+  }
   const owe = 42000 + 2000000;
-  return { own, owe, net: own - owe, rate };
+  return { own, owe, net: own - owe, moveToday: today };
 }
 
 const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -75,6 +87,7 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   await page.getByText('What you own').waitFor({ timeout: 20000 });
   check('home updates live after data arrives (no reload)', true);
   await page.waitForTimeout(1500);
+  Object.assign(expected, await expected.live());
   const body = await page.locator('body').innerText();
   check('own total matches records', body.includes(euro(expected.own)), euro(expected.own));
   check('owe total matches records', body.includes(euro(expected.owe)), euro(expected.owe));
@@ -83,9 +96,8 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   check('unpriced holding raised', body.includes('No price for ACME'));
   check('month teaser uses real flow', body.includes('kept €3,800'), body.match(/kept [^\n]*/)?.[0] ?? 'missing');
   check('live chip with fresh quotes', await page.getByText('Live', { exact: true }).isVisible());
-  // VOO +1% and BTC -2% today: today's line comes from those moves, not from saved history.
-  const voo = Math.round(500000 / expected.rate), btc = Math.round(3000000 / expected.rate);
-  const moveToday = Math.round(voo - voo / 1.01) + Math.round(btc - btc / 0.98);
+  // Today's line comes from the quotes' daily moves (VOO seeded +1%), not from saved history.
+  const moveToday = expected.moveToday;
   check('today shows market moves', body.includes((moveToday >= 0 ? '▲ ' : '▼ ') + euro(moveToday)) && body.includes('today'), body.match(/[▲▼][^\n]*/)?.[0] ?? 'none');
   await page.screenshot({ path: OUT + '/04-home-dark-390.png', fullPage: true });
 
@@ -130,8 +142,10 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   await page.screenshot({ path: OUT + '/09-wrong-password-dark-390.png' });
 
   await page.getByText('Explore with demo data').click();
-  await page.getByText('Demo · Sign in').waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: 'Demo data. Sign in' }).waitFor({ timeout: 15000 });
   check('demo path works while signed out', true);
+  const settingsBox = await page.getByRole('link', { name: 'Settings' }).boundingBox();
+  check('demo header fits a phone screen', !!settingsBox && settingsBox.x + settingsBox.width <= 390, JSON.stringify(settingsBox));
   await page.screenshot({ path: OUT + '/10-demo-dark-390.png' });
 
   const wide = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'dark' });
@@ -143,6 +157,7 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   await w.getByRole('button', { name: 'Sign in' }).click();
   await w.getByText('What you own').waitFor({ timeout: 20000 });
   await w.waitForTimeout(1800);
+  Object.assign(expected, await expected.live());
   check('sign in on desktop width', (await w.locator('body').innerText()).includes(euro(expected.net)));
   await w.screenshot({ path: OUT + '/11-home-dark-1440.png' });
 
