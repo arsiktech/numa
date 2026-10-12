@@ -66,7 +66,7 @@ export function NeedsYou({ items }: { items: Attention[] }) {
   };
   return (
     <View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', columnGap: 12, marginBottom: 10 }}>
         <Txt v="section" accessibilityRole="header">{left === 0 ? 'All clear' : `Needs you · ${left}`}</Txt>
         <Txt v="small" c="ink3">max 3 a day</Txt>
       </View>

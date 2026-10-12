@@ -131,12 +131,12 @@ function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens
           canSignIn ? (
             <Pressable onPress={() => set('demo', false)} accessibilityRole="button" accessibilityLabel="Demo data. Sign in" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>
               <View style={{ minHeight: 24, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-                <Txt v="label" c="ink2" style={{ fontSize: 10 }}>{wide ? 'Demo · Sign in' : 'Demo'}</Txt>
+                <Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>{wide ? 'Demo · Sign in' : 'Demo'}</Txt>
               </View>
             </Pressable>
           ) : (
             <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-              <Txt v="label" c="ink2" style={{ fontSize: 10 }}>Demo data</Txt>
+              <Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>Demo data</Txt>
             </View>
           )
         )}

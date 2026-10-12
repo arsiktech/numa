@@ -18,6 +18,12 @@ appId: com.arsiktech.numa
     direction: DOWN
     timeout: 30000
 - takeScreenshot: ${SHOT}-02-home-scrolled
+# iOS shrinks the tab bar while scrolling down; scrolling back up brings the tabs back.
+- scrollUntilVisible:
+    element:
+      id: "tab-flow"
+    direction: UP
+    timeout: 30000
 - tapOn:
     id: "tab-flow"
 - waitForAnimationToEnd
