@@ -13,6 +13,7 @@ import { useSession } from '@/cloud/session';
 import { CloudDataProvider } from '@/data/cloud';
 import { PrefsProvider } from '@/state/prefs';
 import { ThemeProvider, useTheme } from '@/theme/theme';
+import { useLiveUpdates } from '@/updates/useLiveUpdates';
 import { OfflineNotice } from '@/ui/Offline';
 import { clearWidget, WidgetSync } from '@/widget/WidgetSync';
 import { ToastProvider } from '@/ui/Toast';
@@ -24,6 +25,7 @@ function Root() {
   const session = useSession();
   const loading = session.kind === 'loading';
   usePushTaps();
+  useLiveUpdates();
   const signedOut = session.kind === 'signedOut';
   useEffect(() => { if (signedOut) clearWidget(); }, [signedOut]);
   useEffect(() => { if (!loading) SplashScreen.hide(); }, [loading]);

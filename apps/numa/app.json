@@ -66,6 +66,14 @@
         "projectId": "37e9ec79-a5bc-4305-89cc-d9957e061cfb"
       }
     },
-    "owner": "arsiktech"
+    "owner": "arsiktech",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/37e9ec79-a5bc-4305-89cc-d9957e061cfb",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

@@ -24,7 +24,7 @@ Production web deploys and public store releases need an explicit go-ahead each 
 |---|---|
 | Cloudflare Pages | Connected. Project `numa-pro` (`numa-pro.pages.dev`), GitHub app limited to this repo. Previews build for every branch and PR. **Automatic production deploys from `main` are off**, so a merge never publishes; production is a manual promotion. |
 | Expo (EAS) | Connected. Project `@arsiktech/numa-pro-app` (ID in `app.json`). `EXPO_PUBLIC_CONVEX_URL` is set for `development`, `preview` (DEV) and `production` (production). |
-| App Store Connect | EAS builds the IPA; the upload to TestFlight runs from the owner's Mac with its existing API key (the key is not stored on EAS). |
+| App Store Connect | EAS builds the IPA. The upload to TestFlight runs from the owner's Mac until the API key and app ID are added to EAS (see Automatic shipping). |
 | Google Play Console | Developer account created. The app record and the first hand-uploaded build are still to do. |
 
 ## Web: Cloudflare Pages
@@ -63,6 +63,23 @@ npx eas-cli submit --profile production --platform ios  # TestFlight
 npx eas-cli build --profile production --platform android
 npx eas-cli submit --profile production --platform android   # Play internal track, as a draft
 ```
+
+### Automatic shipping (owner decision, 2026-10-12)
+
+`.github/workflows/ship.yml` gets changes onto phones without a manual step.
+
+- **App code only** ships over the air. On every merge to `main` that touches `apps/numa`, an EAS Update goes to the `production` channel. Installed apps download it in the background. They apply it at the next launch, or when the person returns after 15 minutes away, never mid-task.
+- **Native changes** need a store build: new modules, entitlements, `app.json`, or the widget in `targets/`. A build starts as soon as the pull request opens, if no build exists for its native fingerprint. When `submit.production.ios.ascAppId` is set in `eas.json`, the build goes on to TestFlight by itself.
+- **Safety.** The runtime version is the native fingerprint (`fingerprint.config.js` adds the widget). So an update only reaches builds that have the native code it needs. Everything on `main` has passed CI first.
+- **What this means once the app is public.** A merge to `main` reaches every installed app within minutes, so `main` must stay releasable.
+
+For the TestFlight step, two things need to be in EAS:
+1. **The App Store Connect API key**, run once on the Mac that has the key: `npx eas-cli credentials -p ios`, then production, App Store Connect API Key, Add.
+2. **The app's Apple ID number**, from App Store Connect, App Information. It goes in `eas.json` as `submit.production.ios.ascAppId`.
+
+Until both exist, builds still run and the upload stays a manual step. The workflow also needs the `EXPO_TOKEN` repository secret.
+
+`.github/workflows/ios-sim.yml` caches the compiled simulator app by native fingerprint. When only app code changed, it swaps in a fresh Hermes bundle instead of rebuilding in Xcode. Runs on `main` keep that cache warm.
 
 ### Bundle ID (owner decision, 2026-10-12)
 

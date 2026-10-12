@@ -1,0 +1,88 @@
+name: Ship to phones
+
+# Gets app changes onto phones without waiting on a person.
+#
+# - A change to app code only ships over the air: after it merges to main, an EAS
+#   Update is published to the production channel and installed apps pick it up.
+# - A change to native code (new modules, entitlements, the widget, app config) has a
+#   new native fingerprint, so it needs a store build. That build starts as soon as the
+#   pull request opens, so it is usually ready by the time the change merges, and is
+#   sent on to TestFlight when EAS has an App Store Connect key.
+#
+# Updates only reach builds with the same fingerprint, so an update can never run on a
+# binary that lacks the native code it needs.
+on:
+  pull_request:
+    paths:
+      - 'apps/numa/**'
+      - '.github/workflows/ship.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/numa/**'
+      - '.github/workflows/ship.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ship-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ship:
+    # Never for pull requests from forks: they have no access to the Expo token.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/numa
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS: npx -y eas-cli@24.12.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for the Expo token
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::warning::EXPO_TOKEN is not set as a repository secret, so nothing ships."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Setup Node
+        if: env.SKIP != '1'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/numa/package-lock.json
+
+      - name: Install dependencies
+        if: env.SKIP != '1'
+        run: npm ci
+
+      - name: Is there a build for this native fingerprint?
+        if: env.SKIP != '1'
+        run: |
+          FP=$($EAS fingerprint:generate --platform ios --environment production --json --non-interactive | jq -r '.hash')
+          echo "FP=$FP" >> "$GITHUB_ENV"
+          COUNT=$($EAS build:list --platform ios --runtime-version "$FP" --json --non-interactive --limit 20 \
+            | jq '[.[] | select(.buildProfile == "production" and .status != "ERRORED" and .status != "CANCELED")] | length')
+          echo "iOS fingerprint $FP: $COUNT usable production build(s)"
+          if [ "$COUNT" = "0" ]; then echo "NEEDS_BUILD=1" >> "$GITHUB_ENV"; fi
+
+      # Sending to TestFlight needs the app's App Store Connect ID in eas.json and an App Store
+      # Connect API key stored in EAS; until both exist the build still runs, without submitting.
+      - name: Start an iPhone build and send it to TestFlight
+        if: env.SKIP != '1' && env.NEEDS_BUILD == '1'
+        run: |
+          SUBMIT=$(jq -r 'if .submit.production.ios.ascAppId then "--auto-submit" else "" end' eas.json)
+          $EAS build --platform ios --profile production --non-interactive --no-wait $SUBMIT \
+            --message "${{ github.event_name == 'pull_request' && format('PR #{0}', github.event.pull_request.number) || 'main' }} ${GITHUB_SHA::7}"
+
+      - name: Publish the app code over the air
+        if: env.SKIP != '1' && github.event_name != 'pull_request'
+        run: |
+          $EAS update --channel production --environment production --platform ios --non-interactive \
+            --message "$(git log -1 --pretty=%s | cut -c1-200)"
