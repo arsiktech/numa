@@ -37,7 +37,7 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
     <Screen back={only ? 'Back' : 'Home'}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
         <Txt v="title" accessibilityRole="header" style={{ flexShrink: 1 }}>{only ? groupNames[only] : 'Holdings'}</Txt>
-        {source.demo && <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}><Txt v="label" c="ink2" style={{ fontSize: 10 }}>Demo data</Txt></View>}
+        {source.demo && <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}><Txt v="label" c="ink2" style={{ fontSize: 10 }}>Demo data</Txt></View>}
       </View>
       {single && total && (
         <View style={{ marginTop: 10 }}>

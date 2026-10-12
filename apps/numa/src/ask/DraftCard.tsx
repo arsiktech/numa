@@ -76,7 +76,7 @@ export function DraftCard({ draft, status, error, demo, onChange, onSave, onDisc
     <Animated.View entering={reduce ? undefined : FadeInDown.duration(500)} accessibilityLabel={`Draft. ${h.label}`} style={{ padding: 16, borderRadius: 20, backgroundColor: c.s1, borderWidth: 1, borderColor: open ? c.line2 : 'transparent', opacity: status === 'discarded' || status === 'undone' ? 0.55 : 1 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <Txt v="cardTitle" style={{ flex: 1 }} numberOfLines={1}>{h.label}</Txt>
-        <View style={{ height: 22, paddingHorizontal: 8, borderRadius: 999, justifyContent: 'center', backgroundColor: status === 'saved' ? c.upBg : c.s2 }}>
+        <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, justifyContent: 'center', backgroundColor: status === 'saved' ? c.upBg : c.s2 }}>
           <Txt v="label" c={status === 'saved' ? 'upInk' : 'ink2'} style={{ fontSize: 10 }}>{chip}</Txt>
         </View>
       </View>

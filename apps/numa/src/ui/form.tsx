@@ -16,7 +16,7 @@ export function Field({ label, value, onChangeText, numeric }: { label: string; 
     <View style={{ gap: 4, flex: 1, minWidth: 120 }}>
       <Txt v="small" c="ink3">{label}</Txt>
       <TextInput value={value} onChangeText={onChangeText} accessibilityLabel={label} keyboardType={numeric ? 'decimal-pad' : 'default'} inputMode={numeric ? 'decimal' : 'text'}
-        style={{ height: 44, borderRadius: 12, paddingHorizontal: 12, backgroundColor: c.s2, color: c.ink, fontFamily: numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium', fontSize: 15, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
+        style={{ minHeight: 44, borderRadius: 12, paddingHorizontal: 12, backgroundColor: c.s2, color: c.ink, fontFamily: numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium', fontSize: 15, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
     </View>
   );
 }
@@ -26,7 +26,7 @@ export function Seg<T extends string>({ options, value, onChange, label }: { opt
   return (
     <View style={{ flexDirection: 'row', gap: 2, padding: 3, borderRadius: 999, backgroundColor: c.s2, alignSelf: 'flex-start' }} accessibilityRole="radiogroup" accessibilityLabel={label}>
       {options.map(([v, l]) => (
-        <Pressable key={v} onPress={() => onChange(v)} accessibilityRole="radio" aria-checked={value === v} style={{ minWidth: 56, height: 32, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: value === v ? c.bg : 'transparent' }}>
+        <Pressable key={v} onPress={() => onChange(v)} accessibilityRole="radio" aria-checked={value === v} style={{ minWidth: 56, minHeight: 32, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: value === v ? c.bg : 'transparent' }}>
           <Txt v="small" c={value === v ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{l}</Txt>
         </Pressable>
       ))}

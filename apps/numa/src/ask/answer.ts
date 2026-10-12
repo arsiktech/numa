@@ -10,7 +10,8 @@ export const EXAMPLES = ['Coffee 4.50', 'Got paid 3,000 from Client A', 'Bank ba
 
 /** One or two plain sentences from the person's own numbers. Never guesses. */
 export function answer(topic: Topic, d: AnswerData): string {
-  const m = (cents: number, cents2 = false) => formatMoney(cents, d.currency, { cents: cents2 });
+  // Small amounts keep their cents, so €4.50 never reads as €4. Big totals stay whole.
+  const m = (cents: number, cents2 = false) => formatMoney(cents, d.currency, { cents: cents2 || (Math.abs(cents) < 100_000 && cents % 100 !== 0) });
   if (topic === 'help') return `I can add money and answer questions about it. Try “${EXAMPLES[0]}”, “${EXAMPLES[3]}” or “How much cash do I have?”`;
   if (!d.available && ['net', 'cash', 'liquid', 'owe'].includes(topic)) return 'Totals need today’s exchange rate, and it hasn’t loaded. Try again in a moment.';
   const s = d.summary;

@@ -1,0 +1,11 @@
+# Cloudflare Pages response headers for the web build.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000
+
+# Hashed bundles never change, so browsers can keep them.
+/_expo/static/*
+  Cache-Control: public, max-age=31536000, immutable

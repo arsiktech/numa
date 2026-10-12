@@ -25,7 +25,7 @@ function Field(props: TextInputProps & { label: string }) {
         placeholderTextColor={c.ink3}
         onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }}
         onBlur={(e) => { setFocused(false); rest.onBlur?.(e); }}
-        style={{ height: 52, borderRadius: 14, paddingHorizontal: 16, backgroundColor: c.s1, color: c.ink, fontFamily: 'Manrope_500Medium', fontSize: 16, borderWidth: 2, borderColor: focused ? c.ink : 'transparent', ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }}
+        style={{ minHeight: 52, borderRadius: 14, paddingHorizontal: 16, backgroundColor: c.s1, color: c.ink, fontFamily: 'Manrope_500Medium', fontSize: 16, borderWidth: 2, borderColor: focused ? c.ink : 'transparent', ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }}
       />
     </View>
   );
@@ -69,7 +69,7 @@ export default function SignIn() {
   }
 
   const tab = (f: Flow, label: string) => (
-    <Pressable onPress={() => { setFlow(f); setError(null); }} accessibilityRole="tab" aria-selected={flow === f} style={{ flex: 1, height: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: flow === f ? c.s2 : 'transparent' }}>
+    <Pressable onPress={() => { setFlow(f); setError(null); }} accessibilityRole="tab" aria-selected={flow === f} style={{ flex: 1, minHeight: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: flow === f ? c.s2 : 'transparent' }}>
       <Txt v="body" c={flow === f ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{label}</Txt>
     </Pressable>
   );
@@ -102,12 +102,12 @@ export default function SignIn() {
 
               {error && <Txt v="body" style={{ color: c.down }} accessibilityRole="alert">{error}</Txt>}
 
-              <Pressable onPress={submit} disabled={!canSubmit || busy} accessibilityRole="button" aria-disabled={!canSubmit || busy} aria-busy={busy} style={{ marginTop: 6, height: 52, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink, opacity: canSubmit ? 1 : 0.4 }}>
+              <Pressable onPress={submit} disabled={!canSubmit || busy} accessibilityRole="button" aria-disabled={!canSubmit || busy} aria-busy={busy} style={{ marginTop: 6, minHeight: 52, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink, opacity: canSubmit ? 1 : 0.4 }}>
                 {busy ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold', fontSize: 16 }}>{verifying ? 'Confirm' : flow === 'signIn' ? 'Sign in' : 'Create account'}</Txt>}
               </Pressable>
 
               {verifying && (
-                <Pressable onPress={() => { setVerifying(false); setCode(''); setError(null); }} accessibilityRole="button" style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Pressable onPress={() => { setVerifying(false); setCode(''); setError(null); }} accessibilityRole="button" style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
                   <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>Use another email</Txt>
                 </Pressable>
               )}

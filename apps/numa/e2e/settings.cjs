@@ -132,14 +132,11 @@ async function canSignIn(email, password) {
   const d = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   watchErrors(d, errors);
   await d.goto(APP + '/sign-in');
-  const demoBtn = d.getByRole('button', { name: /demo/i }).first();
-  if (await demoBtn.count()) {
-    await demoBtn.click();
-    await wait(800);
-    await d.goto(APP + '/password');
-    await wait(1500);
-    check('demo mode sends account screens back to Settings', !(await d.locator('body').innerText()).includes('Current password'));
-  }
+  await d.getByText('Explore with demo data').click();
+  await d.getByRole('button', { name: 'Demo data. Sign in' }).waitFor({ timeout: 15000 });
+  await d.goto(APP + '/password');
+  await d.getByRole('heading', { name: 'Settings' }).waitFor({ timeout: 15000 });
+  check('demo mode sends account screens back to Settings', !(await d.locator('body').innerText()).includes('Current password'));
 
   // Deliberate failures log on the console: the wrong-password and weak-password attempts, and the erased account's last live query.
   const expected = (e) => /authManagement:changePassword\)\].*Server Error/.test(e) || /UNAUTHENTICATED.*Account no longer exists/s.test(e);

@@ -12,6 +12,7 @@ import { useSession } from '@/cloud/session';
 import { CloudDataProvider } from '@/data/cloud';
 import { PrefsProvider } from '@/state/prefs';
 import { ThemeProvider, useTheme } from '@/theme/theme';
+import { OfflineNotice } from '@/ui/Offline';
 import { ToastProvider } from '@/ui/Toast';
 
 SplashScreen.preventAutoHideAsync();
@@ -45,7 +46,7 @@ function Root() {
   return (
     <>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
-      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><CloudDataProvider>{stack}</CloudDataProvider></CloudBoundary> : stack}</ToastProvider>
+      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><CloudDataProvider>{stack}<OfflineNotice /></CloudDataProvider></CloudBoundary> : stack}</ToastProvider>
     </>
   );
 }

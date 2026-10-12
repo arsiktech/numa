@@ -32,17 +32,19 @@ npm run export:web      # web build in dist/ (a single-page app: hosting must se
 
 ## Backend
 
-The app uses the existing Convex functions, the same ones the SwiftUI app calls: `mobile:bootstrap`, `mobile:portfolioSnapshot` and `portfolios:create`. Ask writes through `mobile:createTransaction`, `upsertAsset`, `upsertLiability` and `upsertHolding` (and their deletes for Undo), each with a `clientMutationId`. It needs no backend change. Sign-in is Convex Auth with email and password; accounts that need email verification get a code.
+The app uses the existing Convex functions and needs no backend change. Every function it calls is listed with its types in `src/cloud/api.ts`. Each write carries a `clientMutationId`, so a retry never saves twice. Sign-in is Convex Auth with email and password; accounts that need email verification get a code.
 
 To try it against a throwaway local backend instead of a shared deployment (from the repository root):
 
 ```sh
 CONVEX_AGENT_MODE=anonymous npx convex dev   # local backend on http://127.0.0.1:3210
-# then set JWT_PRIVATE_KEY, JWKS and SITE_URL on it with `npx convex env set` (keys from the Convex Auth manual setup)
+node apps/numa/e2e/setup-auth.mjs            # gives it Convex Auth keys
 EXPO_PUBLIC_CONVEX_URL=http://127.0.0.1:3210 npx expo start --web   # in apps/numa
 ```
 
 Use disposable test accounts only. Never point a local build at production data.
+
+Browser journeys for every main flow live in `e2e/` and run in CI. See `e2e/README.md`. Release steps (Cloudflare Pages, EAS, store text) are in `docs/rebuild/RELEASE.md`. App icons are drawn by `node scripts/make-icons.cjs`.
 
 ## Rules carried from the product
 

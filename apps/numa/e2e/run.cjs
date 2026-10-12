@@ -3,7 +3,7 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const ALL = ['signin-home', 'ask', 'holdings', 'flow', 'plan', 'alerts', 'import', 'settings'];
+const ALL = ['signin-home', 'ask', 'holdings', 'flow', 'plan', 'alerts', 'import', 'settings', 'offline'];
 const chosen = process.argv.slice(2).length ? process.argv.slice(2) : ALL;
 const results = [];
 for (const name of chosen) {
