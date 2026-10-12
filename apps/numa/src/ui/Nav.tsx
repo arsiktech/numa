@@ -24,14 +24,14 @@ const NavItem = forwardRef<RNView, ItemProps>(function NavItem({ isFocused, labe
   const color = isFocused ? c.ink : c.ink3;
   if (wide) {
     return (
-      <Pressable ref={ref} {...props} accessibilityRole="link" accessibilityState={{ selected: isFocused }} style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: isFocused ? c.s2 : 'transparent' }}>
+      <Pressable ref={ref} {...props} accessibilityRole="link" aria-selected={isFocused} style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: isFocused ? c.s2 : 'transparent' }}>
         {icon(color)}
         <Txt v="body" style={{ color, fontFamily: 'Manrope_600SemiBold' }}>{label}</Txt>
       </Pressable>
     );
   }
   return (
-    <Pressable ref={ref} {...props} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: isFocused }} style={{ width: 60, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: isFocused ? c.s2 : 'transparent' }}>
+    <Pressable ref={ref} {...props} accessibilityRole="tab" accessibilityLabel={label} aria-selected={isFocused} style={{ width: 60, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: isFocused ? c.s2 : 'transparent' }}>
       {icon(color)}
     </Pressable>
   );

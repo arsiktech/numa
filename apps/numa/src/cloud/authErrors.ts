@@ -1,3 +1,5 @@
+import { ConvexError } from 'convex/values';
+
 /** Turns a Convex Auth failure into one plain sentence. Never echoes server internals. */
 export function authErrorText(error: unknown, flow: 'signIn' | 'signUp' | 'email-verification'): string {
   const message = error instanceof Error ? error.message : String(error ?? '');
@@ -15,4 +17,21 @@ export function authErrorText(error: unknown, flow: 'signIn' | 'signUp' | 'email
   if (policy) return policy;
   if (/already exists|AccountAlreadyExists/i.test(message)) return 'There’s already an account for this email. Sign in instead.';
   return 'Couldn’t create the account. Check the email and try a stronger password.';
+}
+
+const PLAIN = new Set(['INVALID_CURRENT_PASSWORD', 'WEAK_PASSWORD', 'SAME_PASSWORD', 'PASSWORD_NOT_AVAILABLE']);
+
+/** One plain sentence for a failed change. Only the server's own user-facing messages are shown. */
+export function passwordErrorText(e: unknown): string {
+  if (e instanceof ConvexError && e.data && typeof e.data === 'object') {
+    const { code, message } = e.data as { code?: string; message?: string };
+    if (code && PLAIN.has(code) && message) return message;
+  }
+  return 'Couldn’t change the password. Check your connection and try again.';
+}
+
+/** True when the server no longer accepts this session: signed out elsewhere, or the account was erased. */
+export function isAuthGone(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /UNAUTHENTICATED|Account no longer exists|Not signed in|USER_NOT_INITIALISED/.test(message);
 }

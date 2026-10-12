@@ -195,7 +195,7 @@ function Editable({ item, now }: { item: Item; now: number }) {
         <View style={{ marginTop: 22, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
           {editing ? (
             <>
-              <Pressable onPress={save} disabled={busy || problems.length > 0 || dueBad} accessibilityRole="button" accessibilityState={{ disabled: busy || problems.length > 0 || dueBad }} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: problems.length || dueBad ? 0.4 : 1 }}>
+              <Pressable onPress={save} disabled={busy || problems.length > 0 || dueBad} accessibilityRole="button" aria-disabled={busy || problems.length > 0 || dueBad} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: problems.length || dueBad ? 0.4 : 1 }}>
                 {busy ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt>}
               </Pressable>
               <Pressable onPress={() => { setEditing(false); setForm(fieldsOf(item)); setText(initialText(item, fieldsOf(item))); setError(null); }} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>

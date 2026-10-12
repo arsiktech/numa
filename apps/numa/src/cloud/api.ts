@@ -109,6 +109,16 @@ export type CloudBootstrap = {
   selectedPortfolioId: string | null;
 };
 
+/** A space is one isolated portfolio: personal or business, with its own currency. */
+export type CloudSpace = { id: string; name: string; spaceKind: 'personal' | 'business' | 'legacy_shared'; defaultCurrency: CloudCurrency; role: 'owner' | 'editor' | 'viewer' | string; createdAt: number };
+
+export type CloudMe = { id: string; email: string | null; displayName: string; deletionScheduledAt: number | null; deletionStartedAt: number | null };
+
+export type ExportScope = { expectedUserId: string; portfolioId: string; requestId: string };
+export type ExportManifest = { format: string; name: string; currency: CloudCurrency; startedAt: number; sections: string[]; consistency: string; interpretation: string; exclusions: string[] };
+export type ExportPage = { rowsJSON: string; rowCount: number; isDone: boolean; continueCursor: string | null; sampledAt: number; retryLimit: 8 | 1 | null };
+export type ExportLimit = 32 | 8 | 1;
+
 type Receipt = { id: string; replayed: boolean };
 type WithReceipt<T> = T & { clientMutationId: string };
 
@@ -133,4 +143,15 @@ export const cloud = {
   removeGoal: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('goals:remove'),
   updateCategory: makeFunctionReference<'mutation', WithReceipt<{ id: string; patch: { monthlyLimit?: number | null } }>, Receipt>('categories:update'),
   deleteHolding: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteHolding'),
+
+  // Spaces and account.
+  me: makeFunctionReference<'query', Record<string, never>, CloudMe | null>('profiles:me'),
+  listSpaces: makeFunctionReference<'query', Record<string, never>, CloudSpace[]>('spaces:listMine'),
+  createSpace: makeFunctionReference<'mutation', WithReceipt<{ name: string; spaceKind: 'personal' | 'business'; currency: CloudCurrency }>, Receipt>('spaces:create'),
+  updatePortfolio: makeFunctionReference<'mutation', WithReceipt<{ id: string; patch: { name?: string; defaultCurrency?: CloudCurrency } }>, Receipt>('portfolios:update'),
+  changePassword: makeFunctionReference<'action', { currentPassword: string; newPassword: string }, { ok: true }>('authManagement:changePassword'),
+  deleteMyAccount: makeFunctionReference<'mutation', Record<string, never>, null>('users:deleteMyAccount'),
+  cancelMyDeletion: makeFunctionReference<'mutation', Record<string, never>, { ok: true } | { ok: false; reason: 'already-started' | 'already-deleted' | string }>('users:cancelMyDeletion'),
+  exportManifest: makeFunctionReference<'query', ExportScope, ExportManifest>('dataExport:manifest'),
+  exportPage: makeFunctionReference<'query', ExportScope & { section: string; cursor: string | null; limit: ExportLimit }, ExportPage>('dataExport:page'),
 };

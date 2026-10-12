@@ -90,7 +90,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
             <Txt v="small" c="ink3">Category</Txt>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityRole="radiogroup">
               {[{ id: null as string | null, name: 'None' }, ...choices].map((x) => (
-                <Pressable key={x.id ?? 'none'} onPress={() => setForm((f) => ({ ...f, categoryId: x.id }))} accessibilityRole="radio" accessibilityState={{ checked: form.categoryId === x.id }} style={{ minHeight: 36, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center', backgroundColor: form.categoryId === x.id ? c.ink : c.s2 }}>
+                <Pressable key={x.id ?? 'none'} onPress={() => setForm((f) => ({ ...f, categoryId: x.id }))} accessibilityRole="radio" aria-checked={form.categoryId === x.id} style={{ minHeight: 36, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center', backgroundColor: form.categoryId === x.id ? c.ink : c.s2 }}>
                   <Txt v="small" style={{ fontFamily: 'Manrope_700Bold', color: form.categoryId === x.id ? c.bg : c.ink }}>{x.name}</Txt>
                 </Pressable>
               ))}
@@ -117,7 +117,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
         <View style={{ marginTop: 22, flexDirection: 'row', gap: 4 }}>
           {editing ? (
             <>
-              <Pressable onPress={save} disabled={busy || problems.length > 0} accessibilityRole="button" accessibilityState={{ disabled: busy || problems.length > 0 }} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: problems.length ? 0.4 : 1 }}>
+              <Pressable onPress={save} disabled={busy || problems.length > 0} accessibilityRole="button" aria-disabled={busy || problems.length > 0} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: problems.length ? 0.4 : 1 }}>
                 {busy ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt>}
               </Pressable>
               <Pressable onPress={() => { setEditing(false); setForm(txFields(tx)); setError(null); }} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Cancel</Txt></Pressable>

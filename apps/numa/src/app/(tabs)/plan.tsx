@@ -186,7 +186,7 @@ function GoalForm({ data, onDone }: { data: PlanData; onDone: () => void }) {
             const undo = bindUndo(p.undo, id);
             toast({ text: 'Goal added', action: { label: 'Undo', onPress: async () => { try { await run(undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
           } catch { toast({ text: 'Couldn’t add that goal.' }); setBusy(false); }
-        }} accessibilityRole="button" accessibilityState={{ disabled: !ok || busy }} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: ok ? 1 : 0.4 }}>
+        }} accessibilityRole="button" aria-disabled={!ok || busy} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: ok ? 1 : 0.4 }}>
           <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Save goal</Txt>
         </Pressable>
         <Pressable onPress={onDone} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Cancel</Txt></Pressable>
