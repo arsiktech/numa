@@ -19,6 +19,7 @@ import { Field, Seg, toCents } from '@/ui/form';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { WIDE } from '@/ui/Nav';
 import { useToast } from '@/ui/Toast';
+import { Hint } from '@/ui/Hint';
 import { Txt } from '@/ui/Txt';
 
 type PlanData = {
@@ -201,6 +202,7 @@ function Limits({ data }: { data: PlanData }) {
     <View style={{ marginTop: 30 }}>
       <Txt v="section" accessibilityRole="header">Spending limits</Txt>
       <Txt v="small" c="ink2" style={{ marginTop: 2 }}>This month, per category. Needs you speaks up at 80% and when a limit is passed.</Txt>
+      <Hint id="plan-limits" text="Tap a category to set its monthly limit." />
       {data.limits.length === 0 && <Txt v="body" c="ink2" style={{ marginTop: 8 }}>No spending categories yet.</Txt>}
       {data.limits.map((l, i) => <LimitRowView key={l.category.id} row={l} last={i === data.limits.length - 1} />)}
       <View style={{ height: 1, backgroundColor: c.line, opacity: 0 }} />

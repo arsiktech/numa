@@ -9,6 +9,7 @@ import { useTheme } from '@/theme/theme';
 import { ItemRow } from '@/ui/ItemRow';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { Screen } from '@/ui/Screen';
+import { Hint } from '@/ui/Hint';
 import { Txt } from '@/ui/Txt';
 
 const ORDER: GroupId[] = [...CATEGORY_ORDER, 'debts'];
@@ -44,6 +45,7 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
           {total.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{total.unknown} without a value {total.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
         </View>
       )}
+      {groups.length > 0 && !source.demo && <Hint id="holdings-open" text="Tap any row to see where its value comes from, and to edit or delete it." />}
       {groups.length === 0 && <Txt v="body" c="ink2" style={{ marginTop: 20 }}>Nothing here yet. Tap the plus to add an account, a holding or a debt.</Txt>}
       {single && single.items.length === 0 && <Txt v="body" c="ink2" style={{ marginTop: 20 }}>Nothing in {groupNames[single.g].toLowerCase()} yet.</Txt>}
       {groups.map(({ g, items }) => {

@@ -78,3 +78,20 @@ describe('pickAttention', () => {
     expect(pickAttention(items).map((a) => a.id)).toEqual(['tax', 'key', 'peg']);
   });
 });
+
+describe('visibleAttention', () => {
+  const { visibleAttention, tomorrow } = jest.requireActual('./attention') as typeof import('./attention');
+  const item = (id: string, title: string) => ({ id, title, urgency: 'watch' as const, body: '', primary: '', secondary: '', doneText: '', raisedAt: '' });
+  const now = new Date(2026, 9, 12, 15).getTime();
+  it('hides dismissed items until their title changes', () => {
+    const items = [item('a', 'Dining is at 85% of its limit'), item('b', 'No price for ACME')];
+    expect(visibleAttention(items, { a: { title: 'Dining is at 85% of its limit', until: null } }, now).map((i) => i.id)).toEqual(['b']);
+    expect(visibleAttention([item('a', 'Dining is over its limit')], { a: { title: 'Dining is at 85% of its limit', until: null } }, now)).toHaveLength(1);
+  });
+  it('brings snoozed items back the next day', () => {
+    const until = tomorrow(now);
+    expect(new Date(until).getDate()).toBe(13);
+    expect(visibleAttention([item('a', 'x')], { a: { title: 'x', until } }, now)).toHaveLength(0);
+    expect(visibleAttention([item('a', 'x')], { a: { title: 'x', until } }, until + 1)).toHaveLength(1);
+  });
+});
