@@ -29,7 +29,8 @@ concurrency:
 jobs:
   simulator:
     runs-on: macos-26
-    timeout-minutes: 60
+    # A cache miss means a full Xcode build (about 25 minutes) plus the walk.
+    timeout-minutes: 75
     defaults:
       run:
         working-directory: apps/numa
@@ -38,17 +39,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      # Booting takes minutes; it runs while the app is installed and built.
-      - name: Start an iPhone simulator
-        run: |
-          UDID=$(xcrun simctl list devices available -j | python3 -c "
-          import json, sys
-          devs = [d for r, ds in json.load(sys.stdin)['devices'].items() if 'iOS' in r for d in ds]
-          pro = [d for d in devs if d['name'].startswith('iPhone') and 'Pro' in d['name'] and 'Max' not in d['name']]
-          print((pro or [d for d in devs if d['name'].startswith('iPhone')])[-1]['udid'])")
-          echo "UDID=$UDID" >> "$GITHUB_ENV"
-          xcrun simctl boot "$UDID"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -99,8 +89,16 @@ jobs:
           npx expo export:embed --platform ios --dev false --reset-cache --entry-file "$ENTRY" \
             --bundle-output "$APP/main.jsbundle" --assets-dest "$APP" --bytecode
 
-      - name: Install the app
+      # Booting only after the build: booting during it slowed the Xcode build from 22 to 43 minutes.
+      - name: Boot an iPhone simulator and install the app
         run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          devs = [d for r, ds in json.load(sys.stdin)['devices'].items() if 'iOS' in r for d in ds]
+          pro = [d for d in devs if d['name'].startswith('iPhone') and 'Pro' in d['name'] and 'Max' not in d['name']]
+          print((pro or [d for d in devs if d['name'].startswith('iPhone')])[-1]['udid'])")
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl list devices booted
           APP=$(ls -d "$PRODUCTS"/*.app | head -1)
