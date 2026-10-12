@@ -49,7 +49,7 @@ export function useCloudAskSource(): AskSource {
     demo: false,
     ctx,
     answers,
-    ai: (message, history) => askReply({ message, context: aiContext(ctx, answers), history }),
+    ai: (message, history) => askReply({ message, context: aiContext(ctx, answers, home.history), history }),
     save: async (d) => {
       const p = plan(d, portfolioId, fx, Date.now());
       if ('error' in p) throw new Error(p.error);

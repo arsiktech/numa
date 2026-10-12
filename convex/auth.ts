@@ -1,6 +1,10 @@
 import { convexAuth, getAuthUserId } from "@convex-dev/auth/server";
 import Google from "@auth/core/providers/google";
 import Apple from "@auth/core/providers/apple";
+import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
+import { createAccount } from "@convex-dev/auth/server";
+import { APPLE_KEYS_URL, verifyAppleIdentityToken, type AppleJwk } from "./lib/appleIdentity";
+import { allowedRedirect } from "./lib/authRedirect";
 import { assertPasswordPolicy } from "./lib/passwordPolicy";
 import { assertExistingAccount } from "./lib/access";
 import { ResendOTPPasswordReset } from "./ResendOTPPasswordReset";
@@ -92,22 +96,61 @@ if (
   );
 }
 
+/** The iPhone app's bundle ID: Apple issues its sign-in tokens for this audience. */
+const APPLE_APP_AUDIENCE = "com.arsiktech.numa";
+let appleKeys: { keys: AppleJwk[]; fetchedAt: number } | null = null;
+
+async function appleSigningKeys(refresh: boolean): Promise<AppleJwk[]> {
+  if (!refresh && appleKeys && Date.now() - appleKeys.fetchedAt < 60 * 60 * 1000) return appleKeys.keys;
+  const res = await fetch(APPLE_KEYS_URL);
+  if (!res.ok) throw new Error("Apple sign-in is unavailable right now. Try again.");
+  const body = (await res.json()) as { keys?: AppleJwk[] };
+  appleKeys = { keys: Array.isArray(body.keys) ? body.keys : [], fetchedAt: Date.now() };
+  return appleKeys.keys;
+}
+
+// Sign in with Apple from the iPhone app's own sheet. The app sends Apple's identity token and
+// the one-time nonce it hashed into it; nothing here needs an Apple secret key.
+providers.push(
+  ConvexCredentials({
+    id: "apple-native",
+    authorize: async (credentials, ctx) => {
+      const token = typeof credentials.identityToken === "string" ? credentials.identityToken : "";
+      const nonce = typeof credentials.nonce === "string" ? credentials.nonce : "";
+      if (!token || !nonce || token.length > 8_000 || nonce.length > 200) return null;
+      const verify = async (refresh: boolean) =>
+        verifyAppleIdentityToken(token, { audience: APPLE_APP_AUDIENCE, nonce, keys: await appleSigningKeys(refresh), now: Date.now() });
+      // Apple rotates its keys; fetch them again once if the token names one we haven't seen.
+      const identity = await verify(false).catch((error: Error) => (error.message === "unknown key" ? verify(true) : Promise.reject(error)));
+      const given = typeof credentials.name === "string" ? credentials.name.replace(/\s+/g, " ").trim().slice(0, 80) : "";
+      const email = identity.email ?? undefined;
+      const { user } = await createAccount(ctx, {
+        provider: "apple-native",
+        account: { id: identity.sub },
+        profile: {
+          ...(email ? { email } : null),
+          name: given || (email ? email.split("@")[0] : "Apple user"),
+          // Read by createOrUpdateUser: only a verified, non-relay address links to an existing account.
+          ...({ emailVerified: identity.emailVerified } as object),
+        },
+        shouldLinkViaEmail: identity.emailVerified && !identity.privateEmail,
+      });
+      return { userId: user._id };
+    },
+  })
+);
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers,
   callbacks: {
     async beforeSessionCreation(ctx, { userId }) {
       await assertExistingAccount(ctx, userId);
     },
-    // The native iOS app signs in through ASWebAuthenticationSession, which
-    // intercepts a custom scheme — the OAuth hop must be allowed to land on
-    // it. Web keeps the default same-site rule (redirectTo arrives as
-    // SITE_URL when the client didn't ask for anything else).
+    // The phone apps sign in through the system browser sheet, which hands
+    // their own URL scheme back to the app; web lands on the site or a Pages
+    // preview. See lib/authRedirect.ts.
     async redirect({ redirectTo }) {
-      if (redirectTo === "numa://auth") return redirectTo;
-      const siteUrl = process.env.SITE_URL ?? "";
-      if (redirectTo.startsWith("/")) return `${siteUrl}${redirectTo}`;
-      if (siteUrl && redirectTo.startsWith(siteUrl)) return redirectTo;
-      throw new Error(`Invalid redirectTo: ${redirectTo}`);
+      return allowedRedirect(redirectTo, process.env.SITE_URL ?? "");
     },
     async createOrUpdateUser(ctx, args) {
       const signedInUserId = await getAuthUserId(ctx);

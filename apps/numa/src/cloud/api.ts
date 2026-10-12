@@ -163,6 +163,7 @@ type Receipt = { id: string; replayed: boolean };
 type WithReceipt<T> = T & { clientMutationId: string };
 
 export const cloud = {
+  authFlags: makeFunctionReference<'query', Record<string, never>, { passwordReset: boolean; emailVerification: boolean; googleOAuth: boolean; appleOAuth: boolean }>('authConfig:flags'),
   bootstrap: makeFunctionReference<'mutation', Record<string, never>, CloudBootstrap>('mobile:bootstrap'),
   portfolioSnapshot: makeFunctionReference<'query', { portfolioId: string }, CloudSnapshot>('mobile:portfolioSnapshot'),
   createPortfolio: makeFunctionReference<
@@ -180,6 +181,8 @@ export const cloud = {
   deleteLiability: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteLiability'),
   upsertHolding: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; symbol: string; name: string; kind: CloudHolding['kind']; quantity: number; costBasis: number; currency: CloudCurrency; acquiredAt: number }>, Receipt>('mobile:upsertHolding'),
   upsertGoal: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; scope: CloudGoal['scope']; target: number; currency: CloudCurrency; startAt: number; deadline?: number; label?: string; categoryId?: string; assetId?: string; holdingId?: string; createdAt: number }>, Receipt>('mobile:upsertGoal'),
+  addSnapshot: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; takenAt: number; netWorth: number; liquid: number; invested: number; hardAssets: number; liabilities: number; currency: CloudCurrency; label?: string; isAuto: boolean }>, string | Receipt>('wealthSnapshots:add'),
+  removeSnapshot: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, unknown>('wealthSnapshots:remove'),
   removeGoal: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('goals:remove'),
   updateCategory: makeFunctionReference<'mutation', WithReceipt<{ id: string; patch: { monthlyLimit?: number | null } }>, Receipt>('categories:update'),
   deleteHolding: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteHolding'),

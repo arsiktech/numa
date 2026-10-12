@@ -1,9 +1,14 @@
 import { useAuthActions } from '@convex-dev/auth/react';
-import { useState } from 'react';
+import { useQuery } from 'convex/react';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View, type TextInputProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
+import { cloud } from '@/cloud/api';
 import { authErrorText, resetErrorText } from '@/cloud/authErrors';
+import { appleSignInAvailable, continueWithApple, continueWithGoogle } from '@/cloud/oauth';
 import { usePrefs } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
 import { type as typeScale } from '@/theme/tokens';
@@ -35,6 +40,52 @@ function Field(props: TextInputProps & { label: string }) {
   );
 }
 
+/** Google's "G", in its own colours, as its brand rules ask. */
+function GoogleMark() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 48 48" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </Svg>
+  );
+}
+
+/** One tap: Apple's own button on iPhone, then Google everywhere it is set up. */
+function QuickSignIn({ busy, onApple, onGoogle }: { busy: boolean; onApple: () => void; onGoogle: () => void }) {
+  const { c, name } = useTheme();
+  const flags = useQuery(cloud.authFlags, {});
+  const [apple, setApple] = useState(false);
+  useEffect(() => { let live = true; appleSignInAvailable().then((ok) => { if (live) setApple(ok); }); return () => { live = false; }; }, []);
+  const google = flags?.googleOAuth === true;
+  if (!apple && !google) return null;
+  return (
+    <View style={{ gap: 10, opacity: busy ? 0.5 : 1 }} pointerEvents={busy ? 'none' : 'auto'}>
+      {apple && (
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+          buttonStyle={name === 'dark' ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+          cornerRadius={26}
+          style={{ height: 52 }}
+          onPress={onApple}
+        />
+      )}
+      {google && (
+        <Pressable onPress={onGoogle} accessibilityRole="button" accessibilityLabel="Continue with Google" style={{ minHeight: 52, borderRadius: 999, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.s1, borderWidth: 1, borderColor: c.s2 }}>
+          <GoogleMark />
+          <Txt v="body" c="ink" style={{ fontFamily: 'Manrope_700Bold', fontSize: 16 }}>Continue with Google</Txt>
+        </Pressable>
+      )}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <View style={{ flex: 1, height: 1, backgroundColor: c.s2 }} />
+        <Txt v="small" c="ink3">or use email</Txt>
+        <View style={{ flex: 1, height: 1, backgroundColor: c.s2 }} />
+      </View>
+    </View>
+  );
+}
+
 /** Sign in or create an account with email and password. Unverified accounts get a code by email; a forgotten password is reset with an emailed code. */
 export default function SignIn() {
   const { c } = useTheme();
@@ -59,6 +110,21 @@ export default function SignIn() {
     : validEmail && password.length >= (flow === 'signUp' ? 10 : 1);
 
   const go = (next: Step) => { setStep(next); setCode(''); setError(null); };
+
+  async function quick(provider: 'apple' | 'google') {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    let outcome: Awaited<ReturnType<typeof continueWithGoogle>> | null = null;
+    try {
+      outcome = provider === 'apple' ? await continueWithApple(signIn) : await continueWithGoogle(signIn);
+    } catch {
+      setError(`Couldn’t sign in with ${provider === 'apple' ? 'Apple' : 'Google'}. Try again, or use email.`);
+    } finally {
+      // On web the page is leaving for Google, so keep the buttons quiet until it does.
+      if (outcome !== 'leaving') setBusy(false);
+    }
+  }
 
   async function submit() {
     if (!canSubmit || busy) return;
@@ -120,6 +186,7 @@ export default function SignIn() {
                 </>
               ) : (
                 <>
+                  <QuickSignIn busy={busy} onApple={() => quick('apple')} onGoogle={() => quick('google')} />
                   <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 999, backgroundColor: c.s1 }} accessibilityRole="tablist">
                     {tab('signIn', 'Sign in')}
                     {tab('signUp', 'Create account')}
