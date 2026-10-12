@@ -11,6 +11,7 @@ import { useSession } from '@/cloud/session';
 import { CloudDataProvider } from '@/data/cloud';
 import { PrefsProvider } from '@/state/prefs';
 import { ThemeProvider, useTheme } from '@/theme/theme';
+import { ToastProvider } from '@/ui/Toast';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,6 +28,9 @@ function Root() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="holdings/index" />
+        <Stack.Screen name="holdings/[group]" />
+        <Stack.Screen name="item/[type]/[id]" />
       </Stack.Protected>
       <Stack.Protected guard={!inside}>
         <Stack.Screen name="sign-in" />
@@ -36,7 +40,7 @@ function Root() {
   return (
     <>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
-      {session.kind === 'signedIn' ? <CloudDataProvider>{stack}</CloudDataProvider> : stack}
+      <ToastProvider>{session.kind === 'signedIn' ? <CloudDataProvider>{stack}</CloudDataProvider> : stack}</ToastProvider>
     </>
   );
 }

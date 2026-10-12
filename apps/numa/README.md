@@ -14,7 +14,7 @@ npx expo start          # press i, a or w
 npm test                # domain and data unit tests (Jest, jest-expo)
 npm run lint
 npm run typecheck
-npm run export:web      # static web build in dist/
+npm run export:web      # web build in dist/ (a single-page app: hosting must serve index.html for unknown paths)
 ```
 
 ## Layout
@@ -22,7 +22,7 @@ npm run export:web      # static web build in dist/
 | Path | What |
 | --- | --- |
 | `src/ask/` | Ask: the on-device parser (`parse.ts`), answers from the person's numbers, the save and undo plan (`plan.ts`), draft cards |
-| `src/app/` | Routes: `sign-in`, `(tabs)/index` Home, `(tabs)/flow`, `(tabs)/plan`, `ask` (modal), `settings`. The root layout shows `sign-in` only while signed out |
+| `src/app/` | Routes: `sign-in`, `(tabs)/index` Home, `(tabs)/flow`, `(tabs)/plan`, `ask` (modal), `settings`, `holdings`, `holdings/[group]`, `item/[type]/[id]`. The root layout shows `sign-in` only while signed out |
 | `src/domain/` | Pure money model and rules: valuations with freshness, liquidity, summaries, flow, attention |
 | `src/cloud/` | Convex client and Convex Auth (tokens in the keychain or keystore on phones), the typed list of Convex functions the app calls, session state |
 | `src/data/` | `fromSnapshot.ts` maps the server's portfolio snapshot onto the domain; `useHome.ts` serves Home from Convex or from the labelled demo portfolio (`demo.ts`); `series.ts` builds chart lines; `fx.ts` converts EUR and USD |
