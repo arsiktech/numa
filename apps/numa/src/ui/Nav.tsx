@@ -5,7 +5,7 @@ import { Platform, Pressable, View, useWindowDimensions, type View as RNView, ty
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/theme';
-import { IconAsk, IconFlow, IconHome, IconPlan, IconPlus } from './icons';
+import { IconAsk, IconFlow, IconHoldings, IconHome, IconPlan, IconPlus } from './icons';
 import { ProBadge } from './ProBadge';
 import { Txt } from './Txt';
 
@@ -85,6 +85,14 @@ export function AppTabs() {
               <NavItem label={r.label} icon={(col) => <r.Icon color={col} size={wide ? 20 : 22} />} wide={wide} />
             </TabTrigger>
           ))}
+          {wide ? (
+            <Link href="/holdings" asChild>
+              <Pressable accessibilityRole="link" style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12 }}>
+                <IconHoldings color={c.ink3} />
+                <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Holdings</Txt>
+              </Pressable>
+            </Link>
+          ) : null}
           {wide ? (
             <Link href="/ask" asChild>
               <Pressable accessibilityRole="link" style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12 }}>

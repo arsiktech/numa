@@ -1,14 +1,13 @@
-import { useMutation } from 'convex/react';
 import { useMemo } from 'react';
 
-import { cloud } from '@/cloud/api';
 import { summarizeFlow } from '@/domain/flow';
 import { summarize } from '@/domain/summary';
-import { newMutationId, useCloudData } from '@/data/cloud';
+import { useCloudData } from '@/data/cloud';
+import { useWriter } from '@/data/writes';
 import { demoDebts, demoHoldings, demoNow, demoOctober } from '@/data/demo';
 import type { AnswerData } from './answer';
 import type { AskContext, Draft } from './parse';
-import { bindUndo, plan, type Op, type WriteName } from './plan';
+import { bindUndo, plan } from './plan';
 
 export type Saved = { undo: () => Promise<void> };
 export type AskSource =
@@ -32,23 +31,9 @@ export function useDemoAskSource(): AskSource {
 /** The signed-in person's portfolio. Every write carries a clientMutationId receipt. */
 export function useCloudAskSource(): AskSource {
   const data = useCloudData();
-  const fns: Record<WriteName, (args: never) => Promise<{ id: string }>> = {
-    createTransaction: useMutation(cloud.createTransaction),
-    deleteTransaction: useMutation(cloud.deleteTransaction),
-    upsertAsset: useMutation(cloud.upsertAsset),
-    deleteAsset: useMutation(cloud.deleteAsset),
-    upsertLiability: useMutation(cloud.upsertLiability),
-    deleteLiability: useMutation(cloud.deleteLiability),
-    upsertHolding: useMutation(cloud.upsertHolding),
-    deleteHolding: useMutation(cloud.deleteHolding),
-  } as never;
-
+  const run = useWriter();
   if (data.status !== 'ready') return { status: 'loading' };
   const { snapshot, data: home, summary, fx, portfolioId } = data;
-  const run = async (op: Op) => {
-    const result = await fns[op.fn]({ ...op.args, clientMutationId: newMutationId(`numa.ask.${op.fn}`) } as never);
-    return typeof result === 'string' ? result : result.id;
-  };
   return {
     status: 'ready',
     demo: false,
