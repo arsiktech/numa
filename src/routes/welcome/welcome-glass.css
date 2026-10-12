@@ -1,0 +1,140 @@
+/* Numa's CSS interpretation of layered glass. No imported shaders or artwork. */
+.nm-glass-art {
+  position: relative;
+  min-width: 0;
+}
+
+.nm-glass-scene {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 460px;
+  height: 228px;
+  margin-inline: auto;
+  isolation: isolate;
+  user-select: none;
+  /* Vertical gestures still scroll a short viewport or enlarged-text layout. */
+  touch-action: pan-y;
+}
+
+.nm-glass-aura {
+  position: absolute;
+  inset: 2% 4%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, color-mix(in oklab, var(--color-coin-lime) 25%, transparent), transparent 68%);
+}
+
+.nm-glass-orbit {
+  position: absolute;
+  width: 92%;
+  height: 57%;
+  border: 1px solid color-mix(in oklab, var(--color-ink) 12%, transparent);
+  border-radius: 50%;
+  transform: rotate(-24deg);
+}
+
+.nm-glass-sphere {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 188px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.nm-glass-coin {
+  width: 88%;
+  height: 88%;
+  display: grid;
+  place-items: center;
+}
+
+.nm-glass-coin .nm-coin-logo {
+  width: 100% !important;
+  height: auto !important;
+}
+
+.nm-glass-shell,
+.nm-glass-rim,
+.nm-glass-caustic {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.nm-glass-shell {
+  background:
+    radial-gradient(ellipse at 29% 15%, color-mix(in oklab, var(--color-on-inverse) 75%, transparent), transparent 42%),
+    radial-gradient(ellipse at 74% 88%, color-mix(in oklab, var(--color-coin-lime) 32%, transparent), transparent 58%);
+  box-shadow:
+    inset 3px 4px 9px color-mix(in oklab, var(--color-on-inverse) 75%, transparent),
+    inset -5px -7px 18px color-mix(in oklab, var(--color-coin-deep) 26%, transparent),
+    0 18px 40px -24px color-mix(in oklab, var(--color-ink) 36%, transparent);
+}
+
+.nm-glass-rim {
+  border: 1px solid color-mix(in oklab, var(--color-on-inverse) 84%, transparent);
+  box-shadow: inset 0 0 0 5px color-mix(in oklab, var(--color-on-inverse) 18%, transparent);
+}
+
+.nm-glass-caustic {
+  inset: 9%;
+  border-top: 3px solid color-mix(in oklab, var(--color-on-inverse) 92%, transparent);
+  border-bottom: 5px solid color-mix(in oklab, var(--color-coin-lime) 68%, transparent);
+  mask-image: linear-gradient(100deg, transparent 9%, var(--color-ink) 38%, var(--color-ink) 65%, transparent 90%);
+  opacity: 0.8;
+}
+
+.nm-glass-satellite {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-glass-strong);
+  color: var(--color-ink-2);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 var(--color-line-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.nm-glass-satellite svg { width: 20px; height: 20px; stroke-width: 1.6; }
+.nm-glass-satellite--wallet { left: 7%; top: 43%; transform: rotate(-12deg); }
+.nm-glass-satellite--growth { right: 11%; top: 7%; transform: rotate(12deg); }
+.nm-glass-satellite--capital { right: 6%; bottom: 13%; transform: rotate(8deg); }
+
+.nm-glass-ground {
+  position: absolute;
+  bottom: 0;
+  width: 48%;
+  height: 15px;
+  background: radial-gradient(ellipse, color-mix(in oklab, var(--color-coin-deep) 16%, transparent), transparent 70%);
+}
+
+@media (min-width: 640px) {
+  .nm-glass-scene { height: 360px; }
+  .nm-glass-sphere { width: 270px; }
+  .nm-glass-satellite { width: 56px; height: 56px; border-radius: 20px; }
+  .nm-glass-satellite svg { width: 24px; height: 24px; }
+  .nm-glass-satellite--growth { top: 12%; }
+  .nm-glass-ground { bottom: 12px; }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .nm-glass-scene { cursor: grab; }
+  .nm-glass-scene:active { cursor: grabbing; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .nm-glass-satellite { background: var(--color-paper); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+@media (forced-colors: active) {
+  .nm-glass-shell, .nm-glass-rim, .nm-glass-caustic, .nm-glass-aura, .nm-glass-ground { display: none; }
+}

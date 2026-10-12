@@ -1,0 +1,236 @@
+/* Balance home: one big live figure, two bars on one scale, plain rows.
+   No cards, glass, gradients or tracked-caps labels by design. */
+:root {
+  --balance-figure-font: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", var(--font-display);
+  --balance-cash: #8dbdeb;
+  --balance-investments: #2f5bb8;
+  --balance-crypto: #f1a43a;
+  --balance-property: #7c8fa8;
+  --balance-debt: #c2362b;
+  --balance-debt-2: #a92d24;
+  --balance-left: #e3f3ec;
+  --balance-left-ink: #0a8457;
+  --balance-on-light: #0f1a2a;
+}
+[data-theme="dark"] {
+  --balance-cash: #9ccbe8;
+  --balance-investments: #3d63c9;
+  --balance-crypto: #e0952d;
+  --balance-property: #8a9bb3;
+  --balance-debt: #e0574c;
+  --balance-debt-2: #c04a40;
+  --balance-left: #173a2b;
+  --balance-left-ink: #5fdcae;
+  --balance-on-light: #0f1a2a;
+}
+
+.nm-balance-figure {
+  font-family: var(--balance-figure-font);
+  font-weight: 800;
+  font-size: clamp(64px, 17vw, 136px);
+  line-height: 1;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  margin-left: -0.04em;
+  color: var(--color-ink);
+}
+
+.nm-balance-add {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  background: var(--color-ink);
+  color: var(--color-bg);
+  font-size: 15px;
+  font-weight: 600;
+  transition: transform 120ms ease-out;
+}
+.nm-balance-add:active { transform: scale(0.97); }
+
+.nm-balance-bar {
+  display: flex;
+  height: 92px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.nm-balance-seg,
+.nm-balance-left,
+.nm-balance-gap {
+  position: relative;
+  flex: 0 0 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  /* Hairline separator drawn inside the segment so widths stay exact. */
+  box-shadow: inset -2px 0 0 var(--color-bg);
+  transition: flex-grow 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nm-balance-bar > :last-child { box-shadow: none; }
+.nm-balance-seg { cursor: pointer; color: #fff; text-align: left; }
+.nm-balance-seg[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0 2px 0 0;
+  box-shadow: inset 0 0 0 3px var(--color-ink);
+  pointer-events: none;
+}
+.nm-balance-bar > .nm-balance-seg:last-child[aria-pressed="true"]::after { right: 0; }
+.nm-balance-seg:focus-visible { outline: 3px solid var(--color-ink); outline-offset: 2px; }
+
+.nm-balance-seg-text {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+.nm-balance-cash { background: var(--balance-cash); color: var(--balance-on-light); }
+.nm-balance-investments { background: var(--balance-investments); }
+.nm-balance-crypto { background: var(--balance-crypto); color: var(--balance-on-light); }
+.nm-balance-property { background: var(--balance-property); }
+.nm-balance-debt { background: repeating-linear-gradient(135deg, var(--balance-debt) 0 8px, var(--balance-debt-2) 8px 16px); }
+.nm-balance-left { background: var(--balance-left); color: var(--balance-left-ink); }
+.nm-balance-gap { background: transparent; }
+
+.nm-balance-legend {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--color-line);
+  font-size: 16px;
+  text-align: left;
+  color: var(--color-ink);
+}
+.nm-balance-legend[aria-pressed="true"] { font-weight: 600; }
+.nm-balance-legend:focus-visible { outline: 3px solid var(--color-ink); outline-offset: 2px; }
+.nm-balance-swatch { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+/* Stripes blur at swatch size; the legend uses the flat debt colour. */
+.nm-balance-swatch.nm-balance-debt { background: var(--balance-debt); }
+
+.nm-balance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-line);
+  font-size: 16px;
+}
+.nm-balance-row-button {
+  width: 100%;
+  text-align: left;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.nm-balance-row-button:hover { background: color-mix(in oklab, var(--color-ink) 4%, transparent); }
+.nm-balance-row-button:focus-visible { outline: 3px solid var(--color-ink); outline-offset: -3px; }
+.nm-balance-chevron { font-size: 28px; line-height: 1; color: var(--color-ink-2); }
+.nm-balance-text-action {
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-strong);
+  text-underline-offset: 4px;
+}
+.nm-balance-text-action:hover { text-decoration-color: var(--color-ink); }
+.nm-balance-text-action:focus-visible { outline: 3px solid var(--color-ink); outline-offset: 2px; }
+
+/* Plain page system shared by Money and Settings: headings over a rule,
+   underline tabs, rows instead of cards. */
+.nm-plain-heading {
+  border-bottom: 1px solid var(--color-ink);
+  padding-bottom: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.nm-plain-tab {
+  min-height: 44px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-ink-3);
+}
+.nm-plain-tab:hover { color: var(--color-ink); }
+.nm-plain-tab-active { border-bottom-color: var(--color-ink); color: var(--color-ink); font-weight: 600; }
+.nm-plain-tab:focus-visible { outline: 3px solid var(--color-ink); outline-offset: 2px; }
+.nm-plain-select {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 1px solid var(--color-line-strong);
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.nm-plain-select:focus-visible { outline: 3px solid var(--color-ink); outline-offset: 2px; }
+.nm-plain-segment { display: flex; flex-shrink: 0; gap: 4px; }
+.nm-plain-segment-option {
+  min-height: 40px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink-2);
+}
+.nm-plain-segment-active { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-bg); }
+.nm-plain-segment-option:focus-visible { outline: 3px solid var(--color-ink); outline-offset: 2px; }
+.nm-icon-action {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  color: var(--color-ink-2);
+}
+.nm-icon-action:disabled { color: var(--color-ink-5); }
+.nm-icon-action:focus-visible { outline: 3px solid var(--color-ink); outline-offset: -3px; }
+
+/* Older card-based sections inside a plain page lose the card chrome. */
+.nm-plain .nm-card-container {
+  border: 0;
+  border-top: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+.nm-plain .nm-card-container > div:first-child { padding-left: 0; padding-right: 0; }
+.nm-plain .nm-card-container > div { padding-left: 0; padding-right: 0; }
+.nm-plain .nm-card-title { font-size: 17px; font-weight: 600; letter-spacing: 0; }
+.nm-plain .nm-card-subtitle { font-size: 14px; color: var(--color-ink-3); }
+.nm-plain .nm-eyebrow { font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--color-ink-3); }
+
+.nm-plain-search {
+  display: none;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 15px;
+  color: var(--color-ink-2);
+}
+.nm-plain-search:hover { color: var(--color-ink); }
+.nm-plain-search kbd { font: inherit; font-size: 13px; color: var(--color-ink-3); }
+.nm-plain-search:focus-visible { outline: 3px solid var(--color-ink); outline-offset: 2px; }
+@media (min-width: 1024px) { .nm-plain-search { display: inline-flex; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .nm-balance-seg,
+  .nm-balance-left,
+  .nm-balance-gap { transition: none; }
+}

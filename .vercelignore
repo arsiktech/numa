@@ -1,0 +1,16 @@
+.lazyweb
+.hermes
+ios
+artifacts
+dist
+node_modules
+test-results
+playwright-report
+coverage
+.DS_Store
+.claude
+Numa Claude Design
+numa_logo_original_files
+output
+outputs
+tmp

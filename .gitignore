@@ -1,0 +1,42 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+coverage/
+artifacts/*.bundle
+artifacts/screenshots/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+playwright.config.js
+playwright.config.d.ts
+.env
+.env.*
+!.env.example
+.convex/
+.vercel
+.claude/
+AGENTS.md
+CLAUDE.md
+.vite/
+
+# Local-only design audit reports
+.lazyweb/
+
+# macOS Finder metadata
+.DS_Store
+**/.DS_Store
+
+# Playwright artifacts from the `test:ui` script run
+output/
+outputs/
+tmp/
+
+# iOS local build products and dependency checkouts
+ios/Numa/build-device/
+ios/Numa/build-mcp/
+ios/Numa/build-release/
+
+# Big design source PNGs that live in the vault, not in git
+numa_logo_original_files/*.png
+.thumbnail

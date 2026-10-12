@@ -1,0 +1,9 @@
+export const AI_MESSAGE_CONTENT_LIMIT = 4_000;
+export const AI_RECEIPT_TEXT_LIMIT = 4_000;
+export const AI_RECEIPT_CONTEXT_LIST_LIMIT = 100;
+export const AI_CONTEXT_ID_LIMIT = 128;
+export const AI_CONTEXT_NAME_LIMIT = 100;
+export const AI_CONTEXT_DESCRIPTION_LIMIT = 200;
+export const AI_CONTEXT_SHORT_LIMIT = 40;
+export const AI_CONTEXT_CODE_LIMIT = 16;
+export const AI_CONTEXT_CHAIN_LIMIT = 64;

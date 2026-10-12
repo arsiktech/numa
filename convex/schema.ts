@@ -1,0 +1,652 @@
+import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
+import { v } from "convex/values";
+import { financeClassificationValidator } from "./lib/financeValidators";
+import {
+  cryptoWalletAddressTypeValidator,
+  cryptoWalletSnapshotValidator
+} from "./lib/cryptoValidators";
+
+/** Accept-only fields written to dev QA data by the unmerged trustworthy-wealth
+ * branch (ARS-93). Nothing in this branch reads or writes them; they exist so a
+ * deployment holding those documents still passes schema validation. */
+const wealthObservation = v.optional(v.object({
+  availability: v.union(v.literal("available"), v.literal("encumbered"), v.literal("unknown")),
+  underlyingKey: v.optional(v.string()),
+  observedAt: v.number(),
+  fingerprint: v.string(),
+  ownershipFingerprint: v.optional(v.string()),
+  underlyingFingerprint: v.optional(v.string()),
+  manualValue: v.optional(v.object({ amount: v.number(), currency: v.union(v.literal("EUR"), v.literal("USD")) }))
+}));
+const wealthFx = v.optional(v.object({ usdPerEUR: v.number(), asOf: v.number(), source: v.literal("manual") }));
+
+export default defineSchema({
+  ...authTables,
+  // Preserve the SDK signature index while enabling owner-session erasure.
+  authVerifiers: authTables.authVerifiers.index("by_session", ["sessionId"]),
+  profileAvatars: defineTable({
+    userId: v.id("users"), image: v.bytes(), updatedAt: v.number()
+  }).index("by_user", ["userId"]),
+  privacyChoices: defineTable({
+    userId: v.id("users"), allowed: v.boolean(), version: v.string(), recordedAt: v.number()
+  }).index("by_user", ["userId"]),
+  // additive per-user profile attached by userId
+  profiles: defineTable({
+    userId: v.id("users"),
+    displayName: v.string(),
+    defaultCurrency: v.union(v.literal("USD"), v.literal("EUR")),
+    theme: v.union(v.literal("light"), v.literal("dark"), v.literal("auto")),
+    locale: v.optional(v.union(v.literal("en"), v.literal("ru"), v.literal("es"))),
+    // Optional so rows created before the feature don't fail validation. Client
+    // reconciles missing → "advanced" (= current behavior for existing users).
+    appMode: v.optional(v.union(v.literal("light"), v.literal("advanced"), v.literal("shared"))),
+    primaryJob: v.optional(
+      v.union(v.literal("net_worth"), v.literal("daily_spending"), v.literal("shared_money"))
+    ),
+    starterTemplate: v.optional(
+      v.union(
+        v.literal("personal_capital"),
+        v.literal("couple_family"),
+        v.literal("trip_shared_flat")
+      )
+    ),
+    // Palette theme. Combined with `theme` (light/dark) selects one of 4 × 2
+    // variants in `src/styles/themes.css`. Optional → pre-feature rows fall
+    // back to "numa" (classic purple-on-cream) so nothing changes for them.
+    themeKey: v.optional(
+      v.union(
+        v.literal("numa"),
+        v.literal("citrus"),
+        v.literal("pebble"),
+        v.literal("coral"),
+        v.literal("carbon")
+      )
+    ),
+    avatarStorageId: v.optional(v.id("_storage")),
+    onboardingCompletedAt: v.optional(v.number()),
+    // 7-day account-deletion grace window (users.deleteMyAccount). When set,
+    // a scheduled internal mutation erases the account at `deletionScheduledAt`
+    // unless users.cancelMyDeletion clears both fields first. Disposable
+    // *@example.com test accounts bypass this and delete immediately.
+    deletionScheduledAt: v.optional(v.number()),
+    // Set atomically by the first destructive deletion chunk. Once present,
+    // recovery is no longer safe because earlier chunks may already be gone.
+    deletionStartedAt: v.optional(v.number()),
+    deletionJobId: v.optional(v.id("_scheduled_functions")),
+    createdAt: v.number()
+  }).index("by_user", ["userId"]),
+
+  mutationReceipts: defineTable({
+    clientMutationId: v.string(),
+    operation: v.string(),
+    userId: v.id("users"),
+    resultId: v.string(),
+    scopeId: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number())
+  })
+    .index("by_client_mutation", ["clientMutationId"])
+    .index("by_user", ["userId"])
+    .index("by_user_operation", ["userId", "operation"]),
+
+  portfolios: defineTable({
+    name: v.string(),
+    // Additive native space classification; legacy portfolio IDs/types remain.
+    spaceKind: v.optional(v.union(v.literal("personal"), v.literal("business"))),
+    type: v.union(v.literal("personal"), v.literal("shared"), v.literal("family")),
+    tagline: v.string(),
+    ownerId: v.id("users"),
+    defaultCurrency: v.union(v.literal("USD"), v.literal("EUR")),
+    wealthFx,
+    createdAt: v.number()
+  }).index("by_owner", ["ownerId"]),
+
+  memberships: defineTable({
+    portfolioId: v.id("portfolios"),
+    userId: v.id("users"),
+    ownershipBps: v.number(),
+    // Economic stake is not inferred from administrator access. Missing = unknown.
+    businessOwnershipBps: v.optional(v.number()),
+    role: v.union(v.literal("owner"), v.literal("editor"), v.literal("viewer")),
+    displayName: v.string(),
+    avatarUrl: v.optional(v.string()),
+    joinedAt: v.number()
+  })
+    .index("by_portfolio", ["portfolioId"])
+    .index("by_user", ["userId"]),
+
+  categories: defineTable({
+    portfolioId: v.id("portfolios"),
+    name: v.string(),
+    kind: v.union(v.literal("income"), v.literal("expense")),
+    icon: v.string(),
+    color: v.string(),
+    sortOrder: v.number(),
+    emoji: v.optional(v.string()),
+    monthlyLimit: v.optional(v.number()),
+    monthlyLimitCurrency: v.optional(v.union(v.literal("USD"), v.literal("EUR")))
+  }).index("by_portfolio", ["portfolioId"]),
+
+  transactions: defineTable({
+    portfolioId: v.id("portfolios"),
+    occurredAt: v.number(),
+    description: v.string(),
+    categoryId: v.optional(v.id("categories")),
+    /** Optional link to an Asset (kind=cash) — debits/credits its balance on add/update/delete. */
+    accountId: v.optional(v.id("assets")),
+    kind: v.union(v.literal("income"), v.literal("expense")),
+    amount: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    createdByUserId: v.id("users"),
+    splits: v.optional(v.array(v.object({ userId: v.id("users"), bps: v.number() }))),
+    notes: v.optional(v.string()),
+    // Optional GPS + reverse-geocoded label captured at create-time. Lat/lng
+    // is stored alongside the label so we can re-resolve via Nominatim if the
+    // human-readable string is stale or missing.
+    location: v.optional(
+      v.object({
+        lat: v.number(),
+        lng: v.number(),
+        label: v.optional(v.string())
+      })
+    )
+  }).index("by_portfolio_time", ["portfolioId", "occurredAt"]).index("by_portfolio_export", ["portfolioId"]),
+
+  // Legacy cash movements, deliberately separate from income/expense and ledger.
+  // Tombstones preserve source identity after correction/deletion.
+  cashTransfers: defineTable({
+    portfolioId: v.id("portfolios"),
+    fromAccountId: v.id("assets"),
+    toAccountId: v.id("assets"),
+    amount: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    occurredAt: v.number(),
+    description: v.string(),
+    notes: v.optional(v.string()),
+    sourceEventId: v.string(),
+    sourceFingerprint: v.string(),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number())
+  })
+    .index("by_portfolio_time", ["portfolioId", "occurredAt"])
+    .index("by_portfolio_export", ["portfolioId"])
+    .index("by_portfolio_source", ["portfolioId", "sourceEventId"])
+    .index("by_from_account", ["fromAccountId"])
+    .index("by_to_account", ["toAccountId"]),
+
+  holdings: defineTable({
+    portfolioId: v.id("portfolios"),
+    wealthObservation,
+    symbol: v.string(),
+    name: v.string(),
+    kind: v.union(v.literal("stock"), v.literal("etf"), v.literal("crypto"), v.literal("index")),
+    quantity: v.number(),
+    costBasis: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    acquiredAt: v.number()
+  }).index("by_portfolio", ["portfolioId"]),
+
+  holdingEvents: defineTable({
+    portfolioId: v.id("portfolios"),
+    holdingId: v.id("holdings"),
+    symbol: v.string(),
+    kind: v.union(v.literal("buy"), v.literal("sell")),
+    quantity: v.number(),
+    unitPrice: v.number(),
+    total: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    occurredAt: v.number(),
+    notes: v.optional(v.string())
+  })
+    .index("by_portfolio", ["portfolioId"])
+    .index("by_holding", ["holdingId"]),
+
+  cryptoWallets: defineTable({
+    portfolioId: v.id("portfolios"),
+    address: v.string(),
+    addressType: cryptoWalletAddressTypeValidator,
+    label: v.string(),
+    includeInNetWorth: v.boolean(),
+    snapshot: v.optional(cryptoWalletSnapshotValidator),
+    syncLeaseId: v.optional(v.string()),
+    syncLeaseUntil: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number()
+  })
+    .index("by_portfolio", ["portfolioId"])
+    .index("by_portfolio_address", ["portfolioId", "address"]),
+
+  assets: defineTable({
+    portfolioId: v.id("portfolios"),
+    wealthObservation,
+    name: v.string(),
+    kind: v.union(
+      v.literal("cash"),
+      v.literal("real_estate"),
+      v.literal("vehicle"),
+      v.literal("collectible"),
+      v.literal("other")
+    ),
+    balance: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    notes: v.optional(v.string()),
+    updatedAt: v.number()
+  }).index("by_portfolio", ["portfolioId"]),
+
+  liabilities: defineTable({
+    portfolioId: v.id("portfolios"),
+    wealthObservation,
+    name: v.string(),
+    kind: v.union(
+      v.literal("credit_card"),
+      v.literal("loan"),
+      v.literal("mortgage"),
+      v.literal("other")
+    ),
+    balance: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    interestRate: v.optional(v.number()),
+    dueDate: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    updatedAt: v.number()
+  }).index("by_portfolio", ["portfolioId"]),
+
+  marketQuotes: defineTable({
+    symbol: v.string(),
+    price: v.number(),
+    changePercent: v.number(),
+    provider: v.union(
+      v.literal("coingecko"),
+      v.literal("alpha-vantage"),
+      v.literal("stooq"),
+      v.literal("finnhub"),
+      v.literal("mock")
+    ),
+    updatedAt: v.number()
+  }).index("by_symbol", ["symbol"]),
+
+  wealthSnapshots: defineTable({
+    portfolioId: v.id("portfolios"),
+    takenAt: v.number(),
+    netWorth: v.number(),
+    liquid: v.number(),
+    invested: v.number(),
+    hardAssets: v.number(),
+    liabilities: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    label: v.optional(v.string()),
+    isAuto: v.boolean(),
+    wealthEvidence: v.optional(v.object({
+      contractVersion: v.literal(2), coverageKey: v.string(), complete: v.boolean(),
+      assets: v.number(), encumbered: v.number(), fx: wealthFx
+    }))
+  }).index("by_portfolio_time", ["portfolioId", "takenAt"]).index("by_portfolio_export", ["portfolioId"]),
+
+  settlements: defineTable({
+    portfolioId: v.id("portfolios"),
+    fromUserId: v.id("users"),
+    toUserId: v.id("users"),
+    amount: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    occurredAt: v.number(),
+    note: v.optional(v.string())
+  }).index("by_portfolio_time", ["portfolioId", "occurredAt"]).index("by_portfolio_export", ["portfolioId"]),
+
+  goals: defineTable({
+    portfolioId: v.id("portfolios"),
+    scope: v.union(
+      v.literal("net_worth"),
+      v.literal("monthly_income"),
+      v.literal("income_category"),
+      v.literal("asset_value"),
+      v.literal("holding_value")
+    ),
+    target: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    startAt: v.number(),
+    deadline: v.optional(v.number()),
+    label: v.optional(v.string()),
+    categoryId: v.optional(v.id("categories")),
+    assetId: v.optional(v.id("assets")),
+    holdingId: v.optional(v.id("holdings")),
+    createdAt: v.number()
+  })
+    .index("by_portfolio", ["portfolioId"])
+    .index("by_portfolio_scope", ["portfolioId", "scope"]),
+
+  moneyPods: defineTable({
+    name: v.string(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    ownerUserId: v.id("users"),
+    createdAt: v.number()
+  }).index("by_owner", ["ownerUserId"]),
+
+  podMembers: defineTable({
+    podId: v.id("moneyPods"),
+    displayName: v.string(),
+    invitedEmail: v.optional(v.string()),
+    linkedUserId: v.optional(v.id("users")),
+    linkedPortfolioId: v.optional(v.id("portfolios")),
+    groupId: v.optional(v.id("podGroups")),
+    role: v.union(v.literal("owner"), v.literal("editor"), v.literal("viewer")),
+    joinedAt: v.number(),
+    // Free-text labels for the member's payment methods (e.g. "ZEN",
+    // "Revolut", "Cash"). Used purely as a label on podExpenses.paidByCard
+    // — does NOT link to any portfolio asset. The Shared-mode UI is
+    // intentionally decoupled from personal portfolios so non-Numa
+    // members can be tracked the same as Numa-account members.
+    cards: v.optional(v.array(v.string())),
+    // Tombstone flag for member exit. When a member leaves (`leaveMoneyPod`)
+    // or the owner removes them (`removeMember`) we DON'T hard-delete the row:
+    // doing so would orphan every expense they paid (paidByMemberId) and every
+    // settlement they were party to, breaking the settlement zero-sum invariant
+    // and making real money owed to/from them vanish. Instead we tombstone the
+    // row (`active: false`, `removedAt: <ts>`). Settlement math keeps using the
+    // tombstoned row so balances stay correct; pickers / people-list UIs filter
+    // it out. Absent or `true` means active (existing rows predate this field).
+    active: v.optional(v.boolean()),
+    removedAt: v.optional(v.number())
+  })
+    .index("by_pod", ["podId"])
+    .index("by_user", ["linkedUserId"])
+    .index("by_email", ["invitedEmail"])
+    .index("by_email_user", ["invitedEmail", "linkedUserId"]),
+
+  podGroups: defineTable({
+    podId: v.id("moneyPods"),
+    name: v.string(),
+    color: v.string()
+  }).index("by_pod", ["podId"]),
+
+  podExpenses: defineTable({
+    podId: v.id("moneyPods"),
+    paidByMemberId: v.id("podMembers"),
+    amount: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    description: v.string(),
+    categoryId: v.optional(v.id("categories")),
+    occurredAt: v.number(),
+    splitMode: v.union(
+      v.literal("equal_people"),
+      v.literal("equal_groups"),
+      v.literal("custom"),
+      v.literal("covered_group")
+    ),
+    participantMemberIds: v.array(v.id("podMembers")),
+    customSplits: v.optional(v.array(v.object({ memberId: v.id("podMembers"), bps: v.number() }))),
+    coveredGroupId: v.optional(v.id("podGroups")),
+    sourcePortfolioId: v.optional(v.id("portfolios")),
+    sourceAccountId: v.optional(v.id("assets")),
+    // Free-text label of the card / payment method used (matches one of the
+    // payer's `podMembers.cards` strings). Surfaced on the timeline so
+    // members can answer "which card did Maya pay this with?" at a glance.
+    paidByCard: v.optional(v.string()),
+    notes: v.optional(v.string())
+  }).index("by_pod_time", ["podId", "occurredAt"]),
+
+  podSettlements: defineTable({
+    podId: v.id("moneyPods"),
+    fromMemberId: v.id("podMembers"),
+    toMemberId: v.id("podMembers"),
+    amount: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    occurredAt: v.number(),
+    note: v.optional(v.string())
+  }).index("by_pod_time", ["podId", "occurredAt"]),
+
+  // Shareable pod invite codes. Only the SHA-256 hex of the code is stored
+  // (same pattern as webhookTokens) — the raw code is shown once to the owner
+  // and joins are validated by hash + expiry + revocation.
+  podInvites: defineTable({
+    podId: v.id("moneyPods"),
+    codeHash: v.string(),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    revoked: v.optional(v.boolean())
+  })
+    .index("by_pod", ["podId"])
+    .index("by_hash", ["codeHash"]),
+
+  // AI-generated merchant "studio shot" cache (transparent PNGs in Convex
+  // file storage). Keyed by normalized merchant+kind so every render is paid
+  // for exactly once, then shared by all users — the images are generic
+  // product art, never personal data. Written only via the internal-secret
+  // path from /api/merchant-image.
+  merchantImages: defineTable({
+    key: v.string(),
+    storageId: v.id("_storage"),
+    prompt: v.string(),
+    model: v.string(),
+    createdAt: v.number()
+  }).index("by_key", ["key"]),
+
+  invites: defineTable({
+    portfolioId: v.id("portfolios"),
+    invitedEmail: v.string(), // lowercased
+    ownershipBps: v.number(),
+    role: v.union(v.literal("editor"), v.literal("viewer")),
+    displayName: v.string(),
+    invitedByUserId: v.id("users"),
+    invitedAt: v.number(),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("revoked"))
+  })
+    .index("by_email", ["invitedEmail"])
+    .index("by_portfolio", ["portfolioId"]),
+
+  recurring: defineTable({
+    portfolioId: v.id("portfolios"),
+    description: v.string(),
+    categoryId: v.optional(v.id("categories")),
+    accountId: v.optional(v.id("assets")),
+    kind: v.union(v.literal("income"), v.literal("expense")),
+    amount: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    cadence: v.union(
+      v.literal("weekly"),
+      v.literal("monthly"),
+      v.literal("quarterly"),
+      v.literal("yearly")
+    ),
+    startAt: v.number(),
+    nextRunAt: v.number(),
+    endAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    active: v.boolean(),
+    // Explicit opt-in for business MRR/ARR. Unmarked income is never annualized.
+    revenueType: v.optional(v.union(v.literal("subscription"), v.literal("retainer"))),
+    // Client or income source used to group recurring income and MRR.
+    incomeSource: v.optional(v.string()),
+    createdByUserId: v.id("users"),
+    createdAt: v.number()
+  }).index("by_portfolio", ["portfolioId"]),
+
+  ledgerAccounts: defineTable({
+    portfolioId: v.id("portfolios"),
+    name: v.string(),
+    kind: v.union(
+      v.literal("asset"),
+      v.literal("liability"),
+      v.literal("income"),
+      v.literal("expense"),
+      v.literal("equity"),
+      v.literal("pod")
+    ),
+    normalBalance: v.union(v.literal("debit"), v.literal("credit")),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    refType: v.optional(
+      v.union(
+        v.literal("asset"),
+        v.literal("liability"),
+        v.literal("holding"),
+        v.literal("category"),
+        v.literal("pod"),
+        v.literal("member"),
+        v.literal("system")
+      )
+    ),
+    refId: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number()
+  })
+    .index("by_portfolio", ["portfolioId"])
+    .index("by_ref", ["refType", "refId"]),
+
+  ledgerTransactions: defineTable({
+    portfolioId: v.id("portfolios"),
+    classification: v.optional(financeClassificationValidator),
+    reversesId: v.optional(v.id("ledgerTransactions")),
+    sourceType: v.union(
+      v.literal("transaction"),
+      v.literal("asset"),
+      v.literal("liability"),
+      v.literal("holding"),
+      v.literal("pod_expense"),
+      v.literal("settlement"),
+      v.literal("manual"),
+      v.literal("migration")
+    ),
+    sourceId: v.optional(v.string()),
+    occurredAt: v.number(),
+    description: v.string(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    createdByUserId: v.id("users"),
+    clientMutationId: v.optional(v.string()),
+    createdAt: v.number()
+  })
+    .index("by_portfolio_time", ["portfolioId", "occurredAt"])
+    .index("by_source", ["sourceType", "sourceId"])
+    .index("by_reversal", ["reversesId"])
+    .index("by_client_mutation", ["clientMutationId"]).index("by_portfolio_export", ["portfolioId"]),
+
+  ledgerLines: defineTable({
+    portfolioId: v.id("portfolios"),
+    ledgerTransactionId: v.id("ledgerTransactions"),
+    ledgerAccountId: v.id("ledgerAccounts"),
+    side: v.union(v.literal("debit"), v.literal("credit")),
+    amount: v.number(),
+    currency: v.union(v.literal("USD"), v.literal("EUR")),
+    memo: v.optional(v.string()),
+    createdAt: v.number()
+  })
+    .index("by_portfolio", ["portfolioId"])
+    .index("by_transaction", ["ledgerTransactionId"])
+    .index("by_account", ["ledgerAccountId"]),
+
+  rateLimitBuckets: defineTable({
+    key: v.string(),
+    route: v.string(),
+    identityHash: v.string(),
+    windowStart: v.number(),
+    windowMs: v.number(),
+    limit: v.number(),
+    count: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.optional(v.number())
+  })
+    .index("by_key", ["key"])
+    .index("by_route_identity", ["route", "identityHash"])
+    .index("by_expiry", ["expiresAt"]),
+
+  // Lightweight production error telemetry. The client reports crashes
+  // (error boundary, window.onerror, unhandledrejection) via a public,
+  // length-capped, deduplicating mutation; rows are viewed in the Convex
+  // dashboard. Deduped by fingerprint with a count so a render-loop crash
+  // is one row, not thousands. Total distinct rows are capped server-side.
+  clientErrors: defineTable({
+    fingerprint: v.string(),
+    source: v.union(v.literal("boundary"), v.literal("window"), v.literal("promise"), v.literal("route"), v.literal("manual")),
+    message: v.string(),
+    stack: v.optional(v.string()),
+    url: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+    release: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
+    count: v.number(),
+    firstSeenAt: v.number(),
+    lastSeenAt: v.number()
+  })
+    .index("by_fingerprint", ["fingerprint"])
+    .index("by_last_seen", ["lastSeenAt"])
+    .index("by_user", ["userId"]),
+
+  aiActionDrafts: defineTable({
+    userId: v.id("users"),
+    portfolioId: v.optional(v.id("portfolios")),
+    podId: v.optional(v.id("moneyPods")),
+    actionType: v.union(
+      v.literal("transaction.create"),
+      v.literal("category.create"),
+      v.literal("budget.update"),
+      v.literal("podExpense.create"),
+      v.literal("settlement.create"),
+      v.literal("goal.upsert"),
+      v.literal("recurring.create")
+    ),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("confirmed"),
+      v.literal("cancelled"),
+      v.literal("failed")
+    ),
+    prompt: v.string(),
+    proposedPayload: v.any(),
+    // Stable identity for the initial draft insert. A transport can lose the
+    // mutation response after commit; retrying the same review intent must
+    // recover that row instead of stranding a second pending audit.
+    createRequestId: v.optional(v.string()),
+    // A failed reviewed action may only be retried through an explicitly linked
+    // draft. The request id makes redrafting idempotent across rapid taps,
+    // multiple tabs, and a client crash after the server insert.
+    retryOfDraftId: v.optional(v.id("aiActionDrafts")),
+    retryRequestId: v.optional(v.string()),
+    confirmedMutationId: v.optional(v.string()),
+    resultId: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    confirmedAt: v.optional(v.number()),
+    cancelledAt: v.optional(v.number())
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_portfolio", ["userId", "portfolioId"])
+    .index("by_user_create_request", ["userId", "createRequestId"])
+    .index("by_user_retry_request", ["userId", "retryRequestId"])
+    .index("by_portfolio", ["portfolioId"])
+    .index("by_status", ["status"]),
+
+  // Per-device Web Push subscriptions keyed by endpoint (the natural unique key).
+  // Server-side /api/push-send fans out to every subscription for a userId.
+  pushSubscriptions: defineTable({
+    userId: v.id("users"),
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+    userAgent: v.optional(v.string()),
+    createdAt: v.number()
+  })
+    .index("by_user", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
+
+  // Personal webhook tokens that let an external service (Zapier / IFTTT /
+  // Apple Shortcuts / email-to-API) POST a transaction into a portfolio on
+  // behalf of the issuing user. Only the SHA-256 hash is stored — the raw
+  // secret is shown to the user exactly once at creation time and never
+  // again. Lookup happens via `by_hash` from the Vercel function.
+  webhookTokens: defineTable({
+    userId: v.id("users"),
+    portfolioId: v.id("portfolios"),
+    // SHA-256 hash of the secret. The secret itself is shown to the user ONCE.
+    tokenHash: v.string(),
+    label: v.string(),
+    scope: v.union(v.literal("add-transaction")),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    uses: v.number()
+  })
+    .index("by_user", ["userId"])
+    .index("by_hash", ["tokenHash"])
+});

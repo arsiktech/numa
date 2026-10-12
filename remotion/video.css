@@ -1,0 +1,245 @@
+.numa-video {
+  overflow: hidden;
+  background: #f6f3eb;
+  color: #26251f;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+}
+
+.video-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(199, 230, 220, 0.82), transparent 42%),
+    linear-gradient(315deg, rgba(226, 218, 249, 0.82), transparent 40%),
+    #f6f3eb;
+}
+
+.video-copy {
+  position: absolute;
+  left: 92px;
+  top: 90px;
+  width: 660px;
+  z-index: 2;
+}
+
+.video-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 38px;
+  font-size: 34px;
+  font-weight: 800;
+}
+
+.video-brand span {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  background: #26251f;
+  color: white;
+}
+
+.video-copy h1 {
+  margin: 0;
+  font-size: 104px;
+  line-height: 0.94;
+  letter-spacing: 0;
+}
+
+.video-copy p {
+  margin: 34px 0 0;
+  color: #625e55;
+  font-size: 30px;
+  line-height: 1.35;
+}
+
+.video-dashboard {
+  position: absolute;
+  right: 78px;
+  bottom: 72px;
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  width: 1120px;
+  height: 710px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 42px 110px rgba(72, 67, 55, 0.18);
+  backdrop-filter: blur(24px);
+}
+
+.video-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  padding: 34px 26px;
+  border-right: 1px solid rgba(38, 37, 31, 0.08);
+  color: #625e55;
+  font-size: 24px;
+}
+
+.video-sidebar strong {
+  color: #26251f;
+  font-size: 34px;
+}
+
+.video-main {
+  padding: 34px;
+}
+
+.video-topline {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.video-topline span,
+.video-topline b {
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 21px;
+  font-weight: 600;
+}
+
+.video-topline b {
+  color: #167563;
+}
+
+.video-wealth {
+  height: 260px;
+  padding: 28px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.video-wealth p,
+.video-metric p {
+  margin: 0;
+  color: #7f7a70;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.video-wealth h2 {
+  margin: 10px 0 28px;
+  font-size: 76px;
+  line-height: 0.95;
+}
+
+.video-line {
+  position: relative;
+  height: 70px;
+  overflow: hidden;
+}
+
+.video-line::before {
+  content: "";
+  position: absolute;
+  inset: 38px 0 0;
+  border-top: 3px dashed rgba(38, 37, 31, 0.1);
+}
+
+.video-line span {
+  position: absolute;
+  left: 0;
+  bottom: 12px;
+  width: 100%;
+  height: 54px;
+  border-bottom: 7px solid #217f74;
+  border-radius: 70% 30% 0 0;
+  transform: skewY(-8deg);
+  background: linear-gradient(180deg, rgba(85, 191, 174, 0.22), rgba(85, 191, 174, 0));
+}
+
+.video-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.video-metric {
+  min-height: 126px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.74);
+  border-bottom: 7px solid var(--metric);
+}
+
+.video-metric strong {
+  display: block;
+  margin-top: 14px;
+  font-size: 33px;
+}
+
+.video-table {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.video-row {
+  display: grid;
+  grid-template-columns: 86px 1fr 130px 90px;
+  align-items: center;
+  padding: 15px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.64);
+  font-size: 22px;
+}
+
+.video-row b {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 42px;
+  border-radius: 10px;
+  background: #26251f;
+  color: white;
+  font-size: 18px;
+}
+
+.video-row span {
+  color: #625e55;
+}
+
+.video-row em {
+  justify-self: end;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.gain {
+  color: #167563;
+}
+
+.loss {
+  color: #bf3f4e;
+}
+
+.video-outro {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  z-index: 4;
+  background: rgba(246, 243, 235, 0.92);
+  text-align: center;
+}
+
+.video-outro h2 {
+  margin: 0;
+  font-size: 104px;
+}
+
+.video-outro p {
+  margin: 24px 0 0;
+  color: #625e55;
+  font-size: 34px;
+}

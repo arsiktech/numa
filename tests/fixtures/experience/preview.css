@@ -1,0 +1,3 @@
+@import "../../../src/styles/global.css";
+/* Tailwind's preview root is this fixture, so include the real components. */
+@source "../../../src";

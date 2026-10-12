@@ -1,0 +1,673 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		10A000000000000000000001 /* NumaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B000000000000000000001 /* NumaApp.swift */; };
+		10A000000000000000000005 /* ExpenseEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B000000000000000000005 /* ExpenseEditorSheet.swift */; };
+		10A000000000000000000006 /* MemberCardsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B000000000000000000006 /* MemberCardsSheet.swift */; };
+		10A000000000000000000007 /* NumaConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B000000000000000000007 /* NumaConfig.swift */; };
+		10A000000000000000000008 /* NumaConfig.dev.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B000000000000000000008 /* NumaConfig.dev.swift */; };
+		10A000000000000000000009 /* NumaConfig.prod.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B000000000000000000009 /* NumaConfig.prod.swift */; };
+		10A00000000000000000000A /* MobileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B00000000000000000000A /* MobileModels.swift */; };
+		10A00000000000000000000B /* PodStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B00000000000000000000B /* PodStore.swift */; };
+		10A00000000000000000000C /* ClientMutationID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B00000000000000000000C /* ClientMutationID.swift */; };
+		10A00000000000000000000D /* NumaTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B00000000000000000000D /* NumaTheme.swift */; };
+		10A00000000000000000000E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 10B00000000000000000000E /* Assets.xcassets */; };
+		10A00000000000000000000F /* PodStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B00000000000000000000F /* PodStoreTests.swift */; };
+		10A000000000000000000010 /* ConvexMobile in Frameworks */ = {isa = PBXBuildFile; productRef = 10C000000000000000000001 /* ConvexMobile */; };
+		10A000000000000000000030 /* Fonts/DMSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 10B000000000000000000030 /* Fonts/DMSans.ttf */; };
+		10A000000000000000000031 /* Fonts/GeistMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 10B000000000000000000031 /* Fonts/GeistMono.ttf */; };
+		10A000000000000000000033 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 10B000000000000000000033 /* PrivacyInfo.xcprivacy */; };
+		86A000000000000000000001 /* NumaTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B000000000000000000001 /* NumaTodayView.swift */; };
+		88A000000000000000000001 /* NumaSpaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88B000000000000000000001 /* NumaSpaces.swift */; };
+		89A000000000000000000002 /* NumaMoneyEditors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B000000000000000000002 /* NumaMoneyEditors.swift */; };
+		89A000000000000000000001 /* NumaMoney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B000000000000000000001 /* NumaMoney.swift */; };
+		86A000000000000000000002 /* NumaTodayPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B000000000000000000002 /* NumaTodayPreview.swift */; };
+		86A000000000000000000003 /* NumaTodayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B000000000000000000003 /* NumaTodayTests.swift */; };
+		88A000000000000000000003 /* NumaSpaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88B000000000000000000003 /* NumaSpaceTests.swift */; };
+		89A000000000000000000003 /* NumaMoneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B000000000000000000003 /* NumaMoneyTests.swift */; };
+		AB0000000000000000000001 /* NumaAppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000001 /* NumaAppModels.swift */; };
+		AB0000000000000000000002 /* NumaAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000002 /* NumaAppStore.swift */; };
+		AB0000000000000000000003 /* NumaAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000003 /* NumaAuth.swift */; };
+		AB0000000000000000000004 /* NumaCaptureClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000004 /* NumaCaptureClient.swift */; };
+		AB0000000000000000000005 /* NumaCaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000005 /* NumaCaptureModels.swift */; };
+		AB0000000000000000000006 /* NumaCaptureSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000006 /* NumaCaptureSheets.swift */; };
+		AB0000000000000000000007 /* NumaCelebration.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000007 /* NumaCelebration.swift */; };
+		AB0000000000000000000008 /* NumaComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000008 /* NumaComponents.swift */; };
+		AB0000000000000000000009 /* NumaControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000009 /* NumaControls.swift */; };
+		AB0000000000000000000010 /* NumaFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000010 /* NumaFormatting.swift */; };
+		AB0000000000000000000011 /* NumaMainShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000011 /* NumaMainShell.swift */; };
+		AB0000000000000000000012 /* NumaNativePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000012 /* NumaNativePages.swift */; };
+		AB0000000000000000000013 /* NumaOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000013 /* NumaOnboardingView.swift */; };
+		AB0000000000000000000014 /* NumaPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000014 /* NumaPalette.swift */; };
+		AB0000000000000000000015 /* NumaQuickSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000015 /* NumaQuickSheets.swift */; };
+		AB0000000000000000000016 /* NumaRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000016 /* NumaRootView.swift */; };
+		AB0000000000000000000017 /* NumaSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000017 /* NumaSessionStore.swift */; };
+		AB0000000000000000000018 /* NumaWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000018 /* NumaWelcomeView.swift */; };
+		97A000000000000000000003 /* NumaExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97B000000000000000000003 /* NumaExportTests.swift */; };
+		97A000000000000000000001 /* NumaPrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97B000000000000000000001 /* NumaPrivacy.swift */; };
+		97A000000000000000000002 /* NumaDataExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97B000000000000000000002 /* NumaDataExport.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		10D000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 10E000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 10F000000000000000000001;
+			remoteInfo = Numa;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		10B000000000000000000001 /* NumaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaApp.swift; sourceTree = "<group>"; };
+		10B000000000000000000005 /* ExpenseEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseEditorSheet.swift; sourceTree = "<group>"; };
+		10B000000000000000000006 /* MemberCardsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemberCardsSheet.swift; sourceTree = "<group>"; };
+		10B000000000000000000007 /* NumaConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaConfig.swift; sourceTree = "<group>"; };
+		10B000000000000000000008 /* NumaConfig.dev.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaConfig.dev.swift; sourceTree = "<group>"; };
+		10B000000000000000000009 /* NumaConfig.prod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaConfig.prod.swift; sourceTree = "<group>"; };
+		10B00000000000000000000A /* MobileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileModels.swift; sourceTree = "<group>"; };
+		10B00000000000000000000B /* PodStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodStore.swift; sourceTree = "<group>"; };
+		10B00000000000000000000C /* ClientMutationID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientMutationID.swift; sourceTree = "<group>"; };
+		10B00000000000000000000D /* NumaTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaTheme.swift; sourceTree = "<group>"; };
+		10B00000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		10B00000000000000000000F /* PodStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodStoreTests.swift; sourceTree = "<group>"; };
+		10B000000000000000000010 /* Numa.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Numa.entitlements; sourceTree = "<group>"; };
+		10B000000000000000000011 /* Numa.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Numa.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		10B000000000000000000012 /* NumaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NumaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		10B000000000000000000030 /* Fonts/DMSans.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fonts/DMSans.ttf; sourceTree = "<group>"; };
+		10B000000000000000000031 /* Fonts/GeistMono.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fonts/GeistMono.ttf; sourceTree = "<group>"; };
+		10B000000000000000000032 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		10B000000000000000000033 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		86B000000000000000000001 /* NumaTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaTodayView.swift; sourceTree = "<group>"; };
+		88B000000000000000000001 /* NumaSpaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaSpaces.swift; sourceTree = "<group>"; };
+		89B000000000000000000002 /* NumaMoneyEditors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaMoneyEditors.swift; sourceTree = "<group>"; };
+		89B000000000000000000001 /* NumaMoney.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaMoney.swift; sourceTree = "<group>"; };
+		86B000000000000000000002 /* NumaTodayPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaTodayPreview.swift; sourceTree = "<group>"; };
+		86B000000000000000000003 /* NumaTodayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaTodayTests.swift; sourceTree = "<group>"; };
+		88B000000000000000000003 /* NumaSpaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaSpaceTests.swift; sourceTree = "<group>"; };
+		89B000000000000000000003 /* NumaMoneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaMoneyTests.swift; sourceTree = "<group>"; };
+		AC0000000000000000000001 /* NumaAppModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaAppModels.swift; sourceTree = "<group>"; };
+		AC0000000000000000000002 /* NumaAppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaAppStore.swift; sourceTree = "<group>"; };
+		AC0000000000000000000003 /* NumaAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaAuth.swift; sourceTree = "<group>"; };
+		AC0000000000000000000004 /* NumaCaptureClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaCaptureClient.swift; sourceTree = "<group>"; };
+		AC0000000000000000000005 /* NumaCaptureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaCaptureModels.swift; sourceTree = "<group>"; };
+		AC0000000000000000000006 /* NumaCaptureSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaCaptureSheets.swift; sourceTree = "<group>"; };
+		AC0000000000000000000007 /* NumaCelebration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaCelebration.swift; sourceTree = "<group>"; };
+		AC0000000000000000000008 /* NumaComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaComponents.swift; sourceTree = "<group>"; };
+		AC0000000000000000000009 /* NumaControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaControls.swift; sourceTree = "<group>"; };
+		AC0000000000000000000010 /* NumaFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaFormatting.swift; sourceTree = "<group>"; };
+		AC0000000000000000000011 /* NumaMainShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaMainShell.swift; sourceTree = "<group>"; };
+		AC0000000000000000000012 /* NumaNativePages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaNativePages.swift; sourceTree = "<group>"; };
+		AC0000000000000000000013 /* NumaOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaOnboardingView.swift; sourceTree = "<group>"; };
+		AC0000000000000000000014 /* NumaPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaPalette.swift; sourceTree = "<group>"; };
+		AC0000000000000000000015 /* NumaQuickSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaQuickSheets.swift; sourceTree = "<group>"; };
+		AC0000000000000000000016 /* NumaRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaRootView.swift; sourceTree = "<group>"; };
+		AC0000000000000000000017 /* NumaSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaSessionStore.swift; sourceTree = "<group>"; };
+		AC0000000000000000000018 /* NumaWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaWelcomeView.swift; sourceTree = "<group>"; };
+		97B000000000000000000003 /* NumaExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaExportTests.swift; sourceTree = "<group>"; };
+		97B000000000000000000001 /* NumaPrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaPrivacy.swift; sourceTree = "<group>"; };
+		97B000000000000000000002 /* NumaDataExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumaDataExport.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		10F000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10A000000000000000000010 /* ConvexMobile in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		10F000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		10E000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				10E000000000000000000003 /* Numa */,
+				10E000000000000000000007 /* NumaTests */,
+				10E000000000000000000008 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		10E000000000000000000003 /* Numa */ = {
+			isa = PBXGroup;
+			children = (
+				10B000000000000000000001 /* NumaApp.swift */,
+				10B000000000000000000005 /* ExpenseEditorSheet.swift */,
+				10B000000000000000000006 /* MemberCardsSheet.swift */,
+				86B000000000000000000002 /* NumaTodayPreview.swift */,
+				86B000000000000000000001 /* NumaTodayView.swift */,
+				88B000000000000000000001 /* NumaSpaces.swift */,
+				89B000000000000000000002 /* NumaMoneyEditors.swift */,
+				89B000000000000000000001 /* NumaMoney.swift */,
+				AC0000000000000000000001 /* NumaAppModels.swift */,
+				AC0000000000000000000002 /* NumaAppStore.swift */,
+				AC0000000000000000000003 /* NumaAuth.swift */,
+				AC0000000000000000000004 /* NumaCaptureClient.swift */,
+				AC0000000000000000000005 /* NumaCaptureModels.swift */,
+				AC0000000000000000000006 /* NumaCaptureSheets.swift */,
+				AC0000000000000000000007 /* NumaCelebration.swift */,
+				AC0000000000000000000008 /* NumaComponents.swift */,
+				AC0000000000000000000009 /* NumaControls.swift */,
+				AC0000000000000000000010 /* NumaFormatting.swift */,
+				AC0000000000000000000011 /* NumaMainShell.swift */,
+				AC0000000000000000000012 /* NumaNativePages.swift */,
+				AC0000000000000000000013 /* NumaOnboardingView.swift */,
+				AC0000000000000000000014 /* NumaPalette.swift */,
+				AC0000000000000000000015 /* NumaQuickSheets.swift */,
+				AC0000000000000000000016 /* NumaRootView.swift */,
+				AC0000000000000000000017 /* NumaSessionStore.swift */,
+				AC0000000000000000000018 /* NumaWelcomeView.swift */,
+				97B000000000000000000001 /* NumaPrivacy.swift */,
+				97B000000000000000000002 /* NumaDataExport.swift */,
+				10E000000000000000000004 /* Config */,
+				10E000000000000000000005 /* Models */,
+				10E000000000000000000006 /* Services */,
+				10E000000000000000000009 /* Theme */,
+				10B00000000000000000000E /* Assets.xcassets */,
+				10B000000000000000000030 /* Fonts/DMSans.ttf */,
+				10B000000000000000000031 /* Fonts/GeistMono.ttf */,
+				10B000000000000000000032 /* Info.plist */,
+				10B000000000000000000033 /* PrivacyInfo.xcprivacy */,
+				10B000000000000000000010 /* Numa.entitlements */,
+			);
+			path = Numa;
+			sourceTree = "<group>";
+		};
+		10E000000000000000000004 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				10B000000000000000000007 /* NumaConfig.swift */,
+				10B000000000000000000008 /* NumaConfig.dev.swift */,
+				10B000000000000000000009 /* NumaConfig.prod.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		10E000000000000000000005 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				10B00000000000000000000A /* MobileModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		10E000000000000000000006 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				10B00000000000000000000B /* PodStore.swift */,
+				10B00000000000000000000C /* ClientMutationID.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		10E000000000000000000007 /* NumaTests */ = {
+			isa = PBXGroup;
+			children = (
+				10B00000000000000000000F /* PodStoreTests.swift */,
+				86B000000000000000000003 /* NumaTodayTests.swift */,
+				88B000000000000000000003 /* NumaSpaceTests.swift */,
+				89B000000000000000000003 /* NumaMoneyTests.swift */,
+				97B000000000000000000003 /* NumaExportTests.swift */,
+			);
+			path = NumaTests;
+			sourceTree = "<group>";
+		};
+		10E000000000000000000008 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				10B000000000000000000011 /* Numa.app */,
+				10B000000000000000000012 /* NumaTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		10E000000000000000000009 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				10B00000000000000000000D /* NumaTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		10F000000000000000000001 /* Numa */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 10E00000000000000000000B /* Build configuration list for PBXNativeTarget "Numa" */;
+			buildPhases = (
+				10F000000000000000000004 /* Sources */,
+				10F000000000000000000002 /* Frameworks */,
+				10F000000000000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Numa;
+			packageProductDependencies = (
+				10C000000000000000000001 /* ConvexMobile */,
+			);
+			productName = Numa;
+			productReference = 10B000000000000000000011 /* Numa.app */;
+			productType = "com.apple.product-type.application";
+		};
+		10F000000000000000000006 /* NumaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 10E00000000000000000000C /* Build configuration list for PBXNativeTarget "NumaTests" */;
+			buildPhases = (
+				10F000000000000000000007 /* Sources */,
+				10F000000000000000000003 /* Frameworks */,
+				10F000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				10D000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = NumaTests;
+			productName = NumaTests;
+			productReference = 10B000000000000000000012 /* NumaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		10E000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					10F000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					10F000000000000000000006 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 10F000000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = 10E00000000000000000000A /* Build configuration list for PBXProject "Numa" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 10E000000000000000000002;
+			packageReferences = (
+				10C000000000000000000005 /* XCRemoteSwiftPackageReference "convex-swift" */,
+			);
+			productRefGroup = 10E000000000000000000008 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				10F000000000000000000001 /* Numa */,
+				10F000000000000000000006 /* NumaTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		10F000000000000000000005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10A00000000000000000000E /* Assets.xcassets in Resources */,
+				10A000000000000000000030 /* Fonts/DMSans.ttf in Resources */,
+				10A000000000000000000031 /* Fonts/GeistMono.ttf in Resources */,
+				10A000000000000000000033 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		10F000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		10F000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10A000000000000000000001 /* NumaApp.swift in Sources */,
+				10A000000000000000000005 /* ExpenseEditorSheet.swift in Sources */,
+				10A000000000000000000006 /* MemberCardsSheet.swift in Sources */,
+				10A000000000000000000007 /* NumaConfig.swift in Sources */,
+				10A000000000000000000008 /* NumaConfig.dev.swift in Sources */,
+				10A000000000000000000009 /* NumaConfig.prod.swift in Sources */,
+				10A00000000000000000000A /* MobileModels.swift in Sources */,
+				10A00000000000000000000B /* PodStore.swift in Sources */,
+				10A00000000000000000000C /* ClientMutationID.swift in Sources */,
+				10A00000000000000000000D /* NumaTheme.swift in Sources */,
+				86A000000000000000000002 /* NumaTodayPreview.swift in Sources */,
+				86A000000000000000000001 /* NumaTodayView.swift in Sources */,
+				88A000000000000000000001 /* NumaSpaces.swift in Sources */,
+				89A000000000000000000002 /* NumaMoneyEditors.swift in Sources */,
+				89A000000000000000000001 /* NumaMoney.swift in Sources */,
+				AB0000000000000000000001 /* NumaAppModels.swift in Sources */,
+				AB0000000000000000000002 /* NumaAppStore.swift in Sources */,
+				AB0000000000000000000003 /* NumaAuth.swift in Sources */,
+				AB0000000000000000000004 /* NumaCaptureClient.swift in Sources */,
+				AB0000000000000000000005 /* NumaCaptureModels.swift in Sources */,
+				AB0000000000000000000006 /* NumaCaptureSheets.swift in Sources */,
+				AB0000000000000000000007 /* NumaCelebration.swift in Sources */,
+				AB0000000000000000000008 /* NumaComponents.swift in Sources */,
+				AB0000000000000000000009 /* NumaControls.swift in Sources */,
+				AB0000000000000000000010 /* NumaFormatting.swift in Sources */,
+				AB0000000000000000000011 /* NumaMainShell.swift in Sources */,
+				AB0000000000000000000012 /* NumaNativePages.swift in Sources */,
+				AB0000000000000000000013 /* NumaOnboardingView.swift in Sources */,
+				AB0000000000000000000014 /* NumaPalette.swift in Sources */,
+				AB0000000000000000000015 /* NumaQuickSheets.swift in Sources */,
+				AB0000000000000000000016 /* NumaRootView.swift in Sources */,
+				AB0000000000000000000017 /* NumaSessionStore.swift in Sources */,
+				AB0000000000000000000018 /* NumaWelcomeView.swift in Sources */,
+				97A000000000000000000001 /* NumaPrivacy.swift in Sources */,
+				97A000000000000000000002 /* NumaDataExport.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		10F000000000000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10A00000000000000000000F /* PodStoreTests.swift in Sources */,
+				86A000000000000000000003 /* NumaTodayTests.swift in Sources */,
+				88A000000000000000000003 /* NumaSpaceTests.swift in Sources */,
+				89A000000000000000000003 /* NumaMoneyTests.swift in Sources */,
+				97A000000000000000000003 /* NumaExportTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		10D000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 10F000000000000000000001 /* Numa */;
+			targetProxy = 10D000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		10E00000000000000000000D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		10E00000000000000000000E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		10E00000000000000000000F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 202609090933;
+				DEVELOPMENT_TEAM = 794UJ787LZ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Numa/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arsiktech.numa;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		10E000000000000000000010 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 202609090933;
+				DEVELOPMENT_TEAM = 794UJ787LZ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Numa/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arsiktech.numa;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "NUMA_PROD $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		10E000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 202609090933;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arsiktech.numa.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Numa.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Numa";
+			};
+			name = Debug;
+		};
+		10E000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 202609090933;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arsiktech.numa.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Numa.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Numa";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		10E00000000000000000000A /* Build configuration list for PBXProject "Numa" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				10E00000000000000000000D /* Debug */,
+				10E00000000000000000000E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		10E00000000000000000000B /* Build configuration list for PBXNativeTarget "Numa" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				10E00000000000000000000F /* Debug */,
+				10E000000000000000000010 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		10E00000000000000000000C /* Build configuration list for PBXNativeTarget "NumaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				10E000000000000000000011 /* Debug */,
+				10E000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		10C000000000000000000005 /* XCRemoteSwiftPackageReference "convex-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/get-convex/convex-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		10C000000000000000000001 /* ConvexMobile */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 10C000000000000000000005 /* XCRemoteSwiftPackageReference "convex-swift" */;
+			productName = ConvexMobile;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 10E000000000000000000001 /* Project object */;
+}

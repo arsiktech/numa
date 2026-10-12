@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - numa-v2
+      - codex/**
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # The public Playwright smoke boots `npm run dev`, and the app renders a
+    # "cloud configuration required" screen (not the welcome page) without a
+    # Convex URL. VITE_CONVEX_URL is a public client value (it ships in the
+    # bundle), so the dev URL lives in repo variables, not secrets. Falls back
+    # to the dev deployment so forks without the vars still build.
+    env:
+      VITE_NUMA_CLOUD_AUTH: "1"
+      VITE_CONVEX_URL: ${{ vars.NUMA_DEV_CONVEX_URL || 'https://rosy-mink-170.eu-west-1.convex.cloud' }}
+      VITE_CONVEX_SITE_URL: ${{ vars.NUMA_DEV_CONVEX_SITE_URL || 'https://rosy-mink-170.eu-west-1.convex.site' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Bundle size budget
+        run: npm run check:bundle
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Browser tests
+        run: npm run test:ui
+
+      - name: Release dependency audit
+        run: npm run audit:release
+
+      - name: All-dependency maintenance audit
+        continue-on-error: true
+        run: npm run audit:all

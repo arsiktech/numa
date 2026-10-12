@@ -1,0 +1,354 @@
+/*
+  Numa v3 design tokens — driven by the Premium Glass redesign brief
+  (.lazyweb/numa-v2-research/brief.md).
+
+  iOS Tahoe / macOS-style cream-paper canvas + surgical glass
+  + bold accents reserved for numbers that matter.
+*/
+
+@theme {
+  /* — type — */
+  --font-sans: "Inter", "InterVariable", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  --font-display: "Inter", "InterVariable", ui-sans-serif, system-ui, -apple-system,
+    "SF Pro Display", sans-serif;
+  /* Geist Mono is actually loaded in index.html; "JetBrains Mono" was never
+     requested, so the base/Classic theme used to fall back to ui-monospace. */
+  --font-mono: "Geist Mono", "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-micro: 11px;
+  --text-caption: 13px;
+  --text-body: 15px;
+  --text-body-lg: 17px;
+  --text-h3: 22px;
+  --text-h2: 28px;
+  --text-h1: 36px;
+  --text-display: 56px;
+  --text-hero: 72px;
+
+  /* — spacing — */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+
+  /* — radius — */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+
+  /* — canvas — */
+  --color-bg: #fbf7f0;
+  --color-bg-ivory: #f4efe6;
+
+  /* — surfaces (solid pastel tints) — */
+  --color-paper: #ffffff;
+  --color-paper-strong: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-warm: #fbf7ee;
+  --color-surface-lavender: #efeaf6;
+  --color-surface-mint: #e6f1ea;
+  --color-surface-peach: #fbe9db;
+  --color-surface-blush: #f7e3e3;
+  --color-surface-sky: #e4ecf6;
+  --color-surface-sand: #f3ecd9;
+
+  /* — pastel scale by family — */
+  --color-cream-50: #fdfaf2;
+  --color-cream-100: #f6f0e2;
+  --color-cream-200: #ece4cf;
+  --color-lavender-100: #efeaf6;
+  --color-lavender-200: #d6caee;
+  --color-lavender-300: #b6a3e1;
+  --color-mint-100: #e6f1ea;
+  --color-mint-200: #b6dac3;
+  --color-mint-300: #84c099;
+  --color-peach-100: #fbe9db;
+  --color-peach-200: #f4c8a4;
+  --color-peach-300: #ec9e6f;
+  --color-blush-100: #f7e3e3;
+  --color-blush-200: #ecb6b6;
+  --color-blush-300: #de8585;
+  --color-sky-100: #e4ecf6;
+  --color-sky-200: #bccfea;
+  --color-sky-300: #88abd6;
+  --color-sand-100: #f3ecd9;
+  --color-sand-200: #ddc999;
+  --color-sand-300: #b89e58;
+
+  /* — bold accents — */
+  --color-brand: #5a3fb8;
+  --color-brand-strong: #4a2fa4;
+  --color-brand-soft: #c9beec;
+  --color-brand-mist: #efeaf6;
+
+  /* Status colors — all values picked to clear WCAG AA 4.5:1 against
+     --color-paper / white for normal text. Previously --color-negative
+     (#d6463c) and --color-warning (#c8941f) failed for body text. */
+  --color-positive: #198047; /* ~5.0:1 — preserved */
+  --color-positive-soft: #9fd4b0;
+  --color-positive-mist: #e6f1ea;
+  --color-negative: #bd3a2f; /* darkened from #d6463c (4.07:1 → ~4.7:1) */
+  --color-negative-soft: #f2b5b0;
+  --color-negative-mist: #f7e3e3;
+  --color-info: #2563d9;
+  --color-info-soft: #b4caf0;
+  --color-info-mist: #e4ecf6;
+  --color-warning: #8a6516; /* darkened from #c8941f (2.78:1 → ~4.8:1) */
+  --color-warning-soft: #ecd29b;
+  --color-warning-mist: #f3ecd9;
+
+  /* — ink scale on cream — */
+  --color-ink: #1b1a17;
+  --color-ink-2: #3d3a33;
+  --color-ink-3: #5e584c; /* bumped from #6b655a (4.46 borderline) → 5.6:1 */
+  --color-ink-4: #7a7468; /* bumped from #9b9587 (2.89:1) → ~4.6:1 */
+  --color-ink-5: #c8c2b3; /* decorative only — never use for text */
+  --color-line: rgba(27, 26, 23, 0.08);
+  --color-line-strong: rgba(27, 26, 23, 0.14);
+  --color-line-glass: rgba(255, 255, 255, 0.68);
+  --color-glass: color-mix(in oklab, var(--color-paper) 78%, transparent);
+  --color-glass-strong: color-mix(in oklab, var(--color-paper) 90%, transparent);
+  --color-panel-depth: color-mix(in oklab, var(--color-brand-mist) 38%, var(--color-paper));
+
+  /* — CTA — a non-flipping token so primary buttons stay legible in dark.
+     `bg-ink + text-white` works in light (dark-ink bg, white text) but breaks
+     in dark because --color-ink inverts to cream — white text on cream is
+     invisible. CTA stays semantically "the most prominent action color":
+     near-black in light, brand-purple in dark. White text reads against both. */
+  --color-cta: var(--color-ink);
+  --color-cta-hover: var(--color-ink-2);
+  /* Foreground (text/icon) color used ON TOP of --color-cta. Default is white
+     because Numa Classic + Citrus light + Pebble/Coral/Carbon light all have
+     a dark cta. Themes override this when their cta is light (e.g. lime in
+     Citrus dark) so the foreground flips to a dark ink. */
+  --color-cta-ink: #ffffff;
+
+  /* — intentionally-fixed dark surfaces (camera/scan "viewfinder", etc.) —
+     these read as a dark capture surface in BOTH light and dark mode, so they
+     do NOT use --color-ink (which flips to cream in dark). Tokenized so the
+     no-literal-color rule holds without losing the always-dark intent. */
+  --color-surface-inverse: #0f0f08;
+  --color-on-inverse: #f8f8ee;
+  --color-on-inverse-dim: rgba(248, 248, 238, 0.62);
+  --color-on-inverse-faint: rgba(248, 248, 238, 0.12);
+
+  /* — modal / sheet scrim — single source for every backdrop — */
+  --color-scrim: rgba(15, 15, 8, 0.45);
+  --color-scrim-strong: rgba(15, 15, 8, 0.8);
+
+  /* — tone "ink" colors (icon/label on a soft tint) previously hard-coded as
+     magic hex in Avatar / CategoryIcon / Pill / ScanDialog — */
+  --color-peach-ink: #a64a14;
+  --color-sand-ink: #8a6b1f;
+  --color-amber-ink: #7a3a10;
+  --color-olive-ink: #5e4912;
+
+  /* — foreground used on solid status backgrounds — */
+  --color-on-negative: #ffffff;
+
+  /* — brand coin object palette (gold↔lime). The coin is a fixed brand object
+     (like a real coin), so it is theme-independent on purpose; tokenized only
+     so the coin CSS stops carrying raw literals. — */
+  --color-coin-lime: #cfff23;
+  --color-coin-mid: #d8ea4a;
+  --color-coin-gold: #dacd65;
+  --color-coin-deep: #806d18;
+  --color-coin-glow: rgba(203, 255, 35, 0.38);
+
+  /* — hero surface: the near-black stage with lime ink. Like the coin, it is a
+     FIXED brand object — identical in light and dark, so the app's strongest
+     moment (lime-on-black net worth) never inverts into a cream slab. — */
+  --color-hero-surface: #12120c;
+  --color-hero-ink: #f6f4ee;
+  --color-hero-accent: var(--color-coin-lime);
+
+  /* — pod member / segment accents (themed in dark below) — */
+  --color-accent-1: #c7e6dc;
+  --color-accent-2: #f0d9a8;
+  --color-accent-3: #d8c7e8;
+  --color-accent-4: #c9d8f0;
+
+  /* — chart palette — */
+  --color-chart-1: #5a3fb8;
+  --color-chart-2: #1f9d55;
+  --color-chart-3: #ec9e6f;
+  --color-chart-4: #2563d9;
+  --color-chart-5: #c8941f;
+  --color-chart-6: #de8585;
+  --color-chart-7: #84c099;
+  --color-chart-8: #b6a3e1;
+
+  /* — elevation (warm-tinted, not pure black) — */
+  --shadow-sm: 0 1px 2px rgba(60, 50, 30, 0.04), 0 1px 1px rgba(60, 50, 30, 0.03);
+  --shadow-md: 0 4px 12px rgba(60, 50, 30, 0.06), 0 1px 2px rgba(60, 50, 30, 0.04);
+  --shadow-lg: 0 12px 32px rgba(60, 50, 30, 0.1), 0 2px 8px rgba(60, 50, 30, 0.05);
+  --shadow-xl: 0 24px 60px rgba(60, 50, 30, 0.16), 0 4px 12px rgba(60, 50, 30, 0.08);
+  --shadow-premium:
+    0 28px 80px rgba(42, 34, 18, 0.13),
+    0 10px 28px rgba(42, 34, 18, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --shadow-glow: 0 18px 48px color-mix(in oklab, var(--color-brand) 18%, transparent);
+  --shadow-inner-line: inset 0 0 0 1px var(--color-line);
+
+  /* — motion — mirrored by src/lib/motion.ts (the framer-side constants).
+     Change values in BOTH places or the CSS and React halves drift. */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-quad: cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-lux: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-draw: cubic-bezier(0.4, 0.6, 0.2, 1);
+
+  --duration-instant: 120ms;
+  --duration-fast: 200ms;
+  --duration-base: 320ms;
+  --duration-slow: 480ms;
+  --duration-route: 220ms;
+  --duration-counter: 900ms;
+}
+
+/*
+  Dark variant — activated by [data-theme="dark"] on <html>.
+  Mirror every token from the @theme block so component CSS that references
+  var(--color-*) just resolves to the dark hue.
+*/
+[data-theme="dark"] {
+  /* — canvas — */
+  --color-bg: #14121a;
+  --color-bg-ivory: #1a1722;
+
+  /* — surfaces (dark-tinted, low-saturation) — */
+  --color-paper: #1f1c28;
+  --color-paper-strong: #25212e;
+  --color-surface: #1f1c28;
+  --color-surface-warm: #221e2a;
+  --color-surface-lavender: #2a2438;
+  --color-surface-mint: #1f2a26;
+  --color-surface-peach: #2c2320;
+  --color-surface-blush: #2c2226;
+  --color-surface-sky: #1f2530;
+  --color-surface-sand: #2a261d;
+
+  /* — pastel scale, dark substitutes —
+     cream-50/100/200 are used as hover states + secondary surfaces. In dark
+     mode they need a visible step UP from --color-paper (#1f1c28) — otherwise
+     hover:bg-cream-50 is a 1-pixel hex difference and feels broken.
+     Each step is +~10% luminance from paper. */
+  --color-cream-50: #2a2535;
+  --color-cream-100: #322c3f;
+  --color-cream-200: #3d3650;
+  --color-lavender-100: #2a2438;
+  --color-lavender-200: #3b3354;
+  --color-lavender-300: #8a78c4;
+  --color-mint-100: #1f2a26;
+  --color-mint-200: #2e4a3d;
+  --color-mint-300: #6db48a;
+  --color-peach-100: #2c2320;
+  --color-peach-200: #4a3528;
+  --color-peach-300: #f0b083;
+  --color-blush-100: #2c2226;
+  --color-blush-200: #4a2e30;
+  --color-blush-300: #e89a9a;
+  --color-sky-100: #1f2530;
+  --color-sky-200: #2c3a52;
+  --color-sky-300: #8eb4e0;
+  --color-sand-100: #2a261d;
+  --color-sand-200: #4a3f24;
+  --color-sand-300: #d4b870;
+
+  /* — bold accents — brand stays loud on dark — */
+  --color-brand: #725acf;
+  --color-brand-strong: #9c89eb;
+  --color-brand-soft: #3b3354;
+  --color-brand-mist: #2a2438;
+
+  --color-positive: #4ec77e;
+  --color-positive-soft: #2e4a3d;
+  --color-positive-mist: #1f2a26;
+  --color-negative: #f06a60;
+  --color-negative-soft: #4a2e30;
+  --color-negative-mist: #2c2226;
+  --color-info: #5b94f0;
+  --color-info-soft: #2c3a52;
+  --color-info-mist: #1f2530;
+  --color-warning: #e6b853;
+  --color-warning-soft: #4a3f24;
+  --color-warning-mist: #2a261d;
+
+  /* — ink scale, inverted for dark —
+     ink-4 and ink-5 in the original inversion were too dim against the dark
+     canvas (sub-3:1 contrast); bumped a step lighter so secondary labels,
+     chart-axis ticks, and placeholders are actually readable.
+     Lines bumped from 0.08/0.14 → 0.12/0.20 — at 0.08 cards bleed into the
+     background; at 0.12 they read as cards. */
+  --color-ink: #f4f1ed;
+  --color-ink-2: #d6d1c8;
+  --color-ink-3: #a8a294;
+  --color-ink-4: #989183; /* bumped from #857f72 (3.95:1 on dark cards) → ~4.9:1 AA */
+  --color-ink-5: #5a554c;
+  --color-line: rgba(255, 255, 255, 0.12);
+  --color-line-strong: rgba(255, 255, 255, 0.20);
+  --color-line-glass: rgba(255, 255, 255, 0.10);
+  --color-glass: color-mix(in oklab, var(--color-paper) 72%, transparent);
+  --color-glass-strong: color-mix(in oklab, var(--color-paper-strong) 86%, transparent);
+  --color-panel-depth: color-mix(in oklab, var(--color-brand-mist) 36%, var(--color-paper));
+
+  /* CTA flips to brand purple — bg-ink in dark = cream which kills text-white. */
+  --color-cta: var(--color-brand);
+  --color-cta-hover: var(--color-brand-strong);
+  /* White still reads on brand-purple in dark Numa Classic. */
+  --color-cta-ink: #ffffff;
+
+  /* surface-inverse / on-inverse intentionally NOT redefined here — a "dark
+     viewfinder" surface must stay dark in dark mode too, so it inherits the
+     fixed base values above. */
+
+  /* Scrims go denser on the already-dark canvas so the backdrop still reads. */
+  --color-scrim: rgba(0, 0, 0, 0.62);
+  --color-scrim-strong: rgba(0, 0, 0, 0.84);
+
+  /* Tone inks lighten so they stay legible on dark tinted surfaces. */
+  --color-peach-ink: #f0b083;
+  --color-sand-ink: #e6b853;
+  --color-amber-ink: #f0b083;
+  --color-olive-ink: #e6b853;
+
+  --color-on-negative: #200c0a;
+
+  /* Coin palette is theme-independent (kept identical in dark). */
+
+  /* Member/segment accents → dark-tinted substitutes. */
+  --color-accent-1: #2e4a3d;
+  --color-accent-2: #4a3f24;
+  --color-accent-3: #3b3354;
+  --color-accent-4: #2c3a52;
+
+  /* — chart palette — brighter for dark legibility — */
+  --color-chart-1: #9c89eb;
+  --color-chart-2: #4ec77e;
+  --color-chart-3: #f0b083;
+  --color-chart-4: #5b94f0;
+  --color-chart-5: #e6b853;
+  --color-chart-6: #e89a9a;
+  --color-chart-7: #6db48a;
+  --color-chart-8: #b6a3e1;
+
+  /* — elevation — neutral black shadows on dark, not brand-tinted — */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32), 0 1px 1px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.34);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-premium:
+    0 30px 90px rgba(0, 0, 0, 0.54),
+    0 10px 28px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-glow: 0 18px 54px color-mix(in oklab, var(--color-brand) 22%, transparent);
+  --shadow-inner-line: inset 0 0 0 1px var(--color-line);
+}

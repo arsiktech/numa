@@ -1,0 +1,424 @@
+import { ConvexError, v } from "convex/values";
+import { mutation } from "../_generated/server";
+import { requireEditor } from "./access";
+import { assertAssetBalance, assertPositiveAmount, cleanRequired } from "./inputGuards";
+import type { Doc } from "../_generated/dataModel";
+import { withMutationReceipt } from "./mutationReceipts";
+import { withAiAuditConfirmation } from "./aiAudit";
+import {
+  applyTransactionChange,
+  assertTransactionMoney,
+  replayDeletedTransaction
+} from "./transactionFinance";
+import { assertCashAccountDefinitionChange, categoryBudgetCurrency } from "../money";
+import {
+  assertGoalRefs,
+  assetKindValidator,
+  categoryKindValidator,
+  currencyValidator,
+  goalScopeValidator,
+  holdingKindValidator,
+  liabilityKindValidator,
+  mobileTransactionAuditPayload,
+  txKindValidator
+} from "./mobileSupport";
+
+/**
+ * Native-app wealth record mutations (transactions, categories, assets,
+ * liabilities, holdings, goals). Grouped as a plain object so the public
+ * api.mobile.* paths stay in mobile.ts.
+ */
+
+const createTransaction = mutation({
+  args: {
+    portfolioId: v.id("portfolios"),
+    occurredAt: v.number(),
+    description: v.string(),
+    categoryId: v.optional(v.id("categories")),
+    accountId: v.optional(v.id("assets")),
+    kind: txKindValidator,
+    amount: v.number(),
+    currency: currencyValidator,
+    notes: v.optional(v.string()),
+    clientMutationId: v.optional(v.string()),
+    auditDraftId: v.optional(v.id("aiActionDrafts"))
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireEditor(ctx, args.portfolioId);
+    assertTransactionMoney(args);
+    const auditedPayload = mobileTransactionAuditPayload(args, userId);
+    return await withAiAuditConfirmation(
+      ctx,
+      {
+        userId,
+        portfolioId: args.portfolioId,
+        auditDraftId: args.auditDraftId,
+        clientMutationId: args.clientMutationId,
+        actionType: "transaction.create",
+        actualPayload: auditedPayload,
+        payloadKeys: [
+          "portfolioId",
+          "occurredAt",
+          "description",
+          "categoryId",
+          "accountId",
+          "kind",
+          "amount",
+          "currency",
+          "notes",
+          "createdByUserId"
+        ]
+      },
+      async () => await withMutationReceipt(
+        ctx,
+        userId,
+        args.clientMutationId,
+        "mobile.createTransaction",
+        async () => {
+          await applyTransactionChange(ctx, null, args);
+          const txId = await ctx.db.insert("transactions", auditedPayload);
+          return txId;
+        },
+        String(args.portfolioId)
+      )
+    );
+  }
+});
+
+const updateTransaction = mutation({
+  args: {
+    id: v.id("transactions"),
+    occurredAt: v.optional(v.number()),
+    description: v.optional(v.string()),
+    categoryId: v.optional(v.union(v.id("categories"), v.null())),
+    accountId: v.optional(v.union(v.id("assets"), v.null())),
+    kind: v.optional(txKindValidator),
+    amount: v.optional(v.number()),
+    currency: v.optional(currencyValidator),
+    notes: v.optional(v.union(v.string(), v.null())),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const before = await ctx.db.get(args.id);
+    if (!before) throw new ConvexError({ code: "NOT_FOUND", message: "Transaction not found" });
+    const { userId } = await requireEditor(ctx, before.portfolioId);
+    if (args.amount !== undefined) assertPositiveAmount(args.amount);
+    return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.updateTransaction", async () => {
+      const patch: Record<string, unknown> = {};
+      if (args.occurredAt !== undefined) patch.occurredAt = args.occurredAt;
+      if (args.description !== undefined) patch.description = cleanRequired(args.description, "Description");
+      if (args.categoryId !== undefined) patch.categoryId = args.categoryId ?? undefined;
+      if (args.accountId !== undefined) patch.accountId = args.accountId ?? undefined;
+      if (args.kind !== undefined) patch.kind = args.kind;
+      if (args.amount !== undefined) patch.amount = args.amount;
+      if (args.currency !== undefined) patch.currency = args.currency;
+      if (args.notes !== undefined) patch.notes = args.notes?.trim() || undefined;
+      const after = { ...before, ...patch } as Doc<"transactions">;
+      await applyTransactionChange(ctx, before, after);
+      await ctx.db.patch(args.id, patch);
+      return args.id;
+    }, String(before.portfolioId));
+  }
+});
+
+const deleteTransaction = mutation({
+  args: { id: v.id("transactions"), clientMutationId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.id);
+    if (!existing) return await replayDeletedTransaction(ctx, args.id, args.clientMutationId, "mobile.deleteTransaction");
+    const { userId } = await requireEditor(ctx, existing.portfolioId);
+    return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.deleteTransaction", async () => {
+      await applyTransactionChange(ctx, existing, null);
+      await ctx.db.delete(args.id);
+      return args.id;
+    }, String(existing.portfolioId));
+  }
+});
+
+const createCategory = mutation({
+  args: {
+    portfolioId: v.id("portfolios"),
+    name: v.string(),
+    kind: categoryKindValidator,
+    icon: v.optional(v.string()),
+    color: v.optional(v.string()),
+    monthlyLimit: v.optional(v.number()),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireEditor(ctx, args.portfolioId);
+    return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.createCategory", async () => {
+      if (args.monthlyLimit !== undefined && args.kind !== "expense") throw new Error("Monthly spending budgets require an expense category");
+      const monthlyLimitCurrency = await categoryBudgetCurrency(ctx, args.portfolioId, args.monthlyLimit);
+      const existing = await ctx.db
+        .query("categories")
+        .withIndex("by_portfolio", (q) => q.eq("portfolioId", args.portfolioId))
+        .collect();
+      return await ctx.db.insert("categories", {
+        portfolioId: args.portfolioId,
+        name: cleanRequired(args.name, "Name"),
+        kind: args.kind,
+        icon: args.icon?.trim() || "tag",
+        color: args.color?.trim() || "mint",
+        sortOrder: existing.length,
+        monthlyLimit: args.monthlyLimit,
+        monthlyLimitCurrency
+      });
+    });
+  }
+});
+
+const upsertAsset = mutation({
+  args: {
+    id: v.optional(v.id("assets")),
+    portfolioId: v.id("portfolios"),
+    name: v.string(),
+    kind: assetKindValidator,
+    balance: v.number(),
+    currency: currencyValidator,
+    notes: v.optional(v.string()),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireEditor(ctx, args.portfolioId);
+    return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertAsset", async () => {
+      if (args.id) {
+        const existing = await ctx.db.get(args.id);
+        if (!existing || String(existing.portfolioId) !== String(args.portfolioId)) {
+          throw new ConvexError({ code: "NOT_FOUND", message: "Asset not found" });
+        }
+        // Native upserts resend every field, including unchanged legacy money.
+        if (!Object.is(args.balance, existing.balance)) assertAssetBalance(args.balance);
+        await assertCashAccountDefinitionChange(ctx, existing, args);
+        await ctx.db.patch(args.id, {
+          name: cleanRequired(args.name, "Name"),
+          kind: args.kind,
+          balance: args.balance,
+          currency: args.currency,
+          notes: args.notes?.trim() || undefined,
+          updatedAt: Date.now()
+        });
+        return args.id;
+      }
+      assertAssetBalance(args.balance);
+      return await ctx.db.insert("assets", {
+        portfolioId: args.portfolioId,
+        name: cleanRequired(args.name, "Name"),
+        kind: args.kind,
+        balance: args.balance,
+        currency: args.currency,
+        notes: args.notes?.trim() || undefined,
+        updatedAt: Date.now()
+      });
+    }, args.portfolioId);
+  }
+});
+
+const deleteAsset = mutation({
+  args: {
+    id: v.id("assets"),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const asset = await ctx.db.get(args.id);
+    if (!asset) throw new ConvexError({ code: "NOT_FOUND", message: "Asset not found" });
+    const { userId } = await requireEditor(ctx, asset.portfolioId);
+    const receipt = await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.deleteAsset", async () => {
+      await assertCashAccountDefinitionChange(ctx, asset, null);
+      await ctx.db.delete(args.id);
+      return args.id;
+    }, asset.portfolioId);
+    if (String(receipt.id) !== String(args.id)) {
+      throw new ConvexError({ code: "DUPLICATE_CLIENT_MUTATION_ID", message: "Receipt belongs to a different record" });
+    }
+    return receipt;
+  }
+});
+
+const upsertLiability = mutation({
+  args: {
+    id: v.optional(v.id("liabilities")),
+    portfolioId: v.id("portfolios"),
+    name: v.string(),
+    kind: liabilityKindValidator,
+    balance: v.number(),
+    currency: currencyValidator,
+    interestRate: v.optional(v.number()),
+    dueDate: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireEditor(ctx, args.portfolioId);
+    return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertLiability", async () => {
+      const patch = {
+        name: cleanRequired(args.name, "Name"),
+        kind: args.kind,
+        balance: args.balance,
+        currency: args.currency,
+        interestRate: args.interestRate,
+        dueDate: args.dueDate,
+        notes: args.notes?.trim() || undefined,
+        updatedAt: Date.now()
+      };
+      if (args.id) {
+        const existing = await ctx.db.get(args.id);
+        if (!existing || String(existing.portfolioId) !== String(args.portfolioId)) {
+          throw new ConvexError({ code: "NOT_FOUND", message: "Liability not found" });
+        }
+        await ctx.db.patch(args.id, patch);
+        return args.id;
+      }
+      return await ctx.db.insert("liabilities", {
+        portfolioId: args.portfolioId,
+        ...patch
+      });
+    }, args.portfolioId);
+  }
+});
+
+const deleteLiability = mutation({
+  args: {
+    id: v.id("liabilities"),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const liability = await ctx.db.get(args.id);
+    if (!liability) throw new ConvexError({ code: "NOT_FOUND", message: "Liability not found" });
+    const { userId } = await requireEditor(ctx, liability.portfolioId);
+    const receipt = await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.deleteLiability", async () => {
+      await ctx.db.delete(args.id);
+      return args.id;
+    }, liability.portfolioId);
+    if (String(receipt.id) !== String(args.id)) {
+      throw new ConvexError({ code: "DUPLICATE_CLIENT_MUTATION_ID", message: "Receipt belongs to a different record" });
+    }
+    return receipt;
+  }
+});
+
+const upsertHolding = mutation({
+  args: {
+    id: v.optional(v.id("holdings")),
+    portfolioId: v.id("portfolios"),
+    symbol: v.string(),
+    name: v.string(),
+    kind: holdingKindValidator,
+    quantity: v.number(),
+    costBasis: v.number(),
+    currency: currencyValidator,
+    acquiredAt: v.number(),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireEditor(ctx, args.portfolioId);
+    assertPositiveAmount(args.quantity);
+    assertPositiveAmount(args.costBasis);
+    return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertHolding", async () => {
+      const patch = {
+        symbol: cleanRequired(args.symbol, "Symbol").toUpperCase(),
+        name: cleanRequired(args.name, "Name"),
+        kind: args.kind,
+        quantity: args.quantity,
+        costBasis: args.costBasis,
+        currency: args.currency,
+        acquiredAt: args.acquiredAt
+      };
+      if (args.id) {
+        const existing = await ctx.db.get(args.id);
+        if (!existing || String(existing.portfolioId) !== String(args.portfolioId)) {
+          throw new ConvexError({ code: "NOT_FOUND", message: "Holding not found" });
+        }
+        await ctx.db.patch(args.id, patch);
+        return args.id;
+      }
+      return await ctx.db.insert("holdings", {
+        portfolioId: args.portfolioId,
+        ...patch
+      });
+    }, args.portfolioId);
+  }
+});
+
+const deleteHolding = mutation({
+  args: {
+    id: v.id("holdings"),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const holding = await ctx.db.get(args.id);
+    if (!holding) throw new ConvexError({ code: "NOT_FOUND", message: "Holding not found" });
+    const { userId } = await requireEditor(ctx, holding.portfolioId);
+    const receipt = await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.deleteHolding", async () => {
+      await ctx.db.delete(args.id);
+      return args.id;
+    }, holding.portfolioId);
+    if (String(receipt.id) !== String(args.id)) {
+      throw new ConvexError({ code: "DUPLICATE_CLIENT_MUTATION_ID", message: "Receipt belongs to a different record" });
+    }
+    return receipt;
+  }
+});
+
+const upsertGoal = mutation({
+  args: {
+    id: v.optional(v.id("goals")),
+    portfolioId: v.id("portfolios"),
+    scope: goalScopeValidator,
+    target: v.number(),
+    currency: currencyValidator,
+    startAt: v.number(),
+    deadline: v.optional(v.number()),
+    label: v.optional(v.string()),
+    categoryId: v.optional(v.id("categories")),
+    assetId: v.optional(v.id("assets")),
+    holdingId: v.optional(v.id("holdings")),
+    createdAt: v.number(),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireEditor(ctx, args.portfolioId);
+    assertPositiveAmount(args.target);
+    await assertGoalRefs(ctx, args);
+
+    const patch = {
+      portfolioId: args.portfolioId,
+      scope: args.scope,
+      target: args.target,
+      currency: args.currency,
+      startAt: args.startAt,
+      deadline: args.deadline,
+      label: args.label?.trim() || undefined,
+      categoryId: args.scope === "income_category" ? args.categoryId : undefined,
+      assetId: args.scope === "asset_value" ? args.assetId : undefined,
+      holdingId: args.scope === "holding_value" ? args.holdingId : undefined,
+      createdAt: args.createdAt
+    };
+
+    return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertGoal", async () => {
+      if (args.id) {
+        const existing = await ctx.db.get(args.id);
+        if (!existing || String(existing.portfolioId) !== String(args.portfolioId)) {
+          throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
+        }
+        await ctx.db.patch(args.id, patch);
+        return args.id;
+      }
+      return await ctx.db.insert("goals", patch);
+    }, args.portfolioId);
+  }
+});
+
+export const mobileRecords = {
+  createTransaction,
+  updateTransaction,
+  deleteTransaction,
+  createCategory,
+  upsertAsset,
+  deleteAsset,
+  upsertLiability,
+  deleteLiability,
+  upsertHolding,
+  deleteHolding,
+  upsertGoal
+};

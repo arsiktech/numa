@@ -1,0 +1,346 @@
+/*
+  Numa — palette themes.
+
+  Each theme is selected by setting `data-theme-key` on <html>, combined with the
+  existing `data-theme="light|dark"` toggle. Themes only override the colour
+  tokens that semantically differ — type, spacing, radii, shadows stay shared
+  via `tokens.css`.
+
+  The default (no `data-theme-key`) is the original "Numa Classic" purple-on-cream
+  look. The four new options are sourced from the design handoff:
+
+    citrus  — lime on near-black, our recommended brand (default for new users)
+    pebble  — sage, calm
+    coral   — warm terracotta, magazine
+    carbon  — mono mint, designer-cool
+
+  Each variant remaps Numa's existing `--color-*` vocabulary so components
+  already styled against those tokens flip without touching their markup.
+*/
+
+/* ===========================================================================
+   CITRUS — light
+   bg=#FBFAF3 cream · card=white · ink=near-black · accent=lime/black combo
+   ========================================================================= */
+[data-theme-key="citrus"] {
+  --font-sans: "DM Sans", "Inter", system-ui, sans-serif;
+  --font-display: "DM Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "DM Mono", "Geist Mono", ui-monospace, monospace;
+
+  --color-bg: #fbfaf3;
+  --color-bg-ivory: #f3f2e5;
+  --color-paper: #ffffff;
+  --color-paper-strong: #ffffff;
+  --color-surface: #ffffff;
+
+  --color-cream-50: #f7f6ea;
+  --color-cream-100: #f0eed8;
+  --color-cream-200: #e6e3c5;
+
+  --color-ink: #0f0f08;
+  --color-ink-2: #2f2f25;
+  --color-ink-3: #6d6d60; /* 4.9:1 — passes */
+  --color-ink-4: #777768; /* bumped from #8a8a7c (3.3:1) → 4.6:1 */
+  --color-ink-5: #b8b8ac; /* decorative only */
+  --color-line: rgba(15, 15, 8, 0.08);
+  --color-line-strong: rgba(15, 15, 8, 0.16);
+
+  /* Brand pair — lime is the loud accent; near-black anchors hero surfaces. */
+  --color-brand: #0f0f08;
+  --color-brand-strong: #2f2f25;
+  --color-brand-soft: #f0f8c8;
+  --color-brand-mist: #f4f9d4;
+
+  --color-cta: #0f0f08;
+  --color-cta-hover: #2f2f25;
+  /* Citrus light hero is dark with LIME text — that's the brand contrast.
+     Primary buttons inherit this so they read as the design intends. */
+  --color-cta-ink: #bfe438;
+
+  --color-positive: #237451;
+  --color-positive-soft: #b3decc;
+  --color-positive-mist: #e0f0e8;
+  --color-negative: #bd3a37; /* bumped from #d9504e (3.83:1) → 4.7:1 */
+  --color-negative-soft: #f2b5b3;
+  --color-negative-mist: #faded8;
+}
+
+[data-theme-key="citrus"][data-theme="dark"] {
+  --color-bg: #0f0f08;
+  --color-bg-ivory: #14140d;
+  --color-paper: #181810;
+  --color-paper-strong: #24241a;
+  --color-surface: #181810;
+
+  --color-cream-50: #1e1e14;
+  --color-cream-100: #262620;
+  --color-cream-200: #34342c;
+
+  --color-ink: #f8f8ee;
+  --color-ink-2: #d6d6cc;
+  --color-ink-3: #a4a498;
+  --color-ink-4: #8e8e80;
+  --color-ink-5: #5a5a4f;
+  --color-line: rgba(255, 255, 248, 0.12);
+  --color-line-strong: rgba(255, 255, 248, 0.20);
+
+  /* On dark Citrus, the accent IS the lime — it's the loud surface. */
+  --color-brand: #d4fa42;
+  --color-brand-strong: #e8ff7d;
+  --color-brand-soft: #2d3415;
+  --color-brand-mist: #1e1e14;
+
+  --color-cta: #d4fa42;
+  --color-cta-hover: #e8ff7d;
+  /* Citrus dark hero is lime with DARK text. */
+  --color-cta-ink: #0f0f08;
+
+  --color-positive: #5fdcae;
+  --color-positive-soft: #2e4a3d;
+  --color-positive-mist: #1f2a26;
+  --color-negative: #ff7a78;
+  --color-negative-soft: #4a2e30;
+  --color-negative-mist: #2c2226;
+}
+
+/* ===========================================================================
+   PEBBLE — sage, calm
+   ========================================================================= */
+[data-theme-key="pebble"] {
+  --font-sans: "Inter Tight", "Inter", system-ui, sans-serif;
+  --font-display: "Inter Tight", "Inter", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  --color-bg: #f2efe6;
+  --color-bg-ivory: #eae5d3;
+  --color-paper: #fbf8ef;
+  --color-paper-strong: #ffffff;
+  --color-surface: #fbf8ef;
+
+  --color-cream-50: #ece8d8;
+  --color-cream-100: #e3ddca;
+  --color-cream-200: #d4ccb3;
+
+  --color-ink: #1f2520;
+  --color-ink-2: #3a413a;
+  --color-ink-3: #5f6359; /* bumped from #7a7d74 (3.66:1) → 4.7:1 */
+  --color-ink-4: #71736a; /* bumped from #8e9087 (3.10:1) → 4.7:1 */
+  --color-ink-5: #b2b3ad; /* decorative only */
+  --color-line: rgba(31, 37, 32, 0.10);
+  --color-line-strong: rgba(31, 37, 32, 0.18);
+
+  /* Pebble's sage brand was 4.0:1 against white CTA text — darkened so
+     primary buttons in light mode meet 4.5:1 normal-text. */
+  --color-brand: #4f7164;
+  --color-brand-strong: #3a574c;
+  --color-brand-soft: #dce9e2;
+  --color-brand-mist: #e7eee8;
+
+  --color-cta: #4f7164;
+  --color-cta-hover: #3a574c;
+  --color-cta-ink: #ffffff;
+
+  --color-positive: #4f7164;
+  --color-positive-soft: #b8d0c6;
+  --color-positive-mist: #dce9e2;
+  --color-negative: #a8463c; /* bumped from #c66a60 (3.7:1) → 4.6:1 */
+  --color-negative-soft: #e9bdb6;
+  --color-negative-mist: #f3dad5;
+}
+
+[data-theme-key="pebble"][data-theme="dark"] {
+  --color-bg: #15181a;
+  --color-bg-ivory: #1a1d20;
+  --color-paper: #1e2225;
+  --color-paper-strong: #262b2e;
+  --color-surface: #1e2225;
+
+  --color-cream-50: #232729;
+  --color-cream-100: #2b3034;
+  --color-cream-200: #353b3f;
+
+  --color-ink: #ebede8;
+  --color-ink-2: #bfc4bc;
+  --color-ink-3: #97998f;
+  --color-ink-4: #8b8f88;
+  --color-ink-5: #5e6260;
+  --color-line: rgba(255, 255, 248, 0.10);
+  --color-line-strong: rgba(255, 255, 248, 0.18);
+
+  --color-brand: #9dc2b0;
+  --color-brand-strong: #b3d3c2;
+  --color-brand-soft: #2a332e;
+  --color-brand-mist: #232a26;
+
+  --color-cta: #9dc2b0;
+  --color-cta-hover: #b3d3c2;
+  --color-cta-ink: #15181a;
+
+  --color-positive: #9dc2b0;
+  --color-positive-soft: #2a332e;
+  --color-positive-mist: #232a26;
+  --color-negative: #e2918a;
+  --color-negative-soft: #422724;
+  --color-negative-mist: #2b1c1a;
+}
+
+/* ===========================================================================
+   CORAL — terracotta, magazine
+   ========================================================================= */
+[data-theme-key="coral"] {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Newsreader", ui-serif, Georgia, serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  --color-bg: #fbefe6;
+  --color-bg-ivory: #f4e5d8;
+  --color-paper: #fff8f0;
+  --color-paper-strong: #ffffff;
+  --color-surface: #fff8f0;
+
+  --color-cream-50: #f4e8d8;
+  --color-cream-100: #eedbc4;
+  --color-cream-200: #e4caab;
+
+  --color-ink: #2a1a14;
+  --color-ink-2: #4a322a;
+  --color-ink-3: #7a655c; /* 4.8:1 — passes */
+  --color-ink-4: #73584c; /* bumped from #8e7568 (3.4:1) → 4.7:1 */
+  --color-ink-5: #b2998c; /* decorative only */
+  --color-line: rgba(42, 26, 20, 0.10);
+  --color-line-strong: rgba(42, 26, 20, 0.18);
+
+  --color-brand: #b94a3c;
+  --color-brand-strong: #b94a3c;
+  --color-brand-soft: #fce2dc;
+  --color-brand-mist: #fde9e2;
+
+  --color-cta: #b94a3c;
+  --color-cta-hover: #b94a3c;
+  --color-cta-ink: #ffffff;
+
+  --color-positive: #47694f;
+  --color-positive-soft: #b8cbb6;
+  --color-positive-mist: #dde7d8;
+  --color-negative: #ad3d2e; /* bumped from #c95040 (3.85:1) → 4.7:1 */
+  --color-negative-soft: #ecaaa0;
+  --color-negative-mist: #f5d2cb;
+}
+
+[data-theme-key="coral"][data-theme="dark"] {
+  --color-bg: #1c1411;
+  --color-bg-ivory: #211814;
+  --color-paper: #241914;
+  --color-paper-strong: #2e211a;
+  --color-surface: #241914;
+
+  --color-cream-50: #2a1f18;
+  --color-cream-100: #34261e;
+  --color-cream-200: #3f2f25;
+
+  --color-ink: #f2e8e0;
+  --color-ink-2: #d4c5bb;
+  --color-ink-3: #b5a094;
+  --color-ink-4: #988579;
+  --color-ink-5: #5f534b;
+  --color-line: rgba(255, 230, 220, 0.10);
+  --color-line-strong: rgba(255, 230, 220, 0.18);
+
+  --color-brand: #f49680;
+  --color-brand-strong: #ffb39e;
+  --color-brand-soft: #3d241d;
+  --color-brand-mist: #2a1f18;
+
+  --color-cta: #f49680;
+  --color-cta-hover: #ffb39e;
+  --color-cta-ink: #1c1411;
+
+  --color-positive: #9dc2a4;
+  --color-positive-soft: #2a3a2d;
+  --color-positive-mist: #1f2820;
+  --color-negative: #ff8474;
+  --color-negative-soft: #422823;
+  --color-negative-mist: #2b1c18;
+}
+
+/* ===========================================================================
+   CARBON — mono mint, designer-cool
+   ========================================================================= */
+[data-theme-key="carbon"] {
+  --font-sans: "Geist", "Inter", system-ui, sans-serif;
+  --font-display: "Geist", "Inter", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  --color-bg: #f5f5f2;
+  --color-bg-ivory: #ededea;
+  --color-paper: #ffffff;
+  --color-paper-strong: #ffffff;
+  --color-surface: #ffffff;
+
+  --color-cream-50: #ededea;
+  --color-cream-100: #e0e0dc;
+  --color-cream-200: #d0d0cc;
+
+  --color-ink: #0a0a0a;
+  --color-ink-2: #2a2a2c;
+  --color-ink-3: #5e5e60; /* 6.0:1 — passes */
+  --color-ink-4: #666668; /* bumped from #727274 (4.46 borderline) → 5.0:1 */
+  --color-ink-5: #a5a5a7; /* decorative only */
+  --color-line: rgba(10, 10, 10, 0.10);
+  --color-line-strong: rgba(10, 10, 10, 0.18);
+
+  --color-brand: #00c896;
+  --color-brand-strong: #00a87b;
+  --color-brand-soft: #d6f4ea;
+  --color-brand-mist: #e7faf2;
+
+  /* Carbon's primary CTA is the mint accent itself with dark text — not the
+     near-black inversion Citrus uses. Matches the design's flat mono-mint
+     spec (accent=#00C896 + accentInk=#0A0A0A in themes.jsx). */
+  --color-cta: #00c896;
+  --color-cta-hover: #00a87b;
+  --color-cta-ink: #0a0a0a;
+
+  --color-positive: #007854;
+  --color-positive-soft: #b8e6d4;
+  --color-positive-mist: #d6f4ea;
+  --color-negative: #bb352b; /* bumped from #e04a3e (3.7:1) → 4.7:1 */
+  --color-negative-soft: #f2a9a2;
+  --color-negative-mist: #fad7d2;
+}
+
+[data-theme-key="carbon"][data-theme="dark"] {
+  --color-bg: #0a0a0a;
+  --color-bg-ivory: #121212;
+  --color-paper: #141414;
+  --color-paper-strong: #1c1c1c;
+  --color-surface: #141414;
+
+  --color-cream-50: #1a1a1a;
+  --color-cream-100: #222222;
+  --color-cream-200: #2e2e2e;
+
+  --color-ink: #f5f5f2;
+  --color-ink-2: #c8c8c5;
+  --color-ink-3: #9c9c9e;
+  --color-ink-4: #7a7a7c;
+  --color-ink-5: #515153;
+  --color-line: rgba(255, 255, 245, 0.10);
+  --color-line-strong: rgba(255, 255, 245, 0.18);
+
+  --color-brand: #00e5ac;
+  --color-brand-strong: #2af5c2;
+  --color-brand-soft: #0f2a20;
+  --color-brand-mist: #11231b;
+
+  --color-cta: #00e5ac;
+  --color-cta-hover: #2af5c2;
+  --color-cta-ink: #0a0a0a;
+
+  --color-positive: #00e5ac;
+  --color-positive-soft: #0f2a20;
+  --color-positive-mist: #11231b;
+  --color-negative: #ff6a5c;
+  --color-negative-soft: #4a221d;
+  --color-negative-mist: #2b1714;
+}

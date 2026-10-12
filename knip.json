@@ -1,0 +1,36 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/routes/**/page.tsx",
+    "convex/*.ts",
+    "convex/lib/*.ts",
+    "api/**/*.ts",
+    "scripts/*.mjs",
+    "tests/**/*.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "convex/**/*.ts",
+    "api/**/*.ts"
+  ],
+  "ignore": [
+    "convex/_generated/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "src/test/**",
+    "ios/**"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "includeEntryExports": false,
+  "rules": {
+    "files": "warn",
+    "exports": "warn",
+    "types": "warn",
+    "duplicates": "warn",
+    "dependencies": "off",
+    "unlisted": "off",
+    "binaries": "off"
+  }
+}
