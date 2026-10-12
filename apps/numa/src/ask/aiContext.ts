@@ -1,5 +1,6 @@
 import { formatMoney } from '@/domain/money';
 import type { AnswerData } from './answer';
+import type { Point } from '@/data/series';
 import type { AskContext } from './parse';
 
 const LIMIT = 12_000;
@@ -9,7 +10,7 @@ const day = (at: number) => new Date(at).toISOString().slice(0, 10);
  * The short summary of the person's own numbers that goes to Claude with a question that the
  * device couldn't answer. Names and amounts only: no email, no ids, no transaction history.
  */
-export function aiContext(ctx: AskContext, a: AnswerData): string {
+export function aiContext(ctx: AskContext, a: AnswerData, history: Point[] = []): string {
   const m = (cents: number, currency = a.currency) => formatMoney(cents, currency);
   const major = (amount: number, currency: AskContext['currency']) => formatMoney(Math.round(amount * 100), currency);
   const s = a.summary;
@@ -28,6 +29,9 @@ export function aiContext(ctx: AskContext, a: AnswerData): string {
   lines.push(`This month (${a.month.month}): in ${m(f.inCents)}, out ${m(f.outCents)}, kept ${m(f.keptCents)}.`);
   if (a.month.incoming.length) lines.push(`Came in from: ${a.month.incoming.slice(0, 10).map((l) => `${l.label} ${m(l.cents)}`).join(', ')}.`);
   if (a.month.outgoing.length) lines.push(`Went to: ${a.month.outgoing.slice(0, 12).map((l) => `${l.label} ${m(l.cents)}`).join(', ')}.`);
+  // Recorded net-worth points (oldest first), so trends and "what changed" can be answered.
+  const past = history.slice(-12);
+  if (past.length) lines.push('Net worth over time:', ...past.map((p) => `- ${day(p.t)}: ${m(p.cents)}${p.parts ? ` (owned ${m(p.parts.liquidCents + p.parts.investedCents + p.parts.hardCents)}, owed ${m(p.parts.oweCents)})` : ''}`));
   const cats = (kind: 'expense' | 'income') => ctx.categories.filter((c) => c.kind === kind).map((c) => c.name);
   if (ctx.categories.length) lines.push(`Spending categories: ${cats('expense').join(', ') || 'none'}. Income categories: ${cats('income').join(', ') || 'none'}.`);
   const text = lines.join('\n');

@@ -1,13 +1,15 @@
 import { createElement, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 
-import { bindUndo, plan, type Op } from '@/ask/plan';
+import { bindUndo, CREATED, plan, type Op } from '@/ask/plan';
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
 import { useWriter } from '@/data/writes';
 import { formatMoney } from '@/domain/money';
 import { parseTable } from '@/sources/csv';
 import { previewImport, type ImportRow } from '@/sources/importRows';
+import { isWealthLog, readWealthLog, todayFromLatest, type LogRow } from '@/sources/wealthLog';
+import { shortDay } from '@/domain/freshness';
 import { useTheme } from '@/theme/theme';
 import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
@@ -15,13 +17,13 @@ import { Txt } from '@/ui/Txt';
 
 const KIND_WORDS = { transactions: 'transactions', balances: 'accounts and debts', holdings: 'holdings' } as const;
 
-function describe(r: ImportRow): { title: string; amount: string } {
+function describe(r: Pick<ImportRow, 'draft'>): { title: string; amount: string } {
   const d = r.draft!;
   const m = (cents: number) => formatMoney(cents, d.currency, { cents: cents % 100 !== 0 });
   switch (d.type) {
     case 'transaction': return { title: d.description, amount: (d.kind === 'income' ? '+' : '−') + m(d.amountCents) };
     case 'asset': return { title: `${d.name}${d.existing ? ' (update)' : ''}`, amount: m(d.amountCents) };
-    case 'debt': return { title: `${d.name}${d.existing ? ' (update)' : ''} · owed`, amount: m(d.amountCents) };
+    case 'debt': return { title: `${d.name}${d.existing ? ' (update)' : ''}${/\b(owed|borrowed)$/i.test(d.name) ? '' : ' · owed'}`, amount: m(d.amountCents) };
     case 'holding': return { title: `${d.quantity} ${d.symbol}${d.existing ? ' (update)' : ''}`, amount: d.priceCents === null ? 'cost kept' : m(Math.round(d.priceCents * d.quantity)) };
   }
 }
@@ -41,33 +43,70 @@ function Importer() {
   const [result, setResult] = useState<{ imported: number; failed: number[]; undo: Op[] } | null>(null);
   const [undone, setUndone] = useState(false);
 
-  const preview = useMemo(() => {
-    if (cloud.status !== 'ready' || !text.trim()) return null;
+  const table = useMemo(() => (text.trim() ? parseTable(text) : []), [text]);
+  const log = useMemo(() => {
+    if (cloud.status !== 'ready' || !isWealthLog(table)) return null;
+    const read = readWealthLog(table, { currency: cloud.data.currency, existingDays: cloud.snapshot.wealthSnapshots.map((w) => w.takenAt) });
     const s = cloud.snapshot;
-    return previewImport(parseTable(text), { currency: cloud.data.currency, now: new Date(cloud.now), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings, existingTx: s.transactions });
-  }, [cloud, text]);
+    return { ...read, today: read.latest ? todayFromLatest(read.latest, { currency: cloud.data.currency, assets: s.assets, liabilities: s.liabilities }) : null };
+  }, [cloud, table]);
+  const preview = useMemo(() => {
+    if (cloud.status !== 'ready' || !table.length || log) return null;
+    const s = cloud.snapshot;
+    return previewImport(table, { currency: cloud.data.currency, now: new Date(cloud.now), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings, existingTx: s.transactions });
+  }, [cloud, table, log]);
   if (cloud.status !== 'ready') return <Screen><ActivityIndicator style={{ marginTop: 60 }} accessibilityLabel="Loading" /></Screen>;
 
   const ready = preview?.rows.filter((r) => r.draft && !r.problem && !r.duplicate) ?? [];
   const dupes = preview?.rows.filter((r) => r.duplicate).length ?? 0;
   const bad = preview?.rows.filter((r) => !r.draft || r.problem) ?? [];
 
-  async function importAll() {
-    if (cloud.status !== 'ready') return;
-    setBusy({ done: 0, total: ready.length });
+  /** Runs each planned write with its own receipt, collecting what Undo needs. */
+  async function runAll(items: { line: number; apply: Op; undo: Op }[], failedBefore: number[] = [], clear = true) {
+    setBusy({ done: 0, total: items.length });
     const undo: Op[] = [];
-    const failed: number[] = [];
-    for (const [i, r] of ready.entries()) {
-      const p = plan(r.draft!, cloud.portfolioId, cloud.fx, Date.now());
-      if ('error' in p) { failed.push(r.line); continue; }
-      try { const id = await run(p.apply); undo.push(bindUndo(p.undo, id)); }
-      catch { failed.push(r.line); }
-      setBusy({ done: i + 1, total: ready.length });
+    const failed = [...failedBefore];
+    for (const [i, it] of items.entries()) {
+      try { const id = await run(it.apply); undo.push(bindUndo(it.undo, id)); }
+      catch { failed.push(it.line); }
+      setBusy({ done: i + 1, total: items.length });
     }
     setBusy(null);
     setResult({ imported: undo.length, failed, undo });
-    setText('');
+    if (clear) setText('');
     toast({ text: `Imported ${undo.length}`, action: { label: 'Undo', onPress: () => undoAll(undo) } });
+  }
+
+  async function importAll() {
+    if (cloud.status !== 'ready') return;
+    const items: { line: number; apply: Op; undo: Op }[] = [];
+    const failed: number[] = [];
+    for (const r of ready) {
+      const p = plan(r.draft!, cloud.portfolioId, cloud.fx, Date.now());
+      if ('error' in p) failed.push(r.line); else items.push({ line: r.line, ...p });
+    }
+    await runAll(items, failed);
+  }
+
+  async function importHistory(rows: LogRow[]) {
+    if (cloud.status !== 'ready') return;
+    const portfolioId = cloud.portfolioId;
+    const major = (cents: number) => cents / 100;
+    await runAll(rows.map((r) => ({
+      line: r.line,
+      apply: { fn: 'addSnapshot', args: { portfolioId, takenAt: r.takenAt!, netWorth: major(r.netCents), liquid: major(r.liquidCents), invested: major(r.investedCents), hardAssets: major(r.hardCents), liabilities: major(r.oweCents), currency: r.currency, label: 'Wealth log', isAuto: false } },
+      undo: { fn: 'removeSnapshot', args: { id: CREATED } },
+    })), [], false);
+  }
+
+  async function setUpToday(drafts: NonNullable<NonNullable<typeof log>['today']>['drafts']) {
+    if (cloud.status !== 'ready') return;
+    const items: { line: number; apply: Op; undo: Op }[] = [];
+    drafts.forEach((d, i) => {
+      const p = plan(d, cloud.portfolioId, cloud.fx, Date.now());
+      if (!('error' in p)) items.push({ line: i + 1, ...p });
+    });
+    await runAll(items);
   }
 
   async function undoAll(ops: Op[]) {
@@ -89,6 +128,8 @@ function Importer() {
         style: { marginTop: 10, color: c.ink2, fontFamily: 'Manrope_500Medium' },
         onChange: (e: { target: { files?: FileList | null } }) => { const f = e.target.files?.[0]; if (f) void f.text().then((t) => { setText(t); setResult(null); setUndone(false); }); },
       })}
+
+      {log && <WealthLogPreview log={log} now={cloud.now} busy={busy} onHistory={importHistory} onToday={setUpToday} />}
 
       {preview && !preview.kind && <Txt v="body" style={{ color: c.warn, marginTop: 14 }}>Numa can’t tell what this table is. Include the header row, with columns like Date, Description and Amount, or Name and Value, or Symbol and Quantity.</Txt>}
 
@@ -130,5 +171,69 @@ function Importer() {
         </View>
       )}
     </Screen>
+  );
+}
+
+type LogView = ReturnType<typeof readWealthLog> & { today: ReturnType<typeof todayFromLatest> | null };
+
+/** A dated wealth log: its history as net-worth points, and today's accounts and debts from the latest row. */
+function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView; now: number; busy: { done: number; total: number } | null; onHistory: (rows: LogRow[]) => void; onToday: (drafts: NonNullable<LogView['today']>['drafts']) => void }) {
+  const { c } = useTheme();
+  const ready = log.rows.filter((r) => !r.problem && !r.duplicate);
+  const dupes = log.rows.filter((r) => r.duplicate).length;
+  const bad = log.rows.filter((r) => r.problem);
+  const m = (cents: number, cur: LogRow['currency']) => formatMoney(cents, cur);
+  const first = ready[0]?.takenAt, last = ready[ready.length - 1]?.takenAt;
+  const button = (label: string, onPress: () => void, disabled: boolean) => (
+    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" aria-disabled={disabled} aria-busy={!!busy}
+      style={{ marginTop: 16, minHeight: 48, paddingHorizontal: 22, borderRadius: 999, alignSelf: 'flex-start', backgroundColor: c.ink, justifyContent: 'center', opacity: disabled ? 0.4 : 1 }}>
+      <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>{busy ? `Importing ${busy.done} of ${busy.total}…` : label}</Txt>
+    </Pressable>
+  );
+  return (
+    <View style={{ marginTop: 18 }}>
+      <Txt v="section">Net-worth history · {ready.length} {ready.length === 1 ? 'date' : 'dates'}</Txt>
+      <Txt v="body" c="ink2" style={{ marginTop: 2 }}>
+        {first && last ? `From ${shortDay(first, now)} to ${shortDay(last, now)}. Each date becomes a point on your chart, with what you owned and owed kept apart.` : 'No dates can be read yet.'}
+        {dupes ? ` ${dupes} already in Numa, skipped.` : ''}
+      </Txt>
+      {bad.slice(0, 5).map((r) => <Txt key={r.line} v="small" c="warn" style={{ marginTop: 2 }}>Row {r.line}: {r.problem}</Txt>)}
+      <View style={{ marginTop: 10 }}>
+        {ready.map((r, i) => (
+          <View key={r.line} style={{ minHeight: 48, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === ready.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
+            <View style={{ flex: 1 }}>
+              <Txt v="body">{shortDay(r.takenAt!, now)}</Txt>
+              <Txt v="small" c="ink3">own {m(r.liquidCents + r.investedCents + r.hardCents, r.currency)} · owe {m(r.oweCents, r.currency)}</Txt>
+            </View>
+            <Txt v="figureSm" style={{ fontSize: 14 }}>{m(r.netCents, r.currency)}</Txt>
+          </View>
+        ))}
+      </View>
+      {button(`Import ${ready.length} ${ready.length === 1 ? 'date' : 'dates'}`, () => onHistory(ready), !ready.length || !!busy)}
+
+      {log.today && log.latest && (
+        <View style={{ marginTop: 28 }}>
+          <Txt v="section">Today, from {shortDay(log.latest.takenAt, now)}</Txt>
+          <Txt v="body" c="ink2" style={{ marginTop: 2 }}>Sets up your accounts and debts from the latest row, so Home and Ask start from your real numbers. Negative values become debts.</Txt>
+          <View style={{ marginTop: 10 }}>
+            {log.today.drafts.map((d, i) => {
+              const x = describe({ draft: d });
+              return (
+                <View key={`${d.type}-${d.name}`} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === log.today!.drafts.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
+                  <Txt v="body" numberOfLines={1} style={{ flex: 1 }}>{x.title}</Txt>
+                  <Txt v="figureSm" style={{ fontSize: 14 }}>{x.amount}</Txt>
+                </View>
+              );
+            })}
+          </View>
+          {log.today.needQuantity.length > 0 && (
+            <Txt v="small" c="ink2" style={{ marginTop: 10 }}>
+              Not set up yet, because they need how many you hold so their value follows the price: {log.today.needQuantity.map((p) => `${p.name} ${formatMoney(p.cents, log.rows[0]?.currency ?? 'EUR')}`).join(', ')}. Add them in Ask, like “I own 0.5 BTC”, or track a wallet in Settings.
+            </Txt>
+          )}
+          {button(`Set up ${log.today.drafts.length} ${log.today.drafts.length === 1 ? 'entry' : 'entries'}`, () => onToday(log.today!.drafts), !log.today.drafts.length || !!busy)}
+        </View>
+      )}
+    </View>
   );
 }
