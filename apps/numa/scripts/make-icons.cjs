@@ -7,6 +7,7 @@ const ROOT = path.resolve(__dirname, '../../..');
 const { chromium } = require('module').createRequire(path.join(ROOT, 'package.json'))('playwright');
 
 const OUT = path.join(__dirname, '../assets/images');
+const PUBLIC = path.join(__dirname, '../public');
 const FONT = path.join(__dirname, '../node_modules/@expo-google-fonts/manrope/800ExtraBold/Manrope_800ExtraBold.ttf');
 const OIL = ['#FF5FA2', '#9B6BFF', '#4CC9F0', '#5EF2B5', '#F4E46A', '#FF9A62'];
 const oil = `linear-gradient(115deg, ${OIL.join(', ')})`;
@@ -32,6 +33,7 @@ const jobs = [
   { file: 'android-icon-monochrome.png', size: 432, bg: 'transparent', ink: '#FFFFFF', glyph: 0.4, chip: false },
   { file: 'favicon.png', size: 48, bg: '#000000', ink: '#F4F4F1', glyph: 0.7, chip: true },
   { file: 'splash-icon.png', size: 600, bg: 'transparent', ink: '#F4F4F1', word: true },
+  { file: 'apple-touch-icon.png', dir: PUBLIC, size: 180, bg: '#000000', ink: '#F4F4F1', glyph: 0.62, chip: true },
 ];
 
 (async () => {
@@ -40,7 +42,7 @@ const jobs = [
     const p = await browser.newPage({ viewport: { width: job.size, height: job.word ? Math.round(job.size * 0.42) : job.size } });
     await p.setContent(job.glyph === 0 ? page({ ...job, glyph: 0.01 }).replace('>n<', '><') : page(job));
     await p.evaluate(() => document.fonts.ready);
-    await p.screenshot({ path: path.join(OUT, job.file), omitBackground: job.bg === 'transparent' });
+    await p.screenshot({ path: path.join(job.dir ?? OUT, job.file), omitBackground: job.bg === 'transparent' });
     await p.close();
     console.log('wrote', job.file);
   }
