@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { sha256Hex, verifyAppleIdentityToken, type AppleJwk } from "./lib/appleIdentity";
 import { allowedRedirect } from "./lib/authRedirect";
