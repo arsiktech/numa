@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { CloudProvider } from '@/cloud/CloudProvider';
 import { useSession } from '@/cloud/session';
+import { CloudDataProvider } from '@/data/cloud';
 import { PrefsProvider } from '@/state/prefs';
 import { ThemeProvider, useTheme } from '@/theme/theme';
 
@@ -20,19 +21,22 @@ function Root() {
   useEffect(() => { if (!loading) SplashScreen.hide(); }, [loading]);
   if (loading) return null;
   const inside = session.kind !== 'signedOut';
+  const stack = (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
+      <Stack.Protected guard={inside}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="settings" />
+      </Stack.Protected>
+      <Stack.Protected guard={!inside}>
+        <Stack.Screen name="sign-in" />
+      </Stack.Protected>
+    </Stack>
+  );
   return (
     <>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
-        <Stack.Protected guard={inside}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="settings" />
-        </Stack.Protected>
-        <Stack.Protected guard={!inside}>
-          <Stack.Screen name="sign-in" />
-        </Stack.Protected>
-      </Stack>
+      {session.kind === 'signedIn' ? <CloudDataProvider>{stack}</CloudDataProvider> : stack}
     </>
   );
 }

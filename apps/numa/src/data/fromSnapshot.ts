@@ -17,6 +17,8 @@ export type HomeData = {
 };
 
 const DAY = 86_400_000;
+/** Records stamped slightly after the screen's clock (it refreshes each minute; devices drift) still count as now. */
+const CLOCK_SLACK = 3_600_000;
 const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const shortMonths = months.map((m) => m.slice(0, 3));
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -66,7 +68,7 @@ function monthOf(s: CloudSnapshot, currency: Currency, fx: FxRate | null, now: D
   const names = new Map(s.categories.map((c) => [c.id, c.name]));
   const groups = { income: new Map<string, number>(), expense: new Map<string, number>() };
   for (const tx of s.transactions) {
-    if (tx.occurredAt < start || tx.occurredAt > now.getTime()) continue;
+    if (tx.occurredAt < start || tx.occurredAt > now.getTime() + CLOCK_SLACK) continue;
     const cents = convertCents(Math.abs(tx.amountMinor), tx.currency, currency, fx);
     if (cents === null) { unconverted.push(tx.description); continue; }
     const label = (tx.categoryId && names.get(tx.categoryId)) || tx.description || (tx.kind === 'income' ? 'Income' : 'Spending');
@@ -116,7 +118,7 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
 
   const history = s.wealthSnapshots
     .map((w) => ({ t: w.takenAt, cents: convertCents(Math.round(w.netWorth * 100), w.currency, currency, fx) }))
-    .filter((p): p is { t: number; cents: number } => p.cents !== null && p.t <= nowMs)
+    .filter((p): p is { t: number; cents: number } => p.cents !== null && p.t <= nowMs + CLOCK_SLACK)
     .sort((a, b) => a.t - b.t);
 
   const month = monthOf(s, currency, fx, now, unconverted);

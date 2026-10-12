@@ -10,7 +10,7 @@ const fx = { usdPerEur: 1.25, asOf: '2026-10-11' };
 function snapshot(over: Partial<CloudSnapshot> = {}): CloudSnapshot {
   return {
     portfolio: { id: 'p1', name: 'Personal', defaultCurrency: 'EUR' },
-    categories: [{ id: 'c-rent', name: 'Rent' }],
+    categories: [{ id: 'c-rent', name: 'Rent', kind: 'expense' }],
     transactions: [],
     assets: [],
     liabilities: [],
@@ -21,7 +21,7 @@ function snapshot(over: Partial<CloudSnapshot> = {}): CloudSnapshot {
 }
 
 const quoted = {
-  id: 'h1', symbol: 'VOO', name: 'Vanguard S&P 500', kind: 'etf' as const, quantity: 10, costBasis: 3000, currency: 'USD' as const,
+  id: 'h1', acquiredAt: 0, symbol: 'VOO', name: 'Vanguard S&P 500', kind: 'etf' as const, quantity: 10, costBasis: 3000, currency: 'USD' as const,
   marketPrice: 500, changePercent: 1, quoteProvider: 'finnhub' as const, quoteUpdatedAt: now.getTime() - 60_000, quoteStale: false,
 };
 
@@ -123,6 +123,11 @@ describe('fromSnapshot', () => {
       incoming: [{ id: 'Client A', label: 'Client A', cents: 500_000 }],
       outgoing: [{ id: 'Rent', label: 'Rent', cents: 120_000 }],
     });
+  });
+
+  it('counts a transaction saved moments after the screen clock', () => {
+    const transactions = [{ id: 't1', occurredAt: now.getTime() + 45_000, description: 'Coffee', categoryId: null, kind: 'expense' as const, amountMinor: 450, currency: 'EUR' as const }];
+    expect(fromSnapshot(snapshot({ transactions }), fx, now).month.outgoing).toEqual([{ id: 'Coffee', label: 'Coffee', cents: 450 }]);
   });
 
   it('orders saved net-worth points and converts them', () => {

@@ -38,6 +38,7 @@ export type CloudLiability = {
 
 export type CloudHolding = {
   id: string;
+  acquiredAt: number;
   symbol: string;
   name: string;
   kind: 'stock' | 'etf' | 'crypto' | 'index';
@@ -64,7 +65,7 @@ export type CloudTransaction = {
   currency: CloudCurrency;
 };
 
-export type CloudCategory = { id: string; name: string };
+export type CloudCategory = { id: string; name: string; kind: 'income' | 'expense' };
 
 export type CloudWealthSnapshot = { takenAt: number; netWorth: number; currency: CloudCurrency };
 
@@ -84,6 +85,9 @@ export type CloudBootstrap = {
   selectedPortfolioId: string | null;
 };
 
+type Receipt = { id: string; replayed: boolean };
+type WithReceipt<T> = T & { clientMutationId: string };
+
 export const cloud = {
   bootstrap: makeFunctionReference<'mutation', Record<string, never>, CloudBootstrap>('mobile:bootstrap'),
   portfolioSnapshot: makeFunctionReference<'query', { portfolioId: string }, CloudSnapshot>('mobile:portfolioSnapshot'),
@@ -92,4 +96,13 @@ export const cloud = {
     { name: string; type: 'personal'; tagline: string; defaultCurrency: CloudCurrency; seedDefaults: boolean; clientMutationId: string },
     { id: string; replayed: boolean }
   >('portfolios:create'),
+  // Writes from Ask. Each carries a clientMutationId, so a retried request never saves twice.
+  createTransaction: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; occurredAt: number; description: string; categoryId?: string; kind: 'income' | 'expense'; amount: number; currency: CloudCurrency }>, Receipt>('mobile:createTransaction'),
+  deleteTransaction: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteTransaction'),
+  upsertAsset: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudAsset['kind']; balance: number; currency: CloudCurrency }>, Receipt>('mobile:upsertAsset'),
+  deleteAsset: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteAsset'),
+  upsertLiability: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudLiability['kind']; balance: number; currency: CloudCurrency; dueDate?: number }>, Receipt>('mobile:upsertLiability'),
+  deleteLiability: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteLiability'),
+  upsertHolding: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; symbol: string; name: string; kind: CloudHolding['kind']; quantity: number; costBasis: number; currency: CloudCurrency; acquiredAt: number }>, Receipt>('mobile:upsertHolding'),
+  deleteHolding: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteHolding'),
 };
