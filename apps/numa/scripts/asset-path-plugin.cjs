@@ -6,7 +6,7 @@
 // so they stay in step. The dev server uses ?unstable_path= and is untouched.
 module.exports = function assetPathPlugin(asset) {
   if (asset.httpServerLocation.includes('?export_path=')) {
-    asset.httpServerLocation = asset.httpServerLocation.replace(/(^|\/|=)node_modules\//g, '$1vendor/');
+    asset.httpServerLocation = asset.httpServerLocation.replace(/(^|\/|=)node_modules\/@?/g, '$1vendor/');
   }
   return asset;
 };
