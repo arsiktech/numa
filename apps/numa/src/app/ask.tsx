@@ -114,10 +114,10 @@ function AskView({ source }: { source: AskSource }) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={{ flex: 1, width: '100%', maxWidth: 720, alignSelf: 'center', paddingTop: insets.top + 12 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20 }}>
-          <Txt v="title" accessibilityRole="header">Ask or add</Txt>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingHorizontal: 20 }}>
+          <Txt v="title" accessibilityRole="header" style={{ flexShrink: 1 }}>Ask or add</Txt>
           <Pressable onPress={close} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 }}>
-            <Txt v="cardTitle" c="ink2">Close</Txt>
+            <Txt v="cardTitle" c="ink2" maxFontSizeMultiplier={1.4}>Close</Txt>
           </Pressable>
         </View>
 
