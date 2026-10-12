@@ -73,6 +73,7 @@ export default function Settings() {
         {session.kind === 'signedIn' ? (
           <>
             <Row title="Signed in" detail="Your data lives in your Numa account and syncs across devices." />
+            <Action label="Import from a sheet or CSV" onPress={() => router.push('/import')} />
             <SignOut />
           </>
         ) : (

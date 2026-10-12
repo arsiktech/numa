@@ -32,6 +32,7 @@ function Root() {
         <Stack.Screen name="holdings/[group]" />
         <Stack.Screen name="item/[type]/[id]" />
         <Stack.Screen name="tx/[id]" />
+        <Stack.Screen name="import" />
       </Stack.Protected>
       <Stack.Protected guard={!inside}>
         <Stack.Screen name="sign-in" />
