@@ -43,7 +43,7 @@ Environment variables:
 Notes:
 - **Single-page app.** The build is one `index.html`. Pages serves it for every path because the build has no `404.html`.
 - **Headers.** `public/_headers` sets security headers and long caching for hashed bundles.
-- **Search engines.** `public/index.html` sets `noindex` while v1 is owner-only.
+- **Search engines.** The web app is public at numaworth.com since 12 Oct 2026, so search engines may index it.
 - **Previews.** Every PR gets its own preview URL. These are the pre-approved preview deploys. Promoting to the production branch is a production deploy and needs a go-ahead.
 
 Before the first production deploy, check that the production Convex deployment has every function the app calls. The full list is in `apps/numa/src/cloud/api.ts`. A missing function shows as a load error, not wrong numbers.
