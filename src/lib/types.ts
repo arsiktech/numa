@@ -193,7 +193,8 @@ export interface CryptoDefiPosition {
 }
 
 export interface CryptoWalletSnapshot {
-  provider: "moralis";
+  // "public": keyless explorers used by the rebuilt app (apps/numa).
+  provider: "moralis" | "public";
   addressType: CryptoWalletAddressType;
   tokenValueUsd: number;
   defiValueUsd: number;

@@ -1,11 +1,12 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CloudCurrency } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { formatMoney, formatPercent } from '@/domain/money';
+import { compositionAt } from '@/data/composition';
 import { pointLabel, rangeWords, ranges, type Range } from '@/data/series';
 import { useCloudHome, useDemoHome, type HomeModel } from '@/data/useHome';
 import { usePrefs } from '@/state/prefs';
@@ -57,7 +58,7 @@ function Frame({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 150 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
       <View style={{ width: '100%', maxWidth: 1240, alignSelf: 'center' }}>{children}</View>
     </ScrollView>
   );
@@ -121,7 +122,7 @@ function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens
       <View style={{ flexDirection: 'row', gap: wide ? 22 : demo ? 12 : 16 }} accessibilityRole="tablist">
         {tabs.map((t) => (
           <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={{ minHeight: 44, justifyContent: 'center' }}>
-            <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }}>{t.label}</Txt>
+            <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }} maxFontSizeMultiplier={1.4}>{t.label}</Txt>
           </Pressable>
         ))}
       </View>
@@ -130,12 +131,12 @@ function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens
           canSignIn ? (
             <Pressable onPress={() => set('demo', false)} accessibilityRole="button" accessibilityLabel="Demo data. Sign in" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>
               <View style={{ minHeight: 24, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-                <Txt v="label" c="ink2" style={{ fontSize: 10 }}>{wide ? 'Demo · Sign in' : 'Demo'}</Txt>
+                <Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>{wide ? 'Demo · Sign in' : 'Demo'}</Txt>
               </View>
             </Pressable>
           ) : (
             <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-              <Txt v="label" c="ink2" style={{ fontSize: 10 }}>Demo data</Txt>
+              <Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>Demo data</Txt>
             </View>
           )
         )}
@@ -195,6 +196,8 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
   const diff = values[idx] - values[0];
   const up = diff >= 0;
   const showChange = chartFollowsLens && model.hasHistory;
+  // The blocks follow the finger too: the last point is today, so it shows the live split.
+  const composition = useMemo(() => compositionAt(scrub !== null && idx < points.length - 1 ? points[idx] : null, summary, model.source), [scrub, idx, points, summary, model.source]);
 
   const hero = wide ? typeScale.display : typeScale.hero;
   const centsStyle = wide ? { ...typeScale.cents, fontSize: 42, lineHeight: 42 } : typeScale.cents;
@@ -237,7 +240,7 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
     <View style={{ flexDirection: 'row', justifyContent: wide ? 'flex-end' : 'space-between', gap: 4 }} accessibilityRole="tablist">
       {ranges.map((r) => (
         <Pressable key={r} onPress={() => { setRange(r); setScrub(null); }} accessibilityRole="tab" aria-selected={range === r} style={{ minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent' }}>
-          <Txt v="small" c={range === r ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{r}</Txt>
+          <Txt v="small" c={range === r ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4}>{r}</Txt>
         </Pressable>
       ))}
     </View>
@@ -256,7 +259,7 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
     <Message title="Nothing tracked yet" body="Tap the plus and type what you have, like “Bank balance 12,500” or “Bought 10 VOO at $500”. It shows up here as blocks." action={model.source === 'cloud' ? <Link href="/import" asChild><Pressable accessibilityRole="link" style={{ minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Or import a sheet or CSV ›</Txt></Pressable></Link> : undefined} />
   ) : model.available ? (
     <View>
-      <CompositionBar categories={summary.categories} ownCents={summary.ownCents} oweCents={summary.oweCents} netCents={summary.netCents} lens={lens} wide={wide} />
+      <CompositionBar {...composition} lens={lens} wide={wide} when={scrub !== null && idx < points.length - 1 ? pointLabel(points[idx].t, range, model.now) : undefined} />
       {notes[lens] ? <Txt v="body" c="ink2" style={{ fontSize: 13.5, marginTop: 10 }}>{notes[lens]}</Txt> : null}
       {summary.unknown.length > 0 && <Txt v="small" c="ink3" style={{ marginTop: 8 }}>{summary.unknown.length} without a value {summary.unknown.length === 1 ? 'is' : 'are'} left out.</Txt>}
       {lens !== 'net' && !chartFollowsLens && <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{tabs.find((t) => t.lens === lens)!.label} today: {money(lensNow)}. The chart shows net worth.</Txt>}

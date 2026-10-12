@@ -9,9 +9,15 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.arsiktech.numa",
+      "appleTeamId": "794UJ787LZ",
       "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.arsiktech.numa"
+        ]
       }
     },
     "android": {
@@ -39,7 +45,14 @@
         }
       ],
       "expo-secure-store",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-notifications",
+        {
+          "color": "#000000"
+        }
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true,

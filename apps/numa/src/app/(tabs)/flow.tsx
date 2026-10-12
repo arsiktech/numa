@@ -67,7 +67,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 150 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
       <View style={{ width: '100%', maxWidth: 1040, alignSelf: 'center' }}>{children}</View>
     </ScrollView>
   );

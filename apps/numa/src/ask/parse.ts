@@ -2,9 +2,9 @@ import type { CloudAsset, CloudCategory, CloudHolding, CloudLiability } from '@/
 import type { Currency } from '@/domain/types';
 
 /**
- * Turns a short sentence into a draft or a question. Runs on the device with plain rules:
- * no AI provider sees the words. Every draft is shown to the person and saved only when
- * they press Save.
+ * Turns a short sentence into a draft or a question. Runs on the device with plain rules,
+ * so what it understands never leaves the phone. Only what it can't handle goes to Claude
+ * (see `aiContext.ts`). Every draft is shown to the person and saved only when they press Save.
  */
 
 export type TransactionDraft = {
@@ -126,7 +126,7 @@ export function parseDate(text: string, now: Date, prefer: 'past' | 'future'): {
 }
 
 const without = (text: string, ...parts: (string | undefined)[]) => parts.reduce<string>((t, p) => (p ? t.replace(p, ' ') : t), text);
-const sameName = (a: string, b: string) => {
+export const sameName = (a: string, b: string) => {
   const x = a.toLowerCase().trim(), y = b.toLowerCase().trim();
   return x === y || (x.length > 2 && y.length > 2 && (x.includes(y) || y.includes(x)));
 };
@@ -239,6 +239,15 @@ export function parse(input: string, ctx: AskContext): Parsed {
     type: 'draft',
     draft: { type: 'transaction', kind, description, amountCents: money.cents, currency, occurredAt: date?.at ?? ctx.now.getTime(), categoryId: category?.id ?? null, categoryName: category?.name ?? null },
   };
+}
+
+/**
+ * Two or more amounts joined by "and", a comma or a semicolon: several entries in one sentence.
+ * The rules here can't split them, so Ask sends these to Claude when it can.
+ */
+export function looksLikeSeveral(input: string): boolean {
+  const amounts = input.match(/\d[\d.,]*/g) ?? [];
+  return amounts.length >= 2 && /(?:[,;]|\b(?:and|also|plus)\b)\s/i.test(input.replace(/\d[.,]\d/g, ''));
 }
 
 /** What still stops a draft from being saved, in plain words. Empty means it can be saved. */

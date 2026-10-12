@@ -1,11 +1,12 @@
-import type { CloudAsset, CloudHolding, CloudLiability, CloudSnapshot } from '@/cloud/api';
+import type { CloudAsset, CloudHolding, CloudLiability, CloudSnapshot, CloudWallet } from '@/cloud/api';
 import { freshness, shortDay, type Freshness } from '@/domain/freshness';
 import { countedValue } from '@/domain/summary';
 import type { CategoryId, Holding } from '@/domain/types';
 import type { HomeData } from './fromSnapshot';
+import { walletDetail } from './wallets';
 
 export type GroupId = CategoryId | 'debts';
-export type ItemType = 'asset' | 'holding' | 'liability';
+export type ItemType = 'asset' | 'holding' | 'liability' | 'wallet';
 
 /** One row on Holdings: a record the person can open, edit or delete. */
 export type Item = {
@@ -19,7 +20,7 @@ export type Item = {
   valueCents: number | null;
   changeTodayCents: number | null;
   freshness: Freshness;
-  raw: CloudAsset | CloudHolding | CloudLiability;
+  raw: CloudAsset | CloudHolding | CloudLiability | CloudWallet;
 };
 
 export const groupNames: Record<GroupId, string> = { crypto: 'Crypto', stocks: 'Stocks and funds', business: 'Business', property: 'Property', cash: 'Cash', things: 'Things', debts: 'What you owe' };
@@ -50,6 +51,11 @@ export function itemsFrom(s: CloudSnapshot, data: HomeData, now: number): Item[]
   for (const h of s.holdings) {
     const d = fromDomain(byId.get(h.id), now);
     items.push({ id: h.id, type: 'holding', group: d.group ?? (h.kind === 'crypto' ? 'crypto' : 'stocks'), name: h.name || h.symbol, detail: `${h.quantity} ${h.symbol}`, valueCents: d.valueCents, changeTodayCents: d.changeTodayCents, freshness: d.freshness, raw: h });
+  }
+  for (const w of s.wallets ?? []) {
+    const d = fromDomain(byId.get(w.id), now);
+    const freshness = !w.includeInNetWorth ? { text: 'Not counted in net worth', tone: 'ok' as const } : !w.snapshot ? { text: 'Checking the balance…', tone: 'missing' as const } : d.freshness;
+    items.push({ id: w.id, type: 'wallet', group: 'crypto', name: w.label, detail: walletDetail(w), valueCents: w.includeInNetWorth ? d.valueCents : null, changeTodayCents: null, freshness, raw: w });
   }
   for (const l of s.liabilities) {
     const debt = debtById.get(l.id);

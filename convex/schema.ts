@@ -631,6 +631,27 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_endpoint", ["endpoint"]),
 
+  // Expo push tokens for the rebuilt phone app. One row per device; the time zone sets quiet hours.
+  expoPushTokens: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    platform: v.union(v.literal("ios"), v.literal("android")),
+    timeZone: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number()
+  })
+    .index("by_user", ["userId"])
+    .index("by_token", ["token"]),
+
+  // Which alert keys reached a person's phones, so none repeats and the daily cap holds.
+  pushAlertsSent: defineTable({
+    userId: v.id("users"),
+    key: v.string(),
+    sentAt: v.number()
+  })
+    .index("by_user_key", ["userId", "key"])
+    .index("by_user_sent", ["userId", "sentAt"]),
+
   // Personal webhook tokens that let an external service (Zapier / IFTTT /
   // Apple Shortcuts / email-to-API) POST a transaction into a portfolio on
   // behalf of the issuing user. Only the SHA-256 hash is stored — the raw

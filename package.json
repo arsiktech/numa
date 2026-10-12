@@ -47,6 +47,7 @@
   },
   "dependencies": {
     "@ai-sdk/gateway": "4.0.14",
+    "@anthropic-ai/sdk": "0.133.0",
     "@auth/core": "0.41.3",
     "@convex-dev/auth": "0.0.94",
     "@types/web-push": "3.6.4",

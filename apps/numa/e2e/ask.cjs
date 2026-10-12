@@ -87,8 +87,10 @@ const lastDraft = (page) => page.getByLabel(/^Draft\./).last();
   await card.getByRole('button', { name: 'Discard' }).click();
   check('discard saves nothing', (await card.innerText()).includes('DISCARDED'));
 
+  // Without a Claude key on the backend, what the device can't read gets a plain reply and adding still works.
   await ask(page, 'blah');
-  check('no amount gets a plain reply', (await page.locator('body').innerText()).includes('I couldn’t find an amount'));
+  await page.getByText('I can’t reach Numa’s assistant right now').waitFor({ timeout: 15000 }).catch(() => {});
+  check('no amount, no assistant: a plain reply', (await page.locator('body').innerText()).includes('I can’t reach Numa’s assistant right now'));
 
   // Quotes for VOO so the holding is valued like on the server.
   execFileSync('npx', ['convex', 'run', 'marketQuotes:storeQuotes', JSON.stringify({ quotes: [{ symbol: 'VOO', price: 500, changePercent: 0, provider: 'finnhub', updatedAt: Date.now() - 60000 }] })], { cwd: ROOT, stdio: 'pipe' });

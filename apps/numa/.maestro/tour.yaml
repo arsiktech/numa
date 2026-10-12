@@ -1,0 +1,40 @@
+# Walks the demo portfolio on an iOS simulator and takes a screenshot of each place.
+# Run by .github/workflows/ios-sim.yml. SHOT is a prefix such as "dark" or "light".
+appId: com.arsiktech.numa
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "What you own.*"
+    timeout: 60000
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}-01-home
+# The first-visit tip over the chart; dismissing it is part of a real first visit.
+- tapOn:
+    text: "Got it"
+    optional: true
+- scrollUntilVisible:
+    element: "Needs you.*"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: ${SHOT}-02-home-scrolled
+# iOS shrinks the tab bar while scrolling down; scrolling back up brings the tabs back.
+- scrollUntilVisible:
+    element:
+      id: "tab-flow"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: "tab-flow"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}-03-flow
+- tapOn:
+    id: "tab-plan"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}-04-plan
+- tapOn:
+    id: "tab-home"
+- tapOn:
+    id: "ask-or-add"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}-05-ask

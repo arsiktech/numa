@@ -2,6 +2,8 @@ import type { CloudAsset, CloudHolding, CloudSnapshot } from '@/cloud/api';
 import type { Attention, CategoryId, Currency, Debt, Holding, Liquidity, MonthFlow } from '@/domain/types';
 import { monthFlow, monthOf as monthOfMs } from '@/flow/month';
 import { convertCents, type FxRate } from './fx';
+import type { Point, PointParts } from './series';
+import { walletHolding } from './wallets';
 
 /** Home's view of one portfolio, in the portfolio's currency. */
 export type HomeData = {
@@ -10,8 +12,8 @@ export type HomeData = {
   debts: Debt[];
   /** Records that need an exchange rate we do not have. While any exist, totals are unavailable. */
   unconverted: string[];
-  /** Saved net-worth points, oldest first. */
-  history: { t: number; cents: number }[];
+  /** Saved net-worth points, oldest first, with the split each snapshot recorded. */
+  history: Point[];
   month: MonthFlow;
   attention: Attention[];
   empty: boolean;
@@ -64,6 +66,15 @@ function holdingOf(h: CloudHolding, currency: Currency, fx: FxRate | null, now: 
   return { ...base, valuation: { kind: 'synced', valueCents, asOf, source: providerNames[h.quoteProvider!] ?? h.quoteProvider! }, changeTodayCents };
 }
 
+/** The split a snapshot recorded, if it recorded one that adds up to something. */
+function partsOf(w: CloudSnapshot['wealthSnapshots'][number], currency: Currency, fx: FxRate | null): { parts?: PointParts } {
+  const conv = (v: number | undefined) => (v === undefined ? null : convertCents(Math.round(v * 100), w.currency, currency, fx));
+  const [liquidCents, investedCents, hardCents, oweCents] = [conv(w.liquid), conv(w.invested), conv(w.hardAssets), conv(w.liabilities)];
+  if (liquidCents === null || investedCents === null || hardCents === null || oweCents === null) return {};
+  if (liquidCents + investedCents + hardCents <= 0) return {};
+  return { parts: { liquidCents, investedCents, hardCents, oweCents: Math.abs(oweCents) } };
+}
+
 /** Maps the server's portfolio snapshot to Home. Pure, so it is tested without a backend. */
 export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): HomeData {
   const currency = s.portfolio.defaultCurrency;
@@ -76,6 +87,11 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
   for (const h of s.holdings) {
     const mapped = holdingOf(h, currency, fx, nowMs, attention);
     if (mapped) holdings.push(mapped); else unconverted.push(h.name || h.symbol);
+  }
+
+  for (const w of s.wallets ?? []) {
+    const mapped = walletHolding(w, currency, fx, nowMs, attention);
+    if (mapped === 'unconverted') unconverted.push(w.label); else if (mapped) holdings.push(mapped);
   }
 
   for (const a of s.assets) {
@@ -100,10 +116,13 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
     }
   }
 
-  const history = s.wealthSnapshots
-    .map((w) => ({ t: w.takenAt, cents: convertCents(Math.round(w.netWorth * 100), w.currency, currency, fx) }))
-    .filter((p): p is { t: number; cents: number } => p.cents !== null && p.t <= nowMs + CLOCK_SLACK)
-    .sort((a, b) => a.t - b.t);
+  const history: Point[] = [];
+  for (const w of s.wealthSnapshots) {
+    const cents = convertCents(Math.round(w.netWorth * 100), w.currency, currency, fx);
+    if (cents === null || w.takenAt > nowMs + CLOCK_SLACK) continue;
+    history.push({ t: w.takenAt, cents, ...partsOf(w, currency, fx) });
+  }
+  history.sort((a, b) => a.t - b.t);
 
   const { unconverted: monthUnconverted, ...month } = monthFlow(s, monthOfMs(now.getTime()), currency, fx, now);
   unconverted.push(...monthUnconverted);
@@ -134,6 +153,6 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
     history,
     month,
     attention,
-    empty: s.holdings.length === 0 && s.liabilities.length === 0 && s.assets.every((a) => a.balance === 0) && s.transactions.length === 0,
+    empty: s.holdings.length === 0 && !(s.wallets ?? []).length && s.liabilities.length === 0 && s.assets.every((a) => a.balance === 0) && s.transactions.length === 0,
   };
 }
