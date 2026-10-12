@@ -18,6 +18,15 @@ Production web deploys and public store releases need an explicit go-ahead each 
 | App Store Connect | Let EAS use the existing Numa Pro app record (`com.arsiktech.numa`), via an App Store Connect API key or by signing in when `eas submit` asks. | Credentials |
 | Google Play Console | Create the app (package `com.arsiktech.numa`). Upload the first build by hand, as Play requires, then add a service-account key for `eas submit`. | Account, fee and credentials |
 
+### Connection status (2026-10-12)
+
+| Account | State |
+|---|---|
+| Cloudflare Pages | Connected. Project `numa-pro` (`numa-pro.pages.dev`), GitHub app limited to this repo. Previews build for every branch and PR. **Automatic production deploys from `main` are off**, so a merge never publishes; production is a manual promotion. |
+| Expo (EAS) | Connected. Project `@arsiktech/numa-pro-app` (ID in `app.json`). `EXPO_PUBLIC_CONVEX_URL` is set for `development`, `preview` (DEV) and `production` (production). |
+| App Store Connect | EAS builds the IPA; the upload to TestFlight runs from the owner's Mac with its existing API key (the key is not stored on EAS). |
+| Google Play Console | Developer account created. The app record and the first hand-uploaded build are still to do. |
+
 ## Web: Cloudflare Pages
 
 Settings for the Pages project:
