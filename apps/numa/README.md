@@ -21,6 +21,7 @@ npm run export:web      # static web build in dist/
 
 | Path | What |
 | --- | --- |
+| `src/ask/` | Ask: the on-device parser (`parse.ts`), answers from the person's numbers, the save and undo plan (`plan.ts`), draft cards |
 | `src/app/` | Routes: `sign-in`, `(tabs)/index` Home, `(tabs)/flow`, `(tabs)/plan`, `ask` (modal), `settings`. The root layout shows `sign-in` only while signed out |
 | `src/domain/` | Pure money model and rules: valuations with freshness, liquidity, summaries, flow, attention |
 | `src/cloud/` | Convex client and Convex Auth (tokens in the keychain or keystore on phones), the typed list of Convex functions the app calls, session state |
@@ -31,7 +32,7 @@ npm run export:web      # static web build in dist/
 
 ## Backend
 
-The app uses the existing Convex functions, the same ones the SwiftUI app calls: `mobile:bootstrap`, `mobile:portfolioSnapshot` and `portfolios:create`. It needs no backend change. Sign-in is Convex Auth with email and password; accounts that need email verification get a code.
+The app uses the existing Convex functions, the same ones the SwiftUI app calls: `mobile:bootstrap`, `mobile:portfolioSnapshot` and `portfolios:create`. Ask writes through `mobile:createTransaction`, `upsertAsset`, `upsertLiability` and `upsertHolding` (and their deletes for Undo), each with a `clientMutationId`. It needs no backend change. Sign-in is Convex Auth with email and password; accounts that need email verification get a code.
 
 To try it against a throwaway local backend instead of a shared deployment (from the repository root):
 
