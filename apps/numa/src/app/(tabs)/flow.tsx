@@ -99,11 +99,11 @@ function Inner({ data }: { data: FlowData }) {
 
   return (
     <Shell>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
         <Txt v="title" accessibilityRole="header">Flow</Txt>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable onPress={() => go(-1)} disabled={idx <= 0} accessibilityRole="button" accessibilityLabel="Previous month" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: idx <= 0 ? 0.3 : 1 }}><Txt v="section">‹</Txt></Pressable>
-          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', minWidth: 96, textAlign: 'center' }}>{monthName(month, new Date(data.now))}</Txt>
+          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', minWidth: 96, textAlign: 'center' }} maxFontSizeMultiplier={1.4}>{monthName(month, new Date(data.now))}</Txt>
           <Pressable onPress={() => go(1)} disabled={idx >= data.months.length - 1} accessibilityRole="button" accessibilityLabel="Next month" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: idx >= data.months.length - 1 ? 0.3 : 1 }}><Txt v="section">›</Txt></Pressable>
         </View>
       </View>

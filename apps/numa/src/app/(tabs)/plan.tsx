@@ -89,9 +89,9 @@ function Inner({ data }: { data: PlanData }) {
   const r = data.runway;
   return (
     <Shell>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
         <Txt v="title" accessibilityRole="header">Plan</Txt>
-        {data.demo && <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}><Txt v="label" c="ink2" style={{ fontSize: 10 }}>Demo data</Txt></View>}
+        {data.demo && <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}><Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>Demo data</Txt></View>}
       </View>
 
       <View style={{ marginTop: 16, padding: 18, borderRadius: 20, backgroundColor: c.s1 }}>

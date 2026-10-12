@@ -21,7 +21,8 @@ function AskAccessory() {
     <Pressable onPress={openAsk} testID="ask-or-add" accessibilityRole="button" accessibilityLabel="Ask or add"
       style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: inline ? 12 : 18 }}>
       <IconPlus color={c.ink} />
-      <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{inline ? 'Ask' : 'Ask or add anything'}</Txt>
+      {/* The system bar has a fixed height, so the label can't grow with it. */}
+      <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold', flexShrink: 1 }} numberOfLines={1} maxFontSizeMultiplier={1.2}>{inline ? 'Ask' : 'Ask or add anything'}</Txt>
     </Pressable>
   );
 }
