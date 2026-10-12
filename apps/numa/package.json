@@ -3,10 +3,13 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@convex-dev/auth": "^0.0.94",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo-google-fonts/manrope": "^0.4.2",
     "@expo/ui": "~57.0.22",
     "@types/jest": "29.5.14",
+    "convex": "^1.42.1",
+    "eslint-config-expo": "~57.0.2",
     "expo": "~57.0.27",
     "expo-constants": "~57.0.21",
     "expo-device": "~57.0.2",
@@ -15,6 +18,7 @@
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.12",
     "expo-router": "~57.0.25",
+    "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
@@ -35,6 +39,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.39.5",
     "typescript": "~6.0.3"
   },
   "scripts": {

@@ -5,19 +5,21 @@ import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated'
 import type { Attention } from '@/domain/types';
 import { useTheme } from '@/theme/theme';
 import { IconCheck } from './icons';
+import { useMoney } from './money';
 import { Txt } from './Txt';
 
 const dot = { due: 'down', watch: 'warn', housekeeping: 'ink3' } as const;
 
 function Card({ item, index, done, toggle }: { item: Attention; index: number; done: boolean; toggle: () => void }) {
   const { c } = useTheme();
+  const { mask } = useMoney();
   const reduce = useReducedMotion();
   return (
     <Animated.View entering={reduce ? undefined : FadeInDown.delay(300 + index * 90).duration(500)} style={{ padding: 16, borderRadius: 20, backgroundColor: c.s1, opacity: done ? 0.65 : 1, flexDirection: 'row', gap: 10 }}>
       <View style={{ width: 8, height: 8, marginTop: 6, borderRadius: 4, backgroundColor: c[dot[item.urgency]] }} />
       <View style={{ flex: 1 }}>
-        <Txt v="cardTitle">{item.title}</Txt>
-        <Txt v="body" c="ink2" style={{ fontSize: 14, marginTop: 4 }}>{item.body}</Txt>
+        <Txt v="cardTitle">{mask(item.title)}</Txt>
+        <Txt v="body" c="ink2" style={{ fontSize: 14, marginTop: 4 }}>{mask(item.body)}</Txt>
         {done ? (
           <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <IconCheck color={c.upInk} />
@@ -51,6 +53,7 @@ export function NeedsYou({ items }: { items: Attention[] }) {
         <Txt v="section" accessibilityRole="header">{left === 0 ? 'All clear' : `Needs you · ${left}`}</Txt>
         <Txt v="small" c="ink3">max 3 a day</Txt>
       </View>
+      {items.length === 0 && <Txt v="body" c="ink2">Nothing needs you right now.</Txt>}
       <View style={{ gap: 10 }}>
         {items.map((it, i) => (
           <Card key={it.id} item={it} index={i} done={!!done[it.id]} toggle={() => setDone((d) => ({ ...d, [it.id]: !d[it.id] }))} />

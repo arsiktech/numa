@@ -37,7 +37,7 @@ const NavItem = forwardRef<RNView, ItemProps>(function NavItem({ isFocused, labe
   );
 });
 
-function Wordmark() {
+export function Wordmark() {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 12 }} accessible accessibilityLabel="Numa Pro">
       <Txt v="title" style={{ fontSize: 22, lineHeight: 26, letterSpacing: -0.9 }}>numa</Txt>

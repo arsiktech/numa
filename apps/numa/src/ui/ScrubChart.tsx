@@ -9,10 +9,10 @@ import { curves, duration } from '@/theme/tokens';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-type Props = { values: number[]; height: number; up: boolean; onScrub: (index: number | null) => void; drawKey: string };
+type Props = { values: number[]; /** Optional timestamps, so uneven saved points sit at their real dates. */ times?: number[]; height: number; up: boolean; onScrub: (index: number | null) => void; drawKey: string };
 
 /** A single line of value over time. Drag (or hover on web) to read earlier values; the hero figure follows. */
-export function ScrubChart({ values, height, up, onScrub, drawKey }: Props) {
+export function ScrubChart({ values, times, height, up, onScrub, drawKey }: Props) {
   const { c } = useTheme();
   const reduce = useReducedMotion();
   const [width, setWidth] = useState(0);
@@ -24,14 +24,17 @@ export function ScrubChart({ values, height, up, onScrub, drawKey }: Props) {
     if (!width || n < 2) return null;
     const min = Math.min(...values), max = Math.max(...values);
     const pad = 14;
-    const x = (i: number) => (i / (n - 1)) * (width - pad);
-    const y = (v: number) => 16 + (1 - (v - min) / (max - min || 1)) * (height - 34);
+    const t0 = times?.[0] ?? 0, span = times ? times[n - 1] - t0 : 0;
+    const frac = (i: number) => (times && span > 0 ? (times[i] - t0) / span : i / (n - 1));
+    const x = (i: number) => frac(i) * (width - pad);
+    // A flat line sits in the middle rather than on the floor.
+    const y = (v: number) => 16 + (max > min ? 1 - (v - min) / (max - min) : 0.5) * (height - 34);
     let length = 0;
     const pts = values.map((v, i) => [x(i), y(v)] as const);
     for (let i = 1; i < n; i++) length += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
     const d = pts.map(([px, py], i) => (i ? 'L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1)).join(' ');
-    return { x, y, d, length, baseY: y(values[0]) };
-  }, [values, width, height, n]);
+    return { x, y, d, length, baseY: y(values[0]), frac };
+  }, [values, times, width, height, n]);
 
   const progress = useSharedValue(reduce ? 1 : 0);
   useEffect(() => {
@@ -42,7 +45,13 @@ export function ScrubChart({ values, height, up, onScrub, drawKey }: Props) {
   const len = geo?.length ?? 1;
   const animatedProps = useAnimatedProps(() => ({ strokeDashoffset: (1 - progress.value) * len }));
 
-  const indexAt = (px: number) => Math.round(Math.max(0, Math.min(1, px / Math.max(1, width - 14))) * (n - 1));
+  const indexAt = (px: number) => {
+    const f = Math.max(0, Math.min(1, px / Math.max(1, width - 14)));
+    if (!geo || !times) return Math.round(f * (n - 1));
+    let best = 0;
+    for (let i = 1; i < n; i++) if (Math.abs(geo.frac(i) - f) < Math.abs(geo.frac(best) - f)) best = i;
+    return best;
+  };
   const move = (px: number) => { const i = indexAt(px); setScrub(i); onScrub(i); };
   const end = () => { setScrub(null); onScrub(null); };
   const pan = Gesture.Pan().minDistance(0).runOnJS(true).onBegin((e) => move(e.x)).onUpdate((e) => move(e.x)).onFinalize(end);

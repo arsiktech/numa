@@ -27,3 +27,6 @@ export const IconEye = ({ color, size = 22 }: P) => (
 export const IconCheck = ({ color, size = 16 }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24"><Path d="M5 12.5l4.5 4.5L19 7.5" {...s(color)} strokeWidth={2.6} /></Svg>
 );
+export const IconPerson = ({ color, size = 22 }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24"><Circle cx="12" cy="8.5" r="3.6" {...s(color)} strokeWidth={1.75} /><Path d="M4.8 19.6c1.4-3.1 4-4.7 7.2-4.7s5.8 1.6 7.2 4.7" {...s(color)} strokeWidth={1.75} /></Svg>
+);

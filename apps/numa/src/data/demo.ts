@@ -1,6 +1,7 @@
 // DEMO DATA. The fictional founder portfolio from the approved mockup, used until the app is
 // connected to Convex. The UI labels it "Demo data" wherever it is shown; never real owner data.
 import type { Attention, Debt, Holding, MonthFlow } from '@/domain/types';
+import type { Point, Range } from './series';
 
 const at = '2026-10-11T20:40:00Z';
 const live = (valueCents: number) => ({ kind: 'live' as const, valueCents, asOf: at });
@@ -68,8 +69,6 @@ export const demoAttention: Attention[] = [
   { id: 'watch', urgency: 'housekeeping', title: 'Watch value is 7 months old', body: 'Similar watches sold for €11,900 to €13,400 this month.', primary: 'Use €12,650', secondary: 'My own', doneText: 'Updated to €12,650', raisedAt: '2026-10-11T07:00:00Z' },
 ];
 
-export type Range = '1D' | '1W' | '1M' | '1Y' | 'ALL';
-export const ranges: Range[] = ['1D', '1W', '1M', '1Y', 'ALL'];
 
 const specs: Record<Range, [number[], number, number, number]> = {
   '1D': [[897220, 896300, 898100, 897900, 899538], 78, 0.00026, 1],
@@ -97,14 +96,9 @@ export function demoSeries(range: Range, endCents: number): number[] {
 }
 
 const spanMs: Record<Range, number> = { '1D': 12.5 * 3600e3, '1W': 7 * 864e5, '1M': 30 * 864e5, '1Y': 365 * 864e5, ALL: 5.78 * 365 * 864e5 };
-const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-export function pointLabel(range: Range, i: number, n: number): string {
-  const d = new Date(demoNow.getTime() - spanMs[range] * (1 - i / (n - 1)));
-  if (range === '1D') return 'Today ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
-  if (range === '1W') return days[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + months[d.getUTCMonth()];
-  return d.getUTCDate() + ' ' + months[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+/** The demo series with timestamps, ending now at `endCents`. */
+export function demoPoints(range: Range, endCents: number): Point[] {
+  const values = demoSeries(range, endCents);
+  const n = values.length;
+  return values.map((cents, i) => ({ t: Math.round(demoNow.getTime() - spanMs[range] * (1 - i / (n - 1))), cents }));
 }
-
-export const rangeWords: Record<Range, string> = { '1D': 'today', '1W': 'this week', '1M': 'this month', '1Y': 'this year', ALL: 'since 2021' };

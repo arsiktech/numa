@@ -6,18 +6,32 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { CloudProvider } from '@/cloud/CloudProvider';
+import { useSession } from '@/cloud/session';
+import { PrefsProvider } from '@/state/prefs';
 import { ThemeProvider, useTheme } from '@/theme/theme';
 
 SplashScreen.preventAutoHideAsync();
 
 function Root() {
   const { name, c } = useTheme();
+  const session = useSession();
+  const loading = session.kind === 'loading';
+  useEffect(() => { if (!loading) SplashScreen.hide(); }, [loading]);
+  if (loading) return null;
+  const inside = session.kind !== 'signedOut';
   return (
     <>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
+        <Stack.Protected guard={inside}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="settings" />
+        </Stack.Protected>
+        <Stack.Protected guard={!inside}>
+          <Stack.Screen name="sign-in" />
+        </Stack.Protected>
       </Stack>
     </>
   );
@@ -28,13 +42,16 @@ export default function RootLayout() {
     Manrope_300Light, Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
     JetBrainsMono_400Regular, JetBrainsMono_500Medium,
   });
-  useEffect(() => { if (loaded) SplashScreen.hide(); }, [loaded]);
   if (!loaded) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <Root />
-      </ThemeProvider>
+      <PrefsProvider>
+        <CloudProvider>
+          <ThemeProvider>
+            <Root />
+          </ThemeProvider>
+        </CloudProvider>
+      </PrefsProvider>
     </GestureHandlerRootView>
   );
 }
