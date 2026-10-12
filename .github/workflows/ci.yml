@@ -90,10 +90,10 @@ jobs:
       - name: Web build
         run: npm run export:web
 
-      # Cloudflare Pages drops any folder named node_modules on upload; assets must not live under one.
-      - name: Web build has no node_modules paths
+      # Cloudflare Pages drops any folder named node_modules on upload, and fails to publish a folder named like a package scope (`@...`).
+      - name: Web build paths suit Cloudflare Pages
         run: |
-          if find dist -path '*node_modules*' | grep -q .; then find dist -path '*node_modules*' | head; exit 1; fi
+          if find dist -path '*node_modules*' -o -name '@*' | grep -q .; then find dist -path '*node_modules*' -o -name '@*' | head; exit 1; fi
           if grep -rl 'assets/node_modules' dist; then exit 1; fi
 
   # Scripted user journeys for the rebuild app's web build, against a throwaway
