@@ -44,6 +44,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "37e9ec79-a5bc-4305-89cc-d9957e061cfb"
+      }
+    },
+    "owner": "arsiktech"
   }
 }
