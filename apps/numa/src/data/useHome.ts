@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import type { CloudCurrency } from '@/cloud/api';
-import { pickAttention } from '@/domain/attention';
+import { pickAttention, visibleAttention } from '@/domain/attention';
+import { usePrefs } from '@/state/prefs';
 import { summarizeFlow, type FlowSummary } from '@/domain/flow';
 import { summarize, type Summary } from '@/domain/summary';
 import type { Attention, Currency } from '@/domain/types';
@@ -33,6 +34,7 @@ export type HomeModel =
 
 /** The labelled demo portfolio with a gentle live tick. */
 export function useDemoHome(range: Range): HomeModel {
+  const { dismissed } = usePrefs();
   const summary = useMemo(() => summarize(demoHoldings, demoDebts, demoNow), []);
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -44,13 +46,14 @@ export function useDemoHome(range: Range): HomeModel {
   return {
     status: 'ready', source: 'demo', now: demoNow.getTime(), currency: 'EUR', summary, available: true,
     points: [...points.slice(0, -1), { t: demoNow.getTime(), cents: netCents }], hasHistory: true, live: true,
-    month: 'October', flow: summarizeFlow(demoOctober), attention: pickAttention(demoAttention), empty: false,
+    month: 'October', flow: summarizeFlow(demoOctober), attention: pickAttention(visibleAttention(demoAttention, dismissed, demoNow.getTime())), empty: false,
   };
 }
 
 /** The signed-in person's first portfolio, live from Convex. */
 export function useCloudHome(range: Range): HomeModel {
   const cloudData = useCloudData();
+  const { dismissed } = usePrefs();
   if (cloudData.status !== 'ready') return cloudData;
   const { data, summary, now } = cloudData;
   const priced = data.holdings.filter((h) => h.valuation.kind === 'synced');
@@ -60,6 +63,6 @@ export function useCloudHome(range: Range): HomeModel {
   return {
     status: 'ready', source: 'cloud', now, currency: data.currency, summary, available: data.unconverted.length === 0,
     points, hasHistory, live: priced.length > 0,
-    month: data.month.month, flow: summarizeFlow(data.month), attention: pickAttention(data.attention), empty: data.empty,
+    month: data.month.month, flow: summarizeFlow(data.month), attention: pickAttention(visibleAttention(data.attention, dismissed, now)), empty: data.empty,
   };
 }

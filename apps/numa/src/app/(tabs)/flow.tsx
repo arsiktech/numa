@@ -18,6 +18,7 @@ import { layoutSankey } from '@/flow/sankey';
 import { useTheme } from '@/theme/theme';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { WIDE } from '@/ui/Nav';
+import { Hint } from '@/ui/Hint';
 import { Txt } from '@/ui/Txt';
 
 type FlowData = {
@@ -126,6 +127,8 @@ function Inner({ data }: { data: FlowData }) {
         </View>
       ) : (
         <View style={{ marginTop: 22 }}>
+          <Hint id="flow-follow" text="Tap a stream, or its chip, to follow it. The list below shows just its transactions." />
+          <View style={{ height: 14 }} />
           <Sankey layout={layout} focus={focus} onFocus={setFocus} />
           {/* Every stream as a chip, so even ones too thin to label can be followed. */}
           <View style={{ marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityLabel="Streams">
