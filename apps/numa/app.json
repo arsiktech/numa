@@ -18,7 +18,8 @@
         "com.apple.security.application-groups": [
           "group.com.arsiktech.numa"
         ]
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -52,7 +53,8 @@
           "color": "#000000"
         }
       ],
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,

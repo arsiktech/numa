@@ -163,6 +163,7 @@ type Receipt = { id: string; replayed: boolean };
 type WithReceipt<T> = T & { clientMutationId: string };
 
 export const cloud = {
+  authFlags: makeFunctionReference<'query', Record<string, never>, { passwordReset: boolean; emailVerification: boolean; googleOAuth: boolean; appleOAuth: boolean }>('authConfig:flags'),
   bootstrap: makeFunctionReference<'mutation', Record<string, never>, CloudBootstrap>('mobile:bootstrap'),
   portfolioSnapshot: makeFunctionReference<'query', { portfolioId: string }, CloudSnapshot>('mobile:portfolioSnapshot'),
   createPortfolio: makeFunctionReference<
