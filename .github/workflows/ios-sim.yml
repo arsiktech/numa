@@ -4,8 +4,19 @@ name: iOS simulator
 # keeps a screenshot of each screen in dark, light and the largest accessibility
 # text size. No account, backend or signing is involved: without a Convex URL the
 # app opens straight into the demo.
+#
+# The compiled app is cached by its native fingerprint (the same hash that decides
+# whether a change ships over the air or needs a store build). When only app code
+# changed, the cached app gets a freshly built Hermes bundle instead of a 20-minute
+# Xcode build; the walk itself is the same either way. Runs on main keep the cache
+# warm for pull requests.
 on:
   pull_request:
+    paths:
+      - 'apps/numa/**'
+      - '.github/workflows/ios-sim.yml'
+  push:
+    branches: [main]
     paths:
       - 'apps/numa/**'
       - '.github/workflows/ios-sim.yml'
@@ -18,10 +29,13 @@ concurrency:
 jobs:
   simulator:
     runs-on: macos-26
-    timeout-minutes: 60
+    # A cache miss means a full Xcode build (about 25 minutes) plus the walk.
+    timeout-minutes: 75
     defaults:
       run:
         working-directory: apps/numa
+    env:
+      PRODUCTS: build/Build/Products/Release-iphonesimulator
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,21 +50,48 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Native fingerprint
+        run: |
+          FP=$(npx @expo/fingerprint fingerprint:generate --platform ios | python3 -c "import json, sys; print(json.load(sys.stdin)['hash'])")
+          echo "FP=$FP" >> "$GITHUB_ENV"
+          echo "iOS fingerprint: $FP"
+
+      - name: Reuse the app built for this fingerprint
+        id: app
+        uses: actions/cache@v4
+        with:
+          path: apps/numa/build/Build/Products/Release-iphonesimulator
+          key: ios-sim-app-v1-${{ env.FP }}
+
       - name: Generate the iOS project
-        run: npx expo prebuild --platform ios --clean
+        if: steps.app.outputs.cache-hit != 'true'
+        run: |
+          npx expo prebuild --platform ios --clean
+          # Over-the-air updates stay off in CI, so the walk always runs the code under test.
+          plutil -replace EXUpdatesEnabled -bool NO ios/*/Supporting/Expo.plist
 
       - name: Build for the simulator
+        if: steps.app.outputs.cache-hit != 'true'
         run: |
           WS=$(ls -d ios/*.xcworkspace | head -1)
           SCHEME=$(basename "$WS" .xcworkspace)
           xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
-          ls build/Build/Products/Release-iphonesimulator/
+          ls "$PRODUCTS"
 
-      - name: Boot an iPhone simulator
+      # Same command the Xcode build phase runs: a Hermes bytecode bundle and its assets.
+      - name: Bundle this commit's app code into the cached app
+        if: steps.app.outputs.cache-hit == 'true'
         run: |
-          xcrun simctl list devices available
+          APP=$(ls -d "$PRODUCTS"/*.app | head -1)
+          ENTRY=$(node -e "require('expo/scripts/resolveAppEntry')" "$PWD" ios absolute | tail -1)
+          npx expo export:embed --platform ios --dev false --reset-cache --entry-file "$ENTRY" \
+            --bundle-output "$APP/main.jsbundle" --assets-dest "$APP" --bytecode
+
+      # Booting only after the build: booting during it slowed the Xcode build from 22 to 43 minutes.
+      - name: Boot an iPhone simulator and install the app
+        run: |
           UDID=$(xcrun simctl list devices available -j | python3 -c "
           import json, sys
           devs = [d for r, ds in json.load(sys.stdin)['devices'].items() if 'iOS' in r for d in ds]
@@ -60,7 +101,7 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl list devices booted
-          APP=$(ls -d build/Build/Products/Release-iphonesimulator/*.app | head -1)
+          APP=$(ls -d "$PRODUCTS"/*.app | head -1)
           xcrun simctl install "$UDID" "$APP"
 
       - name: Install Maestro
