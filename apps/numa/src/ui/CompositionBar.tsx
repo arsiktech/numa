@@ -35,8 +35,8 @@ function Block({ cat, lens, labelMin, height, name }: { cat: CategorySummary; le
       <Pressable onPress={() => router.push({ pathname: '/holdings/[group]', params: { group: cat.category } })} accessibilityRole="link" accessibilityLabel={`${m.name}, ${hidden ? 'amount hidden' : money(cat.cents)}. Open`} style={{ position: 'absolute', inset: 0, zIndex: 1 } as never} />
       {cat.share >= labelMin && (
         <>
-          <Txt v="label" style={{ color: c[onCategory[m.color]], textTransform: 'none', letterSpacing: 0, fontSize: 11.5 }} numberOfLines={1} ellipsizeMode="clip">{m.name}</Txt>
-          <Txt v="figureSm" style={{ color: c[onCategory[m.color]] }} numberOfLines={1} ellipsizeMode="clip">{short(cat.cents)}</Txt>
+          <Txt v="label" style={{ color: c[onCategory[m.color]], textTransform: 'none', letterSpacing: 0, fontSize: 11.5 }} numberOfLines={1} ellipsizeMode="clip" maxFontSizeMultiplier={1.3}>{m.name}</Txt>
+          <Txt v="figureSm" style={{ color: c[onCategory[m.color]] }} numberOfLines={1} ellipsizeMode="clip" maxFontSizeMultiplier={1.3}>{short(cat.cents)}</Txt>
         </>
       )}
     </Animated.View>
@@ -53,7 +53,7 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
   const h = wide ? 96 : 60;
   return (
     <View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginBottom: 8 }}>
         <Pressable onPress={() => router.push('/holdings')} accessibilityRole="link" hitSlop={8}>
           <Txt v="small" c="ink2" style={{ fontSize: 14 }}>{when ? `What you owned · ${when}` : 'What you own ›'}</Txt>
         </Pressable>
@@ -69,11 +69,11 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
           ))}
         </Pressable>
         <View style={{ flexGrow: Math.max(netCents, 0), flexBasis: 0, height: wide ? 56 : 60, backgroundColor: c.netBg, justifyContent: 'flex-end', paddingHorizontal: 12, paddingBottom: 8 }}>
-          <Txt v="label" c="upInk" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 11.5 }}>Net worth</Txt>
-          <Txt v="figureSm" c="upInk">{money(netCents)}</Txt>
+          <Txt v="label" c="upInk" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 11.5 }} numberOfLines={1} maxFontSizeMultiplier={1.3}>Net worth</Txt>
+          <Txt v="figureSm" c="upInk" numberOfLines={1} maxFontSizeMultiplier={1.3}>{money(netCents)}</Txt>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: c.down }} />
           <Pressable onPress={() => router.push({ pathname: '/holdings/[group]', params: { group: 'debts' } })} accessibilityRole="link" hitSlop={8}>

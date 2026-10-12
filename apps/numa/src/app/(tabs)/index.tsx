@@ -122,7 +122,7 @@ function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens
       <View style={{ flexDirection: 'row', gap: wide ? 22 : demo ? 12 : 16 }} accessibilityRole="tablist">
         {tabs.map((t) => (
           <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={{ minHeight: 44, justifyContent: 'center' }}>
-            <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }}>{t.label}</Txt>
+            <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }} maxFontSizeMultiplier={1.4}>{t.label}</Txt>
           </Pressable>
         ))}
       </View>
@@ -240,7 +240,7 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
     <View style={{ flexDirection: 'row', justifyContent: wide ? 'flex-end' : 'space-between', gap: 4 }} accessibilityRole="tablist">
       {ranges.map((r) => (
         <Pressable key={r} onPress={() => { setRange(r); setScrub(null); }} accessibilityRole="tab" aria-selected={range === r} style={{ minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent' }}>
-          <Txt v="small" c={range === r ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{r}</Txt>
+          <Txt v="small" c={range === r ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4}>{r}</Txt>
         </Pressable>
       ))}
     </View>

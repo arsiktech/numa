@@ -9,10 +9,14 @@ appId: com.arsiktech.numa
     timeout: 60000
 - waitForAnimationToEnd
 - takeScreenshot: ${SHOT}-01-home
+# The first-visit tip over the chart; dismissing it is part of a real first visit.
+- tapOn:
+    text: "Got it"
+    optional: true
 - scrollUntilVisible:
     element: "Needs you.*"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - takeScreenshot: ${SHOT}-02-home-scrolled
 - tapOn:
     id: "tab-flow"
