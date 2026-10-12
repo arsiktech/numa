@@ -65,10 +65,12 @@ jobs:
       - name: Is there a build for this native fingerprint?
         if: env.SKIP != '1'
         run: |
-          FP=$($EAS fingerprint:generate --platform ios --environment production --json --non-interactive | jq -r '.hash')
+          # With --environment, eas prints a notice line before the JSON; keep only the JSON.
+          FP=$($EAS fingerprint:generate --platform ios --environment production --json --non-interactive | sed -n '/^{/,$p' | jq -r '.hash')
+          [ -n "$FP" ] && [ "$FP" != "null" ]
           echo "FP=$FP" >> "$GITHUB_ENV"
           COUNT=$($EAS build:list --platform ios --runtime-version "$FP" --json --non-interactive --limit 20 \
-            | jq '[.[] | select(.buildProfile == "production" and .status != "ERRORED" and .status != "CANCELED")] | length')
+            | sed -n '/^\[/,$p' | jq '[.[] | select(.buildProfile == "production" and .status != "ERRORED" and .status != "CANCELED")] | length')
           echo "iOS fingerprint $FP: $COUNT usable production build(s)"
           if [ "$COUNT" = "0" ]; then echo "NEEDS_BUILD=1" >> "$GITHUB_ENV"; fi
 
