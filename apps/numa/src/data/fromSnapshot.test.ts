@@ -130,6 +130,17 @@ describe('fromSnapshot', () => {
     expect(fromSnapshot(snapshot({ transactions }), fx, now).month.outgoing).toEqual([{ id: 'expense:Coffee', label: 'Coffee', cents: 450, txIds: ['t1'] }]);
   });
 
+  it('raises spending limits at 80% and when passed', () => {
+    const categories = [{ id: 'c-din', name: 'Dining', kind: 'expense' as const, monthlyLimit: 100, budgetCurrency: 'EUR' as const }, { id: 'c-rent', name: 'Rent', kind: 'expense' as const, monthlyLimit: 1000 }];
+    const transactions = [
+      { id: 'd', occurredAt: now.getTime() - DAY, description: 'Lunch', categoryId: 'c-din', kind: 'expense' as const, amountMinor: 8_500, currency: 'EUR' as const, accountId: null, notes: null },
+      { id: 'r', occurredAt: now.getTime() - DAY, description: 'Rent', categoryId: 'c-rent', kind: 'expense' as const, amountMinor: 120_000, currency: 'EUR' as const, accountId: null, notes: null },
+    ];
+    const a = fromSnapshot(snapshot({ categories, transactions }), fx, now).attention;
+    expect(a.find((x) => x.id === 'limit-c-din')).toMatchObject({ urgency: 'watch', title: 'Dining is at 85% of its limit' });
+    expect(a.find((x) => x.id === 'limit-c-rent')).toMatchObject({ urgency: 'due', title: 'Rent is over its limit' });
+  });
+
   it('orders saved net-worth points and converts them', () => {
     const wealthSnapshots = [
       { takenAt: now.getTime() - DAY, netWorth: 125, currency: 'USD' as const },

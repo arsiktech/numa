@@ -107,6 +107,21 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
 
   const { unconverted: monthUnconverted, ...month } = monthFlow(s, monthOfMs(now.getTime()), currency, fx, now);
   unconverted.push(...monthUnconverted);
+
+  // Spending limits speak up at 80% and when passed.
+  for (const cat of s.categories) {
+    if (cat.kind !== 'expense' || cat.monthlyLimit == null) continue;
+    const limit = convertCents(Math.round(cat.monthlyLimit * 100), cat.budgetCurrency ?? currency, currency, fx);
+    const spent = month.outgoing.find((l) => l.label === cat.name)?.cents ?? 0;
+    if (!limit || spent < limit * 0.8) continue;
+    const over = spent > limit;
+    attention.push({
+      id: `limit-${cat.id}`, urgency: over ? 'due' : 'watch',
+      title: over ? `${cat.name} is over its limit` : `${cat.name} is at ${Math.round((spent / limit) * 100)}% of its limit`,
+      body: over ? 'Spending passed this month’s limit. Change the limit in Plan if it was planned.' : 'There’s still room, but it’s getting close.',
+      primary: 'Got it', secondary: 'Later', doneText: 'Hidden until you reopen Numa.', raisedAt: iso(nowMs),
+    });
+  }
   if (unconverted.length > 0) {
     attention.push({ id: 'fx', urgency: 'watch', title: 'Exchange rate unavailable', body: `${unconverted.length} ${unconverted.length === 1 ? 'record is' : 'records are'} in another currency. Totals come back when the rate loads.`, primary: 'Got it', secondary: 'Later', doneText: 'Hidden until you reopen Numa.', raisedAt: iso(nowMs) });
   }

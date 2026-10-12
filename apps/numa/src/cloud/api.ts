@@ -84,7 +84,9 @@ export type CloudRecurring = {
 
 export type CloudRevenue = { currency: CloudCurrency; mrr: number; arr: number } | null;
 
-export type CloudCategory = { id: string; name: string; kind: 'income' | 'expense' };
+export type CloudCategory = { id: string; name: string; kind: 'income' | 'expense'; monthlyLimit?: number | null; budgetCurrency?: CloudCurrency };
+
+export type CloudGoal = { id: string; scope: 'net_worth' | 'monthly_income' | 'income_category' | 'asset_value' | 'holding_value'; target: number; currency: CloudCurrency; startAt: number; deadline: number | null; label: string | null; categoryId: string | null; assetId: string | null; holdingId: string | null; createdAt: number };
 
 export type CloudWealthSnapshot = { takenAt: number; netWorth: number; currency: CloudCurrency };
 
@@ -97,6 +99,7 @@ export type CloudSnapshot = {
   holdings: CloudHolding[];
   wealthSnapshots: CloudWealthSnapshot[];
   recurring?: CloudRecurring[];
+  goals?: CloudGoal[];
   revenue?: CloudRevenue;
 };
 
@@ -126,5 +129,8 @@ export const cloud = {
   upsertLiability: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudLiability['kind']; balance: number; currency: CloudCurrency; dueDate?: number }>, Receipt>('mobile:upsertLiability'),
   deleteLiability: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteLiability'),
   upsertHolding: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; symbol: string; name: string; kind: CloudHolding['kind']; quantity: number; costBasis: number; currency: CloudCurrency; acquiredAt: number }>, Receipt>('mobile:upsertHolding'),
+  upsertGoal: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; scope: CloudGoal['scope']; target: number; currency: CloudCurrency; startAt: number; deadline?: number; label?: string; categoryId?: string; assetId?: string; holdingId?: string; createdAt: number }>, Receipt>('mobile:upsertGoal'),
+  removeGoal: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('goals:remove'),
+  updateCategory: makeFunctionReference<'mutation', WithReceipt<{ id: string; patch: { monthlyLimit?: number | null } }>, Receipt>('categories:update'),
   deleteHolding: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteHolding'),
 };
