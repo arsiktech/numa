@@ -77,7 +77,7 @@ function Message({ title, body, action }: { title: string; body: string; action?
 function Button({ label, onPress, busy }: { label: string; onPress: () => void; busy?: boolean }) {
   const { c } = useTheme();
   return (
-    <Pressable onPress={onPress} disabled={busy} accessibilityRole="button" accessibilityState={{ busy }} style={{ marginTop: 8, alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center' }}>
+    <Pressable onPress={onPress} disabled={busy} accessibilityRole="button" aria-busy={busy} style={{ marginTop: 8, alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center' }}>
       {busy ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>{label}</Txt>}
     </Pressable>
   );
@@ -96,7 +96,7 @@ function StartSpace({ create }: { create: (currency: CloudCurrency) => Promise<v
         <View style={{ gap: 4 }}>
           <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 999, backgroundColor: c.s2, alignSelf: 'flex-start', marginTop: 6 }} accessibilityRole="radiogroup">
             {(['EUR', 'USD'] as const).map((cur) => (
-              <Pressable key={cur} onPress={() => setCurrency(cur)} accessibilityRole="radio" accessibilityState={{ checked: currency === cur }} style={{ minWidth: 72, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: currency === cur ? c.bg : 'transparent' }}>
+              <Pressable key={cur} onPress={() => setCurrency(cur)} accessibilityRole="radio" aria-checked={currency === cur} style={{ minWidth: 72, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: currency === cur ? c.bg : 'transparent' }}>
                 <Txt v="body" c={currency === cur ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{cur === 'EUR' ? '€ Euro' : '$ Dollar'}</Txt>
               </Pressable>
             ))}
@@ -120,7 +120,7 @@ function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       <View style={{ flexDirection: 'row', gap: wide ? 22 : 16 }} accessibilityRole="tablist">
         {tabs.map((t) => (
-          <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" accessibilityState={{ selected: lens === t.lens }} style={{ height: 44, justifyContent: 'center' }}>
+          <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={{ height: 44, justifyContent: 'center' }}>
             <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }}>{t.label}</Txt>
           </Pressable>
         ))}
@@ -139,7 +139,7 @@ function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens
             </View>
           )
         )}
-        <Pressable onPress={() => set('hideAmounts', !hideAmounts)} accessibilityRole="switch" accessibilityState={{ checked: hideAmounts }} accessibilityLabel="Hide amounts" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: hideAmounts ? 0.55 : 1 }}>
+        <Pressable onPress={() => set('hideAmounts', !hideAmounts)} accessibilityRole="switch" aria-checked={hideAmounts} accessibilityLabel="Hide amounts" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: hideAmounts ? 0.55 : 1 }}>
           <IconEye color={c.ink} />
         </Pressable>
         <Link href="/settings" asChild>
@@ -236,7 +236,7 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
   const rangePills = (
     <View style={{ flexDirection: 'row', justifyContent: wide ? 'flex-end' : 'space-between', gap: 4 }} accessibilityRole="tablist">
       {ranges.map((r) => (
-        <Pressable key={r} onPress={() => { setRange(r); setScrub(null); }} accessibilityRole="tab" accessibilityState={{ selected: range === r }} style={{ minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent' }}>
+        <Pressable key={r} onPress={() => { setRange(r); setScrub(null); }} accessibilityRole="tab" aria-selected={range === r} style={{ minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent' }}>
           <Txt v="small" c={range === r ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{r}</Txt>
         </Pressable>
       ))}

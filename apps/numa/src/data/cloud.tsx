@@ -1,8 +1,9 @@
 import { useMutation, useQuery } from 'convex/react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { cloud, type CloudBootstrap, type CloudCurrency, type CloudSnapshot } from '@/cloud/api';
+import { cloud, type CloudBootstrap, type CloudCurrency, type CloudSnapshot, type CloudSpace } from '@/cloud/api';
 import { storage } from '@/cloud/storage';
+import { usePrefs } from '@/state/prefs';
 import { summarize, type Summary } from '@/domain/summary';
 import { fromSnapshot, type HomeData } from './fromSnapshot';
 import { parseFrankfurter, readSavedFx, type FxRate } from './fx';
@@ -12,7 +13,7 @@ export type CloudData =
   | { status: 'loading' }
   | { status: 'error'; message: string; retry: () => void }
   | { status: 'needsSpace'; create: (currency: CloudCurrency) => Promise<void> }
-  | { status: 'ready'; boot: CloudBootstrap; portfolioId: string; snapshot: CloudSnapshot; data: HomeData; summary: Summary; fx: FxRate | null; now: number };
+  | { status: 'ready'; boot: CloudBootstrap; portfolioId: string; space: CloudSpace; spaces: CloudSpace[]; selectSpace: (id: string) => void; snapshot: CloudSnapshot; data: HomeData; summary: Summary; fx: FxRate | null; now: number };
 
 const FX_KEY = 'numa.fx.v1';
 const CloudContext = createContext<CloudData | null>(null);
@@ -59,7 +60,14 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
   // Re-evaluate freshness every minute so stale prices are called out without a reload.
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(id); }, []);
 
-  const portfolioId = boot?.selectedPortfolioId ?? null;
+  // The space this device chose, if the account can still see it; otherwise the account's first.
+  const prefs = usePrefs();
+  const spaces = useQuery(cloud.listSpaces, boot ? {} : 'skip');
+  const chosen = spaces?.find((s) => s.id === prefs.space) ?? null;
+  const portfolioId = spaces === undefined || !prefs.ready ? null : (chosen?.id ?? boot?.selectedPortfolioId ?? spaces[0]?.id ?? null);
+  const space = spaces?.find((s) => s.id === portfolioId) ?? null;
+  const { set } = prefs;
+  const selectSpace = useCallback((id: string) => set('space', id), [set]);
   const snapshot = useQuery(cloud.portfolioSnapshot, portfolioId ? { portfolioId } : 'skip');
   const retry = useCallback(() => { setError(null); setAttempt((a) => a + 1); }, []);
   const create = useCallback(async (currency: CloudCurrency) => {
@@ -72,10 +80,10 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CloudData>(() => {
     if (error) return { status: 'error', message: error, retry };
-    if (boot && !portfolioId) return { status: 'needsSpace', create };
-    if (!boot || !portfolioId || !snapshot || !data || !summary) return { status: 'loading' };
-    return { status: 'ready', boot, portfolioId, snapshot, data, summary, fx, now };
-  }, [error, retry, boot, portfolioId, create, snapshot, data, summary, fx, now]);
+    if (boot && spaces && !portfolioId) return { status: 'needsSpace', create };
+    if (!boot || !portfolioId || !space || !spaces || !snapshot || !data || !summary) return { status: 'loading' };
+    return { status: 'ready', boot, portfolioId, space, spaces, selectSpace, snapshot, data, summary, fx, now };
+  }, [error, retry, boot, spaces, portfolioId, space, selectSpace, create, snapshot, data, summary, fx, now]);
 
   return <CloudContext.Provider value={value}>{children}</CloudContext.Provider>;
 }

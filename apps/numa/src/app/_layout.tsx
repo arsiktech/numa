@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { CloudBoundary } from '@/cloud/CloudBoundary';
 import { CloudProvider } from '@/cloud/CloudProvider';
 import { useSession } from '@/cloud/session';
 import { CloudDataProvider } from '@/data/cloud';
@@ -33,6 +34,8 @@ function Root() {
         <Stack.Screen name="item/[type]/[id]" />
         <Stack.Screen name="tx/[id]" />
         <Stack.Screen name="import" />
+        <Stack.Screen name="password" />
+        <Stack.Screen name="delete-account" />
       </Stack.Protected>
       <Stack.Protected guard={!inside}>
         <Stack.Screen name="sign-in" />
@@ -42,7 +45,7 @@ function Root() {
   return (
     <>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
-      <ToastProvider>{session.kind === 'signedIn' ? <CloudDataProvider>{stack}</CloudDataProvider> : stack}</ToastProvider>
+      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><CloudDataProvider>{stack}</CloudDataProvider></CloudBoundary> : stack}</ToastProvider>
     </>
   );
 }

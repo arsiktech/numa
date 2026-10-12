@@ -15,6 +15,8 @@ type Prefs = {
   demo: boolean;
   /** Needs you items the person dismissed ("Got it") or snoozed ("Later"). Keyed by item id. */
   dismissed: Record<string, Dismissal>;
+  /** The space this device last opened. Ignored if the signed-in account can't see it. */
+  space: string | null;
 };
 
 /** `title` is what was dismissed: if the item's title changes, it comes back. `until` is a snooze end, or null for good. */
@@ -29,7 +31,7 @@ type PrefsValue = Prefs & {
 };
 
 const KEY = 'numa.prefs.v1';
-const defaults: Prefs = { theme: 'auto', hideAmounts: false, seenTips: [], demo: false, dismissed: {} };
+const defaults: Prefs = { theme: 'auto', hideAmounts: false, seenTips: [], demo: false, dismissed: {}, space: null };
 const PrefsContext = createContext<PrefsValue | null>(null);
 
 export function PrefsProvider({ children }: { children: ReactNode }) {

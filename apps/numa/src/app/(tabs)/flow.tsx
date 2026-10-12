@@ -133,7 +133,7 @@ function Inner({ data }: { data: FlowData }) {
           {/* Every stream as a chip, so even ones too thin to label can be followed. */}
           <View style={{ marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityLabel="Streams">
             {lines.map((l) => (
-              <Pressable key={l.id} onPress={() => setFocus(focus === l.id ? null : l.id)} accessibilityRole="button" accessibilityState={{ selected: focus === l.id }} accessibilityLabel={`${l.label}, ${hidden ? 'amount hidden' : money(l.cents)}. ${focus === l.id ? 'Following' : 'Follow this stream'}`}
+              <Pressable key={l.id} onPress={() => setFocus(focus === l.id ? null : l.id)} accessibilityRole="button" aria-selected={focus === l.id} accessibilityLabel={`${l.label}, ${hidden ? 'amount hidden' : money(l.cents)}. ${focus === l.id ? 'Following' : 'Follow this stream'}`}
                 style={{ minHeight: 36, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: focus === l.id ? c.ink : c.s1 }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: l.id.startsWith('income:') ? c.up : c.ink3 }} />
                 <Txt v="small" style={{ fontFamily: 'Manrope_700Bold', color: focus === l.id ? c.bg : c.ink }}>{l.label}</Txt>

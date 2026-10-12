@@ -90,7 +90,7 @@ export function DraftCard({ draft, status, error, demo, onChange, onSave, onDisc
 
       {open && (
         <View style={{ marginTop: 14, flexDirection: 'row', gap: 4, alignItems: 'center' }}>
-          <Pressable onPress={onSave} disabled={problems.length > 0} accessibilityRole="button" accessibilityState={{ disabled: problems.length > 0 }} style={{ minHeight: 40, paddingHorizontal: 18, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: problems.length ? 0.4 : 1 }}>
+          <Pressable onPress={onSave} disabled={problems.length > 0} accessibilityRole="button" aria-disabled={problems.length > 0} style={{ minHeight: 40, paddingHorizontal: 18, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: problems.length ? 0.4 : 1 }}>
             <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>Save</Txt>
           </Pressable>
           <Pressable onPress={() => setEditing((e) => !e)} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: 'center' }}>

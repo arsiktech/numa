@@ -111,7 +111,7 @@ function Importer() {
             })}
             {ready.length > 50 && <Txt v="small" c="ink3" style={{ marginTop: 6 }}>and {ready.length - 50} more</Txt>}
           </View>
-          <Pressable onPress={importAll} disabled={!ready.length || !!busy} accessibilityRole="button" accessibilityState={{ disabled: !ready.length || !!busy, busy: !!busy }}
+          <Pressable onPress={importAll} disabled={!ready.length || !!busy} accessibilityRole="button" aria-disabled={!ready.length || !!busy} aria-busy={!!busy}
             style={{ marginTop: 16, minHeight: 48, paddingHorizontal: 22, borderRadius: 999, alignSelf: 'flex-start', backgroundColor: c.ink, justifyContent: 'center', opacity: ready.length ? 1 : 0.4 }}>
             <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>{busy ? `Importing ${busy.done} of ${busy.total}…` : `Import ${ready.length}`}</Txt>
           </Pressable>
