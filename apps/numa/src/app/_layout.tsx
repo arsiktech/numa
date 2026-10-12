@@ -52,11 +52,12 @@ function Root() {
 }
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
+  const [loaded, fontError] = useFonts({
     Manrope_300Light, Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
     JetBrainsMono_400Regular, JetBrainsMono_500Medium,
   });
-  if (!loaded) return null;
+  // A font that fails to load falls back to the system font rather than leaving a blank screen.
+  if (!loaded && !fontError) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PrefsProvider>

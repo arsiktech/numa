@@ -90,6 +90,12 @@ jobs:
       - name: Web build
         run: npm run export:web
 
+      # Cloudflare Pages drops any folder named node_modules on upload, and fails to publish a folder named like a package scope (`@...`).
+      - name: Web build paths suit Cloudflare Pages
+        run: |
+          if find dist -path '*node_modules*' -o -name '@*' | grep -q .; then find dist -path '*node_modules*' -o -name '@*' | head; exit 1; fi
+          if grep -rl 'assets/node_modules' dist; then exit 1; fi
+
   # Scripted user journeys for the rebuild app's web build, against a throwaway
   # local Convex backend that exists only inside this job. Identities are
   # disposable @example.com accounts; no shared or production deployment is touched.
