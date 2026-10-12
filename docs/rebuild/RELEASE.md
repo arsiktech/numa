@@ -55,11 +55,9 @@ npx eas-cli build --profile production --platform android
 npx eas-cli submit --profile production --platform android   # Play internal track, as a draft
 ```
 
-### Decision for the owner: the bundle ID
+### Bundle ID (owner decision, 2026-10-12)
 
-`app.json` uses `com.arsiktech.numa`, the existing Numa Pro identity. A TestFlight build of the rebuild then replaces the SwiftUI app for testers.
-
-That is the recommended path, because the rebuild is Numa Pro. If the SwiftUI app should keep running side by side, use a new identifier such as `com.arsiktech.numa.next`; that needs a new App Store Connect record.
+The rebuild ships as `com.arsiktech.numa`, the existing Numa Pro identity on iOS and Android. A TestFlight build of the rebuild replaces the SwiftUI app for testers.
 
 The app version is `2.0.0`, above the SwiftUI app's 1.2.0 builds. EAS keeps the build number. If the existing record's highest build number is above EAS's counter, run `npx eas-cli build:version:set` once before the first upload.
 
