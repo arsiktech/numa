@@ -65,7 +65,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const wide = useWindowDimensions().width >= WIDE;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} keyboardShouldPersistTaps="handled" contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 150 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} keyboardShouldPersistTaps="handled" contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
       <View style={{ width: '100%', maxWidth: 760, alignSelf: 'center' }}>{children}</View>
     </ScrollView>
   );

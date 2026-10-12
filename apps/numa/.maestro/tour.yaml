@@ -1,0 +1,30 @@
+# Walks the demo portfolio on an iOS simulator and takes a screenshot of each place.
+# Run by .github/workflows/ios-sim.yml. SHOT is a prefix such as "dark" or "light".
+appId: com.arsiktech.numa
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "What you own"
+    timeout: 60000
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}-01-home
+- scrollUntilVisible:
+    element: "Needs you"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: ${SHOT}-02-home-scrolled
+- tapOn:
+    id: "tab-flow"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}-03-flow
+- tapOn:
+    id: "tab-plan"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}-04-plan
+- tapOn:
+    id: "tab-home"
+- tapOn:
+    id: "ask-or-add"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}-05-ask

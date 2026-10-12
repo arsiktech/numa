@@ -1,6 +1,8 @@
 export type Range = '1D' | '1W' | '1M' | '1Y' | 'ALL';
 export const ranges: Range[] = ['1D', '1W', '1M', '1Y', 'ALL'];
-export type Point = { t: number; cents: number };
+/** What a saved snapshot recorded beside its net worth, in the portfolio's currency. */
+export type PointParts = { liquidCents: number; investedCents: number; hardCents: number; oweCents: number };
+export type Point = { t: number; cents: number; parts?: PointParts };
 
 const DAY = 86_400_000;
 export const spanMs: Record<Range, number> = { '1D': DAY, '1W': 7 * DAY, '1M': 30 * DAY, '1Y': 365 * DAY, ALL: Infinity };
@@ -18,7 +20,7 @@ export function seriesFor(history: Point[], now: number, liveCents: number, rang
   // A saved value carries to the start of the range only if it is no older than the range
   // itself; otherwise a week-old value would pass for this morning's.
   const before = history.filter((p) => p.t < start && start - p.t <= spanMs[range]).at(-1);
-  const points = [...(before ? [{ t: Math.max(start, before.t), cents: before.cents }] : []), ...inside, { t: now, cents: liveCents }];
+  const points: Point[] = [...(before ? [{ ...before, t: Math.max(start, before.t) }] : []), ...inside, { t: now, cents: liveCents }];
   if (points.length >= 2) return { points, hasHistory: true };
   return { points: [{ t: range === 'ALL' ? now - DAY : start, cents: liveCents }, { t: now, cents: liveCents }], hasHistory: false };
 }

@@ -107,6 +107,17 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   check('1Y shows change from saved history', /[▲▼] €[\d,]+\.\d\d/.test(yr) && yr.includes('this year'), yr.match(/[▲▼][^\n]*/)?.[0] ?? 'none');
   await page.screenshot({ path: OUT + '/05-home-1y-dark-390.png' });
 
+  // The blocks follow the finger: the oldest saved point (300 days ago, €120,000, all liquid, no debts).
+  const chartBox = await page.getByTestId('scrub-chart').boundingBox();
+  await page.mouse.move(chartBox.x + 2, chartBox.y + chartBox.height / 2);
+  await page.waitForTimeout(500);
+  const then = await page.locator('body').innerText();
+  await page.screenshot({ path: OUT + '/05b-home-scrubbed-dark-390.png', fullPage: true });
+  check('scrubbing shows what you owned on that date', /What you owned · /.test(then) && then.includes('Liquid') && (then.match(/€120,000/g) || []).length >= 2 && then.includes('What you owed'), (then.match(/What you owned[^\n]*/) || ['none'])[0]);
+  await page.mouse.move(chartBox.x + chartBox.width / 2, chartBox.y - 260);
+  await page.waitForTimeout(500);
+  check('letting go returns to today', (await page.locator('body').innerText()).includes('What you own ›'));
+
   await page.getByRole('switch', { name: 'Hide amounts' }).first().click();
   await page.waitForTimeout(400);
   const hiddenText = await page.locator('body').innerText();

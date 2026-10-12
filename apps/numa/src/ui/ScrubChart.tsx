@@ -60,7 +60,7 @@ export function ScrubChart({ values, times, height, up, onScrub, drawKey }: Prop
 
   return (
     <GestureDetector gesture={gesture}>
-      <View style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessibilityRole="image" accessibilityLabel="Net worth over time. Drag to see earlier values.">
+      <View testID="scrub-chart" style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessibilityRole="image" accessibilityLabel="Net worth over time. Drag to see earlier values.">
         {geo && (
           <Svg width={width} height={height}>
             <Line x1={0} x2={width} y1={geo.baseY} y2={geo.baseY} stroke={c.line2} strokeWidth={1} strokeDasharray="2 5" />

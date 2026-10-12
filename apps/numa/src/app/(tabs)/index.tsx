@@ -1,11 +1,12 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CloudCurrency } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { formatMoney, formatPercent } from '@/domain/money';
+import { compositionAt } from '@/data/composition';
 import { pointLabel, rangeWords, ranges, type Range } from '@/data/series';
 import { useCloudHome, useDemoHome, type HomeModel } from '@/data/useHome';
 import { usePrefs } from '@/state/prefs';
@@ -57,7 +58,7 @@ function Frame({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 150 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
       <View style={{ width: '100%', maxWidth: 1240, alignSelf: 'center' }}>{children}</View>
     </ScrollView>
   );
@@ -195,6 +196,8 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
   const diff = values[idx] - values[0];
   const up = diff >= 0;
   const showChange = chartFollowsLens && model.hasHistory;
+  // The blocks follow the finger too: the last point is today, so it shows the live split.
+  const composition = useMemo(() => compositionAt(scrub !== null && idx < points.length - 1 ? points[idx] : null, summary, model.source), [scrub, idx, points, summary, model.source]);
 
   const hero = wide ? typeScale.display : typeScale.hero;
   const centsStyle = wide ? { ...typeScale.cents, fontSize: 42, lineHeight: 42 } : typeScale.cents;
@@ -256,7 +259,7 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
     <Message title="Nothing tracked yet" body="Tap the plus and type what you have, like “Bank balance 12,500” or “Bought 10 VOO at $500”. It shows up here as blocks." action={model.source === 'cloud' ? <Link href="/import" asChild><Pressable accessibilityRole="link" style={{ minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Or import a sheet or CSV ›</Txt></Pressable></Link> : undefined} />
   ) : model.available ? (
     <View>
-      <CompositionBar categories={summary.categories} ownCents={summary.ownCents} oweCents={summary.oweCents} netCents={summary.netCents} lens={lens} wide={wide} />
+      <CompositionBar {...composition} lens={lens} wide={wide} when={scrub !== null && idx < points.length - 1 ? pointLabel(points[idx].t, range, model.now) : undefined} />
       {notes[lens] ? <Txt v="body" c="ink2" style={{ fontSize: 13.5, marginTop: 10 }}>{notes[lens]}</Txt> : null}
       {summary.unknown.length > 0 && <Txt v="small" c="ink3" style={{ marginTop: 8 }}>{summary.unknown.length} without a value {summary.unknown.length === 1 ? 'is' : 'are'} left out.</Txt>}
       {lens !== 'net' && !chartFollowsLens && <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{tabs.find((t) => t.lens === lens)!.label} today: {money(lensNow)}. The chart shows net worth.</Txt>}

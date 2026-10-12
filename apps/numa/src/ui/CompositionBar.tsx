@@ -21,11 +21,11 @@ const meta: Record<CategoryId, { name: string; color: CategoryColor }> = {
   things: { name: 'Things', color: 'catSand' },
 };
 
-function Block({ cat, lens, labelMin, height }: { cat: CategorySummary; lens: Lens; labelMin: number; height: number }) {
+function Block({ cat, lens, labelMin, height, name }: { cat: CategorySummary; lens: Lens; labelMin: number; height: number; name?: string }) {
   const { c } = useTheme();
   const { money, short, hidden } = useMoney();
   const reduce = useReducedMotion();
-  const m = meta[cat.category];
+  const m = { ...meta[cat.category], name: name ?? meta[cat.category].name };
   const counts = lens === 'net' ? true : lens === 'liquid' ? cat.liquidCents > 0 : cat.cashCents > 0;
   const opacity = useSharedValue(counts ? 1 : 0.18);
   useEffect(() => { opacity.value = reduce ? (counts ? 1 : 0.18) : withTiming(counts ? 1 : 0.18, { duration: duration.morph }); }, [counts, reduce, opacity]);
@@ -43,8 +43,11 @@ function Block({ cat, lens, labelMin, height }: { cat: CategorySummary; lens: Le
   );
 }
 
-/** What you own as category blocks, and what you owe hatched beside what is left. Widths are values. */
-export function CompositionBar({ categories, ownCents, oweCents, netCents, lens, wide = false }: { categories: CategorySummary[]; ownCents: number; oweCents: number; netCents: number; lens: Lens; wide?: boolean }) {
+/**
+ * What you own as category blocks, and what you owe hatched beside what is left. Widths are values.
+ * `when` names the moment shown while the chart is scrubbed; `names` relabels a snapshot's coarse blocks.
+ */
+export function CompositionBar({ categories, ownCents, oweCents, netCents, lens, wide = false, when, names }: { categories: CategorySummary[]; ownCents: number; oweCents: number; netCents: number; lens: Lens; wide?: boolean; when?: string; names?: Partial<Record<CategoryId, string>> }) {
   const { c } = useTheme();
   const { money, hidden } = useMoney();
   const h = wide ? 96 : 60;
@@ -52,12 +55,12 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
     <View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
         <Pressable onPress={() => router.push('/holdings')} accessibilityRole="link" hitSlop={8}>
-          <Txt v="small" c="ink2" style={{ fontSize: 14 }}>What you own ›</Txt>
+          <Txt v="small" c="ink2" style={{ fontSize: 14 }}>{when ? `What you owned · ${when}` : 'What you own ›'}</Txt>
         </Pressable>
         <Txt v="figureSm" style={{ fontSize: 14 }}>{money(ownCents)}</Txt>
       </View>
       <View style={{ flexDirection: 'row', gap: 2, borderRadius: 10, overflow: 'hidden', minHeight: categories.length ? 0 : h, backgroundColor: categories.length ? 'transparent' : c.s1 }}>
-        {categories.map((cat) => <Block key={cat.category} cat={cat} lens={lens} labelMin={wide ? 0.075 : 0.16} height={h} />)}
+        {categories.map((cat) => <Block key={cat.category} cat={cat} lens={lens} labelMin={wide ? 0.075 : 0.16} height={h} name={names?.[cat.category]} />)}
       </View>
       <View style={{ flexDirection: 'row', gap: 2, borderRadius: 10, overflow: 'hidden', marginTop: 2 }}>
         <Pressable onPress={() => router.push({ pathname: '/holdings/[group]', params: { group: 'debts' } })} accessibilityRole="link" style={{ flexGrow: oweCents, flexBasis: 0, height: wide ? 56 : 60, backgroundColor: c.down, overflow: 'hidden', display: oweCents > 0 ? 'flex' : 'none' }} accessibilityLabel={`Debts, ${hidden ? 'amount hidden' : money(oweCents)}. Open`}>
@@ -74,7 +77,7 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: c.down }} />
           <Pressable onPress={() => router.push({ pathname: '/holdings/[group]', params: { group: 'debts' } })} accessibilityRole="link" hitSlop={8}>
-            <Txt v="small" c="ink2" style={{ fontSize: 14 }}>What you owe ›</Txt>
+            <Txt v="small" c="ink2" style={{ fontSize: 14 }}>{when ? 'What you owed' : 'What you owe ›'}</Txt>
           </Pressable>
         </View>
         <Txt v="figureSm" style={{ fontSize: 14 }}>{money(oweCents)}</Txt>

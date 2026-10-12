@@ -1,0 +1,93 @@
+name: iOS simulator
+
+# Builds the app for the iOS simulator, walks the demo portfolio with Maestro and
+# keeps a screenshot of each screen in dark, light and the largest accessibility
+# text size. No account, backend or signing is involved: without a Convex URL the
+# app opens straight into the demo.
+on:
+  pull_request:
+    paths:
+      - 'apps/numa/**'
+      - '.github/workflows/ios-sim.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-sim-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/numa
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/numa/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the iOS project
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Build for the simulator
+        run: |
+          WS=$(ls -d ios/*.xcworkspace | head -1)
+          SCHEME=$(basename "$WS" .xcworkspace)
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -quiet
+          ls build/Build/Products/Release-iphonesimulator/
+
+      - name: Boot an iPhone simulator
+        run: |
+          xcrun simctl list devices available
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          devs = [d for r, ds in json.load(sys.stdin)['devices'].items() if 'iOS' in r for d in ds]
+          pro = [d for d in devs if d['name'].startswith('iPhone') and 'Pro' in d['name'] and 'Max' not in d['name']]
+          print((pro or [d for d in devs if d['name'].startswith('iPhone')])[-1]['udid'])")
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl list devices booted
+          APP=$(ls -d build/Build/Products/Release-iphonesimulator/*.app | head -1)
+          xcrun simctl install "$UDID" "$APP"
+
+      - name: Install Maestro
+        working-directory: .
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Walk the app (dark, light, largest text)
+        run: |
+          mkdir -p shots
+          FAIL=0
+          walk() { maestro --device "$UDID" test -e SHOT="$1" --test-output-dir "shots/$1-run" .maestro/tour.yaml || FAIL=1; }
+          xcrun simctl ui "$UDID" appearance dark;  walk dark
+          xcrun simctl ui "$UDID" appearance light; walk light
+          xcrun simctl ui "$UDID" appearance dark
+          xcrun simctl ui "$UDID" content_size accessibility-extra-extra-extra-large; walk bigtext
+          mv ./*.png shots/ 2>/dev/null || true
+          ls shots
+          exit $FAIL
+
+      - name: Keep screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-screens
+          path: |
+            apps/numa/shots/
+            apps/numa/*.png
+          retention-days: 14

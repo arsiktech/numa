@@ -88,7 +88,7 @@ export type CloudCategory = { id: string; name: string; kind: 'income' | 'expens
 
 export type CloudGoal = { id: string; scope: 'net_worth' | 'monthly_income' | 'income_category' | 'asset_value' | 'holding_value'; target: number; currency: CloudCurrency; startAt: number; deadline: number | null; label: string | null; categoryId: string | null; assetId: string | null; holdingId: string | null; createdAt: number };
 
-export type CloudWealthSnapshot = { takenAt: number; netWorth: number; currency: CloudCurrency };
+export type CloudWealthSnapshot = { takenAt: number; netWorth: number; liquid?: number; invested?: number; hardAssets?: number; liabilities?: number; currency: CloudCurrency };
 
 export type CloudSnapshot = {
   portfolio: CloudPortfolio;
