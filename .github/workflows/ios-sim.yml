@@ -70,6 +70,10 @@ jobs:
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Walk the app (dark, light, largest text)
+        env:
+          # The first start on a fresh simulator installs Maestro's XCTest driver, which can
+          # take longer than the 2-minute default on hosted runners.
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '300000'
         run: |
           mkdir -p shots
           FAIL=0
