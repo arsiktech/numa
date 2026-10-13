@@ -5,6 +5,7 @@ import { requireEditor, requireMember, requireUser, type AnyCtx } from "./lib/ac
 import type { Id } from "./_generated/dataModel";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 import { assertTimestamp, minorUnits } from "./lib/finance";
+import { snapshotLine } from "./schema";
 
 const currencyValidator = v.union(v.literal("USD"), v.literal("EUR"));
 
@@ -16,6 +17,31 @@ function assertSnapshot(input: {
   const components = [input.liquid, input.invested, input.hardAssets, input.liabilities].map(minorUnits);
   if (minorUnits(input.netWorth) !== components[0]! + components[1]! + components[2]! - components[3]!) {
     throw new ConvexError({ code: "INVALID_ARGUMENT", message: "Snapshot components must reconcile to net worth." });
+  }
+}
+
+type SnapshotLine = { group: "liquid" | "crypto" | "stocks" | "hard" | "debt"; name: string; amount: number };
+const MAX_LINES = 80;
+
+/**
+ * A date's positions must add up to the split it records, so the details never disagree with the
+ * chart. Positive amounts count as owned by kind; debt and negative amounts count as owed.
+ */
+function assertLines(lines: SnapshotLine[], parts: { liquid: number; invested: number; hardAssets: number; liabilities: number }) {
+  if (lines.length > MAX_LINES) throw new ConvexError({ code: "INVALID_ARGUMENT", message: `A date can hold at most ${MAX_LINES} lines.` });
+  const sums = { liquid: 0, invested: 0, hard: 0, owe: 0 };
+  for (const line of lines) {
+    const name = line.name.trim();
+    if (!name || name.length > 60) throw new ConvexError({ code: "INVALID_ARGUMENT", message: "Each line needs a name of up to 60 characters." });
+    const cents = minorUnits(line.amount);
+    if (line.group === "debt" || cents < 0) sums.owe += Math.abs(cents);
+    else if (line.group === "liquid") sums.liquid += cents;
+    else if (line.group === "hard") sums.hard += cents;
+    else sums.invested += cents;
+  }
+  if (lines.length && (sums.liquid !== minorUnits(parts.liquid) || sums.invested !== minorUnits(parts.invested)
+    || sums.hard !== minorUnits(parts.hardAssets) || sums.owe !== minorUnits(Math.abs(parts.liabilities)))) {
+    throw new ConvexError({ code: "INVALID_ARGUMENT", message: "Snapshot lines must add up to its liquid, invested, hard and owed totals." });
   }
 }
 
@@ -63,6 +89,7 @@ export const add = mutation({
     currency: currencyValidator,
     label: v.optional(v.string()),
     isAuto: v.boolean(),
+    lines: v.optional(v.array(snapshotLine)),
     clientMutationId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
@@ -77,6 +104,7 @@ export const add = mutation({
       "wealthSnapshots.add",
       async () => {
         assertSnapshot(args);
+        if (args.lines) assertLines(args.lines, args);
         if (args.isAuto) {
           const month = new Date(args.takenAt).toISOString().slice(0, 7);
           const existing = await ctx.db.query("wealthSnapshots")
@@ -94,7 +122,8 @@ export const add = mutation({
           liabilities: args.liabilities,
           currency: args.currency,
           label: args.label,
-          isAuto: args.isAuto
+          isAuto: args.isAuto,
+          ...(args.lines?.length ? { lines: args.lines } : {})
         });
       },
       String(args.portfolioId)
@@ -115,7 +144,9 @@ export const update = mutation({
       liabilities: v.optional(v.number()),
       currency: v.optional(currencyValidator),
       label: v.optional(v.string()),
-      isAuto: v.optional(v.boolean())
+      isAuto: v.optional(v.boolean()),
+      // An empty list removes a date's details.
+      lines: v.optional(v.array(snapshotLine))
     })
   },
   handler: async (ctx, args) => {
@@ -137,6 +168,9 @@ export const update = mutation({
         // Keep legacy snapshots label-editable without migrating their values.
         if (["takenAt", "netWorth", "liquid", "invested", "hardAssets", "liabilities", "currency"]
           .some(key => key in patch)) assertSnapshot({ ...existing, ...patch });
+        const lines = "lines" in patch ? patch.lines as SnapshotLine[] : existing.lines;
+        if (lines?.length) assertLines(lines, { ...existing, ...patch } as Parameters<typeof assertLines>[1]);
+        if ("lines" in patch && !(patch.lines as SnapshotLine[]).length) patch.lines = undefined;
         await ctx.db.patch(args.id, patch);
         return args.id;
       }

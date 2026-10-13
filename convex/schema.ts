@@ -21,6 +21,13 @@ const wealthObservation = v.optional(v.object({
 }));
 const wealthFx = v.optional(v.object({ usdPerEUR: v.number(), asOf: v.number(), source: v.literal("manual") }));
 
+/** One position on a dated snapshot. Negative amounts outside "debt" are owed, like an overdraft. */
+export const snapshotLine = v.object({
+  group: v.union(v.literal("liquid"), v.literal("crypto"), v.literal("stocks"), v.literal("hard"), v.literal("debt")),
+  name: v.string(),
+  amount: v.number()
+});
+
 export default defineSchema({
   ...authTables,
   // Preserve the SDK signature index while enabling owner-session erasure.
@@ -279,6 +286,8 @@ export default defineSchema({
     currency: v.union(v.literal("USD"), v.literal("EUR")),
     label: v.optional(v.string()),
     isAuto: v.boolean(),
+    // What each position was worth on that date, when the source had it (a wealth log row).
+    lines: v.optional(v.array(snapshotLine)),
     wealthEvidence: v.optional(v.object({
       contractVersion: v.literal(2), coverageKey: v.string(), complete: v.boolean(),
       assets: v.number(), encumbered: v.number(), fx: wealthFx

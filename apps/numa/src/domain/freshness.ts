@@ -10,6 +10,9 @@ export const shortDay = (ms: number, now: number) => {
   return `${d.getDate()} ${months[d.getMonth()]}${d.getFullYear() !== new Date(now).getFullYear() ? ' ' + d.getFullYear() : ''}`;
 };
 
+/** "20 Feb 2026", always with the year. */
+export const longDay = (ms: number) => { const d = new Date(ms); return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`; };
+
 /** "4 min ago", "3 h ago", "2 days ago", "5 months ago". */
 export function ago(ms: number, now: number): string {
   const s = Math.max(0, now - ms) / 1000;

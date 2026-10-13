@@ -9,7 +9,8 @@ import { formatMoney } from '@/domain/money';
 import { parseTable } from '@/sources/csv';
 import { ImportKinds, ImportSources, type Loaded } from '@/sources/ImportSources';
 import { previewImport, type ImportRow } from '@/sources/importRows';
-import { isWealthLog, readWealthLog, todayFromLatest, type LogRow } from '@/sources/wealthLog';
+import { dayKeyOf, isWealthLog, linesOf, readWealthLog, todayFromLatest, type LogRow } from '@/sources/wealthLog';
+import type { CloudWealthSnapshot } from '@/cloud/api';
 import { shortDay } from '@/domain/freshness';
 import { useTheme } from '@/theme/theme';
 import { Screen } from '@/ui/Screen';
@@ -50,7 +51,16 @@ function Importer() {
     if (cloud.status !== 'ready' || !isWealthLog(table)) return null;
     const read = readWealthLog(table, { currency: cloud.data.currency, existingDays: cloud.snapshot.wealthSnapshots.map((w) => w.takenAt) });
     const s = cloud.snapshot;
-    return { ...read, today: read.latest ? todayFromLatest(read.latest, { currency: cloud.data.currency, assets: s.assets, liabilities: s.liabilities }) : null };
+    // Dates this wealth log saved before, without what was in them, get their details filled in.
+    const byDay = new Map(s.wealthSnapshots.map((w) => [dayKeyOf(w.takenAt), w]));
+    const filled = new Set<string>();
+    const fill = read.rows.flatMap((r) => {
+      const w = r.duplicate && !r.problem && r.takenAt !== null ? byDay.get(dayKeyOf(r.takenAt)) : undefined;
+      if (!w?.id || w.label !== 'Wealth log' || w.lines?.length || w.currency !== r.currency || !r.positions.length || filled.has(w.id)) return [];
+      filled.add(w.id);
+      return [{ row: r, saved: w as CloudWealthSnapshot & { id: string } }];
+    });
+    return { ...read, fill, today: read.latest ? todayFromLatest(read.latest, { currency: cloud.data.currency, assets: s.assets, liabilities: s.liabilities }) : null };
   }, [cloud, table]);
   const preview = useMemo(() => {
     if (cloud.status !== 'ready' || !table.length || log) return null;
@@ -112,15 +122,25 @@ function Importer() {
     await runAll(items, failed);
   }
 
-  async function importHistory(rows: LogRow[]) {
+  async function importHistory(rows: LogRow[], fill: LogView['fill']) {
     if (cloud.status !== 'ready') return;
     const portfolioId = cloud.portfolioId;
     const major = (cents: number) => cents / 100;
-    await runAll(rows.map((r) => ({
-      line: r.line,
-      apply: { fn: 'addSnapshot', args: { portfolioId, takenAt: r.takenAt!, netWorth: major(r.netCents), liquid: major(r.liquidCents), invested: major(r.investedCents), hardAssets: major(r.hardCents), liabilities: major(r.oweCents), currency: r.currency, label: 'Wealth log', isAuto: false } },
-      undo: { fn: 'removeSnapshot', args: { id: CREATED } },
-    })), [], false);
+    const split = (r: LogRow) => ({ netWorth: major(r.netCents), liquid: major(r.liquidCents), invested: major(r.investedCents), hardAssets: major(r.hardCents), liabilities: major(r.oweCents) });
+    // A date keeps up to 80 positions; a wider row still saves its totals.
+    const lines = (r: LogRow) => (r.positions.length <= 80 ? linesOf(r) : []);
+    await runAll([
+      ...rows.map((r) => ({
+        line: r.line,
+        apply: { fn: 'addSnapshot', args: { portfolioId, takenAt: r.takenAt!, ...split(r), currency: r.currency, label: 'Wealth log', isAuto: false, lines: lines(r) } } as Op,
+        undo: { fn: 'removeSnapshot', args: { id: CREATED } } as Op,
+      })),
+      ...fill.filter(({ row }) => lines(row).length).map(({ row, saved }) => ({
+        line: row.line,
+        apply: { fn: 'updateSnapshot', args: { id: saved.id, patch: { ...split(row), lines: lines(row) } } } as Op,
+        undo: { fn: 'updateSnapshot', args: { id: saved.id, patch: { netWorth: saved.netWorth, liquid: saved.liquid ?? 0, invested: saved.invested ?? 0, hardAssets: saved.hardAssets ?? 0, liabilities: saved.liabilities ?? 0, lines: [] } } } as Op,
+      })),
+    ], [], false);
   }
 
   async function setUpToday(drafts: NonNullable<NonNullable<typeof log>['today']>['drafts']) {
@@ -218,10 +238,10 @@ function Importer() {
   );
 }
 
-type LogView = ReturnType<typeof readWealthLog> & { today: ReturnType<typeof todayFromLatest> | null };
+type LogView = ReturnType<typeof readWealthLog> & { today: ReturnType<typeof todayFromLatest> | null; fill: { row: LogRow; saved: CloudWealthSnapshot & { id: string } }[] };
 
 /** A dated wealth log: its history as net-worth points, and today's accounts and debts from the latest row. */
-function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView; now: number; busy: { done: number; total: number } | null; onHistory: (rows: LogRow[]) => void; onToday: (drafts: NonNullable<LogView['today']>['drafts']) => void }) {
+function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView; now: number; busy: { done: number; total: number } | null; onHistory: (rows: LogRow[], fill: LogView['fill']) => void; onToday: (drafts: NonNullable<LogView['today']>['drafts']) => void }) {
   const { c } = useTheme();
   const ready = log.rows.filter((r) => !r.problem && !r.duplicate);
   const dupes = log.rows.filter((r) => r.duplicate).length;
@@ -239,7 +259,7 @@ function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView
       <Txt v="section">Net-worth history · {ready.length} {ready.length === 1 ? 'date' : 'dates'}</Txt>
       <Txt v="body" c="ink2" style={{ marginTop: 2 }}>
         {first && last ? `From ${shortDay(first, now)} to ${shortDay(last, now)}. Each date becomes a point on your chart, with what you owned and owed kept apart.` : 'No dates can be read yet.'}
-        {dupes ? ` ${dupes} already in Numa, skipped.` : ''}
+        {dupes ? ` ${dupes} already in Numa${log.fill.length ? `; what was in ${log.fill.length === dupes ? 'them' : log.fill.length} gets filled in` : ', skipped'}.` : ''}
       </Txt>
       {bad.slice(0, 5).map((r) => <Txt key={r.line} v="small" c="warn" style={{ marginTop: 2 }}>Row {r.line}: {r.problem}</Txt>)}
       <View style={{ marginTop: 10 }}>
@@ -253,7 +273,7 @@ function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView
           </View>
         ))}
       </View>
-      {button(`Import ${ready.length} ${ready.length === 1 ? 'date' : 'dates'}`, () => onHistory(ready), !ready.length || !!busy)}
+      {button(historyLabel(ready.length, log.fill.length), () => onHistory(ready, log.fill), (!ready.length && !log.fill.length) || !!busy)}
 
       {log.today && log.latest && (
         <View style={{ marginTop: 28 }}>
@@ -280,4 +300,12 @@ function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView
       )}
     </View>
   );
+}
+
+const dates = (n: number) => `${n} ${n === 1 ? 'date' : 'dates'}`;
+/** "Import 3 dates", "Add details to 16 dates", or both. */
+function historyLabel(fresh: number, fill: number) {
+  if (!fill) return `Import ${dates(fresh)}`;
+  if (!fresh) return `Add details to ${dates(fill)}`;
+  return `Import ${dates(fresh)}, add details to ${fill}`;
 }

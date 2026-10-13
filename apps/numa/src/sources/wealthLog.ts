@@ -25,6 +25,8 @@ export type LogRow = {
   /** The total the sheet itself shows, when it has one. */
   sheetNetCents: number | null;
   currency: Currency;
+  /** Every non-zero position in the row, so a saved date can show what was in it. */
+  positions: LogPosition[];
   problem: string | null;
   duplicate: boolean;
 };
@@ -108,7 +110,7 @@ export function readWealthLog(table: string[][], ctx: { currency: Currency; exis
     const takenAt = parseDay(r[dateCol] ?? '');
     const sheet = totalCol >= 0 ? parseAmount(r[totalCol] ?? '') : null;
     const currency: Currency = sheet?.currency ?? ctx.currency;
-    const base = { line, takenAt, liquidCents: 0, investedCents: 0, hardCents: 0, oweCents: 0, netCents: 0, sheetNetCents: sheet?.cents ?? null, currency, duplicate: false };
+    const base = { line, takenAt, liquidCents: 0, investedCents: 0, hardCents: 0, oweCents: 0, netCents: 0, sheetNetCents: sheet?.cents ?? null, currency, positions: [] as LogPosition[], duplicate: false };
     if (takenAt === null) return { ...base, problem: 'No readable date' };
 
     const positions: LogPosition[] = [];
@@ -138,7 +140,7 @@ export function readWealthLog(table: string[][], ctx: { currency: Currency; exis
       else invested += p.cents;
     }
     const net = liquid + invested + hard - owe;
-    const out = { ...base, liquidCents: liquid, investedCents: invested, hardCents: hard, oweCents: owe, netCents: net };
+    const out = { ...base, liquidCents: liquid, investedCents: invested, hardCents: hard, oweCents: owe, netCents: net, positions };
     if (!positions.length) return { ...out, problem: 'No values in this row' };
     // The sheet rounds to whole units, so allow a little; anything more means a column was misread.
     if (sheet && Math.abs(sheet.cents - net) > Math.max(500, Math.abs(sheet.cents) * 0.005)) {
@@ -202,3 +204,10 @@ export function todayFromLatest(latest: NonNullable<WealthLog['latest']>, ctx: P
   }
   return { drafts, needQuantity: needQuantity.sort((a, b) => b.cents - a.cents) };
 }
+
+/** A row's positions as the lines a saved date keeps, with names tidied the same way as today's set-up. */
+export function linesOf(row: Pick<LogRow, 'positions'>): { group: Group; name: string; amount: number }[] {
+  return row.positions.map((p) => ({ group: p.group, name: nice(p.name, p.group).slice(0, 60) || p.group, amount: p.cents / 100 }));
+}
+
+export const dayKeyOf = (ms: number) => dayKey(ms);

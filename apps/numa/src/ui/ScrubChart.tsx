@@ -9,14 +9,31 @@ import { curves, duration } from '@/theme/tokens';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-type Props = { values: number[]; /** Optional timestamps, so uneven saved points sit at their real dates. */ times?: number[]; height: number; up: boolean; onScrub: (index: number | null) => void; drawKey: string };
+type Props = {
+  values: number[];
+  /** Optional timestamps, so uneven saved points sit at their real dates. */
+  times?: number[];
+  height: number;
+  up: boolean;
+  drawKey: string;
+  /** The point kept after the finger lifts, or null for today. */
+  pinned: number | null;
+  /** Called while dragging or hovering, and with null when that ends. */
+  onPreview: (index: number | null) => void;
+  /** Called when a drag ends or the line is tapped, to keep that point. */
+  onPin: (index: number) => void;
+};
 
-/** A single line of value over time. Drag (or hover on web) to read earlier values; the hero figure follows. */
-export function ScrubChart({ values, times, height, up, onScrub, drawKey }: Props) {
+/**
+ * A single line of value over time. Drag (or hover on web) to read earlier values; the hero figure
+ * follows. Letting go, or tapping the line, keeps that date so the blocks below can be opened for it.
+ */
+export function ScrubChart({ values, times, height, up, drawKey, pinned, onPreview, onPin }: Props) {
   const { c } = useTheme();
   const reduce = useReducedMotion();
   const [width, setWidth] = useState(0);
-  const [scrub, setScrub] = useState<number | null>(null);
+  const [preview, setPreview] = useState<number | null>(null);
+  const scrub = preview ?? (pinned !== null && pinned < values.length ? pinned : null);
   const n = values.length;
   const color = up ? c.up : c.down;
 
@@ -52,16 +69,20 @@ export function ScrubChart({ values, times, height, up, onScrub, drawKey }: Prop
     for (let i = 1; i < n; i++) if (Math.abs(geo.frac(i) - f) < Math.abs(geo.frac(best) - f)) best = i;
     return best;
   };
-  const move = (px: number) => { const i = indexAt(px); setScrub(i); onScrub(i); };
-  const end = () => { setScrub(null); onScrub(null); };
+  const move = (px: number) => { const i = indexAt(px); setPreview(i); onPreview(i); };
+  const clear = () => { setPreview(null); onPreview(null); };
   // Only a sideways drag scrubs; a vertical swipe that starts on the chart scrolls the page.
-  const pan = Gesture.Pan().activeOffsetX([-6, 6]).failOffsetY([-10, 10]).runOnJS(true).onStart((e) => move(e.x)).onUpdate((e) => move(e.x)).onFinalize(end);
-  const hover = Gesture.Hover().runOnJS(true).onUpdate((e) => move(e.x)).onEnd(end);
-  const gesture = Gesture.Simultaneous(pan, hover);
+  const pan = Gesture.Pan().activeOffsetX([-6, 6]).failOffsetY([-10, 10]).runOnJS(true)
+    .onStart((e) => move(e.x)).onUpdate((e) => move(e.x))
+    .onEnd((e, ok) => { if (ok) onPin(indexAt(e.x)); })
+    .onFinalize(clear);
+  const tap = Gesture.Tap().runOnJS(true).onEnd((e, ok) => { if (ok) onPin(indexAt(e.x)); });
+  const hover = Gesture.Hover().runOnJS(true).onUpdate((e) => move(e.x)).onEnd(clear);
+  const gesture = Gesture.Simultaneous(Gesture.Exclusive(pan, tap), hover);
 
   return (
     <GestureDetector gesture={gesture}>
-      <View testID="scrub-chart" style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessibilityRole="image" accessibilityLabel="Net worth over time. Drag to see earlier values.">
+      <View testID="scrub-chart" style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessibilityRole="image" accessibilityLabel="Net worth over time. Drag or tap to pick a date.">
         {geo && (
           <Svg width={width} height={height}>
             <Line x1={0} x2={width} y1={geo.baseY} y2={geo.baseY} stroke={c.line2} strokeWidth={1} strokeDasharray="2 5" />

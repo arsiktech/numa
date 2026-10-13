@@ -179,7 +179,8 @@ export function mobileWealthSnapshot(row: Doc<"wealthSnapshots">) {
     liabilities: row.liabilities,
     currency: row.currency,
     label: row.label ?? null,
-    isAuto: row.isAuto
+    isAuto: row.isAuto,
+    lines: row.lines ?? null
   };
 }
 
