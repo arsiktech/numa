@@ -12,7 +12,6 @@ import { SpaceSection } from '@/settings/SpaceSection';
 import { WalletSection } from '@/settings/WalletSection';
 import { usePrefs, type ThemeChoice } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
-import { MiniWordmark } from '@/ui/Nav';
 import { ProBadge } from '@/ui/ProBadge';
 import { Txt } from '@/ui/Txt';
 
@@ -27,12 +26,9 @@ export default function Settings() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}>
       <View style={{ width: '100%', maxWidth: 640, alignSelf: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} accessibilityRole="button" accessibilityLabel="Back" style={{ minHeight: 44, justifyContent: 'center' }}>
-            <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>‹ Back</Txt>
-          </Pressable>
-          <MiniWordmark />
-        </View>
+        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} accessibilityRole="button" accessibilityLabel="Back" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
+          <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>‹ Back</Txt>
+        </Pressable>
         <Txt v="title" accessibilityRole="header" style={{ marginTop: 8 }}>Settings</Txt>
         {session.kind === 'signedIn' && <DeletionBanner />}
         {session.kind === 'signedIn' && <SpaceSection />}

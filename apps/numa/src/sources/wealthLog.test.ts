@@ -40,6 +40,14 @@ describe('wealth log', () => {
     expect(readWealthLog(broken, { currency: 'EUR', existingDays: [] }).rows[1].problem).toMatch(/Adds up to 25000, the sheet says 99000/);
   });
 
+  it('skips rows with no date quietly, but reports a date it can’t read', () => {
+    const filler = ',€0,€0,,€0,€0,€0,€0,,€0,,,€0,€0,€0,,€0,€0,,€0,€0';
+    const padded = parseTable(`${LOG}\n${filler}\n${filler}\nsometime,"€1,000",,,,,,,,"€1,000"`);
+    const rows = readWealthLog(padded, { currency: 'EUR', existingDays: [] }).rows;
+    expect(rows.length).toBe(4);
+    expect(rows[3].problem).toBe('No readable date');
+  });
+
   it('sets up today from the latest row: accounts, debts, and what needs a quantity', () => {
     const log = readWealthLog(table, { currency: 'EUR', existingDays: [] });
     expect(new Date(log.latest!.takenAt).getMonth()).toBe(2);

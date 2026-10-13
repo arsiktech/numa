@@ -1,7 +1,6 @@
 import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
 
 import type { CloudCurrency } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
@@ -14,10 +13,10 @@ import { useTheme } from '@/theme/theme';
 import { type as typeScale } from '@/theme/tokens';
 import { CoachTip } from '@/ui/CoachTip';
 import { CompositionBar, type Lens } from '@/ui/CompositionBar';
-import { IconEye, IconPerson } from '@/ui/icons';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { MonthTeaser } from '@/ui/MonthTeaser';
-import { MiniWordmark, WIDE } from '@/ui/Nav';
+import { WIDE } from '@/ui/Nav';
+import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
 import { NeedsYou } from '@/ui/NeedsYou';
 import { Odometer } from '@/ui/Odometer';
 import { ScrubChart } from '@/ui/ScrubChart';
@@ -50,40 +49,6 @@ function DemoHome({ canSignIn }: { canSignIn: boolean }) {
 function CloudHome() {
   const [range, setRange] = useState<Range>('1D');
   return <HomeView model={useCloudHome(range)} range={range} setRange={setRange} canSignIn={false} />;
-}
-
-/**
- * Home's scrolling page. On phones the top bar (the Numa Pro mark, the buttons and the lens
- * switch) stays pinned while the page scrolls under it; a hairline shows once it has.
- */
-function Frame({ children, bar }: { children: React.ReactNode; bar?: React.ReactNode }) {
-  const { c } = useTheme();
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const wide = width >= WIDE;
-  const [barHeight, setBarHeight] = useState(0);
-  const [scrolled, setScrolled] = useState(false);
-  if (wide || !bar) {
-    return (
-      <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
-        <View style={{ width: '100%', maxWidth: 1240, alignSelf: 'center' }}>{children}</View>
-      </ScrollView>
-    );
-  }
-  return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView style={{ flex: 1 }} scrollEventThrottle={16}
-        onScroll={(e) => { const s = e.nativeEvent.contentOffset.y > 2; if (s !== scrolled) setScrolled(s); }}
-        scrollIndicatorInsets={{ top: barHeight }}
-        contentContainerStyle={{ paddingTop: (barHeight || insets.top + 96) + 4, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
-        {children}
-      </ScrollView>
-      <View onLayout={(e) => setBarHeight(Math.round(e.nativeEvent.layout.height))}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 4, paddingHorizontal: 20, backgroundColor: c.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: scrolled ? c.line2 : 'transparent' }}>
-        {bar}
-      </View>
-    </View>
-  );
 }
 
 function Message({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
@@ -135,68 +100,14 @@ function StartSpace({ create }: { create: (currency: CloudCurrency) => Promise<v
   );
 }
 
-function LensTabs({ lens, setLens, wide }: { lens: Lens; setLens: (l: Lens) => void; wide: boolean }) {
+function LensTabs({ lens, setLens, wide, compact }: { lens: Lens; setLens: (l: Lens) => void; wide: boolean; compact?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', gap: wide ? 22 : 18 }} accessibilityRole="tablist">
+    <View style={{ flexDirection: 'row', gap: wide ? 22 : compact ? 14 : 18 }} accessibilityRole="tablist">
       {tabs.map((t) => (
         <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={{ minHeight: 44, justifyContent: 'center' }}>
-          <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }} maxFontSizeMultiplier={1.4}>{t.label}</Txt>
+          <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }} maxFontSizeMultiplier={compact ? 1.2 : 1.4} numberOfLines={1}>{t.label}</Txt>
         </Pressable>
       ))}
-    </View>
-  );
-}
-
-function Controls({ model, canSignIn, wide }: { model: HomeModel; canSignIn: boolean; wide: boolean }) {
-  const { c } = useTheme();
-  const { hideAmounts, set } = usePrefs();
-  const demo = model.status === 'ready' && model.source === 'demo';
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-      {demo && (
-        canSignIn ? (
-          <Pressable onPress={() => set('demo', false)} accessibilityRole="button" accessibilityLabel="Demo data. Sign in" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>
-            <View style={{ minHeight: 24, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-              <Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>{wide ? 'Demo · Sign in' : 'Demo'}</Txt>
-            </View>
-          </Pressable>
-        ) : (
-          <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-            <Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>Demo data</Txt>
-          </View>
-        )
-      )}
-      <Pressable onPress={() => set('hideAmounts', !hideAmounts)} accessibilityRole="switch" aria-checked={hideAmounts} accessibilityLabel="Hide amounts" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: hideAmounts ? 0.55 : 1 }}>
-        <IconEye color={c.ink} />
-      </Pressable>
-      <Link href="/settings" asChild>
-        <Pressable accessibilityRole="link" accessibilityLabel="Settings" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-          <IconPerson color={c.ink} />
-        </Pressable>
-      </Link>
-    </View>
-  );
-}
-
-/** Wide screens: lens switch and buttons on one line; the sidebar already carries the name. */
-function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens: (l: Lens) => void; model: HomeModel; canSignIn: boolean; wide: boolean }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-      <LensTabs lens={lens} setLens={setLens} wide={wide} />
-      <Controls model={model} canSignIn={canSignIn} wide={wide} />
-    </View>
-  );
-}
-
-/** Phones: the pinned bar. The name and buttons on top, the lens switch below. */
-function PhoneBar({ lens, setLens, model, canSignIn }: { lens: Lens; setLens: (l: Lens) => void; model: HomeModel; canSignIn: boolean }) {
-  return (
-    <View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: -10 }}>
-        <MiniWordmark />
-        <Controls model={model} canSignIn={canSignIn} wide={false} />
-      </View>
-      <LensTabs lens={lens} setLens={setLens} wide={false} />
     </View>
   );
 }
@@ -205,26 +116,32 @@ function HomeView({ model, range, setRange, canSignIn }: { model: HomeModel; ran
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
   const [lens, setLens] = useState<Lens>('net');
-  const header = wide ? <Header lens={lens} setLens={setLens} model={model} canSignIn={canSignIn} wide /> : null;
-  const bar = wide ? undefined : <PhoneBar lens={lens} setLens={setLens} model={model} canSignIn={canSignIn} />;
+  const { set } = usePrefs();
+  const demo = model.status === 'ready' && model.source === 'demo';
+  const shell = (children: React.ReactNode) => (
+    <PinnedScreen nav={(compact) => <LensTabs lens={lens} setLens={setLens} wide={wide} compact={compact} />}
+      buttons={(compact) => <BarButtons demo={demo} onDemo={canSignIn ? () => set('demo', false) : undefined} compact={compact} />}>
+      {children}
+    </PinnedScreen>
+  );
 
   if (model.status === 'loading') {
-    return <Frame bar={bar}>{header}<View style={{ marginTop: 80, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading your money" /></View></Frame>;
+    return shell(<View style={{ marginTop: 80, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading your money" /></View>);
   }
   if (model.status === 'error') {
-    return <Frame bar={bar}>{header}<Message title="Can’t load your money" body={model.message} action={<Button label="Try again" onPress={model.retry} />} /></Frame>;
+    return shell(<Message title="Can’t load your money" body={model.message} action={<Button label="Try again" onPress={model.retry} />} />);
   }
   if (model.status === 'needsSpace') {
-    return <Frame bar={bar}>{header}<StartSpace create={model.create} /></Frame>;
+    return shell(<StartSpace create={model.create} />);
   }
   return (
     <CurrencyScope currency={model.currency}>
-      <Ready model={model} range={range} setRange={setRange} lens={lens} setLens={setLens} header={header} bar={bar} wide={wide} />
+      <Ready model={model} range={range} setRange={setRange} lens={lens} setLens={setLens} shell={shell} wide={wide} />
     </CurrencyScope>
   );
 }
 
-function Ready({ model, range, setRange, lens, header, bar, wide }: { model: Extract<HomeModel, { status: 'ready' }>; range: Range; setRange: (r: Range) => void; lens: Lens; setLens: (l: Lens) => void; header: React.ReactNode; bar?: React.ReactNode; wide: boolean }) {
+function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<HomeModel, { status: 'ready' }>; range: Range; setRange: (r: Range) => void; lens: Lens; setLens: (l: Lens) => void; shell: (children: React.ReactNode) => React.ReactNode; wide: boolean }) {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
   const { mask, money } = useMoney();
@@ -319,28 +236,25 @@ function Ready({ model, range, setRange, lens, header, bar, wide }: { model: Ext
   const needs = <NeedsYou items={model.attention} />;
 
   if (wide) {
-    return (
-      <Frame>
-        <View style={{ gap: 20 }}>
-          {header}
+    return shell(
+      <View style={{ gap: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>{heroBlock}{showChart && rangePills}</View>
           {chart}
           <View style={{ flexDirection: 'row', gap: 48, alignItems: 'flex-start', marginTop: 14 }}>
             <View style={{ flex: 1.7, gap: 28 }}>{blocks}{teaser}</View>
             <View style={{ flex: 1, minWidth: 320 }}>{needs}</View>
           </View>
-        </View>
-      </Frame>
+      </View>,
     );
   }
-  return (
-    <Frame bar={bar}>
+  return shell(
+    <>
       <View style={{ marginTop: 4 }}>{heroBlock}</View>
       {chart && <View style={{ marginTop: 12 }}>{chart}</View>}
       {showChart && <View style={{ marginTop: 6, marginHorizontal: -6 }}>{rangePills}</View>}
       <View style={{ marginTop: 28 }}>{blocks}</View>
       <View style={{ marginTop: 28 }}>{teaser}</View>
       <View style={{ marginTop: 30 }}>{needs}</View>
-    </Frame>
+    </>,
   );
 }

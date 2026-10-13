@@ -6,7 +6,7 @@ import { cloud } from '@/cloud/api';
 import { useTheme } from '@/theme/theme';
 import { Txt } from '@/ui/Txt';
 import { pickSpreadsheet } from './pickFile';
-import type { SheetTab } from './spreadsheet';
+import { readSpreadsheet, type SheetTab } from './spreadsheet';
 
 type Way = 'file' | 'link' | 'paste';
 export type Loaded = { label: string; tabs: SheetTab[] };
@@ -67,8 +67,13 @@ export function ImportSources({ onLoaded, pasteText, onPaste }: { onLoaded: (loa
     setBusy(true);
     try {
       const reply = await readSheet({ link: link.trim() });
-      if (reply.status === 'ok') onLoaded({ label: 'Google Sheets', tabs: [{ name: 'Linked tab', csv: reply.csv }] });
-      else setError(SHEET_ERRORS[reply.status] ?? SHEET_ERRORS.failed);
+      if (reply.status !== 'ok') { setError(SHEET_ERRORS[reply.status] ?? SHEET_ERRORS.failed); return; }
+      // A link to one tab comes back as CSV; a plain share link as the whole workbook.
+      const tabs = 'csv' in reply
+        ? [{ name: 'Linked tab', csv: reply.csv }]
+        : readSpreadsheet('sheet.xlsx', Uint8Array.from(atob(reply.xlsx), (ch) => ch.charCodeAt(0)));
+      if (!tabs.length) { setError('That sheet has no rows Numa can read.'); return; }
+      onLoaded({ label: 'Google Sheets', tabs });
     } catch {
       setError(SHEET_ERRORS.failed);
     } finally {
@@ -102,13 +107,12 @@ export function ImportSources({ onLoaded, pasteText, onPaste }: { onLoaded: (loa
         </View>
       )}
 
-      {option('link', 'Paste a Google Sheets link', 'Numa reads the tab the link points to', () => { setWay(way === 'link' ? null : 'link'); setError(null); })}
+      {option('link', 'Paste a Google Sheets link', 'Shared with “Anyone with the link”', () => { setWay(way === 'link' ? null : 'link'); setError(null); })}
       {way === 'link' && (
         <View style={{ paddingHorizontal: 4 }}>
           <Steps items={[
-            'In Google Sheets, open the tab you want to import.',
-            'Tap Share, and under General access choose “Anyone with the link”.',
-            'Tap Copy link, then paste it below.',
+            'In Google Sheets, tap Share, and under General access choose “Anyone with the link”.',
+            'Tap Copy link, then paste it below. Numa reads every tab and opens the one it understands.',
           ]} />
           <TextInput value={link} onChangeText={(t) => { setLink(t); setError(null); }} placeholder="docs.google.com/spreadsheets/d/…" placeholderTextColor={c.ink3}
             autoCapitalize="none" autoCorrect={false} keyboardType="url" inputMode="url" onSubmitEditing={readLink} accessibilityLabel="Google Sheets link"

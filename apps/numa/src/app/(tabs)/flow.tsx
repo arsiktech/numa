@@ -1,7 +1,6 @@
 import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
 
 import type { CloudCategory, CloudTransaction } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
@@ -18,6 +17,7 @@ import { layoutSankey } from '@/flow/sankey';
 import { useTheme } from '@/theme/theme';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { WIDE } from '@/ui/Nav';
+import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
 import { Hint } from '@/ui/Hint';
 import { Txt } from '@/ui/Txt';
 
@@ -61,15 +61,18 @@ function CloudFlow() {
   return <FlowView data={data} />;
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
-  const { c } = useTheme();
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const wide = width >= WIDE;
+function PageTitle({ text, compact }: { text: string; compact: boolean }) {
+  return compact
+    ? <Txt v="body" accessibilityRole="header" numberOfLines={1} style={{ fontFamily: 'Manrope_700Bold', fontSize: 17 }} maxFontSizeMultiplier={1.2}>{text}</Txt>
+    : <Txt v="title" accessibilityRole="header">{text}</Txt>;
+}
+
+/** Flow's page inside the shared pinned bar. `nav` replaces the plain title once a month is shown. */
+function Shell({ children, nav, demo = false }: { children: React.ReactNode; nav?: (compact: boolean) => React.ReactNode; demo?: boolean }) {
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
-      <View style={{ width: '100%', maxWidth: 1040, alignSelf: 'center' }}>{children}</View>
-    </ScrollView>
+    <PinnedScreen maxWidth={1040} nav={nav ?? ((compact) => <PageTitle text="Flow" compact={compact} />)} buttons={(compact) => <BarButtons demo={demo} compact={compact} />}>
+      {children}
+    </PinnedScreen>
   );
 }
 
@@ -98,15 +101,16 @@ function Inner({ data }: { data: FlowData }) {
   const nothing = sum.inCents === 0 && sum.outCents === 0;
 
   return (
-    <Shell>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Txt v="title" accessibilityRole="header">Flow</Txt>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Pressable onPress={() => go(-1)} disabled={idx <= 0} accessibilityRole="button" accessibilityLabel="Previous month" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: idx <= 0 ? 0.3 : 1 }}><Txt v="section">‹</Txt></Pressable>
-          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', minWidth: 96, textAlign: 'center' }} maxFontSizeMultiplier={1.4}>{monthName(month, new Date(data.now))}</Txt>
-          <Pressable onPress={() => go(1)} disabled={idx >= data.months.length - 1} accessibilityRole="button" accessibilityLabel="Next month" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: idx >= data.months.length - 1 ? 0.3 : 1 }}><Txt v="section">›</Txt></Pressable>
-        </View>
+    <Shell demo={data.demo} nav={(compact) => (
+      <View style={{ flexDirection: 'row', flexWrap: compact ? 'nowrap' : 'wrap', alignItems: 'center', justifyContent: compact ? 'flex-start' : 'space-between' }}>
+        {!compact && <PageTitle text="Flow" compact={false} />}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable onPress={() => go(-1)} disabled={idx <= 0} accessibilityRole="button" accessibilityLabel="Previous month" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: idx <= 0 ? 0.3 : 1 }}><Txt v="section">‹</Txt></Pressable>
+            <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', minWidth: 96, textAlign: 'center' }} maxFontSizeMultiplier={1.4}>{monthName(month, new Date(data.now))}</Txt>
+            <Pressable onPress={() => go(1)} disabled={idx >= data.months.length - 1} accessibilityRole="button" accessibilityLabel="Next month" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: idx >= data.months.length - 1 ? 0.3 : 1 }}><Txt v="section">›</Txt></Pressable>
+          </View>
       </View>
+    )}>
 
       <View style={{ marginTop: 10 }}>
         {nothing ? (
@@ -118,8 +122,7 @@ function Inner({ data }: { data: FlowData }) {
         )}
         <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{hidden ? 'Amounts hidden' : `in ${money(sum.inCents)} · out ${money(sum.outCents)}${sum.inCents > 0 && sum.keptCents >= 0 ? ` · ${Math.round(sum.keptShare * 100)}% kept` : ''}`}</Txt>
         {flow.unconverted.length > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{flow.unconverted.length} in another currency left out until today’s rate loads.</Txt>}
-        {data.demo && <Txt v="small" c="ink3" style={{ marginTop: 4 }}>Demo data</Txt>}
-      </View>
+              </View>
 
       {nothing ? (
         <View style={{ marginTop: 20, padding: 18, borderRadius: 20, backgroundColor: c.s1 }}>

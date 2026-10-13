@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { classifyExport, exportUrl, parseSheetLink } from "./lib/googleSheets";
+import { classifyExport, classifyWorkbook, exportUrl, parseSheetLink, redirectTarget } from "./lib/googleSheets";
 
 const ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abc";
 
@@ -27,7 +27,7 @@ describe("parseSheetLink", () => {
 
   it("always builds Google's own export address", () => {
     expect(exportUrl({ id: ID, gid: "42" })).toBe(`https://docs.google.com/spreadsheets/d/${ID}/export?format=csv&gid=42`);
-    expect(exportUrl({ id: ID, gid: null })).toBe(`https://docs.google.com/spreadsheets/d/${ID}/export?format=csv`);
+    expect(exportUrl({ id: ID, gid: null })).toBe(`https://docs.google.com/spreadsheets/d/${ID}/export?format=xlsx`);
   });
 });
 
@@ -42,6 +42,33 @@ describe("classifyExport", () => {
     expect(classifyExport(500, "text/html", "")).toEqual({ status: "failed" });
   });
   it("refuses a huge tab", () => {
-    expect(classifyExport(200, "text/csv", "x".repeat(2_000_001))).toEqual({ status: "tooBig" });
+    expect(classifyExport(200, "text/csv", "x".repeat(5_000_001))).toEqual({ status: "tooBig" });
+  });
+});
+
+describe("classifyWorkbook", () => {
+  const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  it("passes an Excel workbook on as base64", () => {
+    expect(classifyWorkbook(200, XLSX, new Uint8Array([80, 75, 3, 4]))).toEqual({ status: "ok", xlsx: "UEsDBA==" });
+  });
+  it("reads a sign-in page as private, and refuses a huge file", () => {
+    expect(classifyWorkbook(200, "text/html", new Uint8Array([60]))).toEqual({ status: "private" });
+    expect(classifyWorkbook(200, XLSX, new Uint8Array(5_000_001))).toEqual({ status: "tooBig" });
+  });
+});
+
+describe("redirectTarget", () => {
+  const from = `https://docs.google.com/spreadsheets/d/${ID}/export?format=csv`;
+  it("follows Google's file host for a shared sheet", () => {
+    expect(redirectTarget("https://doc-00-c0-sheets.googleusercontent.com/export/abc?format=csv", from)).toEqual({ kind: "follow", url: "https://doc-00-c0-sheets.googleusercontent.com/export/abc?format=csv" });
+    expect(redirectTarget("/spreadsheets/d/x/export", from)).toEqual({ kind: "follow", url: "https://docs.google.com/spreadsheets/d/x/export" });
+  });
+  it("reads a sign-in redirect as a private sheet", () => {
+    expect(redirectTarget("https://accounts.google.com/ServiceLogin?continue=x", from)).toEqual({ kind: "private" });
+  });
+  it("refuses any other host", () => {
+    for (const bad of [null, "https://evil.example/x", "http://doc-00.googleusercontent.com/x", "https://googleusercontent.com.evil.example/x", "https://a.b.googleusercontent.com/x"]) {
+      expect(redirectTarget(bad, from), String(bad)).toEqual({ kind: "refused" });
+    }
   });
 });
