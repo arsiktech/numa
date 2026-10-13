@@ -64,6 +64,7 @@ export const storeQuotes = internalMutation({
 export const refreshQuotes = internalAction({
   args: {},
   handler: async (ctx): Promise<{ symbols: number; written: number }> => {
+    if (process.env.NUMA_QUOTES_OFFLINE) return { symbols: 0, written: 0 };
     const symbols: string[] = await ctx.runQuery(internal.marketQuotes.listQuoteSymbols, {});
     if (symbols.length === 0) return { symbols: 0, written: 0 };
     const now = Date.now();

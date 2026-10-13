@@ -76,4 +76,12 @@ describe("a newly saved holding", () => {
     await refreshQuoteSoon(odd.ctx, "VWCE.DE.X");
     expect([...fresh.runs, ...odd.runs]).toEqual([]);
   });
+
+  it("never fetches live prices on a test backend that seeds its own", async () => {
+    vi.stubEnv("NUMA_QUOTES_OFFLINE", "1");
+    const none = ctxWith(null);
+    await refreshQuoteSoon(none.ctx, "BTC");
+    vi.unstubAllEnvs();
+    expect(none.runs).toEqual([]);
+  });
 });
