@@ -22,6 +22,7 @@ const LOG = [
 
   await page.goto(APP + '/import');
   await page.getByRole('heading', { name: 'Import' }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /Paste cells/ }).click();
   await page.getByLabel('Pasted table').fill(LOG);
   await wait(400);
   const b = await page.locator('body').innerText();
