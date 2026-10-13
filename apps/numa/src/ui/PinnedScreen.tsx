@@ -1,6 +1,8 @@
 import { Link } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+// The gesture handler's ScrollView lets the chart's sideways scrub and the page's vertical scroll share touches.
+import { ScrollView } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
