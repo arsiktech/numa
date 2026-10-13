@@ -105,9 +105,9 @@ function Inner({ data }: { data: FlowData }) {
       <View style={{ flexDirection: 'row', flexWrap: compact ? 'nowrap' : 'wrap', alignItems: 'center', justifyContent: compact ? 'flex-start' : 'space-between' }}>
         {!compact && <PageTitle text="Flow" compact={false} />}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable onPress={() => go(-1)} disabled={idx <= 0} accessibilityRole="button" accessibilityLabel="Previous month" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: idx <= 0 ? 0.3 : 1 }}><Txt v="section">‹</Txt></Pressable>
+            <Pressable onPress={() => go(-1)} disabled={idx <= 0} accessibilityRole="button" accessibilityLabel="Previous month" style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', opacity: idx <= 0 ? 0.3 : 1 }}><Txt v="section" maxFontSizeMultiplier={1.3}>‹</Txt></Pressable>
             <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', minWidth: 96, textAlign: 'center' }} maxFontSizeMultiplier={1.4}>{monthName(month, new Date(data.now))}</Txt>
-            <Pressable onPress={() => go(1)} disabled={idx >= data.months.length - 1} accessibilityRole="button" accessibilityLabel="Next month" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: idx >= data.months.length - 1 ? 0.3 : 1 }}><Txt v="section">›</Txt></Pressable>
+            <Pressable onPress={() => go(1)} disabled={idx >= data.months.length - 1} accessibilityRole="button" accessibilityLabel="Next month" style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', opacity: idx >= data.months.length - 1 ? 0.3 : 1 }}><Txt v="section" maxFontSizeMultiplier={1.3}>›</Txt></Pressable>
           </View>
       </View>
     )}>

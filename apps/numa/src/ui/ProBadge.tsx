@@ -46,7 +46,7 @@ export function ProBadge({ size = 20 }: { size?: number }) {
         </Defs>
         <Rect width={w} height={h} fill={`url(#shine${uid})`} />
       </Svg>
-      <Txt v="label" style={{ color: '#0B0B0C', fontSize: Math.round(h * 0.52 * 10) / 10, letterSpacing: h * 0.07 }}>Pro</Txt>
+      <Txt v="label" allowFontScaling={false} style={{ color: '#0B0B0C', fontSize: Math.round(h * 0.52 * 10) / 10, letterSpacing: h * 0.07 }}>Pro</Txt>
     </View>
   );
 }
