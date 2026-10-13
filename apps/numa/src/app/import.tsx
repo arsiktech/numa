@@ -1,5 +1,5 @@
-import { createElement, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { bindUndo, CREATED, plan, type Op } from '@/ask/plan';
 import { useSession } from '@/cloud/session';
@@ -7,6 +7,7 @@ import { useCloudData } from '@/data/cloud';
 import { useWriter } from '@/data/writes';
 import { formatMoney } from '@/domain/money';
 import { parseTable } from '@/sources/csv';
+import { ImportKinds, ImportSources, type Loaded } from '@/sources/ImportSources';
 import { previewImport, type ImportRow } from '@/sources/importRows';
 import { isWealthLog, readWealthLog, todayFromLatest, type LogRow } from '@/sources/wealthLog';
 import { shortDay } from '@/domain/freshness';
@@ -39,6 +40,7 @@ function Importer() {
   const run = useWriter();
   const toast = useToast();
   const [text, setText] = useState('');
+  const [loaded, setLoaded] = useState<(Loaded & { tab: number }) | null>(null);
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<{ imported: number; failed: number[]; undo: Op[] } | null>(null);
   const [undone, setUndone] = useState(false);
@@ -57,6 +59,28 @@ function Importer() {
   }, [cloud, table, log]);
   if (cloud.status !== 'ready') return <Screen><ActivityIndicator style={{ marginTop: 60 }} accessibilityLabel="Loading" /></Screen>;
 
+  const fresh = () => { setResult(null); setUndone(false); };
+  /** Opens the first tab Numa understands: a wealth log, or a table whose columns it recognises. */
+  function load(next: Loaded) {
+    const s = cloud.status === 'ready' ? cloud.snapshot : null;
+    const known = next.tabs.findIndex((t) => {
+      const tbl = parseTable(t.csv);
+      if (isWealthLog(tbl)) return true;
+      return !!s && !!previewImport(tbl, { currency: 'EUR', now: new Date(), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings, existingTx: s.transactions }).kind;
+    });
+    const tab = known < 0 ? 0 : known;
+    setLoaded({ ...next, tab });
+    setText(next.tabs[tab].csv);
+    fresh();
+  }
+  function showTab(tab: number) {
+    if (!loaded) return;
+    setLoaded({ ...loaded, tab });
+    setText(loaded.tabs[tab].csv);
+    fresh();
+  }
+  function startOver() { setLoaded(null); setText(''); fresh(); }
+
   const ready = preview?.rows.filter((r) => r.draft && !r.problem && !r.duplicate) ?? [];
   const dupes = preview?.rows.filter((r) => r.duplicate).length ?? 0;
   const bad = preview?.rows.filter((r) => !r.draft || r.problem) ?? [];
@@ -73,7 +97,7 @@ function Importer() {
     }
     setBusy(null);
     setResult({ imported: undo.length, failed, undo });
-    if (clear) setText('');
+    if (clear) { setText(''); setLoaded(null); }
     toast({ text: `Imported ${undo.length}`, action: { label: 'Undo', onPress: () => undoAll(undo) } });
   }
 
@@ -119,19 +143,39 @@ function Importer() {
   return (
     <Screen>
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 6 }}>Import</Txt>
-      <Txt v="body" c="ink2" style={{ marginTop: 6 }}>Copy cells from Google Sheets, header row included, or paste a CSV from your bank or broker. Numa reads transactions, accounts and debts, or holdings, and shows everything before it saves.</Txt>
+      <Txt v="body" c="ink2" style={{ marginTop: 6 }}>Bring the numbers you already keep. Nothing is saved until you confirm.</Txt>
 
-      <TextInput value={text} onChangeText={(t) => { setText(t); setResult(null); setUndone(false); }} multiline placeholder={'Date,Description,Amount\n2026-10-03,October rent,-1200'} placeholderTextColor={c.ink3} accessibilityLabel="Pasted table"
-        style={{ marginTop: 16, minHeight: 150, maxHeight: 280, borderRadius: 14, padding: 14, backgroundColor: c.s1, color: c.ink, fontFamily: 'JetBrainsMono_400Regular', fontSize: 13, textAlignVertical: 'top', ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
-      {Platform.OS === 'web' && createElement('input', {
-        type: 'file', accept: '.csv,.tsv,.txt,text/csv', 'aria-label': 'Choose a CSV file',
-        style: { marginTop: 10, color: c.ink2, fontFamily: 'Manrope_500Medium' },
-        onChange: (e: { target: { files?: FileList | null } }) => { const f = e.target.files?.[0]; if (f) void f.text().then((t) => { setText(t); setResult(null); setUndone(false); }); },
-      })}
+      {loaded ? (
+        <View style={{ marginTop: 18, padding: 14, borderRadius: 18, backgroundColor: c.s1, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Txt v="small" c="ink3">Reading</Txt>
+              <Txt v="body" numberOfLines={1} style={{ fontFamily: 'Manrope_700Bold' }}>{loaded.label}{loaded.tabs.length > 1 ? ` · ${loaded.tabs[loaded.tab].name}` : ''}</Txt>
+            </View>
+            <Pressable onPress={startOver} accessibilityRole="button" hitSlop={8} style={{ minHeight: 40, justifyContent: 'center' }}>
+              <Txt v="small" style={{ fontFamily: 'Manrope_700Bold' }}>Start over</Txt>
+            </Pressable>
+          </View>
+          {loaded.tabs.length > 1 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityRole="tablist">
+              {loaded.tabs.map((t, i) => (
+                <Pressable key={`${t.name}-${i}`} onPress={() => showTab(i)} accessibilityRole="tab" aria-selected={i === loaded.tab}
+                  style={{ minHeight: 36, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center', backgroundColor: i === loaded.tab ? c.ink : c.s2 }}>
+                  <Txt v="small" c={i === loaded.tab ? 'bg' : 'ink2'} style={{ fontFamily: 'Manrope_700Bold' }}>{t.name}</Txt>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+      ) : (
+        <ImportSources onLoaded={load} pasteText={text} onPaste={(t) => { setText(t); fresh(); }} />
+      )}
+
+      {!text.trim() && !result && <ImportKinds />}
 
       {log && <WealthLogPreview log={log} now={cloud.now} busy={busy} onHistory={importHistory} onToday={setUpToday} />}
 
-      {preview && !preview.kind && <Txt v="body" style={{ color: c.warn, marginTop: 14 }}>Numa can’t tell what this table is. Include the header row, with columns like Date, Description and Amount, or Name and Value, or Symbol and Quantity.</Txt>}
+      {preview && !preview.kind && <Txt v="body" style={{ color: c.warn, marginTop: 14 }}>Numa can’t tell what this table is. It needs the header row, with columns like Date, Description and Amount, or Name and Value, or Symbol and Quantity.{loaded && loaded.tabs.length > 1 ? ' Try another tab above.' : ''}</Txt>}
 
       {preview?.kind && (
         <View style={{ marginTop: 18 }}>

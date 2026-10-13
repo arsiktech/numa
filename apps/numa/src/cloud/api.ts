@@ -199,6 +199,7 @@ export const cloud = {
   registerDevice: makeFunctionReference<'mutation', { token: string; platform: 'ios' | 'android'; timeZone: string }, null>('pushAlerts:registerDevice'),
   unregisterDevice: makeFunctionReference<'mutation', { token: string }, null>('pushAlerts:unregisterDevice'),
   deviceRegistered: makeFunctionReference<'query', { token: string }, boolean>('pushAlerts:deviceRegistered'),
+  readSheet: makeFunctionReference<'action', { link: string }, { status: 'ok'; csv: string } | { status: 'ok'; xlsx: string } | { status: 'private' | 'missing' | 'tooBig' | 'failed' | 'badLink' | 'limited' }>('sheetsImport:readSheet'),
   askReply: makeFunctionReference<'action', { message: string; context: string; history: AskTurn[] }, AskReply>('ask:reply'),
   changePassword: makeFunctionReference<'action', { currentPassword: string; newPassword: string }, { ok: true }>('authManagement:changePassword'),
   deleteMyAccount: makeFunctionReference<'mutation', Record<string, never>, null>('users:deleteMyAccount'),

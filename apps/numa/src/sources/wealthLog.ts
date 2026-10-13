@@ -101,8 +101,10 @@ export function readWealthLog(table: string[][], ctx: { currency: Currency; exis
   const existing = new Set(ctx.existingDays.map(dayKey));
   const seen = new Set<string>();
   let latest: WealthLog['latest'] = null;
-  const rows = table.slice(bodyStart).map((r, i): LogRow => {
-    const line = bodyStart + i + 1;
+  // A row with no date isn't a check-in (often formulas filled down the sheet), so it is skipped
+  // quietly. A date Numa can't read is still reported.
+  const dated = table.slice(bodyStart).map((r, i) => ({ r, line: bodyStart + i + 1 })).filter(({ r }) => (r[dateCol] ?? '').trim() !== '');
+  const rows = dated.map(({ r, line }): LogRow => {
     const takenAt = parseDay(r[dateCol] ?? '');
     const sheet = totalCol >= 0 ? parseAmount(r[totalCol] ?? '') : null;
     const currency: Currency = sheet?.currency ?? ctx.currency;

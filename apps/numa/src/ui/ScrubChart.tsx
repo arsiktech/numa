@@ -54,7 +54,8 @@ export function ScrubChart({ values, times, height, up, onScrub, drawKey }: Prop
   };
   const move = (px: number) => { const i = indexAt(px); setScrub(i); onScrub(i); };
   const end = () => { setScrub(null); onScrub(null); };
-  const pan = Gesture.Pan().minDistance(0).runOnJS(true).onBegin((e) => move(e.x)).onUpdate((e) => move(e.x)).onFinalize(end);
+  // Only a sideways drag scrubs; a vertical swipe that starts on the chart scrolls the page.
+  const pan = Gesture.Pan().activeOffsetX([-6, 6]).failOffsetY([-10, 10]).runOnJS(true).onStart((e) => move(e.x)).onUpdate((e) => move(e.x)).onFinalize(end);
   const hover = Gesture.Hover().runOnJS(true).onUpdate((e) => move(e.x)).onEnd(end);
   const gesture = Gesture.Simultaneous(pan, hover);
 

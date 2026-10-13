@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { bindUndo } from '@/ask/plan';
 import { parseDate } from '@/ask/parse';
@@ -17,7 +16,7 @@ import { goalCreatePlan, goalDeletePlan, goalRows, limitPlan, limits, runway, ru
 import { useTheme } from '@/theme/theme';
 import { Field, Seg, toCents } from '@/ui/form';
 import { CurrencyScope, useMoney } from '@/ui/money';
-import { WIDE } from '@/ui/Nav';
+import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
 import { useToast } from '@/ui/Toast';
 import { Hint } from '@/ui/Hint';
 import { Txt } from '@/ui/Txt';
@@ -60,14 +59,16 @@ function CloudPlan() {
   return <PlanView data={data} />;
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
-  const { c } = useTheme();
-  const insets = useSafeAreaInsets();
-  const wide = useWindowDimensions().width >= WIDE;
+/** Plan's page inside the shared pinned bar. */
+function Shell({ children, demo = false }: { children: React.ReactNode; demo?: boolean }) {
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} keyboardShouldPersistTaps="handled" contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
-      <View style={{ width: '100%', maxWidth: 760, alignSelf: 'center' }}>{children}</View>
-    </ScrollView>
+    <PinnedScreen maxWidth={760} keyboard
+      nav={(compact) => compact
+        ? <Txt v="body" accessibilityRole="header" numberOfLines={1} style={{ fontFamily: 'Manrope_700Bold', fontSize: 17 }} maxFontSizeMultiplier={1.2}>Plan</Txt>
+        : <Txt v="title" accessibilityRole="header">Plan</Txt>}
+      buttons={(compact) => <BarButtons demo={demo} compact={compact} />}>
+      {children}
+    </PinnedScreen>
   );
 }
 
@@ -88,13 +89,8 @@ function Inner({ data }: { data: PlanData }) {
   const { money } = useMoney();
   const r = data.runway;
   return (
-    <Shell>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-        <Txt v="title" accessibilityRole="header">Plan</Txt>
-        {data.demo && <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}><Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>Demo data</Txt></View>}
-      </View>
-
-      <View style={{ marginTop: 16, padding: 18, borderRadius: 20, backgroundColor: c.s1 }}>
+    <Shell demo={data.demo}>
+      <View style={{ marginTop: 4, padding: 18, borderRadius: 20, backgroundColor: c.s1 }}>
         <Txt v="small" c="ink3">RUNWAY</Txt>
         <Txt v="title" style={{ marginTop: 4, color: r.months !== null && r.months < 3 ? c.down : c.ink }}>{runwayWords(r.months)}</Txt>
         <Txt v="body" c="ink2" style={{ marginTop: 6 }}>

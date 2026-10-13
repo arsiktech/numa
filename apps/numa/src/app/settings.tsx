@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,7 +66,7 @@ export default function Settings() {
           <Txt v="title" style={{ fontSize: 20, lineHeight: 24, letterSpacing: -0.8 }}>numa</Txt>
           <ProBadge />
         </View>
-        <Txt v="small" c="ink3" style={{ marginTop: 6 }}>Numa never moves money. Prices and exchange rates can be delayed.</Txt>
+        <Txt v="small" c="ink3" style={{ marginTop: 6 }}>Numa Pro {Constants.expoConfig?.version ?? ''}. Numa never moves money. Prices and exchange rates can be delayed.</Txt>
       </View>
     </ScrollView>
   );

@@ -1,7 +1,6 @@
 import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
 
 import type { CloudCurrency } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
@@ -14,10 +13,10 @@ import { useTheme } from '@/theme/theme';
 import { type as typeScale } from '@/theme/tokens';
 import { CoachTip } from '@/ui/CoachTip';
 import { CompositionBar, type Lens } from '@/ui/CompositionBar';
-import { IconEye, IconPerson } from '@/ui/icons';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { MonthTeaser } from '@/ui/MonthTeaser';
 import { WIDE } from '@/ui/Nav';
+import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
 import { NeedsYou } from '@/ui/NeedsYou';
 import { Odometer } from '@/ui/Odometer';
 import { ScrubChart } from '@/ui/ScrubChart';
@@ -50,18 +49,6 @@ function DemoHome({ canSignIn }: { canSignIn: boolean }) {
 function CloudHome() {
   const [range, setRange] = useState<Range>('1D');
   return <HomeView model={useCloudHome(range)} range={range} setRange={setRange} canSignIn={false} />;
-}
-
-function Frame({ children }: { children: React.ReactNode }) {
-  const { c } = useTheme();
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const wide = width >= WIDE;
-  return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={wide ? { paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 } : { paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
-      <View style={{ width: '100%', maxWidth: 1240, alignSelf: 'center' }}>{children}</View>
-    </ScrollView>
-  );
 }
 
 function Message({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
@@ -113,42 +100,14 @@ function StartSpace({ create }: { create: (currency: CloudCurrency) => Promise<v
   );
 }
 
-function Header({ lens, setLens, model, canSignIn, wide }: { lens: Lens; setLens: (l: Lens) => void; model: HomeModel; canSignIn: boolean; wide: boolean }) {
-  const { c } = useTheme();
-  const { hideAmounts, set } = usePrefs();
-  const demo = model.status === 'ready' && model.source === 'demo';
+function LensTabs({ lens, setLens, wide, compact }: { lens: Lens; setLens: (l: Lens) => void; wide: boolean; compact?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-      <View style={{ flexDirection: 'row', gap: wide ? 22 : demo ? 12 : 16 }} accessibilityRole="tablist">
-        {tabs.map((t) => (
-          <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={{ minHeight: 44, justifyContent: 'center' }}>
-            <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }} maxFontSizeMultiplier={1.4}>{t.label}</Txt>
-          </Pressable>
-        ))}
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-        {demo && (
-          canSignIn ? (
-            <Pressable onPress={() => set('demo', false)} accessibilityRole="button" accessibilityLabel="Demo data. Sign in" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>
-              <View style={{ minHeight: 24, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-                <Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>{wide ? 'Demo · Sign in' : 'Demo'}</Txt>
-              </View>
-            </Pressable>
-          ) : (
-            <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-              <Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>Demo data</Txt>
-            </View>
-          )
-        )}
-        <Pressable onPress={() => set('hideAmounts', !hideAmounts)} accessibilityRole="switch" aria-checked={hideAmounts} accessibilityLabel="Hide amounts" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: hideAmounts ? 0.55 : 1 }}>
-          <IconEye color={c.ink} />
+    <View style={{ flexDirection: 'row', gap: wide ? 22 : compact ? 14 : 18 }} accessibilityRole="tablist">
+      {tabs.map((t) => (
+        <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }} maxFontSizeMultiplier={compact ? 1.2 : 1.4} numberOfLines={1}>{t.label}</Txt>
         </Pressable>
-        <Link href="/settings" asChild>
-          <Pressable accessibilityRole="link" accessibilityLabel="Settings" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <IconPerson color={c.ink} />
-          </Pressable>
-        </Link>
-      </View>
+      ))}
     </View>
   );
 }
@@ -157,25 +116,32 @@ function HomeView({ model, range, setRange, canSignIn }: { model: HomeModel; ran
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
   const [lens, setLens] = useState<Lens>('net');
-  const header = <Header lens={lens} setLens={setLens} model={model} canSignIn={canSignIn} wide={wide} />;
+  const { set } = usePrefs();
+  const demo = model.status === 'ready' && model.source === 'demo';
+  const shell = (children: React.ReactNode) => (
+    <PinnedScreen nav={(compact) => <LensTabs lens={lens} setLens={setLens} wide={wide} compact={compact} />}
+      buttons={(compact) => <BarButtons demo={demo} onDemo={canSignIn ? () => set('demo', false) : undefined} compact={compact} />}>
+      {children}
+    </PinnedScreen>
+  );
 
   if (model.status === 'loading') {
-    return <Frame>{header}<View style={{ marginTop: 80, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading your money" /></View></Frame>;
+    return shell(<View style={{ marginTop: 80, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading your money" /></View>);
   }
   if (model.status === 'error') {
-    return <Frame>{header}<Message title="Can’t load your money" body={model.message} action={<Button label="Try again" onPress={model.retry} />} /></Frame>;
+    return shell(<Message title="Can’t load your money" body={model.message} action={<Button label="Try again" onPress={model.retry} />} />);
   }
   if (model.status === 'needsSpace') {
-    return <Frame>{header}<StartSpace create={model.create} /></Frame>;
+    return shell(<StartSpace create={model.create} />);
   }
   return (
     <CurrencyScope currency={model.currency}>
-      <Ready model={model} range={range} setRange={setRange} lens={lens} setLens={setLens} header={header} wide={wide} />
+      <Ready model={model} range={range} setRange={setRange} lens={lens} setLens={setLens} shell={shell} wide={wide} />
     </CurrencyScope>
   );
 }
 
-function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<HomeModel, { status: 'ready' }>; range: Range; setRange: (r: Range) => void; lens: Lens; setLens: (l: Lens) => void; header: React.ReactNode; wide: boolean }) {
+function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<HomeModel, { status: 'ready' }>; range: Range; setRange: (r: Range) => void; lens: Lens; setLens: (l: Lens) => void; shell: (children: React.ReactNode) => React.ReactNode; wide: boolean }) {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
   const { mask, money } = useMoney();
@@ -256,7 +222,7 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
   ) : null;
 
   const blocks = model.empty ? (
-    <Message title="Nothing tracked yet" body="Tap the plus and type what you have, like “Bank balance 12,500” or “Bought 10 VOO at $500”. It shows up here as blocks." action={model.source === 'cloud' ? <Link href="/import" asChild><Pressable accessibilityRole="link" style={{ minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Or import a sheet or CSV ›</Txt></Pressable></Link> : undefined} />
+    <Message title="Nothing tracked yet" body="Tap the plus and type what you have, like “Bank balance 12,500” or “Bought 10 VOO at $500”. It shows up here as blocks." action={model.source === 'cloud' ? <Link href="/import" asChild><Pressable accessibilityRole="link" style={{ minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Keep your numbers in a spreadsheet? Import it ›</Txt></Pressable></Link> : undefined} />
   ) : model.available ? (
     <View>
       <CompositionBar {...composition} lens={lens} wide={wide} when={scrub !== null && idx < points.length - 1 ? pointLabel(points[idx].t, range, model.now) : undefined} />
@@ -270,29 +236,25 @@ function Ready({ model, range, setRange, lens, header, wide }: { model: Extract<
   const needs = <NeedsYou items={model.attention} />;
 
   if (wide) {
-    return (
-      <Frame>
-        <View style={{ gap: 20 }}>
-          {header}
+    return shell(
+      <View style={{ gap: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>{heroBlock}{showChart && rangePills}</View>
           {chart}
           <View style={{ flexDirection: 'row', gap: 48, alignItems: 'flex-start', marginTop: 14 }}>
             <View style={{ flex: 1.7, gap: 28 }}>{blocks}{teaser}</View>
             <View style={{ flex: 1, minWidth: 320 }}>{needs}</View>
           </View>
-        </View>
-      </Frame>
+      </View>,
     );
   }
-  return (
-    <Frame>
-      {header}
+  return shell(
+    <>
       <View style={{ marginTop: 4 }}>{heroBlock}</View>
       {chart && <View style={{ marginTop: 12 }}>{chart}</View>}
       {showChart && <View style={{ marginTop: 6, marginHorizontal: -6 }}>{rangePills}</View>}
       <View style={{ marginTop: 28 }}>{blocks}</View>
       <View style={{ marginTop: 28 }}>{teaser}</View>
       <View style={{ marginTop: 30 }}>{needs}</View>
-    </Frame>
+    </>,
   );
 }
