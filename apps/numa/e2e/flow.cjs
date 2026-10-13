@@ -93,6 +93,8 @@ const { check, finish } = checker();
   await dp.getByText('Explore with demo data').click();
   await dp.getByRole('tab', { name: 'Flow' }).click();
   await dp.getByText('You kept').waitFor({ timeout: 15000 });
+  // The bar's Demo pill can render a moment after the page itself.
+  await dp.getByLabel('Demo data').first().waitFor({ timeout: 10000 }).catch(() => {});
   check('demo Flow renders with its label', (await dp.getByLabel('Demo data').count()) > 0 && /demo/i.test(await dp.locator('body').innerText()));
   await dp.screenshot({ path: OUT + '/05-flow-demo-dark-390.png' });
 
