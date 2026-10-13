@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View, type KeyboardEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -39,15 +39,24 @@ function turns(messages: Message[]): AskTurn[] {
   return messages.flatMap((m): AskTurn[] => (m.role === 'you' ? [{ role: 'user', text: m.text }] : m.role === 'numa' && !m.pending ? [{ role: 'assistant', text: m.text }] : [])).slice(-6);
 }
 
-/** True while the on-screen keyboard is showing, so the composer can drop the home-indicator gap. */
-function useKeyboardUp() {
-  const [up, setUp] = useState(false);
+/**
+ * How much of the screen the keyboard covers (0 when hidden). On iPhone Ask always reaches the bottom
+ * of the screen, as a sheet or full screen, so the composer moves up by exactly this much. Android
+ * resizes the window itself and reports 0 here.
+ */
+function useKeyboardHeight() {
+  const [height, setHeight] = useState(0);
   useEffect(() => {
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setUp(true));
-    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setUp(false));
+    const ios = Platform.OS === 'ios';
+    const follow = (e: KeyboardEvent, next: number) => {
+      if (ios && e.duration) LayoutAnimation.configureNext({ duration: e.duration, update: { duration: e.duration, type: LayoutAnimation.Types[e.easing] ?? 'keyboard' } });
+      setHeight(next);
+    };
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', (e) => follow(e, ios ? e.endCoordinates.height : 0));
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', (e) => follow(e, 0));
     return () => { show.remove(); hide.remove(); };
   }, []);
-  return up;
+  return height;
 }
 
 const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -63,7 +72,7 @@ function AskView({ source }: { source: AskSource }) {
     if (Platform.OS !== 'ios') return;
     sheetRef.current?.measureInWindow((_x, y) => setSheetTop(Math.max(0, Math.round(y))));
   };
-  const keyboardUp = useKeyboardUp();
+  const keyboard = useKeyboardHeight();
   const [text, setText] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const nextId = useRef(1);
@@ -131,8 +140,8 @@ function AskView({ source }: { source: AskSource }) {
 
   const demo = source.status === 'ready' && source.demo;
   return (
-    // The keyboard offset and the top padding both count from where the sheet starts.
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={sheetTop} style={{ flex: 1, backgroundColor: c.bg }}>
+    // On iPhone the sheet starts below the top of the screen, so it needs less top padding.
+    <View style={{ flex: 1, backgroundColor: c.bg, paddingBottom: keyboard }}>
       <View ref={sheetRef} onLayout={measureSheet} style={{ flex: 1, width: '100%', maxWidth: 720, alignSelf: 'center', paddingTop: sheetTop > 0 ? 16 : insets.top + 12 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingHorizontal: 20 }}>
           <Txt v="title" accessibilityRole="header" style={{ flexShrink: 1 }}>Ask or add</Txt>
@@ -171,7 +180,7 @@ function AskView({ source }: { source: AskSource }) {
           })}
         </ScrollView>
 
-        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: keyboardUp ? 8 : insets.bottom + 12, borderTopWidth: 1, borderTopColor: c.line }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: keyboard > 0 ? 8 : insets.bottom + 12, borderTopWidth: 1, borderTopColor: c.line }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6, backgroundColor: c.s1, borderWidth: 1, borderColor: c.line2 }}>
             <TextInput value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
               placeholderTextColor={c.ink3} accessibilityLabel="Ask or add anything" submitBehavior="submit" testID="ask-input"
@@ -182,6 +191,6 @@ function AskView({ source }: { source: AskSource }) {
           </View>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
