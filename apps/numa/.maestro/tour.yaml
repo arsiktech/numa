@@ -48,3 +48,8 @@ appId: com.arsiktech.numa
     id: "ask-or-add"
 - waitForAnimationToEnd
 - takeScreenshot: ${SHOT}-05-ask
+# With the keyboard up, the Ask box must sit fully above it (Ask opens as a sheet).
+- tapOn:
+    id: "ask-input"
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}-06-ask-keyboard

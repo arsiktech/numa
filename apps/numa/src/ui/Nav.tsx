@@ -46,6 +46,16 @@ export function Wordmark() {
   );
 }
 
+/** The small mark for the top of a phone screen, so it is always clear which app this is. */
+export function MiniWordmark() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }} accessible accessibilityRole="header" accessibilityLabel="Numa Pro">
+      <Txt v="title" style={{ fontSize: 19, lineHeight: 24, letterSpacing: -0.8 }} maxFontSizeMultiplier={1.3}>numa</Txt>
+      <ProBadge size={15} />
+    </View>
+  );
+}
+
 type ContainerProps = ViewProps & { wide: boolean; bottom: number };
 
 /** Receives TabList's props through asChild, so the triggers stay direct descendants the router can find. */
