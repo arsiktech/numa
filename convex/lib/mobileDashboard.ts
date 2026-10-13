@@ -4,7 +4,7 @@ export type MobileDashboardCurrency = "USD" | "EUR";
 
 type TxKind = "income" | "expense";
 type AssetKind = "cash" | "real_estate" | "vehicle" | "collectible" | "other";
-type QuoteProvider = "coingecko" | "alpha-vantage" | "stooq" | "finnhub" | "mock";
+type QuoteProvider = "coingecko" | "coinbase" | "alpha-vantage" | "stooq" | "finnhub" | "mock";
 
 interface DashboardPortfolio {
   defaultCurrency: MobileDashboardCurrency;

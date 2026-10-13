@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
+  fetchCoinbaseQuotes,
   fetchCoinGeckoQuotes,
   fetchFinnhubQuotes,
   isCryptoSymbol,
@@ -36,7 +37,7 @@ const quoteValidator = v.object({
   symbol: v.string(),
   price: v.number(),
   changePercent: v.number(),
-  provider: v.union(v.literal("coingecko"), v.literal("finnhub")),
+  provider: v.union(v.literal("coingecko"), v.literal("coinbase"), v.literal("finnhub")),
   updatedAt: v.number()
 });
 
@@ -75,6 +76,10 @@ export const refreshQuotes = internalAction({
       ...(crypto.status === "fulfilled" ? crypto.value : []),
       ...(equities.status === "fulfilled" ? equities.value : [])
     ];
+    // Crypto CoinGecko didn't price (it rate-limits shared cloud addresses) comes from Coinbase.
+    const priced = new Set(quotes.map((q) => q.symbol));
+    const missing = symbols.filter((symbol) => isCryptoSymbol(symbol) && !priced.has(symbol));
+    if (missing.length) quotes.push(...await fetchCoinbaseQuotes(missing, fetchImpl, now).catch(() => []));
     if (quotes.length === 0) return { symbols: symbols.length, written: 0 };
     const { written }: { written: number } = await ctx.runMutation(internal.marketQuotes.storeQuotes, { quotes });
     return { symbols: symbols.length, written };

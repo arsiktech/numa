@@ -4,6 +4,7 @@ import { requireEditor } from "./access";
 import { assertAssetBalance, assertPositiveAmount, cleanRequired } from "./inputGuards";
 import type { Doc } from "../_generated/dataModel";
 import { withMutationReceipt } from "./mutationReceipts";
+import { refreshQuoteSoon } from "./quoteRefresh";
 import { withAiAuditConfirmation } from "./aiAudit";
 import {
   applyTransactionChange,
@@ -330,12 +331,15 @@ const upsertHolding = mutation({
           throw new ConvexError({ code: "NOT_FOUND", message: "Holding not found" });
         }
         await ctx.db.patch(args.id, patch);
+        await refreshQuoteSoon(ctx, patch.symbol);
         return args.id;
       }
-      return await ctx.db.insert("holdings", {
+      const id = await ctx.db.insert("holdings", {
         portfolioId: args.portfolioId,
         ...patch
       });
+      await refreshQuoteSoon(ctx, patch.symbol);
+      return id;
     }, args.portfolioId);
   }
 });

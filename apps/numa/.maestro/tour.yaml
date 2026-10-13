@@ -61,3 +61,11 @@ appId: com.arsiktech.numa
       - waitForAnimationToEnd
 - inputText: "Coffee 4.50"
 - takeScreenshot: ${SHOT}-06-ask-keyboard
+# Reopen Ask: the keyboard can now come up with the sheet itself, before anything is tapped.
+- tapOn: "Close"
+- waitForAnimationToEnd
+- tapOn:
+    id: "ask-or-add"
+- waitForAnimationToEnd
+- inputText: "Lunch 12"
+- takeScreenshot: ${SHOT}-07-ask-reopened

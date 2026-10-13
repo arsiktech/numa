@@ -26,7 +26,7 @@ const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const shortMonths = months.map((m) => m.slice(0, 3));
 const iso = (ms: number) => new Date(ms).toISOString();
 const shortDate = (ms: number) => `${new Date(ms).getDate()} ${shortMonths[new Date(ms).getMonth()]}`;
-const providerNames: Record<string, string> = { coingecko: 'CoinGecko', 'alpha-vantage': 'Alpha Vantage', stooq: 'Stooq', finnhub: 'Finnhub' };
+const providerNames: Record<string, string> = { coingecko: 'CoinGecko', coinbase: 'Coinbase', 'alpha-vantage': 'Alpha Vantage', stooq: 'Stooq', finnhub: 'Finnhub' };
 
 const assetPlace: Record<CloudAsset['kind'], { category: CategoryId; liquidity: Liquidity; remindAfterDays: number }> = {
   cash: { category: 'cash', liquidity: { kind: 'cash' }, remindAfterDays: 30 },

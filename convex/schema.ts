@@ -267,6 +267,7 @@ export default defineSchema({
     changePercent: v.number(),
     provider: v.union(
       v.literal("coingecko"),
+      v.literal("coinbase"),
       v.literal("alpha-vantage"),
       v.literal("stooq"),
       v.literal("finnhub"),

@@ -57,6 +57,7 @@ import type * as lib_privacyPolicy from "../lib/privacyPolicy.js";
 import type * as lib_privacyRetention from "../lib/privacyRetention.js";
 import type * as lib_publicWallets from "../lib/publicWallets.js";
 import type * as lib_pushAlerts from "../lib/pushAlerts.js";
+import type * as lib_quoteRefresh from "../lib/quoteRefresh.js";
 import type * as lib_recurringRevenue from "../lib/recurringRevenue.js";
 import type * as lib_removeDocument from "../lib/removeDocument.js";
 import type * as lib_settlementMath from "../lib/settlementMath.js";
@@ -144,6 +145,7 @@ declare const fullApi: ApiFromModules<{
   "lib/privacyRetention": typeof lib_privacyRetention;
   "lib/publicWallets": typeof lib_publicWallets;
   "lib/pushAlerts": typeof lib_pushAlerts;
+  "lib/quoteRefresh": typeof lib_quoteRefresh;
   "lib/recurringRevenue": typeof lib_recurringRevenue;
   "lib/removeDocument": typeof lib_removeDocument;
   "lib/settlementMath": typeof lib_settlementMath;

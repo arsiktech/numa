@@ -45,7 +45,7 @@ function fixture() {
       return query;
     }
   };
-  const ctx = { db, auth: { getUserIdentity: async () => user ? { subject: user } : null } } as any;
+  const ctx = { db, auth: { getUserIdentity: async () => user ? { subject: user } : null }, scheduler: { runAfter: async () => undefined } } as any;
   const call = async (mutation: any, args: object) => {
     const savedRows = structuredClone(rows), savedTables = new Map(tables);
     try { return await mutation._handler(ctx, args); }
