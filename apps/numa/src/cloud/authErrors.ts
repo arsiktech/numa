@@ -19,7 +19,7 @@ export function authErrorText(error: unknown, flow: 'signIn' | 'signUp' | 'email
   return 'Couldn’t create the account. Check the email and try a stronger password.';
 }
 
-const PLAIN = new Set(['INVALID_CURRENT_PASSWORD', 'WEAK_PASSWORD', 'SAME_PASSWORD', 'PASSWORD_NOT_AVAILABLE']);
+const PLAIN = new Set(['INVALID_CURRENT_PASSWORD', 'WEAK_PASSWORD', 'SAME_PASSWORD', 'PASSWORD_NOT_AVAILABLE', 'ALREADY_SET', 'EMAIL_TAKEN', 'NO_EMAIL']);
 
 /** One plain sentence for a failed change. Only the server's own user-facing messages are shown. */
 export function passwordErrorText(e: unknown): string {

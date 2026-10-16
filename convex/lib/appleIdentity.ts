@@ -42,7 +42,7 @@ const truthy = (value: unknown) => value === true || value === "true";
 
 export async function verifyAppleIdentityToken(
   token: string,
-  opts: { audience: string; nonce: string; keys: AppleJwk[]; now: number },
+  opts: { audience: string | string[]; nonce: string; keys: AppleJwk[]; now: number },
 ): Promise<AppleIdentity> {
   const parts = token.split(".");
   if (parts.length !== 3) throw new Error("bad token");
@@ -66,7 +66,8 @@ export async function verifyAppleIdentityToken(
   const now = Math.floor(opts.now / 1000);
   const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
   if (claims.iss !== APPLE_ISSUER) throw new Error("wrong issuer");
-  if (!audiences.includes(opts.audience)) throw new Error("wrong audience");
+  const accepted = Array.isArray(opts.audience) ? opts.audience : [opts.audience];
+  if (!audiences.some((a: unknown) => accepted.includes(a as string))) throw new Error("wrong audience");
   if (typeof claims.exp !== "number" || claims.exp + CLOCK_SKEW_SECONDS < now) throw new Error("expired");
   if (typeof claims.iat !== "number" || claims.iat - CLOCK_SKEW_SECONDS > now || now - claims.iat > MAX_AGE_SECONDS) throw new Error("stale");
   if (typeof claims.sub !== "string" || !claims.sub) throw new Error("bad token");

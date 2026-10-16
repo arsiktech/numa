@@ -9,7 +9,7 @@ import Svg, { Path } from 'react-native-svg';
 import { cloud } from '@/cloud/api';
 import { authErrorText, resetErrorText } from '@/cloud/authErrors';
 import { appleSignInAvailable, continueWithApple, continueWithGoogle } from '@/cloud/oauth';
-import { usePrefs } from '@/state/prefs';
+import { usePrefs, type SignInMethod } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
 import { type as typeScale } from '@/theme/tokens';
 import { Wordmark } from '@/ui/Nav';
@@ -52,8 +52,29 @@ function GoogleMark() {
   );
 }
 
-/** One tap: Apple's own button on iPhone, then Google everywhere it is set up. */
-function QuickSignIn({ busy, onApple, onGoogle }: { busy: boolean; onApple: () => void; onGoogle: () => void }) {
+/** Apple's logo, for the web button (iPhone uses Apple's own button). */
+function AppleMark({ color }: { color: string }) {
+  return (
+    <Svg width={16} height={19} viewBox="0 0 814 1000" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Path fill={color} d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76.5 0-103.7 40.8-165.9 40.8s-105.6-57-155.5-127C46.7 790.7 0 663 0 541.8c0-194.4 126.4-297.5 250.8-297.5 66.1 0 121.2 43.4 162.7 43.4 39.5 0 101.1-46 176.3-46 28.5 0 130.9 2.6 198.3 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z" />
+    </Svg>
+  );
+}
+
+/** "Last used": how this device signed in before, so returning people find their way in at a glance. */
+function LastUsed({ on }: { on: 'dark' | 'light' }) {
+  const { c } = useTheme();
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+      <View style={{ paddingHorizontal: 8, minHeight: 20, borderRadius: 999, justifyContent: 'center', backgroundColor: on === 'dark' ? 'rgba(255,255,255,0.18)' : c.s2 }}>
+        <Txt v="label" style={{ fontSize: 10, color: on === 'dark' ? '#FFFFFF' : c.ink2 }} maxFontSizeMultiplier={1.3}>Last used</Txt>
+      </View>
+    </View>
+  );
+}
+
+/** One tap: Apple (its own button on iPhone, Apple's popup on the web), then Google everywhere it is set up. */
+function QuickSignIn({ busy, last, onApple, onGoogle }: { busy: boolean; last: SignInMethod | null; onApple: () => void; onGoogle: () => void }) {
   const { c, name } = useTheme();
   const flags = useQuery(cloud.authFlags, {});
   const [apple, setApple] = useState(false);
@@ -62,19 +83,30 @@ function QuickSignIn({ busy, onApple, onGoogle }: { busy: boolean; onApple: () =
   if (!apple && !google) return null;
   return (
     <View style={{ gap: 10, opacity: busy ? 0.5 : 1 }} pointerEvents={busy ? 'none' : 'auto'}>
-      {apple && (
-        <AppleAuthentication.AppleAuthenticationButton
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-          buttonStyle={name === 'dark' ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-          cornerRadius={26}
-          style={{ height: 52 }}
-          onPress={onApple}
-        />
+      {apple && Platform.OS !== 'web' && (
+        <View>
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+            buttonStyle={name === 'dark' ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={26}
+            style={{ height: 52 }}
+            onPress={onApple}
+          />
+          {last === 'apple' && <LastUsed on={name === 'dark' ? 'light' : 'dark'} />}
+        </View>
+      )}
+      {apple && Platform.OS === 'web' && (
+        <Pressable onPress={onApple} accessibilityRole="button" accessibilityLabel={`Continue with Apple${last === 'apple' ? ', last used' : ''}`} style={{ minHeight: 52, borderRadius: 999, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink }}>
+          <AppleMark color={c.bg} />
+          <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold', fontSize: 16 }}>Continue with Apple</Txt>
+          {last === 'apple' && <LastUsed on={name === 'dark' ? 'light' : 'dark'} />}
+        </Pressable>
       )}
       {google && (
-        <Pressable onPress={onGoogle} accessibilityRole="button" accessibilityLabel="Continue with Google" style={{ minHeight: 52, borderRadius: 999, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.s1, borderWidth: 1, borderColor: c.s2 }}>
+        <Pressable onPress={onGoogle} accessibilityRole="button" accessibilityLabel={`Continue with Google${last === 'google' ? ', last used' : ''}`} style={{ minHeight: 52, borderRadius: 999, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.s1, borderWidth: 1, borderColor: c.s2 }}>
           <GoogleMark />
           <Txt v="body" c="ink" style={{ fontFamily: 'Manrope_700Bold', fontSize: 16 }}>Continue with Google</Txt>
+          {last === 'google' && <LastUsed on={name === 'dark' ? 'dark' : 'light'} />}
         </Pressable>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -91,7 +123,7 @@ export default function SignIn() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { signIn } = useAuthActions();
-  const { set } = usePrefs();
+  const { set, lastSignIn } = usePrefs();
   const [flow, setFlow] = useState<Flow>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -116,8 +148,11 @@ export default function SignIn() {
     setBusy(true);
     setError(null);
     let outcome: Awaited<ReturnType<typeof continueWithGoogle>> | null = null;
+    // On web Google takes the page away, so it is remembered before leaving.
+    if (provider === 'google' && Platform.OS === 'web') set('lastSignIn', 'google');
     try {
       outcome = provider === 'apple' ? await continueWithApple(signIn) : await continueWithGoogle(signIn);
+      if (outcome === 'signedIn') set('lastSignIn', provider);
     } catch {
       setError(`Couldn’t sign in with ${provider === 'apple' ? 'Apple' : 'Google'}. Try again, or use email.`);
     } finally {
@@ -138,13 +173,16 @@ export default function SignIn() {
       } else if (step === 'resetCode') {
         const result = await signIn('password', { email: cleanEmail, code: code.trim(), newPassword, flow: 'reset-verification' });
         if (!result.signingIn) setError('That code didn’t work. Check the latest email and try again.');
+        else set('lastSignIn', 'password');
       } else if (verifying) {
         const result = await signIn('password', { email: cleanEmail, code: code.trim(), flow: 'email-verification' });
         if (!result.signingIn) setError(authErrorText(null, 'email-verification'));
+        else set('lastSignIn', 'password');
       } else {
         const result = await signIn('password', { email: cleanEmail, password, flow, ...(flow === 'signUp' ? { name: cleanEmail.split('@')[0] } : {}) });
         // Accounts that still need email verification get a code instead of a session.
         if (!result.signingIn) setStep('verify');
+        else set('lastSignIn', 'password');
       }
     } catch (e) {
       setError(step === 'resetEmail' || step === 'resetCode' ? resetErrorText(e, step) : authErrorText(e, verifying ? 'email-verification' : flow));
@@ -154,8 +192,9 @@ export default function SignIn() {
   }
 
   const tab = (f: Flow, label: string) => (
-    <Pressable onPress={() => { setFlow(f); setError(null); }} accessibilityRole="tab" aria-selected={flow === f} style={{ flex: 1, minHeight: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: flow === f ? c.s2 : 'transparent' }}>
+    <Pressable onPress={() => { setFlow(f); setError(null); }} accessibilityRole="tab" aria-selected={flow === f} accessibilityLabel={f === 'signIn' && lastSignIn === 'password' ? `${label}, last used` : label} style={{ flex: 1, minHeight: 40, borderRadius: 999, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: flow === f ? c.s2 : 'transparent' }}>
       <Txt v="body" c={flow === f ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{label}</Txt>
+      {f === 'signIn' && lastSignIn === 'password' && <Txt v="label" c="ink3" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.3}>· Last used</Txt>}
     </Pressable>
   );
 
@@ -186,7 +225,7 @@ export default function SignIn() {
                 </>
               ) : (
                 <>
-                  <QuickSignIn busy={busy} onApple={() => quick('apple')} onGoogle={() => quick('google')} />
+                  <QuickSignIn busy={busy} last={lastSignIn} onApple={() => quick('apple')} onGoogle={() => quick('google')} />
                   <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 999, backgroundColor: c.s1 }} accessibilityRole="tablist">
                     {tab('signIn', 'Sign in')}
                     {tab('signUp', 'Create account')}

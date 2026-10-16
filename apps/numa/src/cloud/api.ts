@@ -204,6 +204,8 @@ export const cloud = {
   readSheet: makeFunctionReference<'action', { link: string }, { status: 'ok'; csv: string } | { status: 'ok'; xlsx: string } | { status: 'private' | 'missing' | 'tooBig' | 'failed' | 'badLink' | 'limited' }>('sheetsImport:readSheet'),
   askReply: makeFunctionReference<'action', { message: string; context: string; history: AskTurn[] }, AskReply>('ask:reply'),
   changePassword: makeFunctionReference<'action', { currentPassword: string; newPassword: string }, { ok: true }>('authManagement:changePassword'),
+  signInMethods: makeFunctionReference<'query', Record<string, never>, { email: string | null; privateRelay: boolean; apple: boolean; google: boolean; password: boolean } | null>('signInMethods:mine'),
+  setPassword: makeFunctionReference<'action', { password: string }, { email: string }>('signInMethods:setPassword'),
   deleteMyAccount: makeFunctionReference<'mutation', Record<string, never>, null>('users:deleteMyAccount'),
   cancelMyDeletion: makeFunctionReference<'mutation', Record<string, never>, { ok: true } | { ok: false; reason: 'already-started' | 'already-deleted' | string }>('users:cancelMyDeletion'),
   exportManifest: makeFunctionReference<'query', ExportScope, ExportManifest>('dataExport:manifest'),
