@@ -33,6 +33,18 @@ describe('walletHolding', () => {
     expect(attention.map((a) => a.title)).toEqual(['Couldn’t check Base and Polygon for Main', 'No price for XYZ in Main']);
   });
 
+  it('counts an Aave deposit as owned and the loan as owed, keeping net worth the same', () => {
+    const attention: Attention[] = [];
+    const debts: import('@/domain/types').Debt[] = [];
+    const h = walletHolding(wallet({ addressType: 'evm', label: 'Main' }, {
+      totalValueUsd: 73_000, debtValueUsd: 36_000, chains: ['ethereum', 'base'], failedChains: ['base'], tokenFailedChains: ['base'], defiFailedChains: [],
+      tokens: [], defiPositions: [{ id: 'base:aave-v3', chainName: 'Base', protocol: 'Aave V3', label: 'Aave V3', assetValueUsd: 109_000, debtValueUsd: 36_000, healthFactor: 2.5 }],
+    }), 'USD', null, now, attention, debts);
+    expect(h).toMatchObject({ valuation: { kind: 'synced', valueCents: 10_900_000, source: 'Blockscout and Aave' } });
+    expect(debts).toEqual([{ id: 'w1:loan', name: 'Main loan', balanceCents: 3_600_000 }]);
+    expect(attention.map((a) => a.title)).toEqual(['Couldn’t check tokens on Base for Main']);
+  });
+
   it('calls out an old balance and leaves out wallets not counted', () => {
     expect(walletHolding(wallet({}, { updatedAt: now - 7 * 3_600_000 }), 'USD', null, now, [])).toMatchObject({ valuation: { kind: 'missing', lastKnownCents: 4_000_000 } });
     expect(walletHolding(wallet({ includeInNetWorth: false }), 'USD', null, now, [])).toBeNull();

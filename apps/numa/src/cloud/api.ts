@@ -135,9 +135,14 @@ export type CloudWallet = {
   snapshot: {
     provider: 'public' | 'moralis';
     totalValueUsd: number;
+    /** What the wallet owes through lending protocols; counted under What you owe. */
+    debtValueUsd?: number;
     tokens: { id: string; chainName: string; symbol: string; name: string; quantity: string; valueUsd?: number }[];
+    defiPositions?: { id: string; chainName: string; protocol: string; label: string; assetValueUsd: number; debtValueUsd: number; healthFactor?: number }[];
     chains: string[];
     failedChains: string[];
+    tokenFailedChains?: string[];
+    defiFailedChains?: string[];
     updatedAt: number;
     partial: boolean;
   } | null;

@@ -3,7 +3,7 @@ import { freshness, shortDay, type Freshness } from '@/domain/freshness';
 import { countedValue } from '@/domain/summary';
 import type { CategoryId, Holding } from '@/domain/types';
 import type { HomeData } from './fromSnapshot';
-import { walletDetail } from './wallets';
+import { walletDetail, walletLoanId } from './wallets';
 
 export type GroupId = CategoryId | 'debts';
 export type ItemType = 'asset' | 'holding' | 'liability' | 'wallet';
@@ -56,6 +56,8 @@ export function itemsFrom(s: CloudSnapshot, data: HomeData, now: number): Item[]
     const d = fromDomain(byId.get(w.id), now);
     const freshness = !w.includeInNetWorth ? { text: 'Not counted in net worth', tone: 'ok' as const } : !w.snapshot ? { text: 'Checking the balance…', tone: 'missing' as const } : d.freshness;
     items.push({ id: w.id, type: 'wallet', group: 'crypto', name: w.label, detail: walletDetail(w), valueCents: w.includeInNetWorth ? d.valueCents : null, changeTodayCents: null, freshness, raw: w });
+    const loan = debtById.get(walletLoanId(w.id));
+    if (loan) items.push({ id: loan.id, type: 'wallet', group: 'debts', name: loan.name, detail: 'Borrowed on Aave', valueCents: loan.balanceCents, changeTodayCents: null, freshness, raw: w });
   }
   for (const l of s.liabilities) {
     const debt = debtById.get(l.id);

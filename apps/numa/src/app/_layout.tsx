@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { usePushTaps } from '@/alerts/push';
@@ -14,6 +15,7 @@ import { CloudDataProvider } from '@/data/cloud';
 import { PrefsProvider } from '@/state/prefs';
 import { ThemeProvider, useTheme } from '@/theme/theme';
 import { useLiveUpdates } from '@/updates/useLiveUpdates';
+import { WIDE } from '@/ui/Nav';
 import { OfflineNotice } from '@/ui/Offline';
 import { clearWidget, WidgetSync } from '@/widget/WidgetSync';
 import { ToastProvider } from '@/ui/Toast';
@@ -29,22 +31,25 @@ function Root() {
   const signedOut = session.kind === 'signedOut';
   useEffect(() => { if (signedOut) clearWidget(); }, [signedOut]);
   useEffect(() => { if (!loading) SplashScreen.hide(); }, [loading]);
+  // Wide screens open details as a panel over the page they came from, which stays visible.
+  const wide = useWindowDimensions().width >= WIDE;
   if (loading) return null;
   const inside = session.kind !== 'signedOut';
+  const panel = wide ? { presentation: 'transparentModal' as const, animation: 'fade' as const, contentStyle: { backgroundColor: 'transparent' } } : {};
   const stack = (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
       <Stack.Protected guard={inside}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="holdings/index" />
-        <Stack.Screen name="holdings/[group]" />
-        <Stack.Screen name="day/[t]" />
-        <Stack.Screen name="item/[type]/[id]" />
-        <Stack.Screen name="tx/[id]" />
-        <Stack.Screen name="import" />
-        <Stack.Screen name="password" />
-        <Stack.Screen name="delete-account" />
+        <Stack.Screen name="ask" options={wide ? panel : { presentation: 'modal' }} />
+        <Stack.Screen name="settings" options={panel} />
+        <Stack.Screen name="holdings/index" options={panel} />
+        <Stack.Screen name="holdings/[group]" options={panel} />
+        <Stack.Screen name="day/[t]" options={panel} />
+        <Stack.Screen name="item/[type]/[id]" options={panel} />
+        <Stack.Screen name="tx/[id]" options={panel} />
+        <Stack.Screen name="import" options={panel} />
+        <Stack.Screen name="password" options={panel} />
+        <Stack.Screen name="delete-account" options={panel} />
       </Stack.Protected>
       <Stack.Protected guard={!inside}>
         <Stack.Screen name="sign-in" />

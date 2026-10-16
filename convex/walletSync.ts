@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { cryptoWalletSnapshotValidator } from "./lib/cryptoValidators";
-import { fetchPublicWallet, type Get } from "./lib/publicWallets";
+import { fetchPublicWallet, type Call, type Get } from "./lib/publicWallets";
 
 /**
  * Keeps tracked public wallets current from free public explorers. Nothing here moves money
@@ -21,6 +21,17 @@ const get: Get = async (url) => {
   const response = await fetch(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return await response.json();
+};
+
+const call: Call = async (rpcUrl, to, data) => {
+  const response = await fetch(rpcUrl, {
+    method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const body = (await response.json()) as { result?: unknown; error?: unknown };
+  if (typeof body.result !== "string") throw new Error("RPC error");
+  return body.result;
 };
 
 type Target = { id: Id<"cryptoWallets">; address: string; addressType: "bitcoin" | "evm"; checkedAt: number | null };
@@ -66,7 +77,7 @@ export const saveSnapshot = internalMutation({
 
 async function check(target: Target, now: number) {
   try {
-    return await fetchPublicWallet(target.address, target.addressType, get, now);
+    return await fetchPublicWallet(target.address, target.addressType, get, now, call);
   } catch {
     return null;
   }

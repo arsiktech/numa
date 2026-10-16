@@ -13,6 +13,7 @@ import { WalletSection } from '@/settings/WalletSection';
 import { usePrefs, type ThemeChoice } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
 import { ProBadge } from '@/ui/ProBadge';
+import { ClosePanels, PanelFrame, usePanel } from '@/ui/Panel';
 import { Txt } from '@/ui/Txt';
 
 /** Appearance, privacy and the account. Device preferences stay on this device. */
@@ -21,14 +22,19 @@ export default function Settings() {
   const insets = useSafeAreaInsets();
   const { hideAmounts, set } = usePrefs();
   const session = useSession();
+  const panel = usePanel();
   const themes: { id: ThemeChoice; label: string }[] = [{ id: 'auto', label: 'Auto' }, { id: 'dark', label: 'Dark' }, { id: 'light', label: 'Light' }];
 
   return (
+    <PanelFrame>
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}>
       <View style={{ width: '100%', maxWidth: 640, alignSelf: 'center' }}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} accessibilityRole="button" accessibilityLabel="Back" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
-          <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>‹ Back</Txt>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} accessibilityRole="button" accessibilityLabel="Back" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
+            <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>‹ Back</Txt>
+          </Pressable>
+          {panel && <ClosePanels />}
+        </View>
         <Txt v="title" accessibilityRole="header" style={{ marginTop: 8 }}>Settings</Txt>
         {session.kind === 'signedIn' && <DeletionBanner />}
         {session.kind === 'signedIn' && <SpaceSection />}
@@ -69,5 +75,6 @@ export default function Settings() {
         <Txt v="small" c="ink3" style={{ marginTop: 6 }}>Numa Pro {Constants.expoConfig?.version ?? ''}. Numa never moves money. Prices and exchange rates can be delayed.</Txt>
       </View>
     </ScrollView>
+    </PanelFrame>
   );
 }
