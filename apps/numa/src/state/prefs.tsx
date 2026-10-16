@@ -17,7 +17,11 @@ type Prefs = {
   dismissed: Record<string, Dismissal>;
   /** The space this device last opened. Ignored if the signed-in account can't see it. */
   space: string | null;
+  /** How this device last signed in, marked "Last used" on the sign-in page. Kept after signing out. */
+  lastSignIn: SignInMethod | null;
 };
+
+export type SignInMethod = 'apple' | 'google' | 'password';
 
 /** `title` is what was dismissed: if the item's title changes, it comes back. `until` is a snooze end, or null for good. */
 export type Dismissal = { title: string; until: number | null };
@@ -31,7 +35,7 @@ type PrefsValue = Prefs & {
 };
 
 const KEY = 'numa.prefs.v1';
-const defaults: Prefs = { theme: 'auto', hideAmounts: false, seenTips: [], demo: false, dismissed: {}, space: null };
+const defaults: Prefs = { theme: 'auto', hideAmounts: false, seenTips: [], demo: false, dismissed: {}, space: null, lastSignIn: null };
 const PrefsContext = createContext<PrefsValue | null>(null);
 
 export function PrefsProvider({ children }: { children: ReactNode }) {

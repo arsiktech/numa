@@ -82,6 +82,7 @@ import type * as recap from "../recap.js";
 import type * as recurring from "../recurring.js";
 import type * as settlements from "../settlements.js";
 import type * as sheetsImport from "../sheetsImport.js";
+import type * as signInMethods from "../signInMethods.js";
 import type * as spaces from "../spaces.js";
 import type * as transactions from "../transactions.js";
 import type * as users from "../users.js";
@@ -170,6 +171,7 @@ declare const fullApi: ApiFromModules<{
   recurring: typeof recurring;
   settlements: typeof settlements;
   sheetsImport: typeof sheetsImport;
+  signInMethods: typeof signInMethods;
   spaces: typeof spaces;
   transactions: typeof transactions;
   users: typeof users;

@@ -48,6 +48,15 @@ Notes:
 
 Before the first production deploy, check that the production Convex deployment has every function the app calls. The full list is in `apps/numa/src/cloud/api.ts`. A missing function shows as a load error, not wrong numbers.
 
+### Sign in with Apple on the web
+
+The web uses Apple's popup and the same server check as the iPhone, so one Apple ID reaches one account everywhere. It needs a Services ID in the Apple Developer account (no secret key):
+- **Identifier:** `com.arsiktech.numa.web`, with Sign in with Apple enabled and `com.arsiktech.numa` as its primary App ID.
+- **Domains:** `numaworth.com`, `www.numaworth.com` and `numa-pro.pages.dev`.
+- **Return URLs:** `https://numaworth.com`, `https://www.numaworth.com` and `https://numa-pro.pages.dev`.
+
+The button shows only on those hosts. Branch previews on other `*.numa-pro.pages.dev` addresses can't use it.
+
 ## Phones: EAS
 
 Profiles live in `apps/numa/eas.json`:

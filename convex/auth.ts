@@ -96,8 +96,12 @@ if (
   );
 }
 
-/** The iPhone app's bundle ID: Apple issues its sign-in tokens for this audience. */
-const APPLE_APP_AUDIENCE = "com.arsiktech.numa";
+/**
+ * Apple issues sign-in tokens for the iPhone app's bundle ID, and for the web's Services ID when
+ * someone signs in on numaworth.com. Both belong to the same team, so Apple gives a person the same
+ * `sub` in both and they reach the same account.
+ */
+const APPLE_AUDIENCES = ["com.arsiktech.numa", "com.arsiktech.numa.web"];
 let appleKeys: { keys: AppleJwk[]; fetchedAt: number } | null = null;
 
 async function appleSigningKeys(refresh: boolean): Promise<AppleJwk[]> {
@@ -109,7 +113,7 @@ async function appleSigningKeys(refresh: boolean): Promise<AppleJwk[]> {
   return appleKeys.keys;
 }
 
-// Sign in with Apple from the iPhone app's own sheet. The app sends Apple's identity token and
+// Sign in with Apple from the iPhone app's own sheet, or Apple's popup on the web. Either sends Apple's identity token and
 // the one-time nonce it hashed into it; nothing here needs an Apple secret key.
 providers.push(
   ConvexCredentials({
@@ -119,7 +123,7 @@ providers.push(
       const nonce = typeof credentials.nonce === "string" ? credentials.nonce : "";
       if (!token || !nonce || token.length > 8_000 || nonce.length > 200) return null;
       const verify = async (refresh: boolean) =>
-        verifyAppleIdentityToken(token, { audience: APPLE_APP_AUDIENCE, nonce, keys: await appleSigningKeys(refresh), now: Date.now() });
+        verifyAppleIdentityToken(token, { audience: APPLE_AUDIENCES, nonce, keys: await appleSigningKeys(refresh), now: Date.now() });
       // Apple rotates its keys; fetch them again once if the token names one we haven't seen.
       const identity = await verify(false).catch((error: Error) => (error.message === "unknown key" ? verify(true) : Promise.reject(error)));
       const given = typeof credentials.name === "string" ? credentials.name.replace(/\s+/g, " ").trim().slice(0, 80) : "";

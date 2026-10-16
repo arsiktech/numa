@@ -4,6 +4,8 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
+import { appleWebAvailable, appleWebSignIn } from './appleWeb';
+
 type SignIn = (provider: string, params?: Record<string, string>) => Promise<{ signingIn: boolean; redirect?: URL }>;
 export type OAuthOutcome = 'signedIn' | 'cancelled' | 'leaving';
 
@@ -28,18 +30,25 @@ export async function continueWithGoogle(signIn: SignIn): Promise<OAuthOutcome> 
   return done.signingIn ? 'signedIn' : 'cancelled';
 }
 
-/** True on iPhones that can show Apple's own sign-in sheet. */
+/** True on iPhones that can show Apple's own sign-in sheet, and on the web where Apple's popup can return. */
 export async function appleSignInAvailable(): Promise<boolean> {
+  if (Platform.OS === 'web') return appleWebAvailable();
   return Platform.OS === 'ios' && (await AppleAuthentication.isAvailableAsync().catch(() => false));
 }
 
 /**
- * Sign in with Apple through the system sheet. A one-time nonce is hashed into Apple's token
+ * Sign in with Apple through the system sheet on iPhone, or Apple's popup on the web. A one-time nonce is hashed into Apple's token
  * and the raw value goes to the server, which checks that the two match.
  */
 export async function continueWithApple(signIn: SignIn): Promise<OAuthOutcome> {
   const nonce = `${Crypto.randomUUID()}${Crypto.randomUUID()}`;
   const hashed = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, nonce);
+  if (Platform.OS === 'web') {
+    const web = await appleWebSignIn(hashed);
+    if (web === 'cancelled') return 'cancelled';
+    const done = await signIn('apple-native', { identityToken: web.identityToken, nonce, ...(web.name ? { name: web.name } : {}) });
+    return done.signingIn ? 'signedIn' : 'cancelled';
+  }
   let credential: AppleAuthentication.AppleAuthenticationCredential;
   try {
     credential = await AppleAuthentication.signInAsync({

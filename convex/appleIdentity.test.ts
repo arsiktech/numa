@@ -67,6 +67,12 @@ describe("verifyAppleIdentityToken", async () => {
     await expect(check(`${h}.${text(await claims({ sub: "someone-else" }))}.${s}`)).rejects.toThrow("bad signature");
   });
 
+  it("accepts the web Services ID too when the caller lists both audiences", async () => {
+    const web = await sign(apple.privateKey, "A1", await claims({ aud: "com.example.web" }));
+    await expect(verifyAppleIdentityToken(web, { audience: [AUD, "com.example.web"], nonce, keys: [apple.jwk], now: NOW })).resolves.toMatchObject({ sub: "001234.abc" });
+    await expect(verifyAppleIdentityToken(web, { audience: [AUD], nonce, keys: [apple.jwk], now: NOW })).rejects.toThrow("wrong audience");
+  });
+
   it("refuses a token whose nonce wasn't made for this sign-in", async () => {
     const token = await sign(apple.privateKey, "A1", await claims());
     await expect(check(token, { nonce: "another-value" })).rejects.toThrow("wrong nonce");

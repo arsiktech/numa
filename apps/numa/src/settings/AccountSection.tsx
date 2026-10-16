@@ -61,6 +61,26 @@ export function DataSection() {
   );
 }
 
+/** How this account can sign in, the same on every device: Apple, Google, and email with a password. */
+function SignInMethods() {
+  const { c } = useTheme();
+  const methods = useQuery(cloud.signInMethods, {});
+  if (!methods) return null;
+  const state = (on: boolean) => <Txt v="small" style={{ color: on ? c.upInk : c.ink3, fontFamily: 'Manrope_700Bold' }}>{on ? 'Connected' : 'Not connected'}</Txt>;
+  const relay = methods.privateRelay ? ' This is the private address Apple made for you; it forwards to your own inbox.' : '';
+  return (
+    <>
+      <Row title="Apple" detail="Continue with Apple, on iPhone and on the web.">{state(methods.apple)}</Row>
+      <Row title="Google" detail="Continue with Google, with the same email as this account.">{state(methods.google)}</Row>
+      {methods.password ? (
+        <Action label="Change password" detail={methods.email ? `Sign in anywhere with ${methods.email} and your password.` : undefined} onPress={() => router.push('/password')} />
+      ) : (
+        <Action label="Set a password" detail={methods.email ? `Then sign in anywhere with ${methods.email} and that password.${relay}` : 'Add a password to sign in with email.'} onPress={() => router.push({ pathname: '/password', params: { set: '1' } })} />
+      )}
+    </>
+  );
+}
+
 export function AccountSection() {
   const me = useQuery(cloud.me, {});
   const { signOut } = useAuthActions();
@@ -69,7 +89,7 @@ export function AccountSection() {
     <>
       <Section title="ACCOUNT" />
       <Row title="Signed in" detail={me?.email ? `${me.email}. Your data syncs across your devices.` : 'Your data syncs across your devices.'} />
-      <Action label="Change password" onPress={() => router.push('/password')} />
+      <SignInMethods />
       <Action label={busy ? 'Signing out…' : 'Sign out'} onPress={async () => { setBusy(true); try { await signOut(); } finally { setBusy(false); } }} />
       {!me?.deletionScheduledAt && <Action label="Delete account" danger onPress={() => router.push('/delete-account')} />}
     </>
