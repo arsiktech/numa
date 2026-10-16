@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fetchPublicWallet, formatUnits, type Get } from "./lib/publicWallets";
+import { fetchPublicWallet, formatUnits, isAaveToken, type Call, type Get } from "./lib/publicWallets";
 
 const BTC = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
 const EVM = "0x3304e22ddaa22bcdc5fca2269b418046ae7b566a";
@@ -71,5 +71,42 @@ describe("fetchPublicWallet", () => {
 
   it("fails when no chain answers, so the last good snapshot stays", async () => {
     await expect(fetchPublicWallet(EVM, "evm", fake({}), 1000)).rejects.toThrow();
+  });
+
+  it("counts an Aave V3 position as what it holds less what it owes, and skips Aave's own tokens", async () => {
+    const word = (n: bigint) => n.toString(16).padStart(64, "0");
+    // 109,583.16 supplied, 36,422.29 borrowed, health factor 2.5.
+    const account = "0x" + [10958316000000n, 3642229000000n, 0n, 0n, 0n, 2_500000000000000000n].map(word).join("");
+    const calls: string[] = [];
+    const call: Call = async (rpc, to, data) => {
+      calls.push(`${rpc} ${to} ${data.slice(0, 10)}`);
+      if (rpc.includes("base")) return account;
+      if (rpc.includes("polygon")) throw new Error("down");
+      return "0x" + word(0n).repeat(6);
+    };
+    const s = await fetchPublicWallet(EVM, "evm", fake({
+      [`https://eth.blockscout.com/api/v2/addresses/${EVM}/tokens`]: { items: [
+        { value: "1000000000", token: { address_hash: "0xa", symbol: "aEthUSDC", name: "Aave Ethereum USDC", decimals: "6", exchange_rate: "1", reputation: "ok" } },
+        { value: "1000000000", token: { address_hash: "0xd", symbol: "variableDebtEthUSDC", name: "Aave Ethereum Variable Debt USDC", decimals: "6", exchange_rate: "1", reputation: "ok" } },
+      ] },
+      [`https://eth.blockscout.com/api/v2/addresses/${EVM}`]: { coin_balance: "1000000000000000000", exchange_rate: "2500" },
+    }), 1000, call);
+    expect(calls).toContain(`https://base-rpc.publicnode.com 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5 0xbf92857c`);
+    expect(s.tokens.map((t) => t.symbol)).toEqual(["ETH"]);
+    expect(s.defiPositions).toEqual([expect.objectContaining({ chain: "base", protocol: "Aave V3", assetValueUsd: 109583.16, debtValueUsd: 36422.29, valueUsd: 73160.87, healthFactor: 2.5 })]);
+    expect(s).toMatchObject({ tokenValueUsd: 2500, defiValueUsd: 109583.16, debtValueUsd: 36422.29, totalValueUsd: 75660.87, partial: true });
+    // Base's explorer didn't answer but its Aave position did: Base still counts, with the gap named.
+    expect(s.chains).toEqual(["ethereum", "base", "arbitrum", "optimism"]);
+    expect(s.tokenFailedChains).toEqual(["base", "arbitrum", "optimism", "polygon"]);
+    expect(s.defiFailedChains).toEqual(["polygon"]);
+    expect(s.failedChains).toEqual(["base", "arbitrum", "optimism", "polygon"]);
+  });
+
+  it("recognises Aave deposit and loan tokens, and nothing else", () => {
+    expect(isAaveToken("aBasUSDC", "Aave Base USDC")).toBe(true);
+    expect(isAaveToken("variableDebtBasUSDC", "Aave Base Variable Debt USDC")).toBe(true);
+    expect(isAaveToken("aArbWETH", "")).toBe(true);
+    expect(isAaveToken("AAVE", "Aave Token")).toBe(false);
+    expect(isAaveToken("axlUSDC", "Axelar Wrapped USDC")).toBe(false);
   });
 });

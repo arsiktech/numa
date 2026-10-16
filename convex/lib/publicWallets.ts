@@ -1,10 +1,13 @@
 /**
  * Balances for public wallet addresses from free, keyless public APIs: mempool.space for
- * Bitcoin and Blockscout explorers for EVM chains. Each chain is checked on its own; one that
- * can't be reached is listed in `failedChains`, never counted as zero.
+ * Bitcoin, Blockscout explorers for EVM tokens, and public RPC nodes for lending positions
+ * (Aave V3), read straight from the protocol's contracts. Each chain is checked on its own; one
+ * that can't be reached is listed in `failedChains`, never counted as zero.
  */
 
 export type Get = (url: string) => Promise<unknown>;
+/** A JSON-RPC `eth_call` against a chain's public node; returns the hex result. */
+export type Call = (rpcUrl: string, to: string, data: string) => Promise<string>;
 
 export type WalletToken = {
   id: string;
@@ -20,6 +23,20 @@ export type WalletToken = {
   suspectedSpam: boolean;
 };
 
+export type DefiPosition = {
+  id: string;
+  chain: string;
+  chainName: string;
+  protocol: string;
+  label: string;
+  kind: "supplied" | "borrowed";
+  valueUsd: number;
+  assetValueUsd: number;
+  debtValueUsd: number;
+  healthFactor?: number;
+  symbols: string[];
+};
+
 export type PublicWalletSnapshot = {
   provider: "public";
   addressType: "bitcoin" | "evm";
@@ -28,21 +45,50 @@ export type PublicWalletSnapshot = {
   debtValueUsd: number;
   totalValueUsd: number;
   tokens: WalletToken[];
-  defiPositions: never[];
+  defiPositions: DefiPosition[];
   chains: string[];
   failedChains: string[];
+  tokenFailedChains: string[];
+  defiFailedChains: string[];
   tokensFetchedAt: number;
+  defiFetchedAt?: number;
   updatedAt: number;
   partial: boolean;
 };
 
+// `aave` is the Aave V3 Pool on each chain; `rpc` is a keyless public node.
 export const EVM_CHAINS = [
-  { id: "ethereum", name: "Ethereum", host: "https://eth.blockscout.com", coin: "ETH", coinName: "Ether" },
-  { id: "base", name: "Base", host: "https://base.blockscout.com", coin: "ETH", coinName: "Ether" },
-  { id: "arbitrum", name: "Arbitrum", host: "https://arbitrum.blockscout.com", coin: "ETH", coinName: "Ether" },
-  { id: "optimism", name: "Optimism", host: "https://explorer.optimism.io", coin: "ETH", coinName: "Ether" },
-  { id: "polygon", name: "Polygon", host: "https://polygon.blockscout.com", coin: "POL", coinName: "Polygon" },
+  { id: "ethereum", name: "Ethereum", host: "https://eth.blockscout.com", coin: "ETH", coinName: "Ether", rpc: "https://ethereum-rpc.publicnode.com", aave: "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2" },
+  { id: "base", name: "Base", host: "https://base.blockscout.com", coin: "ETH", coinName: "Ether", rpc: "https://base-rpc.publicnode.com", aave: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5" },
+  { id: "arbitrum", name: "Arbitrum", host: "https://arbitrum.blockscout.com", coin: "ETH", coinName: "Ether", rpc: "https://arbitrum-one-rpc.publicnode.com", aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" },
+  { id: "optimism", name: "Optimism", host: "https://explorer.optimism.io", coin: "ETH", coinName: "Ether", rpc: "https://optimism-rpc.publicnode.com", aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" },
+  { id: "polygon", name: "Polygon", host: "https://polygon.blockscout.com", coin: "POL", coinName: "Polygon", rpc: "https://polygon-bor-rpc.publicnode.com", aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" },
 ] as const;
+
+/**
+ * Aave's own tokens for a deposit (aBasUSDC) or a loan (variableDebtBasUSDC). They are counted
+ * through the Aave position instead, so they are never added as wallet tokens too.
+ */
+export const isAaveToken = (symbol: string, name: string) =>
+  /^Aave (Ethereum|Base|Arbitrum|Optimism|Polygon) /.test(name) || /^(variableDebt|stableDebt)/.test(symbol) || /^a(Eth|Bas|Arb|Opt|Pol)[A-Z]/.test(symbol);
+
+/** getUserAccountData(address): totals in US dollars with 8 decimals, and the health factor with 18. */
+export async function aaveV3(chain: (typeof EVM_CHAINS)[number], address: string, call: Call): Promise<DefiPosition | null> {
+  const hex = await call(chain.rpc, chain.aave, "0xbf92857c" + address.toLowerCase().replace(/^0x/, "").padStart(64, "0"));
+  if (!/^0x[0-9a-f]{384,}$/i.test(hex)) throw new Error("bad response");
+  const word = (i: number) => BigInt("0x" + hex.slice(2 + i * 64, 2 + (i + 1) * 64));
+  const usd = (raw: bigint) => Number(raw) / 1e8;
+  const collateral = round(usd(word(0))), debt = round(usd(word(1)));
+  if (collateral === 0 && debt === 0) return null;
+  const health = word(5);
+  return {
+    id: `${chain.id}:aave-v3`, chain: chain.id, chainName: chain.name, protocol: "Aave V3", label: debt > 0 ? "Aave V3 lending and borrowing" : "Aave V3 lending",
+    kind: "supplied", valueUsd: round(collateral - debt), assetValueUsd: collateral, debtValueUsd: debt,
+    // With no loan the contract reports an endless health factor; that is left out, not stored as a huge number.
+    healthFactor: debt > 0 && health < 10n ** 30n ? Number(health) / 1e18 : undefined,
+    symbols: [],
+  };
+}
 
 /** Priced tokens worth less than this are left out: they are mostly airdropped spam. */
 const MIN_TOKEN_USD = 1;
@@ -97,6 +143,7 @@ async function evmChain(chain: (typeof EVM_CHAINS)[number], address: string, get
     const t = item.token;
     if (!t || typeof item.value !== "string" || typeof t.symbol !== "string") continue;
     if (t.reputation === "scam") continue;
+    if (isAaveToken(t.symbol, String(t.name ?? ""))) continue;
     const price = num(t.exchange_rate);
     if (price === undefined) continue; // No market price: almost always spam, and never counted.
     let quantity: string;
@@ -112,24 +159,36 @@ async function evmChain(chain: (typeof EVM_CHAINS)[number], address: string, get
   return [...out, ...tokens.slice(0, MAX_TOKENS_PER_CHAIN)];
 }
 
-export async function fetchPublicWallet(address: string, addressType: "bitcoin" | "evm", get: Get, now: number): Promise<PublicWalletSnapshot> {
-  const jobs = addressType === "bitcoin"
+export async function fetchPublicWallet(address: string, addressType: "bitcoin" | "evm", get: Get, now: number, call?: Call): Promise<PublicWalletSnapshot> {
+  // Tokens and lending positions are read separately: a chain whose explorer is down still
+  // counts its Aave position, and the part that failed is named, never counted as zero.
+  const tokenJobs = addressType === "bitcoin"
     ? [{ id: "bitcoin", run: () => bitcoin(address, get) }]
     : EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => evmChain(chain, address, get) }));
-  const results = await Promise.allSettled(jobs.map((job) => job.run()));
+  const defiJobs = addressType === "evm" && call
+    ? EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => aaveV3(chain, address, call) }))
+    : [];
+  const [tokenResults, defiResults] = await Promise.all([
+    Promise.allSettled(tokenJobs.map((job) => job.run())),
+    Promise.allSettled(defiJobs.map((job) => job.run())),
+  ]);
   const tokens: WalletToken[] = [];
-  const chains: string[] = [];
-  const failedChains: string[] = [];
-  results.forEach((r, i) => {
-    if (r.status === "fulfilled") { chains.push(jobs[i].id); tokens.push(...r.value); }
-    else failedChains.push(jobs[i].id);
-  });
+  const defiPositions: DefiPosition[] = [];
+  const tokenFailedChains: string[] = [];
+  const defiFailedChains: string[] = [];
+  tokenResults.forEach((r, i) => { if (r.status === "fulfilled") tokens.push(...r.value); else tokenFailedChains.push(tokenJobs[i].id); });
+  defiResults.forEach((r, i) => { if (r.status === "fulfilled") { if (r.value) defiPositions.push(r.value); } else defiFailedChains.push(defiJobs[i].id); });
+  const ids = tokenJobs.map((job) => job.id);
+  const chains = ids.filter((id) => !tokenFailedChains.includes(id) || (defiJobs.length > 0 && !defiFailedChains.includes(id)));
+  const failedChains = ids.filter((id) => tokenFailedChains.includes(id) || defiFailedChains.includes(id));
   if (!chains.length) throw new Error("No chain could be checked");
   const tokenValueUsd = round(tokens.reduce((sum, t) => sum + (t.valueUsd ?? 0), 0));
+  const defiValueUsd = round(defiPositions.reduce((sum, p) => sum + p.assetValueUsd, 0));
+  const debtValueUsd = round(defiPositions.reduce((sum, p) => sum + p.debtValueUsd, 0));
   const unpriced = tokens.some((t) => t.valueUsd === undefined && Number(t.quantity) > 0);
   return {
-    provider: "public", addressType, tokenValueUsd, defiValueUsd: 0, debtValueUsd: 0, totalValueUsd: tokenValueUsd,
-    tokens, defiPositions: [], chains, failedChains, tokensFetchedAt: now, updatedAt: now,
+    provider: "public", addressType, tokenValueUsd, defiValueUsd, debtValueUsd, totalValueUsd: round(tokenValueUsd + defiValueUsd - debtValueUsd),
+    tokens, defiPositions, chains, failedChains, tokenFailedChains, defiFailedChains, tokensFetchedAt: now, defiFetchedAt: defiJobs.length ? now : undefined, updatedAt: now,
     partial: failedChains.length > 0 || unpriced,
   };
 }

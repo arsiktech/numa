@@ -13,6 +13,7 @@ import type { AskReply, AskTurn } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { useTheme } from '@/theme/theme';
 import { useMoney } from '@/ui/money';
+import { PanelFrame } from '@/ui/Panel';
 import { Txt } from '@/ui/Txt';
 
 type Message =
@@ -152,6 +153,7 @@ function AskView({ source }: { source: AskSource }) {
   const demo = source.status === 'ready' && source.demo;
   return (
     // On iPhone the sheet starts below the top of the screen, so it needs less top padding.
+    <PanelFrame>
     <View style={{ flex: 1, backgroundColor: c.bg, paddingBottom: keyboard }}>
       <View ref={sheetRef} onLayout={measureSheet} style={{ flex: 1, width: '100%', maxWidth: 720, alignSelf: 'center', paddingTop: sheetTop > 0 ? 16 : insets.top + 12 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingHorizontal: 20 }}>
@@ -203,5 +205,6 @@ function AskView({ source }: { source: AskSource }) {
         </View>
       </View>
     </View>
+    </PanelFrame>
   );
 }

@@ -95,7 +95,29 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
           </View>
         );
       })}
-      {w.snapshot && !tokens.length && <Txt v="body" c="ink2" style={{ marginTop: 18 }}>This address is empty on the networks Numa checked.</Txt>}
+      {(w.snapshot?.defiPositions ?? []).length > 0 && <Txt v="label" c="ink3" style={{ marginTop: 24 }}>LENT AND BORROWED</Txt>}
+      {(w.snapshot?.defiPositions ?? []).map((p) => {
+        const usd = (n: number) => convertCents(Math.round(n * 100), 'USD', currency, fx);
+        const lent = usd(p.assetValueUsd), owed = usd(p.debtValueUsd);
+        return (
+          <View key={p.id} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.line, gap: 4 }}>
+            <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{p.protocol} · {p.chainName}</Txt>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Txt v="body" c="ink2">Lent</Txt>
+              <Txt v="figureSm" style={{ fontSize: 14 }}>{lent === null ? 'No rate' : money(lent)}</Txt>
+            </View>
+            {p.debtValueUsd > 0 && (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Txt v="body" c="ink2">Borrowed</Txt>
+                <Txt v="figureSm" style={{ fontSize: 14, color: c.down }}>{owed === null ? 'No rate' : money(owed)}</Txt>
+              </View>
+            )}
+            {/* Aave sells collateral when this drops to 1; below about 1.5 is worth watching. */}
+            {p.healthFactor !== undefined && <Txt v="small" c={p.healthFactor < 1.5 ? 'down' : 'ink3'}>Health factor {p.healthFactor.toFixed(2)}{p.healthFactor < 1.5 ? ' · close to liquidation' : ''}</Txt>}
+          </View>
+        );
+      })}
+      {w.snapshot && !tokens.length && !(w.snapshot.defiPositions ?? []).length && <Txt v="body" c="ink2" style={{ marginTop: 18 }}>This address is empty on the networks Numa checked.</Txt>}
 
       {editable && (confirming ? (
         <View style={{ marginTop: 22, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 10 }}>

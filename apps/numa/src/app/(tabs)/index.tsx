@@ -17,6 +17,7 @@ import { CompositionBar, type Lens } from '@/ui/CompositionBar';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { MonthTeaser } from '@/ui/MonthTeaser';
 import { WIDE } from '@/ui/Nav';
+import { usePanelOpen } from '@/ui/Panel';
 import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
 import { NeedsYou } from '@/ui/NeedsYou';
 import { Odometer } from '@/ui/Odometer';
@@ -254,6 +255,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
     </View>
   ) : null;
 
+  const panelOpen = usePanelOpen();
   const teaser = <MonthTeaser month={model.month} flow={model.flow} />;
   const needs = <NeedsYou items={model.attention} />;
 
@@ -262,9 +264,10 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
       <View style={{ gap: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>{heroBlock}{showChart && rangePills}</View>
           {chart}
-          <View style={{ flexDirection: 'row', gap: 48, alignItems: 'flex-start', marginTop: 14 }}>
-            <View style={{ flex: 1.7, gap: 28 }}>{blocks}{teaser}</View>
-            <View style={{ flex: 1, minWidth: 320 }}>{needs}</View>
+          {/* Beside an open panel the page is narrower, so the two columns stack. */}
+          <View style={{ flexDirection: panelOpen ? 'column' : 'row', gap: panelOpen ? 28 : 48, alignItems: panelOpen ? 'stretch' : 'flex-start', marginTop: 14 }}>
+            <View style={{ flex: panelOpen ? undefined : 1.7, gap: 28 }}>{blocks}{teaser}</View>
+            <View style={{ flex: panelOpen ? undefined : 1, minWidth: 320 }}>{needs}</View>
           </View>
       </View>,
     );

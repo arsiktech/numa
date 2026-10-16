@@ -90,7 +90,7 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
   }
 
   for (const w of s.wallets ?? []) {
-    const mapped = walletHolding(w, currency, fx, nowMs, attention);
+    const mapped = walletHolding(w, currency, fx, nowMs, attention, debts);
     if (mapped === 'unconverted') unconverted.push(w.label); else if (mapped) holdings.push(mapped);
   }
 

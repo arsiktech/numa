@@ -5,11 +5,12 @@ import { Platform, Pressable, View, useWindowDimensions, type View as RNView, ty
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/theme';
+import { WIDE, panelWidth, usePanelOpen } from './Panel';
 import { IconAsk, IconFlow, IconHoldings, IconHome, IconPlan, IconPlus } from './icons';
 import { ProBadge } from './ProBadge';
 import { Txt } from './Txt';
 
-export const WIDE = 1024;
+export { WIDE };
 
 const routes = [
   { name: 'index', href: '/', label: 'Home', Icon: IconHome },
@@ -24,7 +25,8 @@ const NavItem = forwardRef<RNView, ItemProps>(function NavItem({ isFocused, labe
   const color = isFocused ? c.ink : c.ink3;
   if (wide) {
     return (
-      <Pressable ref={ref} {...props} accessibilityRole="link" aria-selected={isFocused} style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: isFocused ? c.s2 : 'transparent' }}>
+      // A place in the sidebar closes any open panel, so the page it opens is the one in view.
+      <Pressable ref={ref} {...props} onPress={(e) => { if (router.canDismiss()) router.dismissAll(); props.onPress?.(e); }} accessibilityRole="link" aria-selected={isFocused} style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: isFocused ? c.s2 : 'transparent' }}>
         {icon(color)}
         <Txt v="body" style={{ color, fontFamily: 'Manrope_600SemiBold' }}>{label}</Txt>
       </Pressable>
@@ -82,6 +84,7 @@ export function AppTabs() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const wide = width >= WIDE;
+  const panelOpen = usePanelOpen();
   const bottom = Math.max(insets.bottom, 10) + 16;
 
   return (
@@ -113,7 +116,7 @@ export function AppTabs() {
           ) : null}
         </NavContainer>
       </TabList>
-      <TabSlot style={{ flex: 1 }} />
+      <TabSlot style={{ flex: 1, marginRight: wide && panelOpen ? panelWidth(width) : 0 }} />
       {!wide ? (
         <Pressable onPress={() => router.push('/ask')} accessibilityRole="button" accessibilityLabel="Ask or add" style={{ position: 'absolute', zIndex: 10, elevation: 10, right: 20, bottom, width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center', backgroundColor: c.plus, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 } }}>
           <IconPlus color={c.plusInk} />
