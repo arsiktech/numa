@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
 
@@ -6,6 +6,7 @@ import type { CloudCurrency } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { formatMoney, formatPercent } from '@/domain/money';
 import { compositionAt } from '@/data/composition';
+import { dayGroupOf, type DayGroup } from '@/data/day';
 import { pointLabel, rangeWords, ranges, type Range } from '@/data/series';
 import { useCloudHome, useDemoHome, type HomeModel } from '@/data/useHome';
 import { usePrefs } from '@/state/prefs';
@@ -146,8 +147,14 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   const { width } = useWindowDimensions();
   const { mask, money } = useMoney();
   const { seenTips, seeTip } = usePrefs();
-  const [scrub, setScrub] = useState<number | null>(null);
+  // A drag previews a date; letting go (or a tap) keeps it, by time, until "Back to today".
+  const [preview, setPreview] = useState<number | null>(null);
+  const [pinnedAt, setPinnedAt] = useState<number | null>(null);
   const { summary, points, currency } = model;
+  const pinnedIdx = pinnedAt === null ? -1 : points.findIndex((p) => p.t === pinnedAt);
+  const pinned = pinnedIdx >= 0 && pinnedIdx < points.length - 1 ? pinnedIdx : null;
+  const scrub = preview ?? pinned;
+  const unpin = () => { setPinnedAt(null); setPreview(null); };
   const coach = !seenTips.includes(COACH) && model.hasHistory && !model.empty;
 
   // Demo history scales with the lens. Real history is saved for net worth only, so the
@@ -164,6 +171,11 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   const showChange = chartFollowsLens && model.hasHistory;
   // The blocks follow the finger too: the last point is today, so it shows the live split.
   const composition = useMemo(() => compositionAt(scrub !== null && idx < points.length - 1 ? points[idx] : null, summary, model.source), [scrub, idx, points, summary, model.source]);
+  // A kept date with a saved split opens that date's details; otherwise the blocks open today's items.
+  const keptPoint = preview === null && pinned !== null ? points[pinned] : null;
+  const openDay = keptPoint?.parts && model.source === 'cloud'
+    ? (group?: DayGroup) => router.push({ pathname: '/day/[t]', params: { t: String(keptPoint.t), ...(group ? { group } : {}) } })
+    : undefined;
 
   const hero = wide ? typeScale.display : typeScale.hero;
   const centsStyle = wide ? { ...typeScale.cents, fontSize: 42, lineHeight: 42 } : typeScale.cents;
@@ -192,6 +204,13 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         ) : (
           model.empty ? null : <Txt v="body" c="ink2">{lens !== 'net' && !chartFollowsLens ? 'Today' : 'History starts today'}</Txt>
         )}
+        {preview === null && pinned !== null && (
+          <Pressable onPress={unpin} accessibilityRole="button" accessibilityLabel="Back to today" hitSlop={8}
+            style={{ minHeight: 28, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Txt v="small" c="ink" style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4}>Back to today</Txt>
+            <Txt v="small" c="ink3" maxFontSizeMultiplier={1.4}>✕</Txt>
+          </Pressable>
+        )}
         {scrub === null && model.live && range === '1D' && model.available && (
           <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.upBg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.up }} />
@@ -205,7 +224,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   const rangePills = (
     <View style={{ flexDirection: 'row', justifyContent: wide ? 'flex-end' : 'space-between', gap: 4 }} accessibilityRole="tablist">
       {ranges.map((r) => (
-        <Pressable key={r} onPress={() => { setRange(r); setScrub(null); }} accessibilityRole="tab" aria-selected={range === r} style={{ minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent' }}>
+        <Pressable key={r} onPress={() => { setRange(r); unpin(); }} accessibilityRole="tab" aria-selected={range === r} style={{ minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent' }}>
           <Txt v="small" c={range === r ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4}>{r}</Txt>
         </Pressable>
       ))}
@@ -216,8 +235,10 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   const showChart = model.available && !model.empty;
   const chart = showChart ? (
     <View style={{ marginHorizontal: wide ? 0 : -20 }}>
-      <ScrubChart values={values} times={model.source === 'cloud' ? points.map((p) => p.t) : undefined} height={chartHeight} up={up} drawKey={range + (chartFollowsLens ? lens : 'net')} onScrub={(i) => { setScrub(i); if (i !== null && coach) seeTip(COACH); }} />
-      {coach && <CoachTip title="Drag the line to go back in time" body="The big number follows your finger." top={chartHeight * 0.45} width={wide ? 1000 : width} onDismiss={() => seeTip(COACH)} />}
+      <ScrubChart values={values} times={model.source === 'cloud' ? points.map((p) => p.t) : undefined} height={chartHeight} up={up} drawKey={range + (chartFollowsLens ? lens : 'net')} pinned={pinned}
+        onPreview={(i) => { setPreview(i); if (i !== null && coach) seeTip(COACH); }}
+        onPin={(i) => { setPreview(null); setPinnedAt(i >= points.length - 1 ? null : points[i].t); if (coach) seeTip(COACH); }} />
+      {coach && <CoachTip title="Drag the line to go back in time" body="Let go to stay on that date, then tap a block to see what was in it." top={chartHeight * 0.45} width={wide ? 1000 : width} onDismiss={() => seeTip(COACH)} />}
     </View>
   ) : null;
 
@@ -225,7 +246,8 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
     <Message title="Nothing tracked yet" body="Tap the plus and type what you have, like “Bank balance 12,500” or “Bought 10 VOO at $500”. It shows up here as blocks." action={model.source === 'cloud' ? <Link href="/import" asChild><Pressable accessibilityRole="link" style={{ minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Keep your numbers in a spreadsheet? Import it ›</Txt></Pressable></Link> : undefined} />
   ) : model.available ? (
     <View>
-      <CompositionBar {...composition} lens={lens} wide={wide} when={scrub !== null && idx < points.length - 1 ? pointLabel(points[idx].t, range, model.now) : undefined} />
+      <CompositionBar {...composition} lens={lens} wide={wide} when={scrub !== null && idx < points.length - 1 ? pointLabel(points[idx].t, range, model.now) : undefined}
+        onOpen={openDay ? (cat) => openDay(dayGroupOf(cat)) : undefined} />
       {notes[lens] ? <Txt v="body" c="ink2" style={{ fontSize: 13.5, marginTop: 10 }}>{notes[lens]}</Txt> : null}
       {summary.unknown.length > 0 && <Txt v="small" c="ink3" style={{ marginTop: 8 }}>{summary.unknown.length} without a value {summary.unknown.length === 1 ? 'is' : 'are'} left out.</Txt>}
       {lens !== 'net' && !chartFollowsLens && <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{tabs.find((t) => t.lens === lens)!.label} today: {money(lensNow)}. The chart shows net worth.</Txt>}

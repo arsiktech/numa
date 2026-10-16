@@ -1,5 +1,5 @@
 import { parseTable } from './csv';
-import { isWealthLog, readWealthLog, todayFromLatest } from './wealthLog';
+import { isWealthLog, linesOf, readWealthLog, todayFromLatest } from './wealthLog';
 
 // Made-up numbers in the shape of a real wealth log: group subtotals, repeated date columns
 // written month first, a borrowed stablecoin and blank cells.
@@ -61,5 +61,20 @@ describe('wealth log', () => {
     ]);
     expect(today.drafts.find((d) => d.name === 'Car')).toMatchObject({ assetKind: 'vehicle' });
     expect(today.needQuantity.map((p) => p.name)).toEqual(['BTC', 'ETH', 'TESLA']);
+  });
+
+  it('keeps every position of a row as lines that add up to its split', () => {
+    const log = readWealthLog(parseTable(LOG), { currency: 'EUR', existingDays: [] });
+    for (const row of log.rows.filter((r) => !r.problem)) {
+      const lines = linesOf(row);
+      const cents = (a: number) => Math.round(a * 100);
+      const sum = (f: (l: (typeof lines)[number]) => boolean) => lines.filter(f).reduce((t, l) => t + cents(l.amount), 0);
+      expect(sum((l) => l.group === 'liquid' && l.amount > 0)).toBe(row.liquidCents);
+      expect(sum((l) => (l.group === 'crypto' || l.group === 'stocks') && l.amount > 0)).toBe(row.investedCents);
+      expect(sum((l) => l.group === 'hard' && l.amount > 0)).toBe(row.hardCents);
+      expect(lines.filter((l) => l.group === 'debt' || l.amount < 0).reduce((t, l) => t + Math.abs(cents(l.amount)), 0)).toBe(row.oweCents);
+    }
+    const feb = log.rows.find((r) => new Date(r.takenAt!).getMonth() === 1)!;
+    expect(linesOf(feb).map((l) => l.name)).toEqual(expect.arrayContaining(['EUR', 'BTC', 'STABLE$', 'Real estate', 'Car']));
   });
 });

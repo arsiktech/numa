@@ -7,7 +7,7 @@
  * returns nothing, so the holding stays visibly unpriced instead of zero.
  */
 
-export type ServerQuoteProvider = "coingecko" | "finnhub";
+export type ServerQuoteProvider = "coingecko" | "coinbase" | "finnhub";
 
 export interface ServerQuote {
   symbol: string;
@@ -88,6 +88,34 @@ export async function fetchCoinGeckoQuotes(
     });
   }
   return quotes;
+}
+
+/**
+ * Coinbase Exchange's public 24h stats, used for crypto CoinGecko didn't answer (it rate-limits
+ * shared cloud addresses). No key. The change is measured from the price 24 hours ago.
+ */
+export async function fetchCoinbaseQuotes(
+  symbols: string[],
+  fetchImpl: FetchLike,
+  nowMs: number
+): Promise<ServerQuote[]> {
+  const wanted = symbols.filter(isCryptoSymbol);
+  const settled = await Promise.allSettled(wanted.map(async (symbol): Promise<ServerQuote | null> => {
+    const result = await fetchImpl(`https://api.exchange.coinbase.com/products/${symbol}-USD/stats`, { signal: timeoutSignal(6_000) });
+    if (!result.ok) return null;
+    const row = (await result.json()) as { open?: unknown; last?: unknown } | null;
+    const price = Number(row?.last);
+    if (!Number.isFinite(price) || price <= 0) return null;
+    const open = Number(row?.open);
+    return {
+      symbol,
+      price,
+      changePercent: Number.isFinite(open) && open > 0 ? ((price - open) / open) * 100 : 0,
+      provider: "coinbase",
+      updatedAt: nowMs
+    };
+  }));
+  return settled.flatMap((r) => (r.status === "fulfilled" && r.value ? [r.value] : []));
 }
 
 /**

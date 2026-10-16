@@ -11,7 +11,7 @@ export function Screen({ children, back = 'Back' }: { children: ReactNode; back?
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 120, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 120, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
       <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center' }}>
         <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} accessibilityRole="button" accessibilityLabel={back} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
           <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>‹ {back}</Txt>

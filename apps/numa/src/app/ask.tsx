@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View, type KeyboardEvent } from 'react-native';
+import { Dimensions, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View, type KeyboardEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -43,20 +43,31 @@ function turns(messages: Message[]): AskTurn[] {
  * How much of the screen the keyboard covers (0 when hidden). On iPhone Ask always reaches the bottom
  * of the screen, as a sheet or full screen, so the composer moves up by exactly this much. Android
  * resizes the window itself and reports 0 here.
+ *
+ * The keyboard can come up before this subscribes (focus while the sheet is still sliding in), so it
+ * also reads where the keyboard is now, follows every frame change, and `sync` re-reads it on focus.
  */
 function useKeyboardHeight() {
-  const [height, setHeight] = useState(0);
+  const ios = Platform.OS === 'ios';
+  const covered = (screenY: number) => Math.max(0, Math.round(Dimensions.get('screen').height - screenY));
+  const now = () => { const m = ios ? Keyboard.metrics() : undefined; return m && Keyboard.isVisible() ? covered(m.screenY) : 0; };
+  const [height, setHeight] = useState(now);
   useEffect(() => {
-    const ios = Platform.OS === 'ios';
-    const follow = (e: KeyboardEvent, next: number) => {
-      if (ios && e.duration) LayoutAnimation.configureNext({ duration: e.duration, update: { duration: e.duration, type: LayoutAnimation.Types[e.easing] ?? 'keyboard' } });
+    if (!ios) return;
+    const follow = (e: KeyboardEvent) => {
+      const next = covered(e.endCoordinates.screenY);
+      if (e.duration) LayoutAnimation.configureNext({ duration: e.duration, update: { duration: e.duration, type: LayoutAnimation.Types[e.easing] ?? 'keyboard' } });
       setHeight(next);
     };
-    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', (e) => follow(e, ios ? e.endCoordinates.height : 0));
-    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', (e) => follow(e, 0));
-    return () => { show.remove(); hide.remove(); };
+    const subs = (['keyboardWillShow', 'keyboardDidShow', 'keyboardWillChangeFrame', 'keyboardDidChangeFrame'] as const).map((name) => Keyboard.addListener(name, follow));
+    const hide = Keyboard.addListener('keyboardWillHide', () => setHeight(0));
+    // Catches a keyboard that came up before these listeners existed.
+    const first = setTimeout(() => setHeight(now()), 0);
+    return () => { clearTimeout(first); subs.forEach((s) => s.remove()); hide.remove(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return height;
+  const sync = () => { if (ios) setTimeout(() => setHeight(now()), 400); };
+  return { height, sync };
 }
 
 const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -72,7 +83,7 @@ function AskView({ source }: { source: AskSource }) {
     if (Platform.OS !== 'ios') return;
     sheetRef.current?.measureInWindow((_x, y) => setSheetTop(Math.max(0, Math.round(y))));
   };
-  const keyboard = useKeyboardHeight();
+  const { height: keyboard, sync: syncKeyboard } = useKeyboardHeight();
   const [text, setText] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const nextId = useRef(1);
@@ -182,7 +193,7 @@ function AskView({ source }: { source: AskSource }) {
 
         <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: keyboard > 0 ? 8 : insets.bottom + 12, borderTopWidth: 1, borderTopColor: c.line }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6, backgroundColor: c.s1, borderWidth: 1, borderColor: c.line2 }}>
-            <TextInput value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
+            <TextInput value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus onFocus={syncKeyboard} placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
               placeholderTextColor={c.ink3} accessibilityLabel="Ask or add anything" submitBehavior="submit" testID="ask-input"
               style={{ flex: 1, color: c.ink, fontFamily: 'Manrope_500Medium', fontSize: 16, minHeight: 44, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
             <Pressable onPress={() => send()} disabled={!text.trim() || !ready} accessibilityRole="button" accessibilityLabel="Send" testID="ask-send" style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink, opacity: text.trim() && ready ? 1 : 0.35 }}>

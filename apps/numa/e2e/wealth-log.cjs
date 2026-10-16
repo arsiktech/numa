@@ -18,7 +18,7 @@ const LOG = [
   const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', deviceScaleFactor: 2 })).newPage();
   watchErrors(page, errors);
   await signUp(page, APP, EMAIL);
-  const { snap } = await client(EMAIL);
+  const { c, snap } = await client(EMAIL);
 
   await page.goto(APP + '/import');
   await page.getByRole('heading', { name: 'Import' }).waitFor({ timeout: 10000 });
@@ -39,9 +39,26 @@ const LOG = [
   check('history is saved with owned and owed parts that add up', s.wealthSnapshots.length === 2 && feb?.netWorth === 25000 && feb.liquid === 0 && feb.invested === 11000 && feb.hardAssets === 20000 && feb.liabilities === 6000,
     JSON.stringify(s.wealthSnapshots.map((w) => [w.netWorth, w.liquid, w.invested, w.hardAssets, w.liabilities])));
 
+  check('each date keeps what was in it', s.wealthSnapshots.every((w) => w.lines?.length > 0) && feb.lines.some((l) => l.name === 'BTC' && l.amount === 7000),
+    JSON.stringify(s.wealthSnapshots.map((w) => (w.lines || []).map((l) => l.name))));
+
   await page.getByLabel('Pasted table').fill(LOG);
   await wait(400);
   check('pasting the same log again skips the dates already saved', (await page.locator('body').innerText()).includes('2 already in Numa, skipped'));
+
+  // A date saved before details existed gets them filled in from the same log.
+  const jan = s.wealthSnapshots.find((w) => new Date(w.takenAt).getMonth() === 0);
+  await c.mutation('wealthSnapshots:update', { id: jan.id, patch: { lines: [] } });
+  await page.getByLabel('Pasted table').fill(LOG + '\n');
+  await page.getByRole('button', { name: 'Add details to 1 date' }).waitFor({ timeout: 10000 });
+  check('a saved date without details is offered them', (await page.locator('body').innerText()).includes('what was in 1 gets filled in'));
+  await page.getByRole('button', { name: 'Add details to 1 date' }).click();
+  await page.getByText('Imported 1').first().waitFor({ timeout: 20000 });
+  await wait(800);
+  s = await snap();
+  check('details are filled in on the saved date', s.wealthSnapshots.find((w) => w.id === jan.id).lines?.some((l) => l.name === 'ETH'));
+  await page.getByLabel('Pasted table').fill(LOG);
+  await wait(400);
   await page.getByRole('button', { name: 'Set up 4 entries' }).click();
   await page.getByText('Imported 4').first().waitFor({ timeout: 20000 });
   await wait(800);
@@ -57,6 +74,29 @@ const LOG = [
   const home = await page.locator('body').innerText();
   check('Home shows the imported history', !home.includes('History starts today'), home.split('\n').filter((l) => /History|since|ALL/.test(l)).join(' | '));
   await page.screenshot({ path: OUT + '/02-home-history-dark-390.png', fullPage: true });
+
+  // Tapping the oldest point keeps that date after the pointer leaves, so its blocks can be opened.
+  const chart = await page.getByTestId('scrub-chart').boundingBox();
+  await page.mouse.click(chart.x + 2, chart.y + chart.height / 2);
+  await page.mouse.move(chart.x + chart.width / 2, chart.y - 300);
+  await wait(600);
+  let kept = await page.locator('body').innerText();
+  check('a tapped date stays after the pointer leaves', /What you owned · 5 Jan/.test(kept) && kept.includes('Back to today'), (kept.match(/What you own[^\n]*/) || ['none'])[0]);
+  await page.screenshot({ path: OUT + '/03-home-kept-date-dark-390.png', fullPage: true });
+  await page.getByRole('link', { name: /^Invested, .* Open$/ }).click();
+  await page.getByText('What you had on').waitFor({ timeout: 10000 });
+  await wait(500);
+  const day = await page.locator('body').innerText();
+  check('a block opens that date’s positions, the tapped part first', day.includes('5 Jan 2026') && /Invested\s*€9,500/.test(day) && ['BTC', 'ETH', 'TESLA', 'AAPL', 'STABLE$'].every((x) => day.includes(x)) && day.indexOf('Invested') < day.indexOf('Liquid'),
+    day.split('\n').slice(0, 14).join(' | '));
+  await page.screenshot({ path: OUT + '/04-day-dark-390.png', fullPage: true });
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByText('Back to today').waitFor({ timeout: 10000 });
+  check('coming back keeps the date', /What you owned · 5 Jan/.test(await page.locator('body').innerText()));
+  await page.getByRole('button', { name: 'Back to today' }).click();
+  await wait(500);
+  kept = await page.locator('body').innerText();
+  check('Back to today returns to now', kept.includes('What you own ›') && !kept.includes('Back to today'));
 
   const unexpected = errors.filter((e) => !/favicon|Download the React DevTools/i.test(e));
   check('no page or console errors', unexpected.length === 0, unexpected.slice(0, 3).join(' | '));

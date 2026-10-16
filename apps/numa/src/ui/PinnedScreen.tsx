@@ -82,7 +82,7 @@ export function PinnedScreen({ nav, buttons, children, maxWidth = 1240, keyboard
   const fade = (ms: number) => (reduce ? undefined : FadeIn.duration(ms));
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView style={{ flex: 1 }} scrollEventThrottle={16} keyboardShouldPersistTaps={keyboard ? 'handled' : undefined}
+      <ScrollView style={{ flex: 1 }} scrollEventThrottle={16} keyboardShouldPersistTaps={keyboard ? 'handled' : undefined} automaticallyAdjustKeyboardInsets={keyboard}
         onScroll={(e) => {
           const y = e.nativeEvent.contentOffset.y;
           if (!compact && y > COLLAPSE_AT) setCompact(true);

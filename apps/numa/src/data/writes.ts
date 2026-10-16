@@ -21,12 +21,13 @@ export function useWriter(): (op: Op) => Promise<string> {
     removeGoal: useMutation(cloud.removeGoal),
     updateCategory: useMutation(cloud.updateCategory),
     addSnapshot: useMutation(cloud.addSnapshot),
+    updateSnapshot: useMutation(cloud.updateSnapshot),
     removeSnapshot: useMutation(cloud.removeSnapshot),
   } as never;
-  const { createTransaction, updateTransaction, deleteTransaction, upsertAsset, deleteAsset, upsertLiability, deleteLiability, upsertHolding, deleteHolding, upsertGoal, removeGoal, updateCategory, addSnapshot, removeSnapshot } = fns;
+  const { createTransaction, updateTransaction, deleteTransaction, upsertAsset, deleteAsset, upsertLiability, deleteLiability, upsertHolding, deleteHolding, upsertGoal, removeGoal, updateCategory, addSnapshot, updateSnapshot, removeSnapshot } = fns;
   return useCallback(async (op: Op) => {
-    const all = { createTransaction, updateTransaction, deleteTransaction, upsertAsset, deleteAsset, upsertLiability, deleteLiability, upsertHolding, deleteHolding, upsertGoal, removeGoal, updateCategory, addSnapshot, removeSnapshot };
+    const all = { createTransaction, updateTransaction, deleteTransaction, upsertAsset, deleteAsset, upsertLiability, deleteLiability, upsertHolding, deleteHolding, upsertGoal, removeGoal, updateCategory, addSnapshot, updateSnapshot, removeSnapshot };
     const result = await all[op.fn]({ ...op.args, clientMutationId: newMutationId(`numa.${op.fn}`) } as never);
     return typeof result === 'string' ? result : result?.id;
-  }, [createTransaction, updateTransaction, deleteTransaction, upsertAsset, deleteAsset, upsertLiability, deleteLiability, upsertHolding, deleteHolding, upsertGoal, removeGoal, updateCategory, addSnapshot, removeSnapshot]);
+  }, [createTransaction, updateTransaction, deleteTransaction, upsertAsset, deleteAsset, upsertLiability, deleteLiability, upsertHolding, deleteHolding, upsertGoal, removeGoal, updateCategory, addSnapshot, updateSnapshot, removeSnapshot]);
 }

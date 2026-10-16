@@ -18,7 +18,8 @@ const keys = await generateKeyPair('RS256', { extractable: true });
 const privateKey = (await exportPKCS8(keys.privateKey)).trimEnd().replace(/\n/g, ' ');
 const jwks = JSON.stringify({ keys: [{ use: 'sig', ...(await exportJWK(keys.publicKey)) }] });
 const site = process.env.E2E_APP_URL || 'http://localhost:5196';
-for (const [name, value] of [['JWT_PRIVATE_KEY', privateKey], ['JWKS', jwks], ['SITE_URL', site]]) {
+// Journeys seed their own market prices, so the throwaway backend never fetches live ones.
+for (const [name, value] of [['JWT_PRIVATE_KEY', privateKey], ['JWKS', jwks], ['SITE_URL', site], ['NUMA_QUOTES_OFFLINE', '1']]) {
   execFileSync('npx', ['convex', 'env', 'set', name, '--', value], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'] });
 }
 console.log('Local Convex Auth keys set.');

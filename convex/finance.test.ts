@@ -446,4 +446,27 @@ describe("holding purchase transaction and snapshot retries", () => {
     await expect(f.call(addSnapshot, { ...input, netWorth: NaN, clientMutationId: "bad" })).rejects.toThrow();
     await expect(f.call(addSnapshot, { ...input, netWorth: 200, clientMutationId: "unreconciled" })).rejects.toThrow(/reconcile/);
   });
+
+  it("keeps a date's lines only when they add up to its split, and lets them be replaced or cleared", async () => {
+    const f = fixture();
+    const base = { portfolioId: "pf", takenAt: NOW, netWorth: 1500, liquid: 1000, invested: 700, hardAssets: 0, liabilities: 200, currency: "EUR", label: "Wealth log", isAuto: false };
+    const lines = [
+      { group: "liquid", name: "EUR", amount: 1000 },
+      { group: "crypto", name: "BTC", amount: 500 },
+      { group: "stocks", name: "TESLA", amount: 200 },
+      { group: "crypto", name: "STABLE$", amount: -200 }
+    ];
+    const id = await f.call(addSnapshot, { ...base, lines, clientMutationId: "with-lines" });
+    expect(f.all("wealthSnapshots")[0].lines).toEqual(lines);
+    await expect(f.call(addSnapshot, { ...base, takenAt: NOW + 1, lines: lines.slice(1), clientMutationId: "short" })).rejects.toThrow(/add up/);
+    await expect(f.call(addSnapshot, { ...base, takenAt: NOW + 2, lines: [{ group: "liquid", name: " ", amount: 1000 }], clientMutationId: "nameless" })).rejects.toThrow(/name/);
+
+    const snapshotId = typeof id === "string" ? id : id.id;
+    await expect(f.call(updateSnapshot, { id: snapshotId, patch: { lines: [{ group: "liquid", name: "EUR", amount: 1 }] }, clientMutationId: "bad-patch" })).rejects.toThrow(/add up/);
+    // The sheet can move a date's numbers and its lines together.
+    await f.call(updateSnapshot, { id: snapshotId, patch: { netWorth: 1000, liquid: 1000, invested: 0, liabilities: 0, lines: [{ group: "liquid", name: "EUR", amount: 1000 }] }, clientMutationId: "replace" });
+    expect(f.all("wealthSnapshots")[0]).toMatchObject({ netWorth: 1000, lines: [{ name: "EUR" }] });
+    await f.call(updateSnapshot, { id: snapshotId, patch: { lines: [] }, clientMutationId: "clear" });
+    expect(f.all("wealthSnapshots")[0].lines).toBeUndefined();
+  });
 });

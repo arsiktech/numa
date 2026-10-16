@@ -106,7 +106,8 @@ export type AskReply = { status: 'ok'; text: string; proposals: AskProposal[] } 
 
 export type CloudGoal = { id: string; scope: 'net_worth' | 'monthly_income' | 'income_category' | 'asset_value' | 'holding_value'; target: number; currency: CloudCurrency; startAt: number; deadline: number | null; label: string | null; categoryId: string | null; assetId: string | null; holdingId: string | null; createdAt: number };
 
-export type CloudWealthSnapshot = { takenAt: number; netWorth: number; liquid?: number; invested?: number; hardAssets?: number; liabilities?: number; currency: CloudCurrency };
+export type SnapshotLine = { group: 'liquid' | 'crypto' | 'stocks' | 'hard' | 'debt'; name: string; amount: number };
+export type CloudWealthSnapshot = { id?: string; takenAt: number; netWorth: number; liquid?: number; invested?: number; hardAssets?: number; liabilities?: number; currency: CloudCurrency; label?: string | null; lines?: SnapshotLine[] | null };
 
 export type CloudSnapshot = {
   portfolio: CloudPortfolio;
@@ -181,7 +182,8 @@ export const cloud = {
   deleteLiability: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteLiability'),
   upsertHolding: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; symbol: string; name: string; kind: CloudHolding['kind']; quantity: number; costBasis: number; currency: CloudCurrency; acquiredAt: number }>, Receipt>('mobile:upsertHolding'),
   upsertGoal: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; scope: CloudGoal['scope']; target: number; currency: CloudCurrency; startAt: number; deadline?: number; label?: string; categoryId?: string; assetId?: string; holdingId?: string; createdAt: number }>, Receipt>('mobile:upsertGoal'),
-  addSnapshot: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; takenAt: number; netWorth: number; liquid: number; invested: number; hardAssets: number; liabilities: number; currency: CloudCurrency; label?: string; isAuto: boolean }>, string | Receipt>('wealthSnapshots:add'),
+  addSnapshot: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; takenAt: number; netWorth: number; liquid: number; invested: number; hardAssets: number; liabilities: number; currency: CloudCurrency; label?: string; isAuto: boolean; lines?: SnapshotLine[] }>, string | Receipt>('wealthSnapshots:add'),
+  updateSnapshot: makeFunctionReference<'mutation', WithReceipt<{ id: string; patch: { netWorth?: number; liquid?: number; invested?: number; hardAssets?: number; liabilities?: number; lines?: SnapshotLine[] } }>, string | Receipt>('wealthSnapshots:update'),
   removeSnapshot: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, unknown>('wealthSnapshots:remove'),
   removeGoal: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('goals:remove'),
   updateCategory: makeFunctionReference<'mutation', WithReceipt<{ id: string; patch: { monthlyLimit?: number | null } }>, Receipt>('categories:update'),

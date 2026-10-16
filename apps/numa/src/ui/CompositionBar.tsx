@@ -21,7 +21,11 @@ const meta: Record<CategoryId, { name: string; color: CategoryColor }> = {
   things: { name: 'Things', color: 'catSand' },
 };
 
-function Block({ cat, lens, labelMin, height, name }: { cat: CategorySummary; lens: Lens; labelMin: number; height: number; name?: string }) {
+/** Where a block or row leads; by default, today's items in that group. */
+export type OpenTarget = CategoryId | 'debts' | 'all';
+const openToday = (to: OpenTarget) => (to === 'all' ? router.push('/holdings') : router.push({ pathname: '/holdings/[group]', params: { group: to } }));
+
+function Block({ cat, lens, labelMin, height, name, open }: { cat: CategorySummary; lens: Lens; labelMin: number; height: number; name?: string; open: (to: OpenTarget) => void }) {
   const { c } = useTheme();
   const { money, short, hidden } = useMoney();
   const reduce = useReducedMotion();
@@ -32,7 +36,7 @@ function Block({ cat, lens, labelMin, height, name }: { cat: CategorySummary; le
   const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
     <Animated.View style={[{ flexGrow: cat.cents, flexBasis: 0, backgroundColor: c[m.color], height, justifyContent: 'flex-end', paddingLeft: 8, paddingRight: 2, paddingBottom: 7, overflow: 'hidden' }, anim]}>
-      <Pressable onPress={() => router.push({ pathname: '/holdings/[group]', params: { group: cat.category } })} accessibilityRole="link" accessibilityLabel={`${m.name}, ${hidden ? 'amount hidden' : money(cat.cents)}. Open`} style={{ position: 'absolute', inset: 0, zIndex: 1 } as never} />
+      <Pressable onPress={() => open(cat.category)} accessibilityRole="link" accessibilityLabel={`${m.name}, ${hidden ? 'amount hidden' : money(cat.cents)}. Open`} style={{ position: 'absolute', inset: 0, zIndex: 1 } as never} />
       {cat.share >= labelMin && (
         <>
           <Txt v="label" style={{ color: c[onCategory[m.color]], textTransform: 'none', letterSpacing: 0, fontSize: 11.5 }} numberOfLines={1} ellipsizeMode="clip" maxFontSizeMultiplier={1.3}>{m.name}</Txt>
@@ -45,25 +49,27 @@ function Block({ cat, lens, labelMin, height, name }: { cat: CategorySummary; le
 
 /**
  * What you own as category blocks, and what you owe hatched beside what is left. Widths are values.
- * `when` names the moment shown while the chart is scrubbed; `names` relabels a snapshot's coarse blocks.
+ * `when` names the moment shown while the chart is scrubbed; `names` relabels a snapshot's coarse blocks;
+ * `onOpen` replaces where the blocks lead (a kept past date opens that date's details).
  */
-export function CompositionBar({ categories, ownCents, oweCents, netCents, lens, wide = false, when, names }: { categories: CategorySummary[]; ownCents: number; oweCents: number; netCents: number; lens: Lens; wide?: boolean; when?: string; names?: Partial<Record<CategoryId, string>> }) {
+export function CompositionBar({ categories, ownCents, oweCents, netCents, lens, wide = false, when, names, onOpen }: { categories: CategorySummary[]; ownCents: number; oweCents: number; netCents: number; lens: Lens; wide?: boolean; when?: string; names?: Partial<Record<CategoryId, string>>; onOpen?: (to: OpenTarget) => void }) {
+  const open = onOpen ?? openToday;
   const { c } = useTheme();
   const { money, hidden } = useMoney();
   const h = wide ? 96 : 60;
   return (
     <View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginBottom: 8 }}>
-        <Pressable onPress={() => router.push('/holdings')} accessibilityRole="link" hitSlop={8}>
-          <Txt v="small" c="ink2" style={{ fontSize: 14 }}>{when ? `What you owned · ${when}` : 'What you own ›'}</Txt>
+        <Pressable onPress={() => open('all')} accessibilityRole="link" hitSlop={8}>
+          <Txt v="small" c="ink2" style={{ fontSize: 14 }}>{when ? `What you owned · ${when}${onOpen ? ' ›' : ''}` : 'What you own ›'}</Txt>
         </Pressable>
         <Txt v="figureSm" style={{ fontSize: 14 }}>{money(ownCents)}</Txt>
       </View>
       <View style={{ flexDirection: 'row', gap: 2, borderRadius: 10, overflow: 'hidden', minHeight: categories.length ? 0 : h, backgroundColor: categories.length ? 'transparent' : c.s1 }}>
-        {categories.map((cat) => <Block key={cat.category} cat={cat} lens={lens} labelMin={wide ? 0.075 : 0.16} height={h} name={names?.[cat.category]} />)}
+        {categories.map((cat) => <Block key={cat.category} cat={cat} lens={lens} labelMin={wide ? 0.075 : 0.16} height={h} name={names?.[cat.category]} open={open} />)}
       </View>
       <View style={{ flexDirection: 'row', gap: 2, borderRadius: 10, overflow: 'hidden', marginTop: 2 }}>
-        <Pressable onPress={() => router.push({ pathname: '/holdings/[group]', params: { group: 'debts' } })} accessibilityRole="link" style={{ flexGrow: oweCents, flexBasis: 0, height: wide ? 56 : 60, backgroundColor: c.down, overflow: 'hidden', display: oweCents > 0 ? 'flex' : 'none' }} accessibilityLabel={`Debts, ${hidden ? 'amount hidden' : money(oweCents)}. Open`}>
+        <Pressable onPress={() => open('debts')} accessibilityRole="link" style={{ flexGrow: oweCents, flexBasis: 0, height: wide ? 56 : 60, backgroundColor: c.down, overflow: 'hidden', display: oweCents > 0 ? 'flex' : 'none' }} accessibilityLabel={`Debts, ${hidden ? 'amount hidden' : money(oweCents)}. Open`}>
           {Array.from({ length: 14 }, (_, i) => (
             <View key={i} style={{ position: 'absolute', top: -20, left: -40 + i * 14, width: 7, height: 120, backgroundColor: c.downDeep, transform: [{ rotate: '45deg' }] }} />
           ))}
@@ -76,8 +82,8 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: c.down }} />
-          <Pressable onPress={() => router.push({ pathname: '/holdings/[group]', params: { group: 'debts' } })} accessibilityRole="link" hitSlop={8}>
-            <Txt v="small" c="ink2" style={{ fontSize: 14 }}>{when ? 'What you owed' : 'What you owe ›'}</Txt>
+          <Pressable onPress={() => open('debts')} accessibilityRole="link" hitSlop={8}>
+            <Txt v="small" c="ink2" style={{ fontSize: 14 }}>{when ? `What you owed${onOpen ? ' ›' : ''}` : 'What you owe ›'}</Txt>
           </Pressable>
         </View>
         <Txt v="figureSm" style={{ fontSize: 14 }}>{money(oweCents)}</Txt>
