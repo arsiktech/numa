@@ -93,3 +93,4 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
 }
 
 export const categoryName = (id: CategoryId) => meta[id].name;
+export const categoryColor = (id: CategoryId): CategoryColor => meta[id].color;

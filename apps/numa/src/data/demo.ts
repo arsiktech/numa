@@ -102,3 +102,46 @@ export function demoPoints(range: Range, endCents: number): Point[] {
   const n = values.length;
   return values.map((cents, i) => ({ t: Math.round(demoNow.getTime() - spanMs[range] * (1 - i / (n - 1))), cents }));
 }
+
+/**
+ * Where the demo portfolio's money sits, to show the drill-down: one coin across a hardware
+ * wallet, an exchange and a loan, a currency across accounts. Addresses are public examples.
+ */
+const DEMO_SPLITS: Record<string, { key: string; name: string; unit: string | null; parts: { where: string; detail: string; share: number; tag?: 'pledged' | 'locked' }[] }> = {
+  'btc-ledger': { key: 'BTC', name: 'Bitcoin', unit: 'BTC', parts: [
+    { where: 'Ledger', detail: 'bc1qxy…0wlh · Bitcoin', share: 0.62 },
+    { where: 'Coinbase', detail: 'Exchange account', share: 0.38 },
+  ] },
+  'btc-pledged': { key: 'BTC', name: 'Bitcoin', unit: 'BTC', parts: [{ where: 'Nexo', detail: 'Collateral for the USDC loan', share: 1, tag: 'pledged' }] },
+  eth: { key: 'ETH', name: 'Ethereum', unit: 'ETH', parts: [
+    { where: 'MetaMask', detail: '0x3304…566a · Ethereum', share: 12 / 18.5 },
+    { where: 'MetaMask', detail: '0x3304…566a · Base', share: 6.5 / 18.5 },
+  ] },
+  sol: { key: 'SOL', name: 'Solana', unit: 'SOL', parts: [{ where: 'Phantom', detail: '7xKXtg…sgAs · Solana', share: 1 }] },
+  tokens: { key: 'item:tokens', name: 'Other tokens', unit: null, parts: [{ where: 'MetaMask', detail: '0x3304…566a · 14 tokens', share: 1 }] },
+  spcx: { key: 'SPCX', name: 'SpaceX', unit: 'sh', parts: [{ where: 'Forge', detail: 'Private shares, locked until 9 Dec', share: 1, tag: 'locked' }] },
+  tsla: { key: 'TSLA', name: 'Tesla', unit: 'sh', parts: [{ where: 'Interactive Brokers', detail: 'Brokerage account', share: 1 }] },
+  vwce: { key: 'VWCE', name: 'FTSE All-World', unit: 'sh', parts: [{ where: 'Trade Republic', detail: 'Savings plan', share: 1 }] },
+  googl: { key: 'GOOGL', name: 'Alphabet', unit: 'sh', parts: [{ where: 'Interactive Brokers', detail: 'Brokerage account', share: 1 }] },
+  meta: { key: 'META', name: 'Meta', unit: 'sh', parts: [{ where: 'Interactive Brokers', detail: 'Brokerage account', share: 1 }] },
+  amzn: { key: 'AMZN', name: 'Amazon', unit: 'sh', parts: [{ where: 'Interactive Brokers', detail: 'Brokerage account', share: 1 }] },
+  eur: { key: 'cur:EUR', name: 'Euro', unit: 'EUR', parts: [{ where: 'Revolut', detail: 'Current account', share: 1 }] },
+  usd: { key: 'cur:USD', name: 'US dollar', unit: 'USD', parts: [{ where: 'Revolut', detail: 'Current account', share: 1 }] },
+  usdc: { key: 'USDC', name: 'USD Coin', unit: 'USDC', parts: [
+    { where: 'Coinbase', detail: 'Exchange account', share: 0.7 },
+    { where: 'MetaMask', detail: '0x3304…566a · Base', share: 0.3 },
+  ] },
+  usdg: { key: 'USDG', name: 'Global Dollar', unit: 'USDG', parts: [{ where: 'Kraken', detail: 'Exchange account', share: 1 }] },
+};
+
+export function demoPlaces(h: Holding) {
+  const split = DEMO_SPLITS[h.id];
+  const cents = h.valuation.kind === 'missing' ? null : h.valuation.valueCents;
+  if (!split) return undefined;
+  return split.parts.map((p, i) => ({
+    key: split.key, name: split.name, unit: split.unit, where: p.where, detail: p.detail, tag: p.tag,
+    quantity: h.quantity ? Math.round(h.quantity.amount * p.share * 1e8) / 1e8 : null,
+    // The last part takes the rounding, so the parts add up to the record exactly.
+    valueCents: cents === null ? null : i === split.parts.length - 1 ? cents - split.parts.slice(0, -1).reduce((t, q) => t + Math.round(cents * q.share), 0) : Math.round(cents * p.share),
+  }));
+}

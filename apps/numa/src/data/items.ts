@@ -3,6 +3,8 @@ import { freshness, shortDay, type Freshness } from '@/domain/freshness';
 import { countedValue } from '@/domain/summary';
 import type { CategoryId, Holding } from '@/domain/types';
 import type { HomeData } from './fromSnapshot';
+import type { FxRate } from './fx';
+import { walletPieces, type Piece } from './positions';
 import { walletDetail, walletLoanId } from './wallets';
 
 export type GroupId = CategoryId | 'debts';
@@ -21,6 +23,8 @@ export type Item = {
   changeTodayCents: number | null;
   freshness: Freshness;
   raw: CloudAsset | CloudHolding | CloudLiability | CloudWallet;
+  /** What the record holds, when it holds several things (a wallet's tokens and lending). */
+  pieces?: Piece[];
 };
 
 export const groupNames: Record<GroupId, string> = { crypto: 'Crypto', stocks: 'Stocks and funds', business: 'Business', property: 'Property', cash: 'Cash', things: 'Things', debts: 'What you owe' };
@@ -35,7 +39,7 @@ function fromDomain(h: Holding | undefined, now: number) {
 }
 
 /** Every record, grouped the way Home's blocks are, with values in the portfolio currency. */
-export function itemsFrom(s: CloudSnapshot, data: HomeData, now: number): Item[] {
+export function itemsFrom(s: CloudSnapshot, data: HomeData, now: number, fx: FxRate | null = null): Item[] {
   const byId = new Map(data.holdings.map((h) => [h.id, h]));
   const debtById = new Map(data.debts.map((d) => [d.id, d]));
   const items: Item[] = [];
@@ -55,7 +59,7 @@ export function itemsFrom(s: CloudSnapshot, data: HomeData, now: number): Item[]
   for (const w of s.wallets ?? []) {
     const d = fromDomain(byId.get(w.id), now);
     const freshness = !w.includeInNetWorth ? { text: 'Not counted in net worth', tone: 'ok' as const } : !w.snapshot ? { text: 'Checking the balance…', tone: 'missing' as const } : d.freshness;
-    items.push({ id: w.id, type: 'wallet', group: 'crypto', name: w.label, detail: walletDetail(w), valueCents: w.includeInNetWorth ? d.valueCents : null, changeTodayCents: null, freshness, raw: w });
+    items.push({ id: w.id, type: 'wallet', group: 'crypto', name: w.label, detail: walletDetail(w), valueCents: w.includeInNetWorth ? d.valueCents : null, changeTodayCents: null, freshness, raw: w, pieces: w.includeInNetWorth && w.snapshot ? walletPieces(w, data.currency, fx) : undefined });
     const loan = debtById.get(walletLoanId(w.id));
     if (loan) items.push({ id: loan.id, type: 'wallet', group: 'debts', name: loan.name, detail: 'Borrowed on Aave', valueCents: loan.balanceCents, changeTodayCents: null, freshness, raw: w });
   }
