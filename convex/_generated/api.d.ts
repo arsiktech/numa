@@ -11,6 +11,8 @@
 import type * as NumaPassword from "../NumaPassword.js";
 import type * as ResendOTPPasswordReset from "../ResendOTPPasswordReset.js";
 import type * as ResendOTPVerify from "../ResendOTPVerify.js";
+import type * as agentAccess from "../agentAccess.js";
+import type * as agentMcp from "../agentMcp.js";
 import type * as aiActions from "../aiActions.js";
 import type * as ask from "../ask.js";
 import type * as assets from "../assets.js";
@@ -30,6 +32,7 @@ import type * as invites from "../invites.js";
 import type * as ledger from "../ledger.js";
 import type * as liabilities from "../liabilities.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_agentTools from "../lib/agentTools.js";
 import type * as lib_aiAudit from "../lib/aiAudit.js";
 import type * as lib_appleIdentity from "../lib/appleIdentity.js";
 import type * as lib_askProposals from "../lib/askProposals.js";
@@ -100,6 +103,8 @@ declare const fullApi: ApiFromModules<{
   NumaPassword: typeof NumaPassword;
   ResendOTPPasswordReset: typeof ResendOTPPasswordReset;
   ResendOTPVerify: typeof ResendOTPVerify;
+  agentAccess: typeof agentAccess;
+  agentMcp: typeof agentMcp;
   aiActions: typeof aiActions;
   ask: typeof ask;
   assets: typeof assets;
@@ -119,6 +124,7 @@ declare const fullApi: ApiFromModules<{
   ledger: typeof ledger;
   liabilities: typeof liabilities;
   "lib/access": typeof lib_access;
+  "lib/agentTools": typeof lib_agentTools;
   "lib/aiAudit": typeof lib_aiAudit;
   "lib/appleIdentity": typeof lib_appleIdentity;
   "lib/askProposals": typeof lib_askProposals;

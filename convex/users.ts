@@ -66,7 +66,7 @@ export function deletionCancellationDecision(
  *  3. Money pods the user owns → cascade members/groups/expenses/
  *     settlements/pod rows. For pods the user is only a *member* of, we
  *     anonymize and unlink their membership while retaining settlement references.
- *  4. User-scoped solo tables: webhookTokens, pushSubscriptions, expoPushTokens, pushAlertsSent,
+ *  4. User-scoped solo tables: webhookTokens, agentConnections, agentActivity, pushSubscriptions, expoPushTokens, pushAlertsSent,
  *     mutationReceipts, aiActionDrafts.
  *  5. Convex Auth identity rows: authSessions, authAccounts,
  *     authRefreshTokens (descended from sessions), authVerificationCodes
@@ -376,7 +376,9 @@ async function deleteUserCascade(
       ctx.db
         .query("aiActionDrafts")
         .withIndex("by_user", (q) => q.eq("userId", userId))
-        .take(n)
+        .take(n),
+    (n) => ctx.db.query("agentActivity").withIndex("by_user_at", q => q.eq("userId", userId)).take(n),
+    (n) => ctx.db.query("agentConnections").withIndex("by_user", q => q.eq("userId", userId)).take(n)
   ];
   for (const fetchPage of userScopedPages) {
     if (!(await drainPage(ctx, budget, fetchPage))) return false;

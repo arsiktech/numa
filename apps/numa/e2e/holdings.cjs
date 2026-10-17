@@ -50,7 +50,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check('crypto block opens its holdings', g.includes('Bitcoin') && /0\.5 BTC · CoinGecko · \d+ min ago/.test(g), g.split('\n').slice(0, 8).join(' | '));
   await page.screenshot({ path: OUT + '/01-crypto-dark-390.png' });
 
-  await page.getByRole('link', { name: /^Bitcoin,/ }).click();
+  // The record, under the asset map and the by-asset rows.
+  await page.getByRole('link', { name: /^Bitcoin,/ }).last().click();
   await page.getByText('You paid').waitFor({ timeout: 10000 });
   const d = await page.locator('body').innerText();
   // The local backend refreshes real prices every 15 minutes, so read the price it holds.
@@ -83,7 +84,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check('debts list shows both with due state', o.includes('Car loan') && o.includes('Card') && /Credit card · Due \d+ \w+/.test(o) && o.includes('€20,420.00'));
   await page.screenshot({ path: OUT + '/04-debts-dark-390.png' });
 
-  await page.getByRole('link', { name: /^Card,/ }).click();
+  await page.getByRole('link', { name: /^Card,/ }).last().click();
   await page.getByRole('button', { name: 'Edit' }).click();
   await page.getByLabel(/Due date/).fill('20 Dec');
   await page.getByRole('button', { name: 'Save' }).click();
@@ -94,7 +95,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check('due date edit saves', due.getMonth() === 11 && due.getDate() === 20, due.toDateString());
 
   await page.getByRole('button', { name: 'Back' }).click();
-  await page.getByRole('link', { name: /^Car loan,/ }).click();
+  await page.getByRole('link', { name: /^Car loan,/ }).last().click();
   await page.getByRole('button', { name: 'Delete' }).click();
   await page.getByText('Delete this debt?').waitFor();
   await page.screenshot({ path: OUT + '/05-delete-confirm-dark-390.png' });
@@ -108,7 +109,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check('undo brings a deleted debt back', s.liabilities.some((l) => l.name === 'Car loan' && l.balance === 20000));
 
   await page.goto(APP + '/holdings/things');
-  await page.getByRole('link', { name: /^Watch,/ }).click();
+  await page.getByRole('link', { name: /^Watch,/ }).last().click();
   await page.getByRole('button', { name: 'Delete' }).click();
   await page.getByRole('button', { name: 'Delete' }).click();
   await page.getByText('Watch deleted').waitFor({ timeout: 10000 });
@@ -137,10 +138,16 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await dp.getByText('What you own').waitFor({ timeout: 10000 });
   await dp.getByRole('link', { name: /^Crypto, .* Open$/ }).click();
   await dp.getByRole('heading', { name: 'Crypto' }).waitFor({ timeout: 10000 });
-  await dp.locator('a[role="link"], [role="link"]').filter({ hasText: /BTC|Bitcoin/ }).first().click();
+  // Bitcoin as one asset across places, then one record under it.
+  await dp.getByRole('link', { name: /^Bitcoin, .*3 places\. Open$/ }).click();
+  await dp.getByText('WHERE IT IS').waitFor({ timeout: 10000 });
+  const where = await dp.locator('body').innerText();
+  check('demo Bitcoin shows where it sits: a wallet address, a pledged loan and an exchange', /Ledger[\s\S]*bc1qxy…0wlh · Bitcoin/.test(where) && /Nexo[\s\S]*Pledged/i.test(where) && where.includes('Coinbase') && where.includes('1.42 BTC'));
+  await dp.screenshot({ path: OUT + '/07-demo-bitcoin-where-dark-390.png' });
+  await dp.getByRole('link', { name: /^Ledger,/ }).click();
   await dp.getByText('This is demo data').waitFor({ timeout: 10000 });
   check('demo items are read-only', (await dp.getByRole('button', { name: 'Edit' }).count()) === 0);
-  await dp.screenshot({ path: OUT + '/07-demo-item-dark-390.png' });
+  await dp.screenshot({ path: OUT + '/08-demo-item-dark-390.png' });
 
   const filtered = errors.filter((e) => !/favicon|Download the React DevTools/i.test(e));
   check('no page or console errors', filtered.length === 0, filtered.slice(0, 4).join(' | '));

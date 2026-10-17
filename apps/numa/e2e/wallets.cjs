@@ -71,8 +71,14 @@ const token = (chain, chainName, symbol, quantity, valueUsd) => ({ id: `${chain}
   await wait(800);
   check('networks that couldn’t be reached are said out loud', (await page.locator('body').innerText()).includes('Couldn’t check Base for Main') || await page.getByText('Couldn’t check Base for Main').count() > 0);
 
+  await page.goto(APP + '/position/crypto/BTC');
+  await page.getByText('WHERE IT IS').waitFor({ timeout: 15000 });
+  const where = await page.locator('body').innerText();
+  check('Bitcoin shows the wallet it sits in, with its address and network', where.includes('Cold storage') && where.includes(`${BTC.slice(0, 6)}…${BTC.slice(-4)} · Bitcoin`) && where.includes('0.5 BTC'), where.split('\n').slice(0, 14).join(' | '));
+  await page.screenshot({ path: OUT + '/02-bitcoin-where-dark-390.png', fullPage: true });
+
   await page.goto(APP + '/holdings/crypto');
-  await page.getByText('Cold storage').first().click();
+  await page.getByRole('link', { name: /^Cold storage,/ }).click();
   await page.getByRole('heading', { name: 'Cold storage' }).waitFor({ timeout: 10000 });
   const detail = await page.locator('body').innerText();
   check('the wallet page shows the address and its coins', detail.includes(BTC) && detail.includes('0.5 BTC') && detail.includes('mempool.space'));

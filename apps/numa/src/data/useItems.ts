@@ -5,7 +5,7 @@ import { freshness, shortDay } from '@/domain/freshness';
 import { countedValue } from '@/domain/summary';
 import type { Currency } from '@/domain/types';
 import { useCloudData } from './cloud';
-import { demoDebts, demoHoldings, demoNow } from './demo';
+import { demoDebts, demoHoldings, demoNow, demoPlaces } from './demo';
 import { itemsFrom, type Item } from './items';
 
 export type ItemsSource =
@@ -20,6 +20,7 @@ function demoItems(): Item[] {
     id: h.id, type: 'asset', group: h.category, name: h.name, detail: h.quantity ? `${h.quantity.amount} ${h.quantity.unit}` : null,
     valueCents: countedValue(h.valuation)?.cents ?? null, changeTodayCents: h.changeTodayCents ?? null, freshness: freshness(h.valuation, now),
     raw: { id: h.id, name: h.name, kind: 'other', balance: 0, currency: 'EUR', updatedAt: now } as CloudAsset,
+    pieces: demoPlaces(h),
   }));
   for (const d of demoDebts) {
     rows.push({ id: d.id, type: 'liability', group: 'debts', name: d.name, detail: 'Debt', valueCents: d.balanceCents, changeTodayCents: null, freshness: { text: `Your value · ${shortDay(now, now)}`, tone: 'ok' }, raw: { id: d.id, name: d.name, kind: 'other', balance: d.balanceCents / 100, currency: 'EUR', dueDate: null, updatedAt: now } as CloudLiability });
@@ -29,7 +30,7 @@ function demoItems(): Item[] {
 
 export function useCloudItems(): ItemsSource {
   const data = useCloudData();
-  const items = useMemo(() => (data.status === 'ready' ? itemsFrom(data.snapshot, data.data, data.now) : null), [data]);
+  const items = useMemo(() => (data.status === 'ready' ? itemsFrom(data.snapshot, data.data, data.now, data.fx) : null), [data]);
   if (data.status === 'error') return { status: 'error', message: data.message };
   if (data.status !== 'ready' || !items) return { status: 'loading' };
   return { status: 'ready', demo: false, items, currency: data.data.currency, portfolioId: data.portfolioId, now: data.now };

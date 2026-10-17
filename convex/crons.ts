@@ -24,6 +24,8 @@ crons.interval("refresh public wallets", { minutes: 30 }, internal.walletSync.re
 crons.hourly("send phone alerts", { minuteUTC: 5 }, internal.pushAlerts.sendDue);
 
 // Bounded expiry of newly-stamped application abuse counters only.
+crons.daily("forget old agent activity", { hourUTC: 3, minuteUTC: 40 }, internal.agentAccess.expireActivity);
+
 crons.hourly("expire application rate-limit counters", { minuteUTC: 20 }, internal.privacyRetention.expireRateLimitBuckets);
 
 export default crons;

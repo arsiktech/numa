@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cloudEnabled } from '@/cloud/CloudProvider';
 import { useSession } from '@/cloud/session';
 import { AccountSection, DataSection, DeletionBanner } from '@/settings/AccountSection';
+import { AgentSection } from '@/settings/AgentSection';
 import { AlertsSection } from '@/settings/AlertsSection';
 import { Action, Row, Section } from '@/settings/rows';
 import { SpaceSection } from '@/settings/SpaceSection';
@@ -38,6 +39,7 @@ export default function Settings() {
         <Txt v="title" accessibilityRole="header" style={{ marginTop: 8 }}>Settings</Txt>
         {session.kind === 'signedIn' && <DeletionBanner />}
         {session.kind === 'signedIn' && <SpaceSection />}
+        {session.kind === 'signedIn' && <AgentSection />}
 
         <Section title="APPEARANCE" />
         <Row title="Theme" detail="Auto follows your device.">

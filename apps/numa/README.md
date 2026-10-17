@@ -44,6 +44,10 @@ EXPO_PUBLIC_CONVEX_URL=http://127.0.0.1:3210 npx expo start --web   # in apps/nu
 
 Use disposable test accounts only. Never point a local build at production data.
 
+### Connected agents (MCP)
+
+Settings, AI agents makes one secret link (`<convex site>/mcp/numa_agent_…`) for Claude, ChatGPT, Cursor or any MCP client. The endpoint in `convex/agentMcp.ts` speaks MCP over Streamable HTTP (JSON responses) and also takes the secret as `Authorization: Bearer`. Each agent has its own Convex Auth session and calls the same public functions as the app, as the user, so membership, currency and receipt checks apply unchanged. Tools are defined in `convex/lib/agentTools.ts`; a link is either read-only or read and change. Calls are rate-limited, listed for the user (kept 90 days) and stop at once when the agent is disconnected, the user signs out other devices, or the account is deleted.
+
 Browser journeys for every main flow live in `e2e/` and run in CI. See `e2e/README.md`. Release steps (Cloudflare Pages, EAS, store text) are in `docs/rebuild/RELEASE.md`. App icons are drawn by `node scripts/make-icons.cjs`.
 
 ## Rules carried from the product
