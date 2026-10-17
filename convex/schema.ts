@@ -679,5 +679,39 @@ export default defineSchema({
     uses: v.number()
   })
     .index("by_user", ["userId"])
-    .index("by_hash", ["tokenHash"])
+    .index("by_hash", ["tokenHash"]),
+
+  // AI agents the user connected to their account (Claude, ChatGPT, Cursor…)
+  // through the MCP endpoint at /mcp. Each one acts as the user through its own
+  // Convex Auth session, so signing out other devices or deleting the account
+  // cuts it off too. Only the SHA-256 hash of the secret is stored.
+  agentConnections: defineTable({
+    userId: v.id("users"),
+    sessionId: v.id("authSessions"),
+    name: v.string(),
+    access: v.union(v.literal("full"), v.literal("read")),
+    tokenHash: v.string(),
+    /** The first characters of the secret, so the user can tell connections apart. */
+    tokenHint: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number())
+  })
+    .index("by_user", ["userId"])
+    .index("by_hash", ["tokenHash"]),
+
+  // What connected agents did, for the user to review. Kept 90 days.
+  agentActivity: defineTable({
+    userId: v.id("users"),
+    connectionId: v.id("agentConnections"),
+    tool: v.string(),
+    write: v.boolean(),
+    ok: v.boolean(),
+    error: v.optional(v.string()),
+    at: v.number(),
+    expiresAt: v.number()
+  })
+    .index("by_user_at", ["userId", "at"])
+    .index("by_connection_at", ["connectionId", "at"])
+    .index("by_expires", ["expiresAt"])
 });

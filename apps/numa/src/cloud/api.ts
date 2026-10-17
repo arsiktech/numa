@@ -149,6 +149,11 @@ export type CloudWallet = {
 };
 export type CloudWalletDoc = Omit<CloudWallet, 'id' | 'snapshot'> & { _id: string; snapshot?: CloudWallet['snapshot'] };
 
+export type AgentAccess = 'full' | 'read';
+/** An AI agent the user connected to their account. */
+export type CloudAgent = { id: string; name: string; access: AgentAccess; hint: string; createdAt: number; lastUsedAt: number | null; active: boolean };
+export type CloudAgentActivity = { id: string; agent: string; tool: string; write: boolean; ok: boolean; error: string | null; at: number };
+
 export type CloudBootstrap = {
   profile: CloudProfile;
   portfolios: CloudPortfolio[];
@@ -211,6 +216,10 @@ export const cloud = {
   changePassword: makeFunctionReference<'action', { currentPassword: string; newPassword: string }, { ok: true }>('authManagement:changePassword'),
   signInMethods: makeFunctionReference<'query', Record<string, never>, { email: string | null; privateRelay: boolean; apple: boolean; google: boolean; password: boolean } | null>('signInMethods:mine'),
   setPassword: makeFunctionReference<'action', { password: string }, { email: string }>('signInMethods:setPassword'),
+  connectAgent: makeFunctionReference<'mutation', { name: string; access: AgentAccess }, { id: string; name: string; access: AgentAccess; endpoint: string; secret: string; link: string }>('agentAccess:connect'),
+  agents: makeFunctionReference<'query', Record<string, never>, CloudAgent[]>('agentAccess:listMine'),
+  disconnectAgent: makeFunctionReference<'mutation', { id: string }, null>('agentAccess:disconnect'),
+  agentActivity: makeFunctionReference<'query', { limit?: number }, CloudAgentActivity[]>('agentAccess:recentActivity'),
   deleteMyAccount: makeFunctionReference<'mutation', Record<string, never>, null>('users:deleteMyAccount'),
   cancelMyDeletion: makeFunctionReference<'mutation', Record<string, never>, { ok: true } | { ok: false; reason: 'already-started' | 'already-deleted' | string }>('users:cancelMyDeletion'),
   exportManifest: makeFunctionReference<'query', ExportScope, ExportManifest>('dataExport:manifest'),
