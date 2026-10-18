@@ -314,7 +314,8 @@ function tokenList(w: bigint[], at: number): Array<{ token: string; amount: bigi
 export async function etherfiCash(owner: string, call: Call): Promise<DefiPosition[]> {
   // Only an ether.fi Cash account has dataProvider(); a plain wallet answers with no data, and the
   // debt manager would refuse it, so it isn't asked.
-  const probe = await call(ETHERFI_CASH.chains[0].rpc, owner, "0xb334ed86");
+  // A smart wallet of another kind (a 7702-delegated account, a Safe) refuses the call; that isn't ether.fi either.
+  const probe = await call(ETHERFI_CASH.chains[0].rpc, owner, "0xb334ed86").catch(() => "0x");
   if (!/^0x[0-9a-f]{64}/i.test(probe)) return [];
   const out: DefiPosition[] = [];
   for (const chain of ETHERFI_CASH.chains) {
