@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { cryptoWalletSnapshotValidator } from "./lib/cryptoValidators";
+import type { Post } from "./lib/defiPositions";
 import { fetchPublicWallet, type Call, type Get } from "./lib/publicWallets";
 
 /**
@@ -23,10 +24,18 @@ const get: Get = async (url) => {
   return await response.json();
 };
 
-const call: Call = async (rpcUrl, to, data) => {
+const post: Post = async (url, body) => {
+  const response = await fetch(url, {
+    method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS), body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.json();
+};
+
+const call: Call = async (rpcUrl, to, data, from) => {
   const response = await fetch(rpcUrl, {
     method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS),
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data, ...(from ? { from } : {}) }, "latest"] }),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const body = (await response.json()) as { result?: unknown; error?: unknown };
@@ -77,7 +86,7 @@ export const saveSnapshot = internalMutation({
 
 async function check(target: Target, now: number) {
   try {
-    return await fetchPublicWallet(target.address, target.addressType, get, now, call);
+    return await fetchPublicWallet(target.address, target.addressType, get, now, call, post);
   } catch {
     return null;
   }

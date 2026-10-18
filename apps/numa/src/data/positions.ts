@@ -10,7 +10,7 @@ import type { GroupId, Item } from './items';
  */
 
 /** One part of a record that holds several things, like a wallet with BTC and an Aave deposit. */
-export type Piece = { key: string; name: string; unit: string | null; quantity: number | null; valueCents: number | null; detail: string | null; tag?: 'pledged' | 'lent' | 'locked'; /** Where this piece is, when the record's own name doesn't say. */ where?: string };
+export type Piece = { key: string; name: string; unit: string | null; quantity: number | null; valueCents: number | null; detail: string | null; tag?: 'pledged' | 'lent' | 'locked' | 'pool'; /** Where this piece is, when the record's own name doesn't say. */ where?: string };
 
 /** Where (part of) a position sits. Opens the record it comes from. */
 export type Place = { itemId: string; itemType: Item['type']; where: string; detail: string | null; quantity: number | null; unit: string | null; valueCents: number | null; tag?: Piece['tag'] };
@@ -37,7 +37,14 @@ export function walletPieces(w: CloudWallet, currency: Currency, fx: FxRate | nu
     detail: `${shortAddress(w.address)} · ${t.chainName}`,
   }));
   for (const p of s.defiPositions ?? []) {
-    pieces.push({ key: `lent:${p.protocol}`, name: `Lent on ${p.protocol}`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail: `${shortAddress(w.address)} · ${p.protocol} on ${p.chainName}`, tag: 'lent' });
+    const detail = `${shortAddress(w.address)} · ${p.protocol} on ${p.chainName}`;
+    // A pool is its own position, named by its pair; lending merges by protocol.
+    if (p.kind === 'liquidity') {
+      const pair = (p.symbols ?? []).join(' / ') || p.label;
+      pieces.push({ key: `pool:${p.protocol}:${pair}`, name: `${pair} pool`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail, tag: 'pool' });
+    } else {
+      pieces.push({ key: `lent:${p.protocol}`, name: `Lent on ${p.protocol}`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail, tag: 'lent' });
+    }
   }
   return pieces;
 }

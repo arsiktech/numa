@@ -35,6 +35,17 @@ describe('positions', () => {
     expect(rest.find((p) => p.key === 'XYZ')).toMatchObject({ unknown: 1, quantity: 9 });
   });
 
+  it('shows each liquidity pool as its own position, named by its pair', () => {
+    const pools: CloudWallet = { ...wallet, snapshot: { ...wallet.snapshot!, tokens: [], defiPositions: [
+      { id: 'base:uniswap-v3:1', chainName: 'Base', protocol: 'Uniswap V3', label: 'WETH / USDC 0.05% pool', kind: 'liquidity', symbols: ['WETH', 'USDC'], assetValueUsd: 500, debtValueUsd: 0 },
+      { id: 'base:compound-v3:0xb1', chainName: 'Base', protocol: 'Compound V3', label: 'Compound V3 lending', kind: 'supplied', symbols: ['USDC'], assetValueUsd: 250, debtValueUsd: 0 },
+    ] } };
+    expect(walletPieces(pools, 'EUR', fx).map((p) => [p.key, p.name, p.valueCents, p.tag])).toEqual([
+      ['pool:Uniswap V3:WETH / USDC', 'WETH / USDC pool', 40_000, 'pool'],
+      ['lent:Compound V3', 'Lent on Compound V3', 20_000, 'lent'],
+    ]);
+  });
+
   it('keeps a wallet token without an exchange rate unknown, not zero', () => {
     expect(walletPieces(wallet, 'EUR', null).every((p) => p.valueCents === null)).toBe(true);
     expect(walletPieces({ ...wallet, snapshot: null }, 'EUR', fx)).toEqual([]);

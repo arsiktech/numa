@@ -13,7 +13,7 @@ import { quantityText } from '@/ui/PositionRow';
 import { Screen } from '@/ui/Screen';
 import { Txt } from '@/ui/Txt';
 
-const TAGS: Record<NonNullable<Place['tag']>, string> = { pledged: 'Pledged', lent: 'Lent out', locked: 'Locked' };
+const TAGS: Record<NonNullable<Place['tag']>, string> = { pledged: 'Pledged', lent: 'Lent out', locked: 'Locked', pool: 'In a pool' };
 
 /** One asset across everywhere it sits: each wallet address and network, exchange account and record. */
 export default function PositionScreen() {

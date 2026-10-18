@@ -83,7 +83,7 @@ export function useCloudHome(range: Range): HomeModel {
     if (cloudData.status !== 'ready') return [];
     const items = itemsFrom(cloudData.snapshot, cloudData.data, cloudData.now, cloudData.fx);
     return (['crypto', 'stocks'] as const).flatMap((g) => positionsOf(items, g)
-      .filter((p) => p.valueCents !== null && p.valueCents > 0 && !/^(item|cur|lent):/.test(p.key))
+      .filter((p) => p.valueCents !== null && p.valueCents > 0 && !/^(item|cur|lent|pool):/.test(p.key))
       .map((p) => ({ symbol: p.key, kind: g === 'crypto' ? 'crypto' as const : 'stock' as const, valueCents: p.valueCents! })));
   }, [cloudData]);
   const history = usePriceHistory(range, pieces);

@@ -132,4 +132,4 @@ Numa never moves money and doesn't link to your bank. Unknown values are shown a
   - hosting: Convex for data, Cloudflare for the web app;
   - Anthropic (Claude): only when Ask can't answer on the device, it receives the question and a short summary of the person's own numbers (names and amounts; no email or account ids). Nothing is used for tracking;
   - Expo push service: the alert text, for people who turn on phone alerts.
-- **Public data, no user data attached:** exchange rates from the ECB via Frankfurter; wallet balances for the public addresses a person chooses to track, from mempool.space and Blockscout.
+- **Public data, no user data attached:** exchange rates from the ECB via Frankfurter; wallet balances for the public addresses a person chooses to track, from mempool.space and Blockscout; lending and pool positions for those addresses from public RPC nodes (publicnode.com) and the Morpho API, priced by DefiLlama; market price history from Coinbase and Yahoo Finance.

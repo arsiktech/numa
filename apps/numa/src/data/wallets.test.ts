@@ -40,7 +40,7 @@ describe('walletHolding', () => {
       totalValueUsd: 73_000, debtValueUsd: 36_000, chains: ['ethereum', 'base'], failedChains: ['base'], tokenFailedChains: ['base'], defiFailedChains: [],
       tokens: [], defiPositions: [{ id: 'base:aave-v3', chainName: 'Base', protocol: 'Aave V3', label: 'Aave V3', assetValueUsd: 109_000, debtValueUsd: 36_000, healthFactor: 2.5 }],
     }), 'USD', null, now, attention, debts);
-    expect(h).toMatchObject({ valuation: { kind: 'synced', valueCents: 10_900_000, source: 'Blockscout and Aave' } });
+    expect(h).toMatchObject({ valuation: { kind: 'synced', valueCents: 10_900_000, source: 'Blockscout and Aave V3' } });
     expect(debts).toEqual([{ id: 'w1:loan', name: 'Main loan', balanceCents: 3_600_000 }]);
     expect(attention.map((a) => a.title)).toEqual(['Couldn’t check tokens on Base for Main']);
   });

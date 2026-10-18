@@ -8,7 +8,11 @@ const STALE_AFTER = 6 * HOUR;
 const chainNames: Record<string, string> = { bitcoin: 'Bitcoin', ethereum: 'Ethereum', base: 'Base', arbitrum: 'Arbitrum', optimism: 'Optimism', polygon: 'Polygon' };
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
-export const walletSource = (w: CloudWallet) => (w.addressType === 'bitcoin' ? 'mempool.space' : w.snapshot?.defiPositions?.length ? 'Blockscout and Aave' : 'Blockscout');
+export function walletSource(w: CloudWallet): string {
+  if (w.addressType === 'bitcoin') return 'mempool.space';
+  const protocols = [...new Set((w.snapshot?.defiPositions ?? []).map((p) => p.protocol))];
+  return protocols.length === 0 ? 'Blockscout' : protocols.length === 1 ? `Blockscout and ${protocols[0]}` : `Blockscout and ${protocols.length} DeFi protocols`;
+}
 /** The id of a wallet's lending debt, listed under What you owe. */
 export const walletLoanId = (walletId: string) => `${walletId}:loan`;
 export const shortAddress = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
@@ -43,8 +47,8 @@ export function walletHolding(w: CloudWallet, currency: Currency, fx: FxRate | n
   const names = (xs: string[] | undefined) => (xs ?? []).map((c) => chainNames[c] ?? c);
   const tokenGaps = names(s.tokenFailedChains), defiGaps = names(s.defiFailedChains);
   if (s.chains.length && (tokenGaps.length || defiGaps.length)) {
-    // Newer checks say which part was missed; tokens and lending are read from different places.
-    const parts = [tokenGaps.length ? `tokens on ${list(tokenGaps)}` : '', defiGaps.length ? `Aave on ${list(defiGaps)}` : ''].filter(Boolean);
+    // Newer checks say which part was missed; tokens and DeFi positions are read from different places.
+    const parts = [tokenGaps.length ? `tokens on ${list(tokenGaps)}` : '', defiGaps.length ? `lending and pools on ${list(defiGaps)}` : ''].filter(Boolean);
     attention.push({ id: `wallet-chains-${w.id}`, urgency: 'housekeeping', title: `Couldn’t check ${list(parts)} for ${w.label}`, body: 'Those are left out of the total until the next check. Numa tries again every 30 minutes.', primary: 'Got it', secondary: 'Later', doneText: 'Hidden until you reopen Numa.', raisedAt });
   } else if (s.failedChains.length && s.chains.length) {
     const failed = names(s.failedChains);

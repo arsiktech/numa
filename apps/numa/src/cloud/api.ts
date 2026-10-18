@@ -138,7 +138,7 @@ export type CloudWallet = {
     /** What the wallet owes through lending protocols; counted under What you owe. */
     debtValueUsd?: number;
     tokens: { id: string; chainName: string; symbol: string; name: string; quantity: string; valueUsd?: number }[];
-    defiPositions?: { id: string; chainName: string; protocol: string; label: string; assetValueUsd: number; debtValueUsd: number; healthFactor?: number }[];
+    defiPositions?: { id: string; chainName: string; protocol: string; label: string; kind?: string; assetValueUsd: number; debtValueUsd: number; healthFactor?: number; symbols?: string[] }[];
     chains: string[];
     failedChains: string[];
     tokenFailedChains?: string[];
