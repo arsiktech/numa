@@ -54,6 +54,10 @@ export function walletHolding(w: CloudWallet, currency: Currency, fx: FxRate | n
     const failed = names(s.failedChains);
     attention.push({ id: `wallet-chains-${w.id}`, urgency: 'housekeeping', title: `Couldn’t check ${list(failed)} for ${w.label}`, body: `Counted from ${list(s.chains.map((c) => chainNames[c] ?? c))} only. Numa tries again every 30 minutes.`, primary: 'Got it', secondary: 'Later', doneText: 'Hidden until you reopen Numa.', raisedAt });
   }
+  const fallback = names(s.tokenFallbackChains);
+  if (fallback.length) {
+    attention.push({ id: `wallet-fallback-${w.id}`, urgency: 'housekeeping', title: `Only main tokens counted on ${list(fallback)} for ${w.label}`, body: 'That network’s explorer didn’t answer, so Numa read the main coins straight from the chain. Smaller tokens come back when it answers; Numa tries every 30 minutes.', primary: 'Got it', secondary: 'Later', doneText: 'Hidden until you reopen Numa.', raisedAt });
+  }
   const unpriced = s.tokens.filter((t) => t.valueUsd === undefined && Number(t.quantity) > 0);
   if (unpriced.length) {
     attention.push({ id: `wallet-price-${w.id}`, urgency: 'watch', title: `No price for ${list([...new Set(unpriced.map((t) => t.symbol))])} in ${w.label}`, body: 'Left out of the wallet’s value until a price arrives.', primary: 'Got it', secondary: 'Later', doneText: 'Hidden until you reopen Numa.', raisedAt });

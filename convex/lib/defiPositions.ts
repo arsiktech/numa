@@ -1,14 +1,17 @@
 /**
- * DeFi positions beyond Aave, read for free: liquidity pools (Uniswap V3, PancakeSwap V3 and
- * Aerodrome Slipstream) and Compound V3 straight from their contracts over public RPC nodes,
- * Morpho from its public API, and token prices from DefiLlama. Like wallet tokens, a position
+ * DeFi positions beyond Aave, read for free: liquidity pools (Uniswap V3 and V4, PancakeSwap V3
+ * and Aerodrome Slipstream, staked or not) and Compound V3 straight from their contracts over
+ * public RPC nodes, Morpho from its public API, and token prices from DefiLlama. Like wallet tokens, a position
  * holding a token nobody prices is left out: that is almost always spam.
  */
 
+import { address, firstWord, int, multicall, pad, uint, words } from "./evm";
+import { keccakHex } from "./keccak";
 import type { Call, DefiPosition, Get } from "./publicWallets";
 
 export type Post = (url: string, body: unknown) => Promise<unknown>;
-type Chain = { id: string; name: string; rpc: string };
+/** A chain as the readers need it; `host` is its Blockscout explorer. */
+type Chain = { id: string; name: string; rpc: string; host?: string };
 
 /** An amount of one token in a position, in the token's smallest unit. */
 type Leg = { token: string; raw: number; debt?: boolean };
@@ -18,15 +21,6 @@ export type Draft = { id: string; chain: Chain; protocol: string; kind: DefiPosi
 const MAX_SCANNED = 30;
 const MAX_OPEN = 10;
 const MIN_POSITION_USD = 1;
-
-const pad = (hex: string) => hex.toLowerCase().replace(/^0x/, "").padStart(64, "0");
-const uint = (n: number | bigint) => BigInt(n).toString(16).padStart(64, "0");
-const words = (hex: string) => {
-  if (!/^0x([0-9a-f]{64})+$/i.test(hex)) throw new Error("bad response");
-  return Array.from({ length: (hex.length - 2) / 64 }, (_, i) => BigInt("0x" + hex.slice(2 + i * 64, 2 + (i + 1) * 64)));
-};
-const int = (w: bigint) => (w >= 2n ** 255n ? w - 2n ** 256n : w);
-const address = (w: bigint) => "0x" + w.toString(16).padStart(40, "0");
 
 /** A concentrated-liquidity position manager: the contract whose NFTs are the positions. */
 type Manager = { protocol: string; npm: string; tickSpacing?: boolean };
@@ -105,11 +99,122 @@ async function cometPosition(chain: Chain, comet: string, owner: string, call: C
   };
 }
 
-/** Pools and Compound on one chain. A failure anywhere fails the chain, so nothing is half counted. */
-export async function chainDrafts(chain: Chain, owner: string, call: Call): Promise<Draft[]> {
-  const pools = await Promise.all((MANAGERS[chain.id] ?? []).map((m) => managerPositions(chain, m, owner, call)));
-  const comets = await Promise.all((COMETS[chain.id] ?? []).map((c) => cometPosition(chain, c, owner, call)));
-  return [...pools.flat(), ...comets.filter((d): d is Draft => d !== null)];
+/** Token amounts in a range position at a pool price (Uniswap V3 whitepaper, 6.29 and 6.30). */
+export function rangeAmounts(liquidity: number, sqrtPriceX96: number, tickLower: number, tickUpper: number): { amount0: number; amount1: number } {
+  const p = sqrtPriceX96 / 2 ** 96, a = Math.sqrt(1.0001 ** tickLower), b = Math.sqrt(1.0001 ** tickUpper);
+  if (p <= a) return { amount0: (liquidity * (b - a)) / (a * b), amount1: 0 };
+  if (p >= b) return { amount0: 0, amount1: liquidity * (b - a) };
+  return { amount0: (liquidity * (b - p)) / (p * b), amount1: liquidity * (p - a) };
+}
+
+/** Uniswap V4: the position manager that holds the NFTs, and StateView to read pool state. */
+export const V4: Record<string, { pm: string; stateView: string }> = {
+  ethereum: { pm: "0xbd216513d74c8cf14cf4747e6aaa6420ff64ee9e", stateView: "0x7ffe42c4a5deea5b0fec41c94c136cf115597227" },
+  base: { pm: "0x7c5f5a4bbd8fd63184577525326123b519429bdc", stateView: "0xa3c0c9b65bad0b08107aa264b0f3db444b867a71" },
+  arbitrum: { pm: "0xd88f38f930b7952f2db2432cb002e7abbf3dd869", stateView: "0x76fd297e2d437cd7f76d50f01afe6160f86e9990" },
+  optimism: { pm: "0x3c3ea4b57a46241e54610e5f022e5c45859a1017", stateView: "0xc18a3169788f4f75a170290584eca6395c75ecdb" },
+  polygon: { pm: "0x1ec2ebf4f37e7363fdfe3551602425af0b3ceef9", stateView: "0x5ea1bd7974c8a611cbab0bdcafcb1d9cc9b3ba5a" },
+};
+const int24 = (w: bigint) => { const x = Number(w & 0xffffffn); return x >= 0x800000 ? x - 0x1000000 : x; };
+const MOD = 2n ** 256n;
+
+/**
+ * Uniswap V4 positions can't be listed per owner on chain, so the explorer names the NFTs; the
+ * chain then gives each one's pool, range, liquidity and uncollected fees. With no V4 NFT in the
+ * wallet the explorer isn't asked at all.
+ */
+export async function uniswapV4(chain: Chain, owner: string, call: Call, get: Get): Promise<Draft[]> {
+  const v4 = V4[chain.id];
+  if (!v4) return [];
+  const [count] = words(await call(chain.rpc, v4.pm, "0x70a08231" + pad(owner)));
+  if (count === 0n) return [];
+  if (!chain.host) throw new Error("no explorer");
+  const page = (await get(`${chain.host}/api/v2/tokens/${v4.pm}/instances?holder_address_hash=${owner.toLowerCase()}`)) as { items?: Array<{ id?: unknown }> };
+  if (!Array.isArray(page?.items)) throw new Error("bad response");
+  const ids = page.items.map((i) => (typeof i.id === "string" && /^\d+$/.test(i.id) ? BigInt(i.id) : null)).filter((x): x is bigint => x !== null).slice(0, 50);
+  const liquidity = await multicall(call, chain.rpc, ids.map((id) => ({ to: v4.pm, data: "0x1efeed33" + uint(id) })));
+  const open = ids.map((id, i) => ({ id, liquidity: firstWord(liquidity[i]) ?? 0n })).filter((x) => x.liquidity > 0n).slice(0, MAX_OPEN);
+  return Promise.all(open.map(async ({ id, liquidity: L }) => {
+    // getPoolAndPositionInfo: the pool key (5 words, which hash to the pool id) and the packed range.
+    const w = words(await call(chain.rpc, v4.pm, "0x7ba03aad" + uint(id)));
+    const poolId = keccakHex(w.slice(0, 5).map(uint).join(""));
+    const tickLower = int24(w[5] >> 8n), tickUpper = int24(w[5] >> 32n);
+    const [slot0, inside, last] = await Promise.all([
+      call(chain.rpc, v4.stateView, "0xc815641c" + pad(poolId)),
+      call(chain.rpc, v4.stateView, "0x53e9c1fb" + pad(poolId) + uint(tickLower) + uint(tickUpper)),
+      call(chain.rpc, v4.stateView, "0xdacf1d2f" + pad(poolId) + pad(v4.pm) + uint(tickLower) + uint(tickUpper) + uint(id)),
+    ]);
+    const [sqrtPriceX96] = words(slot0), [g0, g1] = words(inside), [, l0, l1] = words(last);
+    // Fees earned since the position last settled: growth inside its range times its liquidity.
+    const fee0 = ((((g0 - l0) % MOD) + MOD) % MOD) * L >> 128n, fee1 = ((((g1 - l1) % MOD) + MOD) % MOD) * L >> 128n;
+    const { amount0, amount1 } = rangeAmounts(Number(L), Number(sqrtPriceX96), tickLower, tickUpper);
+    const feeTier = Number(w[2]);
+    const fee = feeTier & 0x800000 ? " dynamic-fee" : ` ${feeTier / 10_000}%`;
+    const inRange = amount0 > 0 && amount1 > 0;
+    return {
+      id: `${chain.id}:uniswap-v4:${id}`, chain, protocol: "Uniswap V4", kind: "liquidity" as const,
+      legs: [{ token: address(w[0]), raw: amount0 + Number(fee0) }, { token: address(w[1]), raw: amount1 + Number(fee1) }],
+      label: (s: string[]) => `${s.slice(0, 2).join(" / ")}${fee} pool${inRange ? "" : ", out of range"}`,
+    };
+  }));
+}
+
+/** Aerodrome's own read-only helper ("Sugar") and the Slipstream factories it reads positions from. */
+const SUGAR = "0x69dD9db6d8f8E7d83887A704f447b1a584b599A1";
+const SLIPSTREAM_FACTORIES = ["0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A", "0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a", "0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef"];
+const AERO = "0x940181a94A35A4569E4529A3CDfB74e38FD98631";
+/** Pools Sugar walks per request; more runs out of gas on public nodes. */
+const SUGAR_POOLS = 1000;
+
+/**
+ * Aerodrome Slipstream positions, including those staked in a gauge (the gauge holds the NFT, so
+ * the wallet doesn't): Sugar walks every pool, a thousand at a time, and returns each position's
+ * tokens, fees and AERO rewards.
+ */
+export async function aerodrome(chain: Chain, owner: string, call: Call): Promise<Draft[]> {
+  if (chain.id !== "base") return [];
+  const counts = await Promise.all(SLIPSTREAM_FACTORIES.map(async (f) => Number(words(await call(chain.rpc, f, "0xefde4e64"))[0])));
+  const pages = SLIPSTREAM_FACTORIES.flatMap((f, i) => Array.from({ length: Math.ceil(counts[i] / SUGAR_POOLS) }, (_, k) => ({ f, offset: k * SUGAR_POOLS })));
+  const found = (await Promise.all(pages.map(async ({ f, offset }) => {
+    const w = words(await call(chain.rpc, SUGAR, "0x0d0154a9" + uint(SUGAR_POOLS) + uint(offset) + pad(owner) + pad(f)));
+    const n = Number(w[1]);
+    return Array.from({ length: n }, (_, i) => w.slice(2 + i * 18, 2 + (i + 1) * 18));
+  }))).flat();
+  if (!found.length) return [];
+  const pools = [...new Set(found.map((p) => address(p[1])))];
+  const meta = await multicall(call, chain.rpc, pools.flatMap((pool) => [{ to: pool, data: "0x0dfe1681" }, { to: pool, data: "0xd21220a7" }]));
+  const tokens = new Map(pools.map((pool, i) => [pool, [firstWord(meta[i * 2]), firstWord(meta[i * 2 + 1])]]));
+  return found.slice(0, 20).map((p) => {
+    const pool = address(p[1]);
+    const [t0, t1] = tokens.get(pool) ?? [null, null];
+    if (t0 === null || t1 === null) throw new Error("bad response");
+    // Position fields: id, pool, liquidity, staked, amount0, amount1, staked0, staked1, fees0, fees1, AERO earned.
+    const a0 = p[4] + p[6] + p[8], a1 = p[5] + p[7] + p[9], staked = p[3] > 0n;
+    const inRange = p[4] + p[6] > 0n && p[5] + p[7] > 0n;
+    return {
+      id: `${chain.id}:aerodrome:${p[0] > 0n ? p[0] : pool}`, chain, protocol: "Aerodrome", kind: "liquidity" as const,
+      legs: [{ token: address(t0), raw: Number(a0) }, { token: address(t1), raw: Number(a1) }, { token: AERO, raw: Number(p[10]) }],
+      label: (s: string[]) => `${s.slice(0, 2).join(" / ")} pool${staked ? ", staked" : ""}${inRange ? "" : ", out of range"}`,
+    };
+  });
+}
+
+/**
+ * Pools and Compound on one chain. A contract that can't be read fails the chain, so nothing is
+ * half counted. Uniswap V4 is the exception: it needs the explorer to list positions, so when the
+ * explorer is down the rest still counts and the chain is reported as incomplete.
+ */
+export async function chainDrafts(chain: Chain, owner: string, call: Call, get: Get): Promise<{ drafts: Draft[]; incomplete: boolean }> {
+  let incomplete = false;
+  const [pools, v4, aero, comets] = await Promise.all([
+    Promise.all((MANAGERS[chain.id] ?? []).map((m) => managerPositions(chain, m, owner, call))),
+    uniswapV4(chain, owner, call, get).catch(() => { incomplete = true; return [] as Draft[]; }),
+    aerodrome(chain, owner, call),
+    Promise.all((COMETS[chain.id] ?? []).map((c) => cometPosition(chain, c, owner, call))),
+  ]);
+  // Sugar also returns unstaked Aerodrome positions the wallet holds; each counts once.
+  const seen = new Set(aero.map((d) => d.id));
+  return { drafts: [...aero, ...pools.flat().filter((d) => !seen.has(d.id)), ...v4, ...comets.filter((d): d is Draft => d !== null)], incomplete };
 }
 
 type Price = { price: number; decimals: number; symbol: string };
@@ -132,9 +237,10 @@ export async function priceDrafts(drafts: Draft[], get: Get): Promise<DefiPositi
     const asset = round(legs.filter((l) => !l.debt).reduce((s, l) => s + usd(l), 0));
     const debt = round(legs.filter((l) => l.debt).reduce((s, l) => s + usd(l), 0));
     if (asset < MIN_POSITION_USD && debt < MIN_POSITION_USD) continue;
-    const symbols = [...new Set(legs.filter((l) => l.p).map((l) => l.p!.symbol.slice(0, 24)))];
+    const legSymbols = legs.map((l) => l.p?.symbol.slice(0, 24) ?? "?");
+    const symbols = [...new Set(legs.filter((l) => l.p && (l.raw > 0 || legs.indexOf(l) < 2)).map((l) => l.p!.symbol.slice(0, 24)))];
     out.push({
-      id: d.id, chain: d.chain.id, chainName: d.chain.name, protocol: d.protocol, label: d.label(symbols), kind: d.kind,
+      id: d.id, chain: d.chain.id, chainName: d.chain.name, protocol: d.protocol, label: d.label(legSymbols), kind: d.kind,
       valueUsd: round(asset - debt), assetValueUsd: asset, debtValueUsd: debt, symbols, ...(d.positionAddress ? { positionAddress: d.positionAddress } : {}),
     });
   }

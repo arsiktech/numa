@@ -56,7 +56,7 @@ const token = (chain, chainName, symbol, quantity, valueUsd) => ({ id: `${chain}
     { id: 'base:uniswap-v3:7', chain: 'base', chainName: 'Base', protocol: 'Uniswap V3', label: 'WETH / USDC 0.05% pool, out of range', kind: 'liquidity', valueUsd: 1000, assetValueUsd: 1000, debtValueUsd: 0, symbols: ['WETH', 'USDC'] },
     { id: 'base:compound-v3:0xb1', chain: 'base', chainName: 'Base', protocol: 'Compound V3', label: 'Compound V3 lending', kind: 'supplied', valueUsd: 500, assetValueUsd: 500, debtValueUsd: 0, symbols: ['USDC'] },
   ];
-  save(mainId, snap({ addressType: 'evm', tokenValueUsd: 7000, defiValueUsd: 1500, totalValueUsd: 8500, tokens: [token('ethereum', 'Ethereum', 'ETH', '2', 5000), token('ethereum', 'Ethereum', 'USDC', '2000', 2000)], defiPositions: defi, chains: ['ethereum', 'optimism'], failedChains: ['base'], partial: true }));
+  save(mainId, snap({ addressType: 'evm', tokenValueUsd: 7000, defiValueUsd: 1500, totalValueUsd: 8500, tokens: [token('ethereum', 'Ethereum', 'ETH', '2', 5000), token('ethereum', 'Ethereum', 'USDC', '2000', 2000)], defiPositions: defi, chains: ['ethereum', 'optimism', 'polygon'], failedChains: ['base'], tokenFallbackChains: ['polygon'], partial: true }));
 
   const usdPerEur = rate();
   const own = Math.round(48500 * 100 / usdPerEur);
@@ -74,6 +74,7 @@ const token = (chain, chainName, symbol, quantity, valueUsd) => ({ id: `${chain}
   await page.goto(APP + '/');
   await wait(800);
   check('networks that couldn’t be reached are said out loud', (await page.locator('body').innerText()).includes('Couldn’t check Base for Main') || await page.getByText('Couldn’t check Base for Main').count() > 0);
+  check('a network read without its explorer says only main tokens were counted', await page.getByText('Only main tokens counted on Polygon for Main').count() > 0);
 
   await page.goto(APP + '/position/crypto/BTC');
   await page.getByText('WHERE IT IS').waitFor({ timeout: 15000 });
