@@ -65,3 +65,9 @@ export function changeLabel(value: number, start: number): string | null {
   const r = Math.abs(pct) >= 10 ? Math.round(pct) : Math.round(pct * 10) / 10;
   return r === 0 ? '0%' : `${r > 0 ? '+' : '−'}${Math.abs(r)}%`;
 }
+
+/** A market price: "$67,123.45", or more digits for coins worth less than a dollar. */
+export function priceText(usd: number): string {
+  const opts: Intl.NumberFormatOptions = usd >= 1 ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumSignificantDigits: 4 };
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', ...opts }).format(usd);
+}

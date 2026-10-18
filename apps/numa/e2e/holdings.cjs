@@ -63,17 +63,19 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.getByRole('button', { name: 'Edit' }).click();
   await page.getByLabel('Units').fill('0.6');
   await page.getByLabel('You paid in total').fill('21000');
+  await page.getByLabel(/^Where it is/).fill('Trade Republic');
   await page.screenshot({ path: OUT + '/03-bitcoin-edit-dark-390.png' });
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByText('Bitcoin saved').waitFor({ timeout: 10000 });
   await wait(800);
   let s = await snapNow();
-  check('edit saves to the server', s.holdings[0].quantity === 0.6 && s.holdings[0].costBasis === 21000, `${s.holdings[0].quantity} / ${s.holdings[0].costBasis}`);
-  check('screen shows the new value', (await page.locator('body').innerText()).includes('0.6 BTC'));
+  check('edit saves to the server, with where it is kept', s.holdings[0].quantity === 0.6 && s.holdings[0].costBasis === 21000 && s.holdings[0].location === 'Trade Republic', `${s.holdings[0].quantity} / ${s.holdings[0].costBasis} / ${s.holdings[0].location}`);
+  const saved = await page.locator('body').innerText();
+  check('screen shows the new value and the place', saved.includes('0.6 BTC') && /Where it is\s*\n?\s*Trade Republic/.test(saved));
   await page.getByRole('button', { name: 'Undo' }).click();
   await wait(1200);
   s = await snapNow();
-  check('undo restores the old values on the same record', s.holdings.length === 1 && s.holdings[0].quantity === 0.5 && s.holdings[0].costBasis === 15000);
+  check('undo restores the old values on the same record', s.holdings.length === 1 && s.holdings[0].quantity === 0.5 && s.holdings[0].costBasis === 15000 && !s.holdings[0].location);
 
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Back' }).click();
@@ -115,6 +117,11 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.getByText('Watch deleted').waitFor({ timeout: 10000 });
   await wait(7000);
   check('a delete without undo stays deleted', !(await snapNow()).assets.some((a) => a.name === 'Watch'));
+
+  await client.mutation('mobile:upsertHolding', { ...(({ id, symbol, name, kind, quantity, costBasis, currency, acquiredAt }) => ({ id, symbol, name, kind, quantity, costBasis, currency, acquiredAt }))(s.holdings[0]), portfolioId: p, location: 'Ledger' });
+  await page.goto(APP + '/position/crypto/BTC');
+  await page.getByText('WHERE IT IS').waitFor({ timeout: 15000 });
+  check('a record kept somewhere shows that place under Where it is', (await page.locator('body').innerText()).includes('Ledger'));
 
   const wide = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'light' });
   const w = await wide.newPage();

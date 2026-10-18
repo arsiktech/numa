@@ -46,6 +46,13 @@ describe('positions', () => {
     ]);
   });
 
+  it('names the place a person saved for a record, instead of "Your record"', () => {
+    const kept = holding('h2', 'BTC', 'Bitcoin', 0.2, 1_000_000);
+    (kept.raw as { location?: string }).location = 'Trade Republic';
+    const [btc] = positionsOf([holding('h1', 'BTC', 'Bitcoin', 1, 9_000_000), kept], 'crypto');
+    expect(btc.places.map((p) => p.where)).toEqual(['Your record', 'Trade Republic']);
+  });
+
   it('keeps a wallet token without an exchange rate unknown, not zero', () => {
     expect(walletPieces(wallet, 'EUR', null).every((p) => p.valueCents === null)).toBe(true);
     expect(walletPieces({ ...wallet, snapshot: null }, 'EUR', fx)).toEqual([]);

@@ -23,6 +23,8 @@ export type CloudAsset = {
   kind: 'cash' | 'real_estate' | 'vehicle' | 'collectible' | 'other';
   balance: number;
   currency: CloudCurrency;
+  /** Where it is kept, like a bank or a safe. Older servers leave it out. */
+  location?: string | null;
   updatedAt: number;
 };
 
@@ -46,6 +48,8 @@ export type CloudHolding = {
   /** Total cost in `currency`. */
   costBasis: number;
   currency: CloudCurrency;
+  /** Where it is kept, like a broker or a hardware wallet. Older servers leave it out. */
+  location?: string | null;
   /** Unit price from the quote, in USD, when `quoteProvider` is set. */
   marketPrice: number;
   changePercent: number;
@@ -186,11 +190,11 @@ export const cloud = {
   createTransaction: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; occurredAt: number; description: string; categoryId?: string; kind: 'income' | 'expense'; amount: number; currency: CloudCurrency }>, Receipt>('mobile:createTransaction'),
   updateTransaction: makeFunctionReference<'mutation', WithReceipt<{ id: string; occurredAt?: number; description?: string; categoryId?: string | null; kind?: 'income' | 'expense'; amount?: number; currency?: CloudCurrency }>, Receipt>('mobile:updateTransaction'),
   deleteTransaction: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteTransaction'),
-  upsertAsset: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudAsset['kind']; balance: number; currency: CloudCurrency }>, Receipt>('mobile:upsertAsset'),
+  upsertAsset: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudAsset['kind']; balance: number; currency: CloudCurrency; location?: string }>, Receipt>('mobile:upsertAsset'),
   deleteAsset: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteAsset'),
   upsertLiability: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudLiability['kind']; balance: number; currency: CloudCurrency; dueDate?: number }>, Receipt>('mobile:upsertLiability'),
   deleteLiability: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteLiability'),
-  upsertHolding: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; symbol: string; name: string; kind: CloudHolding['kind']; quantity: number; costBasis: number; currency: CloudCurrency; acquiredAt: number }>, Receipt>('mobile:upsertHolding'),
+  upsertHolding: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; symbol: string; name: string; kind: CloudHolding['kind']; quantity: number; costBasis: number; currency: CloudCurrency; acquiredAt: number; location?: string }>, Receipt>('mobile:upsertHolding'),
   upsertGoal: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; scope: CloudGoal['scope']; target: number; currency: CloudCurrency; startAt: number; deadline?: number; label?: string; categoryId?: string; assetId?: string; holdingId?: string; createdAt: number }>, Receipt>('mobile:upsertGoal'),
   addSnapshot: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; takenAt: number; netWorth: number; liquid: number; invested: number; hardAssets: number; liabilities: number; currency: CloudCurrency; label?: string; isAuto: boolean; lines?: SnapshotLine[] }>, string | Receipt>('wealthSnapshots:add'),
   updateSnapshot: makeFunctionReference<'mutation', WithReceipt<{ id: string; patch: { netWorth?: number; liquid?: number; invested?: number; hardAssets?: number; liabilities?: number; lines?: SnapshotLine[] } }>, string | Receipt>('wealthSnapshots:update'),

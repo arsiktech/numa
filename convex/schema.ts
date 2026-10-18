@@ -193,7 +193,9 @@ export default defineSchema({
     quantity: v.number(),
     costBasis: v.number(),
     currency: v.union(v.literal("USD"), v.literal("EUR")),
-    acquiredAt: v.number()
+    acquiredAt: v.number(),
+    /** Where it is kept, like a broker, an exchange or a hardware wallet. */
+    location: v.optional(v.string())
   }).index("by_portfolio", ["portfolioId"]),
 
   holdingEvents: defineTable({
@@ -240,6 +242,8 @@ export default defineSchema({
     balance: v.number(),
     currency: v.union(v.literal("USD"), v.literal("EUR")),
     notes: v.optional(v.string()),
+    /** Where it is kept, like a bank or a safe. */
+    location: v.optional(v.string()),
     updatedAt: v.number()
   }).index("by_portfolio", ["portfolioId"]),
 

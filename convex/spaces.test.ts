@@ -151,6 +151,23 @@ describe("isolated personal and business spaces", () => {
     await expect(f.call(mutation, args)).rejects.toThrow();
   });
 
+  it.each([
+    [upsertHolding, "holdings", { name: "Bitcoin", symbol: "BTC", kind: "crypto", quantity: 1, costBasis: 50, acquiredAt: 0 }],
+    [upsertAsset, "assets", { name: "Gold", kind: "collectible", balance: 50 }],
+  ] as const)("keeps where a record is kept unless the update says otherwise", async (mutation, table, details) => {
+    const f = fixture(); legacy(f);
+    const base = { ...details, portfolioId: "pf", currency: "EUR" };
+    const { id } = await f.call(mutation, { ...base, location: "  Ledger   Nano ", clientMutationId: "add" });
+    const saved = () => f.all(table).find((r) => r.id === id).location;
+    expect(saved()).toBe("Ledger Nano");
+    // An older client that doesn't know the field sends everything else; the place stays.
+    await f.call(mutation, { ...base, id, clientMutationId: "older-client" });
+    expect(saved()).toBe("Ledger Nano");
+    await f.call(mutation, { ...base, id, location: "", clientMutationId: "clear" });
+    expect(saved()).toBeUndefined();
+    await expect(f.call(mutation, { ...base, id, location: "x".repeat(61), clientMutationId: "long" })).rejects.toThrow(/60 characters/);
+  });
+
   it("does not count a business entity as a personal asset, even with full admin ownership", () => {
     const portfolios = [
       { id: "personal", name: "Personal", type: "personal", ownerId: "user", defaultCurrency: "EUR", tagline: "", createdAt: 0 },

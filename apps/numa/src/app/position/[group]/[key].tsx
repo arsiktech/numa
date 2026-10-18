@@ -10,6 +10,7 @@ import { useTheme } from '@/theme/theme';
 import { categoryColor } from '@/ui/CompositionBar';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { quantityText } from '@/ui/PositionRow';
+import { PriceChart } from '@/ui/PriceChart';
 import { Screen } from '@/ui/Screen';
 import { Txt } from '@/ui/Txt';
 
@@ -31,10 +32,10 @@ function Body({ source, group, id }: { source: ItemsSource; group: GroupId; id: 
   }
   const position = positionsOf(source.items, group).find((p) => p.key === id);
   if (!position) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>This is no longer in {groupNames[group].toLowerCase()}.</Txt></Screen>;
-  return <CurrencyScope currency={source.currency}><Detail position={position} demo={source.demo} /></CurrencyScope>;
+  return <CurrencyScope currency={source.currency}><Detail position={position} demo={source.demo} now={source.now} /></CurrencyScope>;
 }
 
-function Detail({ position, demo }: { position: Position; demo: boolean }) {
+function Detail({ position, demo, now }: { position: Position; demo: boolean; now: number }) {
   const { c } = useTheme();
   const { money, mask } = useMoney();
   const color = position.group === 'debts' ? c.down : c[categoryColor(position.group as CategoryId)];
@@ -48,6 +49,10 @@ function Detail({ position, demo }: { position: Position; demo: boolean }) {
       <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: position.group === 'debts' ? c.down : c.ink }}>{position.valueCents === null ? '—' : money(position.valueCents, { cents: true })}</Txt>
       {qty && <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(qty)}</Txt>}
       {position.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{position.unknown} {position.unknown === 1 ? 'place has' : 'places have'} no value yet and {position.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
+      {/* A coin or a stock has a market price; cash, pools, lending and plain records don't. */}
+      {!demo && (position.group === 'crypto' || position.group === 'stocks') && /^[A-Z0-9.-]{1,15}$/.test(position.key) && (
+        <PriceChart symbol={position.key} kind={position.group === 'crypto' ? 'crypto' : 'stock'} now={now} />
+      )}
 
       <Txt v="label" c="ink3" style={{ marginTop: 24 }} accessibilityRole="header">WHERE IT IS</Txt>
       {/* The split as one bar: each place's width is its share. */}

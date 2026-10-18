@@ -56,8 +56,14 @@ describe('edit and delete plans', () => {
   const before = holdingFields(snap.holdings[0]);
   it('writes new fields and undoes to the old ones on the same record', () => {
     const p = editPlan('holding', 'h1', before, { ...before, quantity: 0.6, costBasisCents: 2_100_000 }, 'p1', 5);
-    expect(p.apply).toEqual({ fn: 'upsertHolding', args: { portfolioId: 'p1', symbol: 'BTC', name: 'Bitcoin', kind: 'crypto', quantity: 0.6, costBasis: 21_000, currency: 'USD', id: 'h1', acquiredAt: 5 } });
+    expect(p.apply).toEqual({ fn: 'upsertHolding', args: { portfolioId: 'p1', symbol: 'BTC', name: 'Bitcoin', kind: 'crypto', quantity: 0.6, costBasis: 21_000, currency: 'USD', location: '', id: 'h1', acquiredAt: 5 } });
     expect(p.undo.args).toMatchObject({ id: 'h1', quantity: 0.5, costBasis: 15_000 });
+  });
+  it('saves where a holding is kept, and clears it with an empty field', () => {
+    const p = editPlan('holding', 'h1', before, { ...before, location: '  Trade Republic ' }, 'p1', 5);
+    expect(p.apply.args).toMatchObject({ location: 'Trade Republic' });
+    expect(p.undo.args).toMatchObject({ location: '' });
+    expect(fieldProblems('holding', { ...before, location: 'x'.repeat(61) })).toEqual(['Keep where it is to 60 characters.']);
   });
   it('deletes and undoes by re-creating the same fields', () => {
     const p = deletePlan('liability', 'l1', { name: 'Card', kind: 'credit_card', balanceCents: 42_000, currency: 'EUR', dueDate: 99 }, 'p1');
@@ -70,6 +76,6 @@ describe('edit and delete plans', () => {
   });
   it('refuses a holding without a ticker, units or cost', () => {
     expect(fieldProblems('holding', { ...before, symbol: '', quantity: 0, costBasisCents: 0 })).toHaveLength(3);
-    expect(fieldProblems('asset', { name: ' ', kind: 'cash', balanceCents: 0, currency: 'EUR' })).toEqual(['Add a name.']);
+    expect(fieldProblems('asset', { name: ' ', kind: 'cash', balanceCents: 0, currency: 'EUR', location: '' })).toEqual(['Add a name.']);
   });
 });
