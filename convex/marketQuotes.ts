@@ -26,7 +26,8 @@ export const listQuoteSymbols = internalQuery({
   args: {},
   handler: async (ctx): Promise<string[]> => {
     const holdings = await ctx.db.query("holdings").collect();
-    return normalizeSymbols(holdings.map((holding) => holding.symbol))
+    const owed = (await ctx.db.query("liabilities").collect()).flatMap((l) => (l.owedSymbol ? [l.owedSymbol] : []));
+    return normalizeSymbols([...holdings.map((holding) => holding.symbol), ...owed])
       .filter((symbol) => isCryptoSymbol(symbol) || isUsEquitySymbol(symbol))
       .sort()
       .slice(0, MAX_REFRESH_SYMBOLS);

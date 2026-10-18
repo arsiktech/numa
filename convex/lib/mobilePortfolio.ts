@@ -81,7 +81,17 @@ export function mobileAsset(asset: Doc<"assets">) {
   };
 }
 
-export function mobileLiability(liability: Doc<"liabilities">) {
+/**
+ * A debt owed in an asset (0.15 BTC) is worth that asset at its current price, in dollars. With no
+ * price on file it keeps the last value written and says the price is missing.
+ */
+export function valueLiability(liability: Doc<"liabilities">, quote: Doc<"marketQuotes"> | null): Doc<"liabilities"> & { owedPriceAt: number | null } {
+  if (!liability.owedSymbol || liability.owedQuantity === undefined) return { ...liability, owedPriceAt: null };
+  if (!quote || !(quote.price > 0)) return { ...liability, owedPriceAt: null };
+  return { ...liability, balance: Math.round(liability.owedQuantity * quote.price * 100) / 100, currency: "USD", owedPriceAt: quote.updatedAt };
+}
+
+export function mobileLiability(liability: Doc<"liabilities"> & { owedPriceAt?: number | null }) {
   return {
     id: liability._id,
     portfolioId: liability.portfolioId,
@@ -92,6 +102,9 @@ export function mobileLiability(liability: Doc<"liabilities">) {
     interestRate: liability.interestRate ?? null,
     dueDate: liability.dueDate ?? null,
     notes: liability.notes ?? null,
+    owedSymbol: liability.owedSymbol ?? null,
+    owedQuantity: liability.owedQuantity ?? null,
+    owedPriceAt: liability.owedPriceAt ?? null,
     updatedAt: liability.updatedAt
   };
 }
@@ -228,7 +241,10 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
     ctx.db.query("recurring").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect(),
     ctx.db.query("wealthSnapshots").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).collect()
   ]);
-  const quoteSymbols = [...new Set(holdings.map((holding) => holding.symbol.toUpperCase()))];
+  const quoteSymbols = [...new Set([
+    ...holdings.map((holding) => holding.symbol.toUpperCase()),
+    ...liabilities.flatMap((liability) => (liability.owedSymbol ? [liability.owedSymbol.toUpperCase()] : []))
+  ])];
   const quoteEntries = await Promise.all(
     quoteSymbols.map(async (symbol): Promise<[string, Doc<"marketQuotes"> | null]> => [
       symbol,
@@ -244,13 +260,15 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
     quote: quotesBySymbol.get(holding.symbol.toUpperCase()) ?? null
   }));
   const mobileHoldings = holdingsWithQuotes.map(({ holding, quote }) => mobileHolding(holding, quote));
+  const valuedLiabilities = liabilities.map((liability) =>
+    valueLiability(liability, liability.owedSymbol ? quotesBySymbol.get(liability.owedSymbol.toUpperCase()) ?? null : null));
   return {
     portfolio: mobilePortfolio(portfolio, membership),
     dashboard: buildMobileDashboard({
       portfolio,
       transactions,
       assets,
-      liabilities,
+      liabilities: valuedLiabilities,
       holdings: holdingsWithQuotes,
       goals
     }),
@@ -267,7 +285,7 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
         createdAt: transfer.createdAt, updatedAt: transfer.updatedAt
       })),
     assets: assets.map(mobileAsset),
-    liabilities: liabilities.map(mobileLiability),
+    liabilities: valuedLiabilities.map(mobileLiability),
     holdings: mobileHoldings,
     goals: goals.map(mobileGoal),
     recurring: recurring.sort((a, b) => a.nextRunAt - b.nextRunAt).map(mobileRecurring),

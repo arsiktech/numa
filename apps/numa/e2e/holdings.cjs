@@ -123,6 +123,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.getByText('WHERE IT IS').waitFor({ timeout: 15000 });
   check('a record kept somewhere shows that place under Where it is', (await page.locator('body').innerText()).includes('Ledger'));
 
+  // A debt owed in BTC is worth BTC at today's price (the test backend prices BTC at $60,000).
+  await client.mutation('mobile:upsertLiability', { portfolioId: p, name: 'Razmik', kind: 'other', balance: 1, currency: 'EUR', owedSymbol: 'BTC', owedQuantity: 0.15 });
+  const owed = (await snapNow()).liabilities.find((l) => l.name === 'Razmik');
+  check('a debt owed in BTC is valued at the BTC price, in dollars', owed && owed.owedSymbol === 'BTC' && owed.balance === 9000 && owed.currency === 'USD', JSON.stringify(owed));
+  await page.goto(APP + '/holdings/debts');
+  await page.getByText('Razmik').first().waitFor({ timeout: 15000 });
+  check('the debts list says what the debt is owed in', (await page.locator('body').innerText()).includes('0.15 BTC'));
+
   const wide = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'light' });
   const w = await wide.newPage();
   w.on('pageerror', (e) => errors.push(String(e)));

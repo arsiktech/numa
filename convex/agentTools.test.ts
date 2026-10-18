@@ -57,6 +57,12 @@ describe("agent tools", () => {
     expect("location" in (f.writes()[1][2] as object)).toBe(false);
   });
 
+  it("records a debt owed in an asset with its quantity", async () => {
+    const f = fakeIo();
+    await tool("save_liability").run(f.io, { name: "Razmik", kind: "other", balance: 12000, currency: "USD", owed_asset: "BTC", owed_quantity: 0.15 });
+    expect(f.writes()[0][2]).toMatchObject({ name: "Razmik", owedSymbol: "BTC", owedQuantity: 0.15, balance: 12000, currency: "USD" });
+  });
+
   it("turns a plain date into midday UTC so it stays on that day", () => {
     expect(new Date(toMs("2026-10-01", "date")).toISOString()).toBe("2026-10-01T12:00:00.000Z");
     expect(toMs("2026-10-01T08:30:00Z", "date")).toBe(Date.UTC(2026, 9, 1, 8, 30));

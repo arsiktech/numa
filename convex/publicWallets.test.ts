@@ -90,6 +90,7 @@ describe("fetchPublicWallet", () => {
         { value: "1000000000", token: { address_hash: "0xd", symbol: "variableDebtEthUSDC", name: "Aave Ethereum Variable Debt USDC", decimals: "6", exchange_rate: "1", reputation: "ok" } },
       ] },
       [`https://eth.blockscout.com/api/v2/addresses/${EVM}`]: { coin_balance: "1000000000000000000", exchange_rate: "2500" },
+      "https://api.fluid.instadapp.io/": { data: [] },
     }), 1000, call);
     expect(calls).toContain(`https://base-rpc.publicnode.com 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5 0xbf92857c`);
     expect(s.tokens.map((t) => t.symbol)).toEqual(["ETH"]);
@@ -129,7 +130,7 @@ describe("fetchPublicWallet with lending and pools", () => {
   };
 
   it("counts Compound and Morpho once each, as positions, not again as wallet tokens", async () => {
-    const s = await fetchPublicWallet(EVM, "evm", fake({ ...explorer, "https://coins.llama.fi/": { coins: { [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } } }), 1000, call, async () => ({
+    const s = await fetchPublicWallet(EVM, "evm", fake({ ...explorer, "https://api.fluid.instadapp.io/": { data: [] }, "https://coins.llama.fi/": { coins: { [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } } }), 1000, call, async () => ({
       data: { ethereum: null, base: { marketPositions: [], vaultPositions: [{ vault: { name: "Spark USDC Vault", address: "0x7bfa", asset: { symbol: "USDC" } }, state: { assetsUsd: 250 } }] }, arbitrum: null, optimism: null, polygon: null },
       errors: ["ethereum", "arbitrum", "optimism", "polygon"].map((c) => ({ path: [c], status: "NOT_FOUND" })),
     }));

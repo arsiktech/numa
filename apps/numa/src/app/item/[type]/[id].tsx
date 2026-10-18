@@ -80,6 +80,9 @@ function Facts({ item, gainCents, now }: { item: Item; gainCents?: number | null
         {item.type === 'asset' && <Fact label="Kind" value={item.detail ?? ''} />}
         {item.type === 'asset' && <Fact label="Updated" value={shortDay((raw as CloudAsset).updatedAt, now)} />}
         {item.type === 'liability' && <Fact label="Kind" value={item.detail ?? ''} />}
+        {item.type === 'liability' && (raw as CloudLiability).owedSymbol && (
+          <Fact label="Owed in" value={`${mask(String((raw as CloudLiability).owedQuantity))} ${(raw as CloudLiability).owedSymbol}${(raw as CloudLiability).owedPriceAt ? '' : ' · no price yet'}`} />
+        )}
         {item.type === 'liability' && <Fact label="Due" value={(raw as CloudLiability).dueDate ? shortDay((raw as CloudLiability).dueDate!, now) : 'No due date'} />}
         {(item.type === 'holding' || item.type === 'asset') && <Fact label="Where it is" value={(raw as CloudHolding | CloudAsset).location || 'Not set'} />}
         {'currency' in raw && <Fact label="Currency" value={raw.currency} />}

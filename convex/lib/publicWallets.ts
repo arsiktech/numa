@@ -6,7 +6,7 @@
  * `failedChains`, never counted as zero.
  */
 
-import { chainDrafts, morpho, priceDrafts, type Draft, type Post } from "./defiPositions";
+import { chainDrafts, etherfiCash, fluidLending, morpho, priceDrafts, type Draft, type Post } from "./defiPositions";
 import { fallbackTokens } from "./tokenFallback";
 
 export type Get = (url: string) => Promise<unknown>;
@@ -167,9 +167,9 @@ async function evmChain(chain: (typeof EVM_CHAINS)[number], address: string, get
 }
 
 /** Aave, Compound and pools on one chain, before pool and Compound tokens are priced. */
-async function evmDefi(chain: (typeof EVM_CHAINS)[number], address: string, call: Call, get: Get): Promise<{ aave: DefiPosition | null; drafts: Draft[]; incomplete: boolean }> {
-  const [aave, { drafts, incomplete }] = await Promise.all([aaveV3(chain, address, call), chainDrafts(chain, address, call, get)]);
-  return { aave, drafts, incomplete };
+async function evmDefi(chain: (typeof EVM_CHAINS)[number], address: string, call: Call, get: Get): Promise<{ aave: DefiPosition | null; drafts: Draft[]; priced: DefiPosition[]; incomplete: boolean }> {
+  const [aave, { drafts, incomplete }, fluid] = await Promise.all([aaveV3(chain, address, call), chainDrafts(chain, address, call, get), fluidLending(chain, address, get)]);
+  return { aave, drafts, priced: fluid, incomplete };
 }
 
 /** A chain's tokens from its explorer, or, when the explorer is down, its main tokens from the chain. */
@@ -191,10 +191,11 @@ export async function fetchPublicWallet(address: string, addressType: "bitcoin" 
   const defiJobs = addressType === "evm" && call
     ? EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => evmDefi(chain, address, call, get) }))
     : [];
-  const [tokenResults, defiResults, morphoResult] = await Promise.all([
+  const [tokenResults, defiResults, morphoResult, etherfiResult] = await Promise.all([
     Promise.allSettled(tokenJobs.map((job) => job.run())),
     Promise.allSettled(defiJobs.map((job) => job.run())),
     defiJobs.length && post ? morpho([...EVM_CHAINS], address, post).catch(() => null) : Promise.resolve(undefined),
+    defiJobs.length && call ? etherfiCash(address, call).catch(() => null) : Promise.resolve(undefined),
   ]);
   let tokens: WalletToken[] = [];
   const defiPositions: DefiPosition[] = [];
@@ -210,6 +211,7 @@ export async function fetchPublicWallet(address: string, addressType: "bitcoin" 
   defiResults.forEach((r, i) => {
     if (r.status === "rejected") { defiFailed.add(defiJobs[i].id); return; }
     if (r.value.aave) defiPositions.push(r.value.aave);
+    defiPositions.push(...r.value.priced);
     if (r.value.incomplete) defiFailed.add(defiJobs[i].id);
     drafts.push(...r.value.drafts);
   });
@@ -218,6 +220,9 @@ export async function fetchPublicWallet(address: string, addressType: "bitcoin" 
   }
   if (morphoResult === null) EVM_CHAINS.forEach((c) => defiFailed.add(c.id));
   else if (morphoResult) { defiPositions.push(...morphoResult.positions); morphoResult.failed.forEach((c) => defiFailed.add(c)); }
+  // ether.fi Cash lives on Optimism (and Scroll, which Numa doesn't otherwise read); a failure is reported on Optimism.
+  if (etherfiResult === null) defiFailed.add("optimism");
+  else if (etherfiResult) defiPositions.push(...etherfiResult);
   const defiFailedChains: string[] = defiJobs.map((job) => job.id).filter((id) => defiFailed.has(id));
   // A Compound market or a Morpho vault is also a token in the wallet; it is counted once, as the position.
   const inDefi = new Set(defiPositions.map((p) => p.positionAddress).filter(Boolean));
