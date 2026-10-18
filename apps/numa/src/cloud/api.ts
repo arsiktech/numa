@@ -220,6 +220,7 @@ export const cloud = {
   agents: makeFunctionReference<'query', Record<string, never>, CloudAgent[]>('agentAccess:listMine'),
   disconnectAgent: makeFunctionReference<'mutation', { id: string }, null>('agentAccess:disconnect'),
   agentActivity: makeFunctionReference<'query', { limit?: number }, CloudAgentActivity[]>('agentAccess:recentActivity'),
+  priceSeries: makeFunctionReference<'action', { range: '1D' | '1W' | '1M' | '1Y'; symbols: { symbol: string; kind: 'crypto' | 'stock' }[] }, Record<string, { t: number[]; p: number[] }>>('priceHistory:series'),
   deleteMyAccount: makeFunctionReference<'mutation', Record<string, never>, null>('users:deleteMyAccount'),
   cancelMyDeletion: makeFunctionReference<'mutation', Record<string, never>, { ok: true } | { ok: false; reason: 'already-started' | 'already-deleted' | string }>('users:cancelMyDeletion'),
   exportManifest: makeFunctionReference<'query', ExportScope, ExportManifest>('dataExport:manifest'),

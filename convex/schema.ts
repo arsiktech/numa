@@ -713,5 +713,14 @@ export default defineSchema({
   })
     .index("by_user_at", ["userId", "at"])
     .index("by_connection_at", ["connectionId", "at"])
-    .index("by_expires", ["expiresAt"])
+    .index("by_expires", ["expiresAt"]),
+
+  // Market price history behind the chart (public market data, no personal data), one row per
+  // symbol and range, refreshed when it is older than the range needs.
+  priceHistory: defineTable({
+    key: v.string(),
+    t: v.array(v.number()),
+    p: v.array(v.number()),
+    fetchedAt: v.number()
+  }).index("by_key", ["key"])
 });
