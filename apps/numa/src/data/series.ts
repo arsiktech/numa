@@ -47,3 +47,21 @@ export function todayFromMarkets(now: number, liveCents: number, marketsTodayCen
   if (marketsTodayCents === null) return null;
   return { points: [{ t: now - DAY, cents: liveCents - marketsTodayCents }, { t: now, cents: liveCents }], hasHistory: true };
 }
+
+/** Short time-axis labels shown while scrubbing: "14:00", "Tue", "12 Oct", "Feb", "Mar 25". */
+export function tickLabel(t: number, range: Range): string {
+  const d = new Date(t);
+  if (range === '1D') return String(d.getHours()).padStart(2, '0') + ':00';
+  if (range === '1W') return days[d.getDay()];
+  if (range === '1M') return `${d.getDate()} ${months[d.getMonth()]}`;
+  if (range === '1Y') return d.getMonth() === 0 ? String(d.getFullYear()) : months[d.getMonth()];
+  return `${months[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
+}
+
+/** "+34%", "−16%", "0%": change from the start of the line, for the value axis. */
+export function changeLabel(value: number, start: number): string | null {
+  if (start === 0) return null;
+  const pct = ((value - start) / Math.abs(start)) * 100;
+  const r = Math.abs(pct) >= 10 ? Math.round(pct) : Math.round(pct * 10) / 10;
+  return r === 0 ? '0%' : `${r > 0 ? '+' : '−'}${Math.abs(r)}%`;
+}
