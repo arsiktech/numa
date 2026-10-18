@@ -168,6 +168,25 @@ describe("isolated personal and business spaces", () => {
     await expect(f.call(mutation, { ...base, id, location: "x".repeat(61), clientMutationId: "long" })).rejects.toThrow(/60 characters/);
   });
 
+  it("values a debt owed in BTC at the live price, keeps it through edits, and refuses unknown assets", async () => {
+    const f = fixture(); legacy(f);
+    f.seed("marketQuotes", "q-btc", { symbol: "BTC", price: 80_000, changePercent: 0, provider: "coingecko", updatedAt: 1 });
+    const base = { portfolioId: "pf", name: "Razmik", kind: "other", balance: 1, currency: "EUR" };
+    const { id } = await f.call(upsertLiability, { ...base, owedSymbol: "btc", owedQuantity: 0.15, clientMutationId: "owe-btc" });
+    const row = () => f.all("liabilities").find((r) => r.id === id);
+    expect(row()).toMatchObject({ owedSymbol: "BTC", owedQuantity: 0.15, balance: 12_000, currency: "USD" });
+    // An edit from a client that doesn't know the field keeps the debt in BTC.
+    await f.call(upsertLiability, { ...base, id, balance: 5, clientMutationId: "rename" });
+    expect(row()).toMatchObject({ owedSymbol: "BTC", owedQuantity: 0.15 });
+    await expect(f.call(upsertLiability, { ...base, owedSymbol: "DOGE", owedQuantity: 1, clientMutationId: "doge" })).rejects.toThrow(/BTC, ETH/);
+    await expect(f.call(upsertLiability, { ...base, owedSymbol: "BTC", clientMutationId: "noqty" })).rejects.toThrow(/how much/);
+    const snapshot = await f.call(portfolioSnapshot, { portfolioId: "pf" });
+    f.rows.get("q-btc").price = 100_000;
+    const later = await f.call(portfolioSnapshot, { portfolioId: "pf" });
+    expect(snapshot.liabilities.find((l: any) => l.id === id)).toMatchObject({ balance: 12_000, currency: "USD", owedSymbol: "BTC", owedQuantity: 0.15 });
+    expect(later.liabilities.find((l: any) => l.id === id)).toMatchObject({ balance: 15_000 });
+  });
+
   it("does not count a business entity as a personal asset, even with full admin ownership", () => {
     const portfolios = [
       { id: "personal", name: "Personal", type: "personal", ownerId: "user", defaultCurrency: "EUR", tagline: "", createdAt: 0 },

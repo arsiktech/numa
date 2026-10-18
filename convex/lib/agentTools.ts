@@ -270,15 +270,16 @@ export const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "save_liability", title: "Add or update a debt", write: true,
-    description: "Credit cards, loans, mortgages and other money owed. Balance is the amount owed, positive. Send id to update.",
-    inputSchema: schema({ id: str("Liability id to update."), space_id: spaceId, name: str("Name, like Car loan."), kind: str("Kind of debt.", { enum: ["credit_card", "loan", "mortgage", "other"] }), balance: num("Amount owed.", { minimum: 0 }), currency, due_date: str("Next due date, like 2026-11-01."), request_id: requestId }, ["name", "kind", "balance"]),
+    description: "Credit cards, loans, mortgages and other money owed. Balance is the amount owed, positive. A debt owed in an asset (like 0.15 BTC or 26,800 USDC) also sends owed_asset and owed_quantity; Numa then values it at that asset's live price. Send id to update.",
+    inputSchema: schema({ id: str("Liability id to update."), space_id: spaceId, name: str("Name, like Car loan."), kind: str("Kind of debt.", { enum: ["credit_card", "loan", "mortgage", "other"] }), balance: num("Amount owed, in currency. For a debt owed in an asset, today's value.", { minimum: 0 }), currency, due_date: str("Next due date, like 2026-11-01."), owed_asset: str("Asset the debt is owed in, when not money.", { enum: ["BTC", "ETH", "SOL", "USDC", "USDT", "EURC"] }), owed_quantity: num("How much of owed_asset is owed.", { exclusiveMinimum: 0 }), request_id: requestId }, ["name", "kind", "balance"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
       return io.mutation("mobile:upsertLiability", {
         ...(text(args, "id", false) ? { id: text(args, "id") } : {}), portfolioId: space.id, name: text(args, "name"),
         kind: oneOf(args, "kind", ["credit_card", "loan", "mortgage", "other"] as const), balance: amount(args, "balance"),
         currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency,
-        ...(args.due_date !== undefined ? { dueDate: date(args, "due_date") } : {}), ...write(io, args),
+        ...(args.due_date !== undefined ? { dueDate: date(args, "due_date") } : {}),
+        ...(typeof args.owed_asset === "string" ? { owedSymbol: args.owed_asset, owedQuantity: amount(args, "owed_quantity") } : {}), ...write(io, args),
       });
     },
   },

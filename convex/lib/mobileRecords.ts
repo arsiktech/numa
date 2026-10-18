@@ -5,6 +5,7 @@ import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanRequired 
 import type { Doc } from "../_generated/dataModel";
 import { withMutationReceipt } from "./mutationReceipts";
 import { refreshQuoteSoon } from "./quoteRefresh";
+import { isCryptoSymbol } from "./marketQuoteProviders";
 import { withAiAuditConfirmation } from "./aiAudit";
 import {
   applyTransactionChange,
@@ -240,6 +241,19 @@ const deleteAsset = mutation({
   }
 });
 
+/** The in-kind fields to save: undefined keeps what is stored, an empty symbol clears both. */
+function owedInKind(symbol: string | undefined, quantity: number | undefined): { owedSymbol?: string; owedQuantity?: number } | null {
+  if (symbol === undefined) {
+    if (quantity !== undefined) throw new ConvexError({ code: "INVALID_INPUT", message: "Say which asset the debt is owed in" });
+    return null;
+  }
+  const s = symbol.trim().toUpperCase();
+  if (!s) return { owedSymbol: undefined, owedQuantity: undefined };
+  if (!isCryptoSymbol(s)) throw new ConvexError({ code: "INVALID_INPUT", message: `Debts can be owed in BTC, ETH, SOL, USDC, USDT or EURC, not ${s}` });
+  if (quantity === undefined || !Number.isFinite(quantity) || quantity <= 0) throw new ConvexError({ code: "INVALID_INPUT", message: "Add how much is owed" });
+  return { owedSymbol: s, owedQuantity: quantity };
+}
+
 const upsertLiability = mutation({
   args: {
     id: v.optional(v.id("liabilities")),
@@ -251,19 +265,31 @@ const upsertLiability = mutation({
     interestRate: v.optional(v.number()),
     dueDate: v.optional(v.number()),
     notes: v.optional(v.string()),
+    /** Owed in an asset, like "BTC". Left out keeps what is saved; an empty string makes it a plain money debt again. */
+    owedSymbol: v.optional(v.string()),
+    owedQuantity: v.optional(v.number()),
     clientMutationId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
+    const owed = owedInKind(args.owedSymbol, args.owedQuantity);
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertLiability", async () => {
+      // A debt owed in an asset is worth that asset at today's price; without a price yet, the
+      // amount the caller sent stands until one arrives.
+      let balance = args.balance, currency = args.currency;
+      if (owed?.owedSymbol) {
+        const quote = await ctx.db.query("marketQuotes").withIndex("by_symbol", (q) => q.eq("symbol", owed.owedSymbol!)).unique();
+        if (quote && quote.price > 0) { balance = Math.round(owed.owedQuantity! * quote.price * 100) / 100; currency = "USD"; }
+      }
       const patch = {
         name: cleanRequired(args.name, "Name"),
         kind: args.kind,
-        balance: args.balance,
-        currency: args.currency,
+        balance,
+        currency,
         interestRate: args.interestRate,
         dueDate: args.dueDate,
         notes: args.notes?.trim() || undefined,
+        ...(owed ?? {}),
         updatedAt: Date.now()
       };
       if (args.id) {
@@ -272,12 +298,15 @@ const upsertLiability = mutation({
           throw new ConvexError({ code: "NOT_FOUND", message: "Liability not found" });
         }
         await ctx.db.patch(args.id, patch);
+        if (owed?.owedSymbol) await refreshQuoteSoon(ctx, owed.owedSymbol);
         return args.id;
       }
-      return await ctx.db.insert("liabilities", {
+      const id = await ctx.db.insert("liabilities", {
         portfolioId: args.portfolioId,
         ...patch
       });
+      if (owed?.owedSymbol) await refreshQuoteSoon(ctx, owed.owedSymbol);
+      return id;
     }, args.portfolioId);
   }
 });

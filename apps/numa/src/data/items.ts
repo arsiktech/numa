@@ -61,14 +61,14 @@ export function itemsFrom(s: CloudSnapshot, data: HomeData, now: number, fx: FxR
     const freshness = !w.includeInNetWorth ? { text: 'Not counted in net worth', tone: 'ok' as const } : !w.snapshot ? { text: 'Checking the balance…', tone: 'missing' as const } : d.freshness;
     items.push({ id: w.id, type: 'wallet', group: 'crypto', name: w.label, detail: walletDetail(w), valueCents: w.includeInNetWorth ? d.valueCents : null, changeTodayCents: null, freshness, raw: w, pieces: w.includeInNetWorth && w.snapshot ? walletPieces(w, data.currency, fx) : undefined });
     const loan = debtById.get(walletLoanId(w.id));
-    if (loan) items.push({ id: loan.id, type: 'wallet', group: 'debts', name: loan.name, detail: 'Borrowed on Aave', valueCents: loan.balanceCents, changeTodayCents: null, freshness, raw: w });
+    if (loan) items.push({ id: loan.id, type: 'wallet', group: 'debts', name: loan.name, detail: 'Borrowed in DeFi', valueCents: loan.balanceCents, changeTodayCents: null, freshness, raw: w });
   }
   for (const l of s.liabilities) {
     const debt = debtById.get(l.id);
     const due = l.dueDate;
     const soon = due !== null && due >= now - DAY && due - now <= 14 * DAY;
     items.push({
-      id: l.id, type: 'liability', group: 'debts', name: l.name, detail: debtKindNames[l.kind], valueCents: debt?.balanceCents ?? null, changeTodayCents: null,
+      id: l.id, type: 'liability', group: 'debts', name: l.name, detail: l.owedSymbol ? `${l.owedQuantity} ${l.owedSymbol}` : debtKindNames[l.kind], valueCents: debt?.balanceCents ?? null, changeTodayCents: null,
       freshness: !debt ? NEEDS_RATE : due !== null ? { text: `Due ${shortDay(due, now)}`, tone: soon ? 'due' : 'ok' } : { text: 'No due date', tone: 'ok' },
       raw: l,
     });

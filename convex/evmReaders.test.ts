@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { aerodrome, chainDrafts, priceDrafts, rangeAmounts, uniswapV4, V4 } from "./lib/defiPositions";
+import { aerodrome, chainDrafts, etherfiCash, fluidLending, priceDrafts, rangeAmounts, uniswapV4, V4 } from "./lib/defiPositions";
 import { decodeAggregate3, encodeAggregate3, MULTICALL } from "./lib/evm";
 import { keccak256, keccakHex } from "./lib/keccak";
 import { fetchPublicWallet, type Call, type Get } from "./lib/publicWallets";
@@ -150,5 +150,39 @@ describe("tokens without the explorer", () => {
     expect(s.tokenFailedChains).toEqual(["arbitrum", "optimism", "polygon"]);
     expect(s.tokens.map((t) => [t.chain, t.symbol, t.valueUsd])).toEqual([["base", "ETH", 2000]]);
     expect(s).toMatchObject({ totalValueUsd: 2000, partial: true });
+  });
+});
+
+describe("ether.fi Cash and Fluid", () => {
+  it("reads ether.fi Cash collateral on Optimism and a loan on Scroll, in dollars", async () => {
+    const WEEUR = "0xcc476b1a49bcdf5192561e87b6fb8ea78aa28c13";
+    const call: Call = async (rpc, to, data) => {
+      const sel = data.slice(0, 10);
+      if (sel === "0xb334ed86") return to === OWNER ? ret("0xdc515cb479a64552c5a11a57109c314e40a1a778") : "0x";
+      if (sel === "0x95d89b41") return "0x" + word(0x20) + word(5) + Buffer.from("weEUR").toString("hex").padEnd(64, "0");
+      if (rpc.includes("optimism") && sel === "0x1aefb107") return ret(0x40, 40_851_644_527, 1, WEEUR, 23_090n * 10n ** 18n);
+      if (rpc.includes("scroll") && sel === "0x186c66cc") return ret(0x40, 12_738_000_716, 1, USDC, 12_738_000_716);
+      return ret(0x40, 0, 0);
+    };
+    expect(await etherfiCash("0x3115b79b73562aa183500752a0bb11bf082765e8", call)).toEqual([]);
+    const out = await etherfiCash(OWNER, call);
+    expect(out).toEqual([
+      expect.objectContaining({ id: "optimism:etherfi-cash", assetValueUsd: 40851.64, debtValueUsd: 0, label: "ether.fi Cash collateral", symbols: ["weEUR"] }),
+      expect.objectContaining({ id: "scroll:etherfi-cash", chainName: "Scroll", assetValueUsd: 0, debtValueUsd: 12738, label: "ether.fi Cash loan" }),
+    ]);
+  });
+
+  it("reads Fluid lending from its API and skips unpriced or empty positions", async () => {
+    const get: Get = async (url) => {
+      expect(url).toBe(`https://api.fluid.instadapp.io/v2/lending/42161/users/${OWNER}/positions`);
+      return { data: [
+        { token: { address: "0xF1", asset: { symbol: "USDT", decimals: 6, price: "0.999" } }, underlyingAssets: "15110495700" },
+        { token: { address: "0xF2", asset: { symbol: "WETH", decimals: 18, price: "2345" } }, underlyingAssets: "0" },
+        { token: { address: "0xF3", asset: { symbol: "XYZ", decimals: 18 } }, underlyingAssets: "1000" },
+      ] };
+    };
+    const out = await fluidLending({ id: "arbitrum", name: "Arbitrum", rpc: "" }, OWNER, get);
+    expect(out).toEqual([expect.objectContaining({ id: "arbitrum:fluid:0xf1", protocol: "Fluid", label: "Fluid USDT lending", assetValueUsd: 15095.39, positionAddress: "0xf1" })]);
+    expect(await fluidLending({ id: "optimism", name: "Optimism", rpc: "" }, OWNER, get)).toEqual([]);
   });
 });

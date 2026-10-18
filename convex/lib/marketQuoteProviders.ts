@@ -33,7 +33,11 @@ function timeoutSignal(ms: number): AbortSignal | undefined {
 export const COINGECKO_IDS: Record<string, string> = {
   BTC: "bitcoin",
   ETH: "ethereum",
-  SOL: "solana"
+  SOL: "solana",
+  // Stablecoins carry their market price, so a loan owed in one tracks a depeg too.
+  USDC: "usd-coin",
+  USDT: "tether",
+  EURC: "euro-coin"
 };
 
 /** US-listed tickers: letters/digits with an optional class suffix (BRK.B, BF-B). */

@@ -262,6 +262,12 @@ export default defineSchema({
     interestRate: v.optional(v.number()),
     dueDate: v.optional(v.number()),
     notes: v.optional(v.string()),
+    /**
+     * A debt owed in an asset rather than money, like 0.15 BTC. Its value follows that asset's
+     * market price; `balance` and `currency` keep the last value written, for when no price is known.
+     */
+    owedSymbol: v.optional(v.string()),
+    owedQuantity: v.optional(v.number()),
     updatedAt: v.number()
   }).index("by_portfolio", ["portfolioId"]),
 

@@ -292,4 +292,81 @@ export async function morpho(chains: Chain[], owner: string, post: Post): Promis
   return { positions, failed };
 }
 
+/**
+ * ether.fi Cash: each card is a smart account whose collateral and loans sit in ether.fi's debt
+ * manager, on Optimism (current) and Scroll (where earlier loans can still be open). The manager
+ * reports totals in dollars with 6 decimals. Ordinary wallets simply have none.
+ */
+export const ETHERFI_CASH = {
+  debtManager: "0x0078c5a459132e279056b2371fe8a8ec973a9553",
+  chains: [
+    { id: "optimism", name: "Optimism", rpc: "https://optimism-rpc.publicnode.com" },
+    { id: "scroll", name: "Scroll", rpc: "https://scroll-rpc.publicnode.com" },
+  ],
+};
+
+/** Token amounts in a (token, amount)[] list that starts `at` words into an ABI result. */
+function tokenList(w: bigint[], at: number): Array<{ token: string; amount: bigint }> {
+  const n = Number(w[at]);
+  return Array.from({ length: n }, (_, k) => ({ token: address(w[at + 1 + k * 2]), amount: w[at + 2 + k * 2] }));
+}
+
+export async function etherfiCash(owner: string, call: Call): Promise<DefiPosition[]> {
+  // Only an ether.fi Cash account has dataProvider(); a plain wallet answers with no data, and the
+  // debt manager would refuse it, so it isn't asked.
+  const probe = await call(ETHERFI_CASH.chains[0].rpc, owner, "0xb334ed86");
+  if (!/^0x[0-9a-f]{64}/i.test(probe)) return [];
+  const out: DefiPosition[] = [];
+  for (const chain of ETHERFI_CASH.chains) {
+    // collateralOf / borrowingOf: (TokenData[] tokens, uint256 totalUsd) with totals in 6-decimal dollars.
+    const [collateral, borrowing] = await Promise.all([
+      call(chain.rpc, ETHERFI_CASH.debtManager, "0x1aefb107" + pad(owner)),
+      call(chain.rpc, ETHERFI_CASH.debtManager, "0x186c66cc" + pad(owner)),
+    ]);
+    const c = words(collateral), b = words(borrowing);
+    const asset = Number(c[1]) / 1e6, debt = Number(b[1]) / 1e6;
+    if (asset < MIN_POSITION_USD && debt < MIN_POSITION_USD) continue;
+    const tokens = [...tokenList(c, 2), ...tokenList(b, 2)].filter((t) => t.amount > 0n).map((t) => t.token);
+    const symbols = await Promise.all([...new Set(tokens)].map(async (t) => {
+      try {
+        const hex = await call(chain.rpc, t, "0x95d89b41"); // symbol()
+        const len = Number(BigInt("0x" + hex.slice(66, 130)));
+        return Buffer.from(hex.slice(130, 130 + len * 2), "hex").toString("utf8").slice(0, 24);
+      } catch { return null; }
+    }));
+    out.push({
+      id: `${chain.id}:etherfi-cash`, chain: chain.id, chainName: chain.name, protocol: "ether.fi Cash",
+      label: debt > 0 && asset > 0 ? "ether.fi Cash collateral and loan" : debt > 0 ? "ether.fi Cash loan" : "ether.fi Cash collateral",
+      kind: "supplied", valueUsd: round(asset - debt), assetValueUsd: round(asset), debtValueUsd: round(debt),
+      symbols: symbols.filter((x): x is string => !!x),
+    });
+  }
+  return out;
+}
+
+const FLUID_CHAINS: Record<string, number> = { ethereum: 1, base: 8453, arbitrum: 42161, polygon: 137 };
+
+/** Fluid lending (fTokens) from Fluid's public API, per chain, valued at its own prices. */
+export async function fluidLending(chain: Chain, owner: string, get: Get): Promise<DefiPosition[]> {
+  const chainId = FLUID_CHAINS[chain.id];
+  if (!chainId) return [];
+  const body = (await get(`https://api.fluid.instadapp.io/v2/lending/${chainId}/users/${owner.toLowerCase()}/positions`)) as {
+    data?: Array<{ token?: { address?: string; symbol?: string; asset?: { symbol?: string; decimals?: number; price?: string } }; underlyingAssets?: string }>;
+  };
+  if (!Array.isArray(body?.data)) throw new Error("bad response");
+  const out: DefiPosition[] = [];
+  for (const p of body.data) {
+    const a = p.token?.asset, raw = Number(p.underlyingAssets ?? 0), price = Number(a?.price);
+    if (!a || !(raw > 0) || typeof a.decimals !== "number" || !(price > 0)) continue; // Unpriced or empty.
+    const usd = round((raw / 10 ** a.decimals) * price);
+    if (usd < MIN_POSITION_USD) continue;
+    out.push({
+      id: `${chain.id}:fluid:${String(p.token?.address).toLowerCase()}`, chain: chain.id, chainName: chain.name, protocol: "Fluid",
+      label: `Fluid ${a.symbol ?? ""} lending`.replace(/\s+/g, " "), kind: "supplied", valueUsd: usd, assetValueUsd: usd, debtValueUsd: 0,
+      symbols: a.symbol ? [a.symbol] : [], ...(p.token?.address ? { positionAddress: p.token.address.toLowerCase() } : {}),
+    });
+  }
+  return out;
+}
+
 const round = (n: number) => Math.round(n * 100) / 100;
