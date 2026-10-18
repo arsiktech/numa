@@ -1,5 +1,6 @@
+import * as Haptics from 'expo-haptics';
 import { useEffect, useId, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, useAnimatedProps, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, ClipPath, Defs, Line, Path, Rect } from 'react-native-svg';
@@ -28,6 +29,27 @@ type Props = {
   /** Words for the point under the finger and for the time axis, shown only while scrubbing. */
   labels?: { times: number[]; at: (index: number) => string; tick: (t: number) => string };
 };
+
+/**
+ * Touch feel, as in a dial: a light tick each time the finger reaches another point (at most every
+ * 35 ms), and a soft tap when a date is kept. Phones only; one chart is scrubbed at a time.
+ */
+const feel = (() => {
+  let last = -1, at = 0;
+  const on = Platform.OS !== 'web';
+  return {
+    tick(i: number) {
+      if (!on || i === last) return;
+      last = i;
+      const now = Date.now();
+      if (now - at < 35) return;
+      at = now;
+      void Haptics.selectionAsync().catch(() => undefined);
+    },
+    keep() { if (on) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); },
+    reset() { last = -1; },
+  };
+})();
 
 // Room above the line for the date under the finger, and below it for the time axis.
 const TOP = 26;
@@ -81,14 +103,15 @@ export function ScrubChart({ values, times, height, up, drawKey, pinned, onPrevi
     for (let i = 1; i < n; i++) if (Math.abs(geo.frac(i) - f) < Math.abs(geo.frac(best) - f)) best = i;
     return best;
   };
-  const move = (px: number) => { const i = indexAt(px); setPreview(i); onPreview(i); };
+  const keep = (i: number) => { feel.keep(); onPin(i); };
+  const move = (px: number) => { const i = indexAt(px); feel.tick(i); setPreview(i); onPreview(i); };
   const clear = () => { setPreview(null); onPreview(null); };
   // Only a sideways drag scrubs; a vertical swipe that starts on the chart scrolls the page.
   const pan = Gesture.Pan().activeOffsetX([-6, 6]).failOffsetY([-10, 10]).runOnJS(true)
     .onStart((e) => move(e.x)).onUpdate((e) => move(e.x))
-    .onEnd((e, ok) => { if (ok) onPin(indexAt(e.x)); })
-    .onFinalize(clear);
-  const tap = Gesture.Tap().runOnJS(true).onEnd((e, ok) => { if (ok) onPin(indexAt(e.x)); });
+    .onEnd((e, ok) => { if (ok) keep(indexAt(e.x)); })
+    .onFinalize(() => { feel.reset(); clear(); });
+  const tap = Gesture.Tap().runOnJS(true).onEnd((e, ok) => { if (ok) keep(indexAt(e.x)); });
   const hover = Gesture.Hover().runOnJS(true).onUpdate((e) => move(e.x)).onEnd(clear);
   const gesture = Gesture.Simultaneous(Gesture.Exclusive(pan, tap), hover);
 
