@@ -61,6 +61,7 @@ export const cryptoWalletSnapshotValidator = v.object({
   chains: v.array(v.string()),
   failedChains: v.array(v.string()),
   tokenFailedChains: v.optional(v.array(v.string())),
+  tokenFallbackChains: v.optional(v.array(v.string())),
   defiFailedChains: v.optional(v.array(v.string())),
   defiPositionKeys: v.optional(v.array(v.string())),
   tokensTruncated: v.optional(v.boolean()),

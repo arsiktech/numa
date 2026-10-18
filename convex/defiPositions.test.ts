@@ -10,6 +10,7 @@ const UNI_BASE = "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1", COMET_USDC = "0xb
 const word = (n: bigint | number | string) => (typeof n === "string" ? n.replace(/^0x/, "").padStart(64, "0") : (BigInt(n) < 0n ? 2n ** 256n + BigInt(n) : BigInt(n)).toString(16).padStart(64, "0"));
 const ret = (...xs: Array<bigint | number | string>) => "0x" + xs.map(word).join("");
 const zero = ret(0, 0, 0, 0, 0, 0);
+const noExplorer: Get = async () => { throw new Error("explorer not expected"); };
 
 describe("DeFi positions", () => {
   it("reads open Uniswap positions newest first, with fees, and skips closed ones", async () => {
@@ -26,7 +27,7 @@ describe("DeFi positions", () => {
       if (sel === "0x0c49ccbe") return ret(10n ** 18n, 3_000_000_000); // 1 WETH and 3,000 USDC in the range.
       throw new Error(`unexpected ${sel}`);
     };
-    const drafts = await chainDrafts(BASE, OWNER, call);
+    const { drafts } = await chainDrafts(BASE, OWNER, call, noExplorer);
     expect(drafts.map((d) => d.id)).toEqual(["base:uniswap-v3:77"]);
     expect(asked).toContain("0xfc6f7865 as owner");
     expect(asked).toContain("0x0c49ccbe as owner");
@@ -48,7 +49,7 @@ describe("DeFi positions", () => {
       if (sel === "0xfc6f7865") throw new Error("reverted");
       return ret(0, 2_000_000);
     };
-    const [p] = await priceDrafts(await chainDrafts(BASE, OWNER, call), async () => ({ coins: { [`base:${WETH}`]: { price: 2000, decimals: 18, symbol: "WETH" }, [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } }));
+    const [p] = await priceDrafts((await chainDrafts(BASE, OWNER, call, noExplorer)).drafts, async () => ({ coins: { [`base:${WETH}`]: { price: 2000, decimals: 18, symbol: "WETH" }, [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } }));
     expect(p).toMatchObject({ label: "WETH / USDC 0.3% pool, out of range", assetValueUsd: 2 });
   });
 
@@ -64,7 +65,7 @@ describe("DeFi positions", () => {
       if (sel === "0x2b92a07d") return ret(100_000_000, 0); // 1 cbBTC.
       throw new Error(`unexpected ${sel}`);
     };
-    const drafts = await chainDrafts(BASE, OWNER, call);
+    const { drafts } = await chainDrafts(BASE, OWNER, call, noExplorer);
     const prices = { [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" }, [`base:${CBBTC}`]: { price: 100_000, decimals: 8, symbol: "cbBTC" } };
     const [p] = await priceDrafts(drafts, async () => ({ coins: prices }));
     expect(p).toMatchObject({ protocol: "Compound V3", label: "Compound V3 lending and borrowing", assetValueUsd: 100_000, debtValueUsd: 40_000, valueUsd: 60_000, positionAddress: COMET_USDC.toLowerCase() });
@@ -73,7 +74,7 @@ describe("DeFi positions", () => {
 
   it("fails the whole chain when one contract can't be read, so nothing is half counted", async () => {
     const call: Call = async (_rpc, to) => { if (to === COMET_USDC) throw new Error("down"); return zero; };
-    await expect(chainDrafts(BASE, OWNER, call)).rejects.toThrow();
+    await expect(chainDrafts(BASE, OWNER, call, noExplorer)).rejects.toThrow();
   });
 
   it("reads Morpho markets and vaults per chain, skips dust and unpriced markets, and treats never-used as empty", async () => {

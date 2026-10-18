@@ -146,6 +146,8 @@ export type CloudWallet = {
     chains: string[];
     failedChains: string[];
     tokenFailedChains?: string[];
+    /** Explorer down: only the main tokens on these chains were read from the chain itself. */
+    tokenFallbackChains?: string[];
     defiFailedChains?: string[];
     updatedAt: number;
     partial: boolean;

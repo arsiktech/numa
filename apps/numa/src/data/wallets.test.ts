@@ -45,6 +45,16 @@ describe('walletHolding', () => {
     expect(attention.map((a) => a.title)).toEqual(['Couldn’t check tokens on Base for Main']);
   });
 
+  it('says when only the main tokens were read because an explorer was down', () => {
+    const attention: Attention[] = [];
+    const h = walletHolding(wallet({ addressType: 'evm', label: 'Main' }, {
+      totalValueUsd: 3000, chains: ['ethereum', 'base'], failedChains: [], tokenFailedChains: [], defiFailedChains: [], tokenFallbackChains: ['base', 'polygon'],
+      tokens: [{ id: 'b', chainName: 'Base', symbol: 'ETH', name: 'Ether', quantity: '1', valueUsd: 3000 }],
+    }), 'USD', null, now, attention);
+    expect(h).toMatchObject({ valuation: { kind: 'synced', valueCents: 300_000 } });
+    expect(attention.map((a) => a.title)).toEqual(['Only main tokens counted on Base and Polygon for Main']);
+  });
+
   it('calls out an old balance and leaves out wallets not counted', () => {
     expect(walletHolding(wallet({}, { updatedAt: now - 7 * 3_600_000 }), 'USD', null, now, [])).toMatchObject({ valuation: { kind: 'missing', lastKnownCents: 4_000_000 } });
     expect(walletHolding(wallet({ includeInNetWorth: false }), 'USD', null, now, [])).toBeNull();

@@ -1,12 +1,13 @@
 /**
  * Balances for public wallet addresses from free, keyless public APIs: mempool.space for
- * Bitcoin, Blockscout explorers for EVM tokens, and public RPC nodes for DeFi positions (Aave V3,
- * Compound V3 and liquidity pools; see `defiPositions.ts`), read straight from the protocols'
- * contracts. Each chain is checked on its own; one that can't be reached is listed in
+ * Bitcoin, Blockscout explorers for EVM tokens (with the chain itself as a fallback, see
+ * `tokenFallback.ts`), and public RPC nodes for DeFi positions (Aave V3, Compound V3 and liquidity
+ * pools; see `defiPositions.ts`), read straight from the protocols' contracts. Each chain is checked on its own; one that can't be reached is listed in
  * `failedChains`, never counted as zero.
  */
 
 import { chainDrafts, morpho, priceDrafts, type Draft, type Post } from "./defiPositions";
+import { fallbackTokens } from "./tokenFallback";
 
 export type Get = (url: string) => Promise<unknown>;
 /** A JSON-RPC `eth_call` against a chain's public node, optionally as `from`; returns the hex result. */
@@ -53,6 +54,8 @@ export type PublicWalletSnapshot = {
   chains: string[];
   failedChains: string[];
   tokenFailedChains: string[];
+  /** Chains whose explorer was down, so only their main tokens were read from the chain itself. */
+  tokenFallbackChains: string[];
   defiFailedChains: string[];
   tokensFetchedAt: number;
   defiFetchedAt?: number;
@@ -164,19 +167,29 @@ async function evmChain(chain: (typeof EVM_CHAINS)[number], address: string, get
 }
 
 /** Aave, Compound and pools on one chain, before pool and Compound tokens are priced. */
-async function evmDefi(chain: (typeof EVM_CHAINS)[number], address: string, call: Call): Promise<{ aave: DefiPosition | null; drafts: Draft[] }> {
-  const [aave, drafts] = await Promise.all([aaveV3(chain, address, call), chainDrafts(chain, address, call)]);
-  return { aave, drafts };
+async function evmDefi(chain: (typeof EVM_CHAINS)[number], address: string, call: Call, get: Get): Promise<{ aave: DefiPosition | null; drafts: Draft[]; incomplete: boolean }> {
+  const [aave, { drafts, incomplete }] = await Promise.all([aaveV3(chain, address, call), chainDrafts(chain, address, call, get)]);
+  return { aave, drafts, incomplete };
+}
+
+/** A chain's tokens from its explorer, or, when the explorer is down, its main tokens from the chain. */
+async function evmTokens(chain: (typeof EVM_CHAINS)[number], address: string, get: Get, call?: Call): Promise<{ tokens: WalletToken[]; fallback: boolean }> {
+  try {
+    return { tokens: await evmChain(chain, address, get), fallback: false };
+  } catch (error) {
+    if (!call) throw error;
+    return { tokens: await fallbackTokens(chain, address, call, get), fallback: true };
+  }
 }
 
 export async function fetchPublicWallet(address: string, addressType: "bitcoin" | "evm", get: Get, now: number, call?: Call, post?: Post): Promise<PublicWalletSnapshot> {
   // Tokens and DeFi positions are read separately: a chain whose explorer is down still counts
   // its lending and pools, and the part that failed is named, never counted as zero.
   const tokenJobs = addressType === "bitcoin"
-    ? [{ id: "bitcoin", run: () => bitcoin(address, get) }]
-    : EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => evmChain(chain, address, get) }));
+    ? [{ id: "bitcoin", run: async () => ({ tokens: await bitcoin(address, get), fallback: false }) }]
+    : EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => evmTokens(chain, address, get, call) }));
   const defiJobs = addressType === "evm" && call
-    ? EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => evmDefi(chain, address, call) }))
+    ? EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => evmDefi(chain, address, call, get) }))
     : [];
   const [tokenResults, defiResults, morphoResult] = await Promise.all([
     Promise.allSettled(tokenJobs.map((job) => job.run())),
@@ -186,12 +199,18 @@ export async function fetchPublicWallet(address: string, addressType: "bitcoin" 
   let tokens: WalletToken[] = [];
   const defiPositions: DefiPosition[] = [];
   const tokenFailedChains: string[] = [];
+  const tokenFallbackChains: string[] = [];
   const defiFailed = new Set<string>();
   const drafts: Draft[] = [];
-  tokenResults.forEach((r, i) => { if (r.status === "fulfilled") tokens.push(...r.value); else tokenFailedChains.push(tokenJobs[i].id); });
+  tokenResults.forEach((r, i) => {
+    if (r.status === "rejected") { tokenFailedChains.push(tokenJobs[i].id); return; }
+    tokens.push(...r.value.tokens);
+    if (r.value.fallback) tokenFallbackChains.push(tokenJobs[i].id);
+  });
   defiResults.forEach((r, i) => {
     if (r.status === "rejected") { defiFailed.add(defiJobs[i].id); return; }
     if (r.value.aave) defiPositions.push(r.value.aave);
+    if (r.value.incomplete) defiFailed.add(defiJobs[i].id);
     drafts.push(...r.value.drafts);
   });
   if (drafts.length) {
@@ -213,7 +232,7 @@ export async function fetchPublicWallet(address: string, addressType: "bitcoin" 
   const unpriced = tokens.some((t) => t.valueUsd === undefined && Number(t.quantity) > 0);
   return {
     provider: "public", addressType, tokenValueUsd, defiValueUsd, debtValueUsd, totalValueUsd: round(tokenValueUsd + defiValueUsd - debtValueUsd),
-    tokens, defiPositions, chains, failedChains, tokenFailedChains, defiFailedChains, tokensFetchedAt: now, defiFetchedAt: defiJobs.length ? now : undefined, updatedAt: now,
-    partial: failedChains.length > 0 || unpriced,
+    tokens, defiPositions, chains, failedChains, tokenFailedChains, tokenFallbackChains, defiFailedChains, tokensFetchedAt: now, defiFetchedAt: defiJobs.length ? now : undefined, updatedAt: now,
+    partial: failedChains.length > 0 || tokenFallbackChains.length > 0 || unpriced,
   };
 }
