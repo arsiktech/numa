@@ -86,7 +86,7 @@ async function yahoo(symbol: string, range: ChartRange, now: number, get: Get): 
 
 export async function fetchSeries(symbol: string, kind: "crypto" | "stock", range: ChartRange, now: number, get: Get): Promise<Series | null> {
   const s = symbol.toUpperCase();
-  if (!/^[A-Z0-9.\-]{1,15}$/.test(s) || STABLE.has(s)) return null;
+  if (!/^[A-Z0-9.-]{1,15}$/.test(s) || STABLE.has(s)) return null;
   try {
     return kind === "crypto" ? await coinbase(s, range, now, get) : await yahoo(s, range, now, get);
   } catch {
