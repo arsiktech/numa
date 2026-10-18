@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { requireEditor } from "./access";
-import { assertAssetBalance, assertPositiveAmount, cleanRequired } from "./inputGuards";
+import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanRequired } from "./inputGuards";
 import type { Doc } from "../_generated/dataModel";
 import { withMutationReceipt } from "./mutationReceipts";
 import { refreshQuoteSoon } from "./quoteRefresh";
@@ -178,10 +178,12 @@ const upsertAsset = mutation({
     balance: v.number(),
     currency: currencyValidator,
     notes: v.optional(v.string()),
+    location: v.optional(v.string()),
     clientMutationId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
+    const location = cleanLocation(args.location);
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertAsset", async () => {
       if (args.id) {
         const existing = await ctx.db.get(args.id);
@@ -197,6 +199,7 @@ const upsertAsset = mutation({
           balance: args.balance,
           currency: args.currency,
           notes: args.notes?.trim() || undefined,
+          ...location,
           updatedAt: Date.now()
         });
         return args.id;
@@ -209,6 +212,7 @@ const upsertAsset = mutation({
         balance: args.balance,
         currency: args.currency,
         notes: args.notes?.trim() || undefined,
+        ...location,
         updatedAt: Date.now()
       });
     }, args.portfolioId);
@@ -309,11 +313,13 @@ const upsertHolding = mutation({
     costBasis: v.number(),
     currency: currencyValidator,
     acquiredAt: v.number(),
+    location: v.optional(v.string()),
     clientMutationId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
     assertPositiveAmount(args.quantity);
+    const location = cleanLocation(args.location);
     assertPositiveAmount(args.costBasis);
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertHolding", async () => {
       const patch = {
@@ -323,7 +329,8 @@ const upsertHolding = mutation({
         quantity: args.quantity,
         costBasis: args.costBasis,
         currency: args.currency,
-        acquiredAt: args.acquiredAt
+        acquiredAt: args.acquiredAt,
+        ...location
       };
       if (args.id) {
         const existing = await ctx.db.get(args.id);

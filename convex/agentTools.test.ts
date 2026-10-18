@@ -48,6 +48,15 @@ describe("agent tools", () => {
     expect(f.writes()[0][2]).toMatchObject({ portfolioId: "p2", balance: 1200.5, currency: "USD", clientMutationId: "scoped:same-id" });
   });
 
+  it("passes where a holding is kept only when the agent says it", async () => {
+    const f = fakeIo();
+    const base = { symbol: "BTC", name: "Bitcoin", kind: "crypto", quantity: 0.1, cost_basis: 5000 };
+    await tool("save_holding").run(f.io, { ...base, location: "Ledger" });
+    await tool("save_holding").run(f.io, { ...base, id: "h1" });
+    expect(f.writes()[0][2]).toMatchObject({ location: "Ledger" });
+    expect("location" in (f.writes()[1][2] as object)).toBe(false);
+  });
+
   it("turns a plain date into midday UTC so it stays on that day", () => {
     expect(new Date(toMs("2026-10-01", "date")).toISOString()).toBe("2026-10-01T12:00:00.000Z");
     expect(toMs("2026-10-01T08:30:00Z", "date")).toBe(Date.UTC(2026, 9, 1, 8, 30));

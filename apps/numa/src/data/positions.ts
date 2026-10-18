@@ -1,4 +1,4 @@
-import type { CloudHolding, CloudWallet } from '@/cloud/api';
+import type { CloudAsset, CloudHolding, CloudWallet } from '@/cloud/api';
 import type { Currency } from '@/domain/types';
 import { convertCents, type FxRate } from './fx';
 import type { GroupId, Item } from './items';
@@ -10,7 +10,7 @@ import type { GroupId, Item } from './items';
  */
 
 /** One part of a record that holds several things, like a wallet with BTC and an Aave deposit. */
-export type Piece = { key: string; name: string; unit: string | null; quantity: number | null; valueCents: number | null; detail: string | null; tag?: 'pledged' | 'lent' | 'locked'; /** Where this piece is, when the record's own name doesn't say. */ where?: string };
+export type Piece = { key: string; name: string; unit: string | null; quantity: number | null; valueCents: number | null; detail: string | null; tag?: 'pledged' | 'lent' | 'locked' | 'pool'; /** Where this piece is, when the record's own name doesn't say. */ where?: string };
 
 /** Where (part of) a position sits. Opens the record it comes from. */
 export type Place = { itemId: string; itemType: Item['type']; where: string; detail: string | null; quantity: number | null; unit: string | null; valueCents: number | null; tag?: Piece['tag'] };
@@ -37,12 +37,21 @@ export function walletPieces(w: CloudWallet, currency: Currency, fx: FxRate | nu
     detail: `${shortAddress(w.address)} · ${t.chainName}`,
   }));
   for (const p of s.defiPositions ?? []) {
-    pieces.push({ key: `lent:${p.protocol}`, name: `Lent on ${p.protocol}`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail: `${shortAddress(w.address)} · ${p.protocol} on ${p.chainName}`, tag: 'lent' });
+    const detail = `${shortAddress(w.address)} · ${p.protocol} on ${p.chainName}`;
+    // A pool is its own position, named by its pair; lending merges by protocol.
+    if (p.kind === 'liquidity') {
+      const pair = (p.symbols ?? []).join(' / ') || p.label;
+      pieces.push({ key: `pool:${p.protocol}:${pair}`, name: `${pair} pool`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail, tag: 'pool' });
+    } else {
+      pieces.push({ key: `lent:${p.protocol}`, name: `Lent on ${p.protocol}`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail, tag: 'lent' });
+    }
   }
   return pieces;
 }
 
 const QTY = /^([\d.,]+)\s+(\S+)$/;
+/** A record's own "where it is", when the person saved one. */
+const placeOf = (r: { location?: string | null }): Pick<Piece, 'where'> => (r.location ? { where: r.location } : {});
 
 /** What one record contributes, as pieces. Plain records are one piece of themselves. */
 function piecesOf(item: Item): Piece[] {
@@ -50,16 +59,16 @@ function piecesOf(item: Item): Piece[] {
   if (item.type === 'holding') {
     const h = item.raw as CloudHolding;
     const symbol = h.symbol.toUpperCase();
-    return [{ key: symbol, name: COINS[symbol] ?? (h.name || symbol), unit: h.symbol, quantity: h.quantity, valueCents: item.valueCents, detail: null }];
+    return [{ key: symbol, name: COINS[symbol] ?? (h.name || symbol), unit: h.symbol, quantity: h.quantity, valueCents: item.valueCents, detail: null, ...placeOf(h) }];
   }
   if (item.type === 'asset' && item.group === 'cash') {
     const cur = (item.raw as { currency?: string }).currency ?? '';
-    return [{ key: `cur:${cur}`, name: CURRENCIES[cur] ?? cur, unit: cur, quantity: null, valueCents: item.valueCents, detail: null }];
+    return [{ key: `cur:${cur}`, name: CURRENCIES[cur] ?? cur, unit: cur, quantity: null, valueCents: item.valueCents, detail: null, ...(item.raw as CloudAsset).location ? { where: `${item.name} · ${(item.raw as CloudAsset).location}` } : {} }];
   }
   // Demo records carry their amount in the detail, like "1 BTC". Only coins merge by unit.
   const m = item.group === 'crypto' && item.detail ? item.detail.match(QTY) : null;
   if (m) return [{ key: m[2].toUpperCase(), name: COINS[m[2].toUpperCase()] ?? item.name, unit: m[2], quantity: Number(m[1].replace(/,/g, '')), valueCents: item.valueCents, detail: null }];
-  return [{ key: `item:${item.id}`, name: item.name, unit: null, quantity: null, valueCents: item.valueCents, detail: item.detail }];
+  return [{ key: `item:${item.id}`, name: item.name, unit: null, quantity: null, valueCents: item.valueCents, detail: item.detail, ...(item.type === 'asset' ? placeOf(item.raw as CloudAsset) : {}) }];
 }
 
 /** The positions in one group, biggest first, with every place each one sits. */

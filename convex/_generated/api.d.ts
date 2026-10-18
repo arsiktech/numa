@@ -40,6 +40,7 @@ import type * as lib_authEmailRateLimit from "../lib/authEmailRateLimit.js";
 import type * as lib_authRedirect from "../lib/authRedirect.js";
 import type * as lib_avatarImage from "../lib/avatarImage.js";
 import type * as lib_cryptoValidators from "../lib/cryptoValidators.js";
+import type * as lib_defiPositions from "../lib/defiPositions.js";
 import type * as lib_diagnosticPrivacy from "../lib/diagnosticPrivacy.js";
 import type * as lib_finance from "../lib/finance.js";
 import type * as lib_financeValidators from "../lib/financeValidators.js";
@@ -134,6 +135,7 @@ declare const fullApi: ApiFromModules<{
   "lib/authRedirect": typeof lib_authRedirect;
   "lib/avatarImage": typeof lib_avatarImage;
   "lib/cryptoValidators": typeof lib_cryptoValidators;
+  "lib/defiPositions": typeof lib_defiPositions;
   "lib/diagnosticPrivacy": typeof lib_diagnosticPrivacy;
   "lib/finance": typeof lib_finance;
   "lib/financeValidators": typeof lib_financeValidators;

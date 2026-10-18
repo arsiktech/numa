@@ -1,13 +1,16 @@
 /**
  * Balances for public wallet addresses from free, keyless public APIs: mempool.space for
- * Bitcoin, Blockscout explorers for EVM tokens, and public RPC nodes for lending positions
- * (Aave V3), read straight from the protocol's contracts. Each chain is checked on its own; one
- * that can't be reached is listed in `failedChains`, never counted as zero.
+ * Bitcoin, Blockscout explorers for EVM tokens, and public RPC nodes for DeFi positions (Aave V3,
+ * Compound V3 and liquidity pools; see `defiPositions.ts`), read straight from the protocols'
+ * contracts. Each chain is checked on its own; one that can't be reached is listed in
+ * `failedChains`, never counted as zero.
  */
 
+import { chainDrafts, morpho, priceDrafts, type Draft, type Post } from "./defiPositions";
+
 export type Get = (url: string) => Promise<unknown>;
-/** A JSON-RPC `eth_call` against a chain's public node; returns the hex result. */
-export type Call = (rpcUrl: string, to: string, data: string) => Promise<string>;
+/** A JSON-RPC `eth_call` against a chain's public node, optionally as `from`; returns the hex result. */
+export type Call = (rpcUrl: string, to: string, data: string, from?: string) => Promise<string>;
 
 export type WalletToken = {
   id: string;
@@ -29,7 +32,8 @@ export type DefiPosition = {
   chainName: string;
   protocol: string;
   label: string;
-  kind: "supplied" | "borrowed";
+  kind: "supplied" | "borrowed" | "liquidity";
+  positionAddress?: string;
   valueUsd: number;
   assetValueUsd: number;
   debtValueUsd: number;
@@ -159,26 +163,47 @@ async function evmChain(chain: (typeof EVM_CHAINS)[number], address: string, get
   return [...out, ...tokens.slice(0, MAX_TOKENS_PER_CHAIN)];
 }
 
-export async function fetchPublicWallet(address: string, addressType: "bitcoin" | "evm", get: Get, now: number, call?: Call): Promise<PublicWalletSnapshot> {
-  // Tokens and lending positions are read separately: a chain whose explorer is down still
-  // counts its Aave position, and the part that failed is named, never counted as zero.
+/** Aave, Compound and pools on one chain, before pool and Compound tokens are priced. */
+async function evmDefi(chain: (typeof EVM_CHAINS)[number], address: string, call: Call): Promise<{ aave: DefiPosition | null; drafts: Draft[] }> {
+  const [aave, drafts] = await Promise.all([aaveV3(chain, address, call), chainDrafts(chain, address, call)]);
+  return { aave, drafts };
+}
+
+export async function fetchPublicWallet(address: string, addressType: "bitcoin" | "evm", get: Get, now: number, call?: Call, post?: Post): Promise<PublicWalletSnapshot> {
+  // Tokens and DeFi positions are read separately: a chain whose explorer is down still counts
+  // its lending and pools, and the part that failed is named, never counted as zero.
   const tokenJobs = addressType === "bitcoin"
     ? [{ id: "bitcoin", run: () => bitcoin(address, get) }]
     : EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => evmChain(chain, address, get) }));
   const defiJobs = addressType === "evm" && call
-    ? EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => aaveV3(chain, address, call) }))
+    ? EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => evmDefi(chain, address, call) }))
     : [];
-  const [tokenResults, defiResults] = await Promise.all([
+  const [tokenResults, defiResults, morphoResult] = await Promise.all([
     Promise.allSettled(tokenJobs.map((job) => job.run())),
     Promise.allSettled(defiJobs.map((job) => job.run())),
+    defiJobs.length && post ? morpho([...EVM_CHAINS], address, post).catch(() => null) : Promise.resolve(undefined),
   ]);
-  const tokens: WalletToken[] = [];
+  let tokens: WalletToken[] = [];
   const defiPositions: DefiPosition[] = [];
   const tokenFailedChains: string[] = [];
-  const defiFailedChains: string[] = [];
+  const defiFailed = new Set<string>();
+  const drafts: Draft[] = [];
   tokenResults.forEach((r, i) => { if (r.status === "fulfilled") tokens.push(...r.value); else tokenFailedChains.push(tokenJobs[i].id); });
-  defiResults.forEach((r, i) => { if (r.status === "fulfilled") { if (r.value) defiPositions.push(r.value); } else defiFailedChains.push(defiJobs[i].id); });
-  const ids = tokenJobs.map((job) => job.id);
+  defiResults.forEach((r, i) => {
+    if (r.status === "rejected") { defiFailed.add(defiJobs[i].id); return; }
+    if (r.value.aave) defiPositions.push(r.value.aave);
+    drafts.push(...r.value.drafts);
+  });
+  if (drafts.length) {
+    try { defiPositions.push(...await priceDrafts(drafts, get)); } catch { drafts.forEach((d) => defiFailed.add(d.chain.id)); }
+  }
+  if (morphoResult === null) EVM_CHAINS.forEach((c) => defiFailed.add(c.id));
+  else if (morphoResult) { defiPositions.push(...morphoResult.positions); morphoResult.failed.forEach((c) => defiFailed.add(c)); }
+  const defiFailedChains: string[] = defiJobs.map((job) => job.id).filter((id) => defiFailed.has(id));
+  // A Compound market or a Morpho vault is also a token in the wallet; it is counted once, as the position.
+  const inDefi = new Set(defiPositions.map((p) => p.positionAddress).filter(Boolean));
+  tokens = tokens.filter((t) => !t.tokenAddress || !inDefi.has(t.tokenAddress));
+  const ids: string[] = tokenJobs.map((job) => job.id);
   const chains = ids.filter((id) => !tokenFailedChains.includes(id) || (defiJobs.length > 0 && !defiFailedChains.includes(id)));
   const failedChains = ids.filter((id) => tokenFailedChains.includes(id) || defiFailedChains.includes(id));
   if (!chains.length) throw new Error("No chain could be checked");

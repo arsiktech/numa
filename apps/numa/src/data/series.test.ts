@@ -1,4 +1,4 @@
-import { changeLabel, seriesFor, tickLabel, todayFromMarkets } from './series';
+import { changeLabel, priceText, seriesFor, tickLabel, todayFromMarkets } from './series';
 
 const DAY = 86_400_000;
 const now = Date.UTC(2026, 9, 12, 9);
@@ -50,5 +50,13 @@ describe('scrub axis labels', () => {
     expect(changeLabel(100, 100)).toBe('0%');
     expect(changeLabel(-50, -100)).toBe('+50%');
     expect(changeLabel(5, 0)).toBeNull();
+  });
+});
+
+describe('priceText', () => {
+  it('shows dollars and cents, and more digits for coins under a dollar', () => {
+    expect(priceText(81071.684)).toBe('$81,071.68');
+    expect(priceText(0.000123456)).toBe('$0.0001235');
+    expect(priceText(1)).toBe('$1.00');
   });
 });

@@ -14,6 +14,17 @@ export function assertAssetBalance(balance: number) {
  * keeping one definition keeps error codes and messages consistent.
  */
 
+/**
+ * Where a record is kept. Undefined leaves the saved place as it is, so older clients that don't
+ * know the field never erase it; an empty string clears it.
+ */
+export function cleanLocation(value: string | undefined): { location?: string } | Record<string, never> {
+  if (value === undefined) return {};
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (trimmed.length > 60) throw new ConvexError({ code: "INVALID_INPUT", message: "Keep where it is to 60 characters" });
+  return { location: trimmed || undefined };
+}
+
 export function cleanRequired(value: string, label: string) {
   const trimmed = value.trim();
   if (!trimmed) {

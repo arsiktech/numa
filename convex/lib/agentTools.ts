@@ -41,6 +41,9 @@ const num = (description: string, extra: Json = {}): Json => ({ type: "number", 
 const spaceId = str("Space (portfolio) id from list_spaces. Leave out to use the space the user has open.");
 const currency = str("Currency code. Leave out to use the space's currency.", { enum: [...CURRENCIES] });
 const requestId = str("Optional id for this write. Sending the same id again never saves twice.");
+const where = str("Where it is kept, like Trade Republic, Ledger or Binance. Leave out to keep what is saved; send an empty string to clear it.");
+/** `location` only when the agent sent it, so an update without it keeps the saved place. */
+const place = (args: Json) => (typeof args.location === "string" ? { location: args.location } : {});
 const schema = (properties: Record<string, Json>, required: string[] = []): Schema =>
   ({ type: "object", properties, ...(required.length ? { required } : {}), additionalProperties: false });
 
@@ -249,13 +252,13 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "save_asset", title: "Add or update an asset", write: true,
     description: "Cash accounts, property, vehicles, collectibles. Send id to update an existing one; leave it out to add a new one.",
-    inputSchema: schema({ id: str("Asset id to update."), space_id: spaceId, name: str("Name, like Revolut EUR or Flat in Lisbon."), kind: str("Kind of asset.", { enum: ["cash", "real_estate", "vehicle", "collectible", "other"] }), balance: num("Current value."), currency, request_id: requestId }, ["name", "kind", "balance"]),
+    inputSchema: schema({ id: str("Asset id to update."), space_id: spaceId, name: str("Name, like Revolut EUR or Flat in Lisbon."), kind: str("Kind of asset.", { enum: ["cash", "real_estate", "vehicle", "collectible", "other"] }), balance: num("Current value."), currency, location: where, request_id: requestId }, ["name", "kind", "balance"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
       return io.mutation("mobile:upsertAsset", {
         ...(text(args, "id", false) ? { id: text(args, "id") } : {}), portfolioId: space.id, name: text(args, "name"),
         kind: oneOf(args, "kind", ["cash", "real_estate", "vehicle", "collectible", "other"] as const), balance: amount(args, "balance"),
-        currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, ...write(io, args),
+        currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, ...place(args), ...write(io, args),
       });
     },
   },
@@ -288,13 +291,13 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "save_holding", title: "Add or update a holding", write: true,
     description: "Stocks, ETFs, index funds and crypto by symbol. Numa prices them live from the market. cost_basis is the total paid. Send id to update.",
-    inputSchema: schema({ id: str("Holding id to update."), space_id: spaceId, symbol: str("Ticker, like AAPL, VWCE or BTC."), name: str("Name, like Apple or Bitcoin."), kind: str("Kind.", { enum: ["stock", "etf", "crypto", "index"] }), quantity: num("How many.", { exclusiveMinimum: 0 }), cost_basis: num("Total paid.", { exclusiveMinimum: 0 }), currency, acquired_at: str("When bought, like 2024-03-01. Default today."), request_id: requestId }, ["symbol", "name", "kind", "quantity", "cost_basis"]),
+    inputSchema: schema({ id: str("Holding id to update."), space_id: spaceId, symbol: str("Ticker, like AAPL, VWCE or BTC."), name: str("Name, like Apple or Bitcoin."), kind: str("Kind.", { enum: ["stock", "etf", "crypto", "index"] }), quantity: num("How many.", { exclusiveMinimum: 0 }), cost_basis: num("Total paid.", { exclusiveMinimum: 0 }), currency, acquired_at: str("When bought, like 2024-03-01. Default today."), location: where, request_id: requestId }, ["symbol", "name", "kind", "quantity", "cost_basis"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
       return io.mutation("mobile:upsertHolding", {
         ...(text(args, "id", false) ? { id: text(args, "id") } : {}), portfolioId: space.id, symbol: text(args, "symbol"), name: text(args, "name"),
         kind: oneOf(args, "kind", ["stock", "etf", "crypto", "index"] as const), quantity: amount(args, "quantity"), costBasis: amount(args, "cost_basis"),
-        currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, acquiredAt: date(args, "acquired_at", io.now()), ...write(io, args),
+        currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, acquiredAt: date(args, "acquired_at", io.now()), ...place(args), ...write(io, args),
       });
     },
   },

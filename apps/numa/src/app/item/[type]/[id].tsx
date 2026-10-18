@@ -81,6 +81,7 @@ function Facts({ item, gainCents, now }: { item: Item; gainCents?: number | null
         {item.type === 'asset' && <Fact label="Updated" value={shortDay((raw as CloudAsset).updatedAt, now)} />}
         {item.type === 'liability' && <Fact label="Kind" value={item.detail ?? ''} />}
         {item.type === 'liability' && <Fact label="Due" value={(raw as CloudLiability).dueDate ? shortDay((raw as CloudLiability).dueDate!, now) : 'No due date'} />}
+        {(item.type === 'holding' || item.type === 'asset') && <Fact label="Where it is" value={(raw as CloudHolding | CloudAsset).location || 'Not set'} />}
         {'currency' in raw && <Fact label="Currency" value={raw.currency} />}
       </View>
     </View>
@@ -174,6 +175,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
               )}
             </>
           )}
+          {item.type !== 'liability' && <Field label={item.type === 'holding' ? 'Where it is (like Trade Republic or Ledger)' : 'Where it is (like a bank or a safe)'} value={(form as AssetFields | HoldingFields).location} onChangeText={(t) => set({ location: t })} />}
           <Seg label="Currency" options={[['EUR', '€ EUR'], ['USD', '$ USD']]} value={form.currency} onChange={(v) => set({ currency: v })} />
           {problems.length > 0 && <Txt v="small" c="warn">{problems[0]}</Txt>}
         </View>

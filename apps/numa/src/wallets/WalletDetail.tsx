@@ -95,15 +95,16 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
           </View>
         );
       })}
-      {(w.snapshot?.defiPositions ?? []).length > 0 && <Txt v="label" c="ink3" style={{ marginTop: 24 }}>LENT AND BORROWED</Txt>}
+      {(w.snapshot?.defiPositions ?? []).length > 0 && <Txt v="label" c="ink3" style={{ marginTop: 24 }}>LENDING AND POOLS</Txt>}
       {(w.snapshot?.defiPositions ?? []).map((p) => {
         const usd = (n: number) => convertCents(Math.round(n * 100), 'USD', currency, fx);
         const lent = usd(p.assetValueUsd), owed = usd(p.debtValueUsd);
         return (
           <View key={p.id} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.line, gap: 4 }}>
             <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{p.protocol} · {p.chainName}</Txt>
+            {p.label !== `${p.protocol} lending` && p.label !== `${p.protocol} lending and borrowing` && <Txt v="small" c="ink3">{p.label}</Txt>}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Txt v="body" c="ink2">Lent</Txt>
+              <Txt v="body" c="ink2">{p.kind === 'liquidity' ? 'In the pool, with fees' : 'Lent'}</Txt>
               <Txt v="figureSm" style={{ fontSize: 14 }}>{lent === null ? 'No rate' : money(lent)}</Txt>
             </View>
             {p.debtValueUsd > 0 && (

@@ -76,6 +76,7 @@ export function mobileAsset(asset: Doc<"assets">) {
     balance: asset.balance,
     currency: asset.currency,
     notes: asset.notes ?? null,
+    location: asset.location ?? null,
     updatedAt: asset.updatedAt
   };
 }
@@ -107,6 +108,7 @@ export function mobileHolding(holding: Doc<"holdings">, quote: Doc<"marketQuotes
     costBasis: holding.costBasis,
     currency: holding.currency,
     acquiredAt: holding.acquiredAt,
+    location: holding.location ?? null,
     marketPrice: valuation.marketPrice,
     marketValue: valuation.marketValue,
     marketValueCurrency: valuation.marketValueCurrency,

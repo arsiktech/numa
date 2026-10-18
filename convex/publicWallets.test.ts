@@ -80,7 +80,7 @@ describe("fetchPublicWallet", () => {
     const calls: string[] = [];
     const call: Call = async (rpc, to, data) => {
       calls.push(`${rpc} ${to} ${data.slice(0, 10)}`);
-      if (rpc.includes("base")) return account;
+      if (to === "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5") return account;
       if (rpc.includes("polygon")) throw new Error("down");
       return "0x" + word(0n).repeat(6);
     };
@@ -108,5 +108,42 @@ describe("fetchPublicWallet", () => {
     expect(isAaveToken("aArbWETH", "")).toBe(true);
     expect(isAaveToken("AAVE", "Aave Token")).toBe(false);
     expect(isAaveToken("axlUSDC", "Axelar Wrapped USDC")).toBe(false);
+  });
+});
+
+describe("fetchPublicWallet with lending and pools", () => {
+  const word = (n: bigint | string) => (typeof n === "string" ? n.replace(/^0x/, "").padStart(64, "0") : (n < 0n ? 2n ** 256n + n : n).toString(16).padStart(64, "0"));
+  const COMET = "0xb125e6687d4313864e53df431d5425969c15eb2f", USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
+  const call: Call = async (_rpc, to, data) => {
+    if (to.toLowerCase() !== COMET) return "0x" + word(0n).repeat(6);
+    const sel = data.slice(0, 10);
+    if (sel === "0xdc4abafd") return "0x" + [5n, 0n, 0n, 0n, 0n].map(word).join("");
+    if (sel === "0xc55dae63") return "0x" + word(USDC);
+    return "0x" + word(1_000_000_000n); // 1,000 USDC supplied.
+  };
+  const explorer = {
+    [`https://base.blockscout.com/api/v2/addresses/${EVM}/tokens`]: { items: [
+      { value: "1000000000", token: { address_hash: COMET, symbol: "cUSDCv3", name: "Compound USDC", decimals: "6", exchange_rate: "1", reputation: "ok" } },
+    ] },
+    [`https://base.blockscout.com/api/v2/addresses/${EVM}`]: { coin_balance: "0", exchange_rate: "2500" },
+  };
+
+  it("counts Compound and Morpho once each, as positions, not again as wallet tokens", async () => {
+    const s = await fetchPublicWallet(EVM, "evm", fake({ ...explorer, "https://coins.llama.fi/": { coins: { [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } } }), 1000, call, async () => ({
+      data: { ethereum: null, base: { marketPositions: [], vaultPositions: [{ vault: { name: "Spark USDC Vault", address: "0x7bfa", asset: { symbol: "USDC" } }, state: { assetsUsd: 250 } }] }, arbitrum: null, optimism: null, polygon: null },
+      errors: ["ethereum", "arbitrum", "optimism", "polygon"].map((c) => ({ path: [c], status: "NOT_FOUND" })),
+    }));
+    expect(s.tokens).toEqual([]);
+    expect(s.defiPositions.map((p) => [p.protocol, p.assetValueUsd])).toEqual([["Compound V3", 1000], ["Morpho", 250]]);
+    expect(s.defiFailedChains).toEqual([]);
+    expect(s.totalValueUsd).toBe(1250);
+  });
+
+  it("names the chains whose positions couldn't be priced or read, and still counts the rest", async () => {
+    const s = await fetchPublicWallet(EVM, "evm", fake({ ...explorer, "https://coins.llama.fi/": new Error("down") }), 1000, call, async () => { throw new Error("down"); });
+    expect(s.defiPositions).toEqual([]);
+    expect(s.defiFailedChains).toEqual(["ethereum", "base", "arbitrum", "optimism", "polygon"]);
+    expect(s.tokens.map((t) => t.symbol)).toEqual(["cUSDCv3"]);
+    expect(s.partial).toBe(true);
   });
 });
