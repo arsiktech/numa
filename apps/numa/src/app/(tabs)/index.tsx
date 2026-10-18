@@ -7,7 +7,7 @@ import { useSession } from '@/cloud/session';
 import { formatMoney, formatPercent } from '@/domain/money';
 import { compositionAt } from '@/data/composition';
 import { dayGroupOf, type DayGroup } from '@/data/day';
-import { pointLabel, rangeWords, ranges, type Range } from '@/data/series';
+import { pointLabel, rangeWords, ranges, tickLabel, type Range } from '@/data/series';
 import { useCloudHome, useDemoHome, type HomeModel } from '@/data/useHome';
 import { usePrefs } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
@@ -200,7 +200,8 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         ) : showChange ? (
           <>
             <Txt v="figure" style={{ fontSize: 15, color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
-            <Txt v="body" c="ink2">{scrub !== null ? pointLabel(points[idx].t, range, model.now) : rangeWords(range, points[0].t)}</Txt>
+            {/* A picked date shows above the chart, by the point; here only the change since the start. */}
+            {scrub === null && <Txt v="body" c="ink2">{rangeWords(range, points[0].t)}</Txt>}
           </>
         ) : (
           model.empty ? null : <Txt v="body" c="ink2">{lens !== 'net' && !chartFollowsLens ? 'Today' : 'History starts today'}</Txt>
@@ -237,6 +238,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   const chart = showChart ? (
     <View style={{ marginHorizontal: wide ? 0 : -20 }}>
       <ScrubChart values={values} times={model.source === 'cloud' ? points.map((p) => p.t) : undefined} height={chartHeight} up={up} drawKey={range + (chartFollowsLens ? lens : 'net')} pinned={pinned}
+        labels={{ times: points.map((p) => p.t), at: (i) => pointLabel(points[i].t, range, model.now), tick: (t) => tickLabel(t, range) }}
         onPreview={(i) => { setPreview(i); if (i !== null && coach) seeTip(COACH); }}
         onPin={(i) => { setPreview(null); setPinnedAt(i >= points.length - 1 ? null : points[i].t); if (coach) seeTip(COACH); }} />
       {coach && <CoachTip title="Drag the line to go back in time" body="Let go to stay on that date, then tap a block to see what was in it." top={chartHeight * 0.45} width={wide ? 1000 : width} onDismiss={() => seeTip(COACH)} />}
