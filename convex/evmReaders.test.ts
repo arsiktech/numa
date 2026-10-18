@@ -165,6 +165,8 @@ describe("ether.fi Cash and Fluid", () => {
       return ret(0x40, 0, 0);
     };
     expect(await etherfiCash("0x3115b79b73562aa183500752a0bb11bf082765e8", call)).toEqual([]);
+    const refuses: Call = async (rpc, to, data) => (data.startsWith("0xb334ed86") ? Promise.reject(new Error("execution reverted")) : call(rpc, to, data));
+    expect(await etherfiCash("0xbce2bd513714d294ded39c7e6a5bc52020588289", refuses)).toEqual([]);
     const out = await etherfiCash(OWNER, call);
     expect(out).toEqual([
       expect.objectContaining({ id: "optimism:etherfi-cash", assetValueUsd: 40851.64, debtValueUsd: 0, label: "ether.fi Cash collateral", symbols: ["weEUR"] }),
