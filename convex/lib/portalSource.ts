@@ -58,7 +58,11 @@ export async function fetchCompanyBalance(url: string, key: string | undefined, 
   const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json, text/event-stream", ...(key ? { authorization: `Bearer ${key}` } : {}) };
   const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "company_balance", arguments: {} } });
   let response: Awaited<ReturnType<Post>>;
-  try { response = await post(url, headers, body); } catch { return { status: "failed", message: "The portal didn't answer" }; }
+  try { response = await post(url, headers, body); } catch (error) {
+    // Say what went wrong, so a link that never reaches the portal can be told apart from a slow one.
+    const why = error instanceof Error ? (error.name === "TimeoutError" ? "it took too long" : error.message) : "";
+    return { status: "failed", message: clip(why ? `The portal didn't answer: ${why}` : "The portal didn't answer") };
+  }
   if (response.status === 401 || response.status === 403) return { status: "failed", message: "The portal refused the link. It may have been disconnected" };
   if (!response.ok) return { status: "failed", message: `The portal answered with an error (${response.status})` };
   const reply = rpcReply(response.text);
