@@ -171,8 +171,8 @@ describe("ether.fi Cash and Fluid", () => {
       if (sel === "0x95d89b41") return "0x" + word(0x20) + word(5) + Buffer.from("weEUR").toString("hex").padEnd(64, "0");
       if (rpc.includes("optimism") && sel === "0x1aefb107") return ret(0x40, 40_851_644_527, 1, WEEUR, 23_090n * 10n ** 18n);
       if (rpc.includes("scroll") && sel === "0x186c66cc") return ret(0x40, 12_738_000_716, 1, USDC, 12_738_000_716);
-      if (sel === "0xc5b66b4a") return ret(26_536_750_000); // convertCollateralTokenToUsd: ether.fi values its own tokens.
-      if (sel === "0x313ce567") return ret(18);
+      // convertCollateralTokenToUsd (ether.fi values its own tokens) and decimals(), in one Multicall3 request.
+      if (to === MULTICALL) return multicallAnswer(data, (_t, d) => (d.startsWith("0xc5b66b4a") ? ret(26_536_750_000) : d.startsWith("0x313ce567") ? ret(18) : null));
       return ret(0x40, 0, 0);
     };
     expect(await etherfiCash("0x3115b79b73562aa183500752a0bb11bf082765e8", call)).toEqual([]);

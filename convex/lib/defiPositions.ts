@@ -428,13 +428,16 @@ async function tokenSymbol(rpc: string, token: string, call: Call): Promise<stri
  * manager values each one (convertCollateralTokenToUsd, 6-decimal dollars). Loans are priced by DefiLlama.
  */
 async function etherfiAssets(chain: Chain, held: Array<{ token: string; amount: bigint }>, owed: Array<{ token: string; amount: bigint }>, names: Map<string, string | null>, call: Call, get?: Get): Promise<DefiAsset[] | null> {
-  const own = await Promise.all(held.map(async (t) => {
-    const [usd] = words(await call(chain.rpc, ETHERFI_CASH.debtManager, "0xc5b66b4a" + pad(t.token) + uint(t.amount)));
-    const [decimals] = words(await call(chain.rpc, t.token, "0x313ce567")); // decimals()
-    const symbol = names.get(t.token);
-    if (!symbol) throw new Error("no symbol");
+  // One Multicall3 request: a public node refuses a burst of a dozen separate calls.
+  const results = await multicall(call, chain.rpc, held.flatMap((t) => [
+    { to: ETHERFI_CASH.debtManager, data: "0xc5b66b4a" + pad(t.token) + uint(t.amount) }, // convertCollateralTokenToUsd
+    { to: t.token, data: "0x313ce567" }, // decimals()
+  ]));
+  const own = held.map((t, i) => {
+    const usd = firstWord(results[i * 2]), decimals = firstWord(results[i * 2 + 1]), symbol = names.get(t.token);
+    if (usd === null || decimals === null || !symbol) throw new Error("bad response");
     return { symbol, quantity: String(Number((Number(t.amount) / 10 ** Number(decimals)).toPrecision(12))), valueUsd: round(Number(usd) / 1e6) };
-  }));
+  });
   const debt = owed.length ? (get ? await priceLegs(chain.id, owed.map((t) => ({ token: t.token, raw: Number(t.amount), debt: true })), get) : null) : [];
   if (!debt) return null;
   return [...own.filter((a) => a.valueUsd >= 0.01).sort((a, b) => b.valueUsd - a.valueUsd), ...debt];
