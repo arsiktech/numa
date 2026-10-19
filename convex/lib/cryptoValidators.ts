@@ -45,7 +45,9 @@ export const cryptoDefiPositionValidator = v.object({
   debtValueUsd: v.number(),
   apy: v.optional(v.number()),
   healthFactor: v.optional(v.number()),
-  symbols: v.array(v.string())
+  symbols: v.array(v.string()),
+  /** What the position holds and owes, token by token, when every part of it is priced. */
+  assets: v.optional(v.array(v.object({ symbol: v.string(), quantity: v.optional(v.string()), valueUsd: v.number(), debt: v.optional(v.boolean()) })))
 });
 
 export const cryptoWalletSnapshotValidator = v.object({

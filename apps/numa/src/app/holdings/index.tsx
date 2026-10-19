@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-n
 
 import { useSession } from '@/cloud/session';
 import { groupNames, groupTotal, type GroupId } from '@/data/items';
-import { FOUR_CLASSES, positionsOf } from '@/data/positions';
+import { FOUR_CLASSES, positionsOf, spotsOf, type Spot } from '@/data/positions';
 import { useCloudItems, useDemoItems, type ItemsSource } from '@/data/useItems';
 import { CATEGORY_ORDER } from '@/domain/summary';
 import type { CategoryId } from '@/domain/types';
@@ -51,15 +51,40 @@ function Toggle<T extends string>({ value, options, onChange }: { value: T; opti
   );
 }
 
+/** One place: what it holds, its value and share. Opens the record when it is one record. */
+function SpotRow({ spot, share, swatch, last }: { spot: Spot; share: number | null; swatch: string; last?: boolean }) {
+  const { c } = useTheme();
+  const { money, hidden } = useMoney();
+  const what = spot.assets.length > 4 ? `${spot.assets.slice(0, 4).join(', ')} +${spot.assets.length - 4}` : spot.assets.join(', ');
+  const open = spot.items.length === 1 ? () => router.push({ pathname: '/item/[type]/[id]', params: { type: spot.items[0].type, id: spot.items[0].id } }) : undefined;
+  return (
+    <Pressable onPress={open} disabled={!open} accessibilityRole={open ? 'link' : undefined} accessibilityLabel={`${spot.name}, ${spot.valueCents === null ? 'no value' : hidden ? 'amount hidden' : money(spot.valueCents)}, holds ${what}${open ? '. Open' : ''}`}
+      style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
+      <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: swatch }} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{spot.name}</Txt>
+        <Txt v="small" c="ink2" numberOfLines={1}>{what}{spot.unknown > 0 ? ` · ${spot.unknown} without a value` : ''}</Txt>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Txt v="figure" style={{ fontSize: 15 }}>{spot.valueCents === null ? '—' : money(spot.valueCents)}</Txt>
+        {share !== null && <Txt v="figureSm" c="ink3">{Math.round(share * 100)}%</Txt>}
+      </View>
+      {open && <Txt v="body" c="ink3">›</Txt>}
+    </Pressable>
+  );
+}
+
 function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'ready' }>; only?: GroupId }) {
   const { c } = useTheme();
   const { money } = useMoney();
   const wide = useWindowDimensions().width >= WIDE;
   const [view, setView] = useState<'kind' | 'classes'>('kind');
+  const [lens, setLens] = useState<'asset' | 'place'>('asset');
   const groups = (only ? [only] : ORDER).map((g) => ({ g, items: source.items.filter((i) => i.group === g) })).filter((x) => x.items.length > 0 || x.g === only);
   const single = only ? groups[0] : null;
   const total = single ? groupTotal(single.items) : null;
   const positions = only ? positionsOf(source.items, only) : [];
+  const spots = only && only !== 'debts' ? spotsOf(source.items, only) : [];
   const owned = groups.filter((x) => x.g !== 'debts');
   const ownedCents = owned.reduce((t, x) => t + groupTotal(x.items).cents, 0);
   const swatch = (g: GroupId) => (g === 'debts' ? c.down : c[categoryColor(g as CategoryId)]);
@@ -106,12 +131,23 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
         </View>
       )}
 
-      {/* One group: its assets as areas, then each asset with where it sits. */}
+      {/* One group: what it holds as areas, then each asset with where it sits; or the other way round. */}
       {single && positions.length > 0 && (
         <View style={{ marginTop: 16 }}>
-          <Treemap height={wide ? 240 : 190} tiles={positions.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: only!, key: p.key } }) }))} />
-          <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">{only === 'cash' ? 'BY CURRENCY' : only === 'debts' ? 'BY DEBT' : 'BY ASSET'}</Txt>
-          {positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === positions.length - 1} />)}
+          {spots.length > 1 && <View style={{ marginBottom: 12 }}><Toggle value={lens} onChange={setLens} options={[['asset', only === 'cash' ? 'By currency' : 'By asset'], ['place', 'By place']]} /></View>}
+          {lens === 'place' && spots.length > 1 ? (
+            <>
+              <Treemap height={wide ? 240 : 190} tiles={spots.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: p.items.length === 1 ? () => router.push({ pathname: '/item/[type]/[id]', params: { type: p.items[0].type, id: p.items[0].id } }) : undefined }))} />
+              <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">BY PLACE</Txt>
+              {spots.map((p, n) => <SpotRow key={p.key} spot={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === spots.length - 1} />)}
+            </>
+          ) : (
+            <>
+              <Treemap height={wide ? 240 : 190} tiles={positions.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: only!, key: p.key } }) }))} />
+              <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">{only === 'cash' ? 'BY CURRENCY' : only === 'debts' ? 'BY DEBT' : 'BY ASSET'}</Txt>
+              {positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === positions.length - 1} />)}
+            </>
+          )}
           <Txt v="label" c="ink3" style={{ marginTop: 26 }} accessibilityRole="header">RECORDS</Txt>
         </View>
       )}

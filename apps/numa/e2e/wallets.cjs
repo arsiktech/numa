@@ -55,11 +55,14 @@ const token = (chain, chainName, symbol, quantity, valueUsd) => ({ id: `${chain}
   const defi = [
     { id: 'base:uniswap-v3:7', chain: 'base', chainName: 'Base', protocol: 'Uniswap V3', label: 'WETH / USDC 0.05% pool, out of range', kind: 'liquidity', valueUsd: 1000, assetValueUsd: 1000, debtValueUsd: 0, symbols: ['WETH', 'USDC'] },
     { id: 'base:compound-v3:0xb1', chain: 'base', chainName: 'Base', protocol: 'Compound V3', label: 'Compound V3 lending', kind: 'supplied', valueUsd: 500, assetValueUsd: 500, debtValueUsd: 0, symbols: ['USDC'] },
+    // A position that says what it is made of: its coins show as coins, pledged against the loan.
+    { id: 'ethereum:aave-v3', chain: 'ethereum', chainName: 'Ethereum', protocol: 'Aave V3', label: 'Aave V3 lending and borrowing', kind: 'supplied', valueUsd: 2000, assetValueUsd: 3000, debtValueUsd: 1000, healthFactor: 2.4, symbols: [],
+      assets: [{ symbol: 'WBTC', quantity: '0.05', valueUsd: 3000 }, { symbol: 'USDC', quantity: '1000', valueUsd: 1000, debt: true }] },
   ];
-  save(mainId, snap({ addressType: 'evm', tokenValueUsd: 7000, defiValueUsd: 1500, totalValueUsd: 8500, tokens: [token('ethereum', 'Ethereum', 'ETH', '2', 5000), token('ethereum', 'Ethereum', 'USDC', '2000', 2000)], defiPositions: defi, chains: ['ethereum', 'optimism', 'polygon'], failedChains: ['base'], tokenFallbackChains: ['polygon'], partial: true }));
+  save(mainId, snap({ addressType: 'evm', tokenValueUsd: 7000, defiValueUsd: 4500, debtValueUsd: 1000, totalValueUsd: 10500, tokens: [token('ethereum', 'Ethereum', 'ETH', '2', 5000), token('ethereum', 'Ethereum', 'USDC', '2000', 2000)], defiPositions: defi, chains: ['ethereum', 'optimism', 'polygon'], failedChains: ['base'], tokenFallbackChains: ['polygon'], partial: true }));
 
   const usdPerEur = rate();
-  const own = Math.round(48500 * 100 / usdPerEur);
+  const own = Math.round(51500 * 100 / usdPerEur);
   await page.goto(APP + '/');
   await page.getByText('What you own').first().waitFor({ timeout: 15000 });
   await wait(1500);
@@ -70,7 +73,7 @@ const token = (chain, chainName, symbol, quantity, valueUsd) => ({ id: `${chain}
   await page.goto(APP + '/holdings/crypto');
   await page.getByText('Cold storage').first().waitFor({ timeout: 15000 });
   const group = await page.locator('body').innerText();
-  check('crypto lists each wallet with what is inside and where the number came from', group.includes('0.5 BTC') && group.includes('ETH, USDC') && /mempool\.space · just now/.test(group) && /Blockscout and 2 DeFi protocols · just now/.test(group));
+  check('crypto lists each wallet with what is inside and where the number came from', group.includes('0.5 BTC') && group.includes('ETH, USDC') && /mempool\.space · just now/.test(group) && /Blockscout and 3 DeFi protocols · just now/.test(group));
   await page.goto(APP + '/');
   await wait(800);
   check('networks that couldn’t be reached are said out loud', (await page.locator('body').innerText()).includes('Couldn’t check Base for Main') || await page.getByText('Couldn’t check Base for Main').count() > 0);
@@ -89,11 +92,25 @@ const token = (chain, chainName, symbol, quantity, valueUsd) => ({ id: `${chain}
   check('a liquidity pool is its own position, in a pool on its protocol and network', /in a pool/i.test(pool) && pool.includes('Uniswap V3 on Base') && pool.includes('WETH / USDC pool'), pool.split('\n').slice(0, 16).join(' | '));
   await page.screenshot({ path: OUT + '/03-pool-where-dark-390.png', fullPage: true });
 
+  // Lending shows the coins it holds; By place shows where they sit instead.
+  await page.goto(APP + '/position/crypto/WBTC');
+  await page.getByText('WHERE IT IS').waitFor({ timeout: 15000 });
+  const wbtc = await page.locator('body').innerText();
+  check('a coin lent on a protocol is that coin, pledged, in the protocol inside the wallet', wbtc.includes('Wrapped Bitcoin') && wbtc.includes('Main · Aave V3') && /pledged/i.test(wbtc) && wbtc.includes('0.05 WBTC'), wbtc.split('\n').slice(0, 16).join(' | '));
+  await page.goto(APP + '/holdings/crypto');
+  await page.getByRole('tab', { name: 'By place' }).click();
+  await page.getByText('BY PLACE', { exact: true }).waitFor({ timeout: 10000 });
+  const byPlace = await page.locator('body').innerText();
+  check('By place lists each wallet and protocol with what it holds', byPlace.includes('Main · Aave V3') && byPlace.includes('Main · Wallet') && byPlace.includes('Main · Uniswap V3') && /Main · Wallet\s*\n\s*ETH, USDC/.test(byPlace), byPlace.split('\n').slice(0, 30).join(' | '));
+  await page.screenshot({ path: OUT + '/03b-by-place-dark-390.png', fullPage: true });
+  await page.getByRole('tab', { name: 'By asset' }).click();
+  await page.getByText('BY ASSET', { exact: true }).waitFor({ timeout: 10000 });
+
   await page.goto(APP + '/holdings/crypto');
   await page.getByRole('link', { name: /^Main,/ }).last().click();
   await page.getByRole('heading', { name: 'Main' }).waitFor({ timeout: 10000 });
   const mainDetail = await page.locator('body').innerText();
-  check('the wallet page lists lending and pools with their state', mainDetail.includes('LENDING AND POOLS') && mainDetail.includes('WETH / USDC 0.05% pool, out of range') && mainDetail.includes('In the pool, with fees') && mainDetail.includes('Compound V3 · Base') && mainDetail.includes('Blockscout and 2 DeFi protocols'));
+  check('the wallet page lists lending and pools with their state', mainDetail.includes('LENDING AND POOLS') && mainDetail.includes('WETH / USDC 0.05% pool, out of range') && mainDetail.includes('In the pool, with fees') && mainDetail.includes('Compound V3 · Base') && mainDetail.includes('Blockscout and 3 DeFi protocols') && mainDetail.includes('Collateral') && mainDetail.includes('0.05 WBTC · −1,000 USDC'));
   await page.screenshot({ path: OUT + '/04-wallet-defi-dark-390.png', fullPage: true });
 
   await page.goto(APP + '/holdings/crypto');

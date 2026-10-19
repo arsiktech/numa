@@ -7,7 +7,7 @@
 
 import { address, explorerGet, firstWord, int, multicall, pad, uint, words } from "./evm";
 import { keccakHex } from "./keccak";
-import type { Call, DefiPosition, Get } from "./publicWallets";
+import type { Call, DefiAsset, DefiPosition, Get } from "./publicWallets";
 
 export type Post = (url: string, body: unknown) => Promise<unknown>;
 /** A chain as the readers need it; `host` is its Blockscout explorer. */
@@ -237,13 +237,66 @@ export async function priceDrafts(drafts: Draft[], get: Get): Promise<DefiPositi
     const debt = round(legs.filter((l) => l.debt).reduce((s, l) => s + usd(l), 0));
     if (asset < MIN_POSITION_USD && debt < MIN_POSITION_USD) continue;
     const legSymbols = legs.map((l) => l.p?.symbol.slice(0, 24) ?? "?");
+    const assets = assetsOf(legs.filter((l): l is typeof l & { p: Price } => !!l.p));
     const symbols = [...new Set(legs.filter((l) => l.p && (l.raw > 0 || legs.indexOf(l) < 2)).map((l) => l.p!.symbol.slice(0, 24)))];
     out.push({
       id: d.id, chain: d.chain.id, chainName: d.chain.name, protocol: d.protocol, label: d.label(legSymbols), kind: d.kind,
       valueUsd: round(asset - debt), assetValueUsd: asset, debtValueUsd: debt, symbols, ...(d.positionAddress ? { positionAddress: d.positionAddress } : {}),
+      ...(assets.length ? { assets } : {}),
     });
   }
   return out;
+}
+
+/** Priced legs as one entry per token and side, biggest first; dust under a cent is left out. */
+function assetsOf(legs: Array<Leg & { p: Price }>): DefiAsset[] {
+  const by = new Map<string, DefiAsset & { qty: number }>();
+  for (const l of legs) {
+    const qty = l.raw / 10 ** l.p.decimals, usd = qty * l.p.price, symbol = l.p.symbol.slice(0, 24);
+    const key = `${l.debt ? "debt" : "own"}:${symbol}`;
+    const a = by.get(key) ?? { symbol, qty: 0, valueUsd: 0, ...(l.debt ? { debt: true } : {}) };
+    a.qty += qty; a.valueUsd += usd;
+    by.set(key, a);
+  }
+  return [...by.values()].filter((a) => a.valueUsd >= 0.01).sort((a, b) => b.valueUsd - a.valueUsd)
+    .map(({ qty, ...a }) => ({ ...a, quantity: String(Number(qty.toPrecision(12))), valueUsd: round(a.valueUsd) }));
+}
+
+/** Prices loose legs on one chain in one DefiLlama request. Null when any leg holding something has no price. */
+export async function priceLegs(chainId: string, legs: Leg[], get: Get): Promise<DefiAsset[] | null> {
+  const held = legs.filter((l) => l.raw > 0);
+  if (!held.length) return [];
+  const keys = [...new Set(held.map((l) => `${chainId}:${l.token.toLowerCase()}`))];
+  const body = (await get(`https://coins.llama.fi/prices/current/${keys.join(",")}`)) as { coins?: Record<string, Partial<Price>> };
+  if (!body?.coins || typeof body.coins !== "object") return null;
+  const priced: Array<Leg & { p: Price }> = [];
+  for (const l of held) {
+    const c = Object.entries(body.coins).find(([k]) => k.toLowerCase() === `${chainId}:${l.token.toLowerCase()}`)?.[1];
+    if (!c || typeof c.price !== "number" || !(c.price > 0) || typeof c.decimals !== "number" || typeof c.symbol !== "string") return null;
+    priced.push({ ...l, p: c as Price });
+  }
+  return assetsOf(priced);
+}
+
+/**
+ * What an Aave V3 account holds and owes, reserve by reserve: the Pool lists its reserves, and the
+ * protocol's data provider (found through the Pool's addresses provider) gives each balance.
+ */
+export async function aaveLegs(chain: Chain & { aave: string }, owner: string, call: Call): Promise<Leg[]> {
+  const list = words(await call(chain.rpc, chain.aave, "0xd1946dbc")); // getReservesList()
+  const reserves = list.slice(2, 2 + Number(list[1] ?? 0n)).map(address);
+  const provider = address(words(await call(chain.rpc, chain.aave, "0x0542975c"))[0]); // ADDRESSES_PROVIDER()
+  const dataProvider = address(words(await call(chain.rpc, provider, "0xe860accb"))[0]); // getPoolDataProvider()
+  // getUserReserveData: aToken balance, stable debt, variable debt, …
+  const results = await multicall(call, chain.rpc, reserves.map((r) => ({ to: dataProvider, data: "0x28dd2d01" + pad(r) + pad(owner) })));
+  const legs: Leg[] = [];
+  results.forEach((r, i) => {
+    if (!r) throw new Error("bad response");
+    const w = words(r);
+    if (w[0] > 0n) legs.push({ token: reserves[i], raw: Number(w[0]) });
+    if (w[1] + w[2] > 0n) legs.push({ token: reserves[i], raw: Number(w[1] + w[2]), debt: true });
+  });
+  return legs;
 }
 
 const MORPHO_CHAINS: Record<string, number> = { ethereum: 1, base: 8453, arbitrum: 42161, optimism: 10, polygon: 137 };
@@ -272,10 +325,15 @@ export async function morpho(chains: Chain[], owner: string, post: Post): Promis
       const asset = round((s.supplyAssetsUsd ?? 0) + (s.collateralUsd ?? 0)), debt = round(s.borrowAssetsUsd ?? 0);
       if (asset < MIN_POSITION_USD && debt < MIN_POSITION_USD) continue;
       const symbols = coll ? [coll, loan] : [loan];
+      const assets: DefiAsset[] = [
+        ...(coll && (s.collateralUsd ?? 0) >= 0.01 ? [{ symbol: coll, valueUsd: round(s.collateralUsd!) }] : []),
+        ...((s.supplyAssetsUsd ?? 0) >= 0.01 ? [{ symbol: loan, valueUsd: round(s.supplyAssetsUsd!) }] : []),
+        ...(debt > 0 ? [{ symbol: loan, valueUsd: debt, debt: true }] : []),
+      ];
       positions.push({
         id: `${chain.id}:morpho:${String(m.market?.marketId ?? symbols.join("-")).toLowerCase()}`, chain: chain.id, chainName: chain.name, protocol: "Morpho",
         label: debt > 0 ? `Morpho ${symbols.join(" / ")} lending and borrowing` : `Morpho ${loan} lending`, kind: "supplied",
-        valueUsd: round(asset - debt), assetValueUsd: asset, debtValueUsd: debt, symbols,
+        valueUsd: round(asset - debt), assetValueUsd: asset, debtValueUsd: debt, symbols, assets,
       });
     }
     for (const v of user.vaultPositions ?? []) {
@@ -285,6 +343,7 @@ export async function morpho(chains: Chain[], owner: string, post: Post): Promis
         id: `${chain.id}:morpho-vault:${String(v.vault?.address ?? v.vault?.name).toLowerCase()}`, chain: chain.id, chainName: chain.name, protocol: "Morpho",
         label: `${String(v.vault?.name ?? "Morpho vault").slice(0, 60)}`, kind: "supplied", valueUsd: round(usd), assetValueUsd: round(usd), debtValueUsd: 0,
         symbols: v.vault?.asset?.symbol ? [v.vault.asset.symbol] : [], ...(v.vault?.address ? { positionAddress: v.vault.address.toLowerCase() } : {}),
+        ...(v.vault?.asset?.symbol ? { assets: [{ symbol: v.vault.asset.symbol, valueUsd: round(usd) }] } : {}),
       });
     }
   }
@@ -310,7 +369,7 @@ function tokenList(w: bigint[], at: number): Array<{ token: string; amount: bigi
   return Array.from({ length: n }, (_, k) => ({ token: address(w[at + 1 + k * 2]), amount: w[at + 2 + k * 2] }));
 }
 
-export async function etherfiCash(owner: string, call: Call): Promise<DefiPosition[]> {
+export async function etherfiCash(owner: string, call: Call, get?: Get): Promise<DefiPosition[]> {
   // Only an ether.fi Cash account has dataProvider(); a plain wallet answers with no data, and the
   // debt manager would refuse it, so it isn't asked.
   // A smart wallet of another kind (a 7702-delegated account, a Safe) refuses the call; that isn't ether.fi either.
@@ -326,22 +385,45 @@ export async function etherfiCash(owner: string, call: Call): Promise<DefiPositi
     const c = words(collateral), b = words(borrowing);
     const asset = Number(c[1]) / 1e6, debt = Number(b[1]) / 1e6;
     if (asset < MIN_POSITION_USD && debt < MIN_POSITION_USD) continue;
-    const tokens = [...tokenList(c, 2), ...tokenList(b, 2)].filter((t) => t.amount > 0n).map((t) => t.token);
-    const symbols = await Promise.all([...new Set(tokens)].map(async (t) => {
-      try {
-        const hex = await call(chain.rpc, t, "0x95d89b41"); // symbol()
-        const len = Number(BigInt("0x" + hex.slice(66, 130)));
-        return Buffer.from(hex.slice(130, 130 + len * 2), "hex").toString("utf8").slice(0, 24);
-      } catch { return null; }
-    }));
+    const held = tokenList(c, 2).filter((t) => t.amount > 0n), owed = tokenList(b, 2).filter((t) => t.amount > 0n);
+    const tokens = [...held, ...owed].map((t) => t.token);
+    const names = new Map(await Promise.all([...new Set(tokens)].map(async (t) => [t, await tokenSymbol(chain.rpc, t, call)] as const)));
+    const symbols = [...new Set([...names.values()].filter((x): x is string => !!x))];
+    const assets = await etherfiAssets(chain, held, owed, names, call, get).catch(() => null);
     out.push({
       id: `${chain.id}:etherfi-cash`, chain: chain.id, chainName: chain.name, protocol: "ether.fi Cash",
       label: debt > 0 && asset > 0 ? "ether.fi Cash collateral and loan" : debt > 0 ? "ether.fi Cash loan" : "ether.fi Cash collateral",
       kind: "supplied", valueUsd: round(asset - debt), assetValueUsd: round(asset), debtValueUsd: round(debt),
-      symbols: symbols.filter((x): x is string => !!x),
+      symbols,
+      ...(assets?.length ? { assets } : {}),
     });
   }
   return out;
+}
+
+async function tokenSymbol(rpc: string, token: string, call: Call): Promise<string | null> {
+  try {
+    const hex = await call(rpc, token, "0x95d89b41"); // symbol()
+    const len = Number(BigInt("0x" + hex.slice(66, 130)));
+    return Buffer.from(hex.slice(130, 130 + len * 2), "hex").toString("utf8").slice(0, 24) || null;
+  } catch { return null; }
+}
+
+/**
+ * ether.fi's own collateral tokens (weEUR, liquidUSD…) have no market price elsewhere, so the debt
+ * manager values each one (convertCollateralTokenToUsd, 6-decimal dollars). Loans are priced by DefiLlama.
+ */
+async function etherfiAssets(chain: Chain, held: Array<{ token: string; amount: bigint }>, owed: Array<{ token: string; amount: bigint }>, names: Map<string, string | null>, call: Call, get?: Get): Promise<DefiAsset[] | null> {
+  const own = await Promise.all(held.map(async (t) => {
+    const [usd] = words(await call(chain.rpc, ETHERFI_CASH.debtManager, "0xc5b66b4a" + pad(t.token) + uint(t.amount)));
+    const [decimals] = words(await call(chain.rpc, t.token, "0x313ce567")); // decimals()
+    const symbol = names.get(t.token);
+    if (!symbol) throw new Error("no symbol");
+    return { symbol, quantity: String(Number((Number(t.amount) / 10 ** Number(decimals)).toPrecision(12))), valueUsd: round(Number(usd) / 1e6) };
+  }));
+  const debt = owed.length ? (get ? await priceLegs(chain.id, owed.map((t) => ({ token: t.token, raw: Number(t.amount), debt: true })), get) : null) : [];
+  if (!debt) return null;
+  return [...own.filter((a) => a.valueUsd >= 0.01).sort((a, b) => b.valueUsd - a.valueUsd), ...debt];
 }
 
 const FLUID_CHAINS: Record<string, number> = { ethereum: 1, base: 8453, arbitrum: 42161, polygon: 137 };
@@ -364,6 +446,7 @@ export async function fluidLending(chain: Chain, owner: string, get: Get): Promi
       id: `${chain.id}:fluid:${String(p.token?.address).toLowerCase()}`, chain: chain.id, chainName: chain.name, protocol: "Fluid",
       label: `Fluid ${a.symbol ?? ""} lending`.replace(/\s+/g, " "), kind: "supplied", valueUsd: usd, assetValueUsd: usd, debtValueUsd: 0,
       symbols: a.symbol ? [a.symbol] : [], ...(p.token?.address ? { positionAddress: p.token.address.toLowerCase() } : {}),
+      ...(a.symbol ? { assets: [{ symbol: a.symbol.slice(0, 24), quantity: String(Number((raw / 10 ** a.decimals).toPrecision(12))), valueUsd: usd }] } : {}),
     });
   }
   return out;

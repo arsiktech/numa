@@ -11,6 +11,7 @@ import { ago } from '@/domain/freshness';
 import { useTheme } from '@/theme/theme';
 import { toneColor } from '@/ui/ItemRow';
 import { useMoney } from '@/ui/money';
+import { amountText } from '@/ui/PositionRow';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
 import { refreshText, useWalletWrites } from './useWallets';
@@ -104,9 +105,13 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
             <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{p.protocol} · {p.chainName}</Txt>
             {p.label !== `${p.protocol} lending` && p.label !== `${p.protocol} lending and borrowing` && <Txt v="small" c="ink3">{p.label}</Txt>}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Txt v="body" c="ink2">{p.kind === 'liquidity' ? 'In the pool, with fees' : 'Lent'}</Txt>
+              <Txt v="body" c="ink2">{p.kind === 'liquidity' ? 'In the pool, with fees' : p.debtValueUsd > 0 ? 'Collateral' : 'Lent'}</Txt>
               <Txt v="figureSm" style={{ fontSize: 14 }}>{lent === null ? 'No rate' : money(lent)}</Txt>
             </View>
+            {/* What it is made of, coin by coin, when the protocol says so. */}
+            {(p.assets ?? []).length > 0 && (
+              <Txt v="small" c="ink2" selectable>{(p.assets ?? []).map((a) => `${a.debt ? '−' : ''}${a.quantity !== undefined ? mask(amountText(Number(a.quantity))) + ' ' : ''}${a.symbol}`).join(' · ')}</Txt>
+            )}
             {p.debtValueUsd > 0 && (
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Txt v="body" c="ink2">Borrowed</Txt>

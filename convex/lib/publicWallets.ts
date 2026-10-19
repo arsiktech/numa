@@ -6,7 +6,7 @@
  * `failedChains`, never counted as zero.
  */
 
-import { chainDrafts, etherfiCash, fluidLending, morpho, priceDrafts, type Draft, type Post } from "./defiPositions";
+import { aaveLegs, chainDrafts, etherfiCash, fluidLending, morpho, priceDrafts, priceLegs, type Draft, type Post } from "./defiPositions";
 import { BLOCKSCOUT_PRO, explorerGet } from "./evm";
 import { fallbackTokens } from "./tokenFallback";
 
@@ -41,7 +41,12 @@ export type DefiPosition = {
   debtValueUsd: number;
   healthFactor?: number;
   symbols: string[];
+  /** Token by token, only when every part is priced; the totals above stay the authority. */
+  assets?: DefiAsset[];
 };
+
+/** One token inside a DeFi position: supplied, or owed when `debt`. */
+export type DefiAsset = { symbol: string; quantity?: string; valueUsd: number; debt?: boolean };
 
 export type PublicWalletSnapshot = {
   provider: "public";
@@ -172,6 +177,11 @@ async function evmChain(chain: EvmChain, address: string, get: Get): Promise<Wal
 /** Aave, Compound and pools on one chain, before pool and Compound tokens are priced. */
 async function evmDefi(chain: EvmChain, address: string, call: Call, get: Get): Promise<{ aave: DefiPosition | null; drafts: Draft[]; priced: DefiPosition[]; incomplete: boolean }> {
   const [aave, { drafts, incomplete }, fluid] = await Promise.all([aaveV3(chain, address, call), chainDrafts(chain, address, call, get), fluidLending(chain, address, get)]);
+  // Aave's totals come from its own oracle; the token-by-token split is extra and may be missing.
+  if (aave) {
+    const assets = await aaveLegs(chain, address, call).then((legs) => priceLegs(chain.id, legs, get)).catch(() => null);
+    if (assets) aave.assets = assets;
+  }
   return { aave, drafts, priced: fluid, incomplete };
 }
 
@@ -203,7 +213,7 @@ export async function fetchPublicWallet(address: string, addressType: "bitcoin" 
     Promise.allSettled(tokenJobs.map((job) => job.run())),
     Promise.allSettled(defiJobs.map((job) => job.run())),
     defiJobs.length && post ? morpho([...EVM_CHAINS], address, post).catch(() => null) : Promise.resolve(undefined),
-    defiJobs.length && call ? etherfiCash(address, call).catch(() => null) : Promise.resolve(undefined),
+    defiJobs.length && call ? etherfiCash(address, call, get).catch(() => null) : Promise.resolve(undefined),
   ]);
   let tokens: WalletToken[] = [];
   const defiPositions: DefiPosition[] = [];

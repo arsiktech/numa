@@ -6,8 +6,8 @@ import { useTheme } from '@/theme/theme';
 import { useMoney } from './money';
 import { Txt } from './Txt';
 
-const amount = (n: number) => (Math.abs(n) >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : String(Math.round(n * 1e8) / 1e8));
-export const quantityText = (q: number | null, unit: string | null) => (q === null || !unit ? null : `${amount(q)} ${unit}`);
+export const amountText = (n: number) => (Math.abs(n) >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : String(Math.round(n * 1e8) / 1e8));
+export const quantityText = (q: number | null, unit: string | null) => (q === null || !unit ? null : `${amountText(q)} ${unit}`);
 
 /** One asset in a group: how much, where it sits, and its share. Opens where exactly. */
 export function PositionRow({ position, share, swatch, last }: { position: Position; share: number | null; swatch: string; last?: boolean }) {
