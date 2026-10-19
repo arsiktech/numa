@@ -165,10 +165,11 @@ describe("tokens without the explorer", () => {
 describe("ether.fi Cash and Fluid", () => {
   it("reads ether.fi Cash collateral on Optimism and a loan on Scroll, in dollars", async () => {
     const WEEUR = "0xcc476b1a49bcdf5192561e87b6fb8ea78aa28c13";
+    const SYMBOL = "0x" + word(0x20) + word(5) + Buffer.from("weEUR").toString("hex").padEnd(64, "0");
     const call: Call = async (rpc, to, data) => {
       const sel = data.slice(0, 10);
       if (sel === "0xb334ed86") return to === OWNER ? ret("0xdc515cb479a64552c5a11a57109c314e40a1a778") : "0x";
-      if (sel === "0x95d89b41") return "0x" + word(0x20) + word(5) + Buffer.from("weEUR").toString("hex").padEnd(64, "0");
+      if (sel === "0x95d89b41") return SYMBOL;
       if (rpc.includes("optimism") && sel === "0x1aefb107") return ret(0x40, 40_851_644_527, 1, WEEUR, 23_090n * 10n ** 18n);
       if (rpc.includes("scroll") && sel === "0x186c66cc") return ret(0x40, 12_738_000_716, 1, USDC, 12_738_000_716);
       // convertCollateralTokenToUsd (ether.fi values its own tokens) and decimals(), in one Multicall3 request.
@@ -185,7 +186,12 @@ describe("ether.fi Cash and Fluid", () => {
     ]);
     // With prices, each token shows on its own: collateral valued by ether.fi, the loan by DefiLlama.
     const get: Get = async () => ({ coins: { [`scroll:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } });
-    const split = await etherfiCash(OWNER, call, get);
+    // Convex's default runtime has no Node Buffer; the reader must not need it.
+    const buffer = globalThis.Buffer;
+    let split: Awaited<ReturnType<typeof etherfiCash>>;
+    try { (globalThis as { Buffer?: unknown }).Buffer = undefined; split = await etherfiCash(OWNER, call, get); }
+    finally { globalThis.Buffer = buffer; }
+    expect(split[0].symbols).toEqual(["weEUR"]);
     expect(split[0].assets).toEqual([{ symbol: "weEUR", quantity: "23090", valueUsd: 26536.75 }]);
     expect(split[1].assets).toEqual([{ symbol: "USDC", quantity: "12738.000716", valueUsd: 12738, debt: true }]);
   });

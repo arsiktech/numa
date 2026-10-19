@@ -419,7 +419,9 @@ async function tokenSymbol(rpc: string, token: string, call: Call): Promise<stri
   try {
     const hex = await call(rpc, token, "0x95d89b41"); // symbol()
     const len = Number(BigInt("0x" + hex.slice(66, 130)));
-    return Buffer.from(hex.slice(130, 130 + len * 2), "hex").toString("utf8").slice(0, 24) || null;
+    // Convex's runtime has no Node Buffer: decode the bytes by hand.
+    const bytes = new Uint8Array((hex.slice(130, 130 + len * 2).match(/../g) ?? []).map((b) => parseInt(b, 16)));
+    return new TextDecoder().decode(bytes).slice(0, 24) || null;
   } catch { return null; }
 }
 
