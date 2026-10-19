@@ -128,10 +128,10 @@ async function v4Ids(chain: Chain, pm: string, owner: string, get: Get): Promise
     return page.items.map((i) => digits(i.id)).filter((x): x is bigint => x !== null);
   } catch (error) {
     if (!chain.nftApi) throw error;
-    const body = (await get(`${chain.nftApi}/getNFTsForOwner?owner=${owner.toLowerCase()}&contractAddresses[]=${pm}&withMetadata=false&pageSize=100`)) as { ownedNfts?: Array<{ tokenId?: unknown }> };
-    if (!Array.isArray(body?.ownedNfts)) throw new Error("bad response");
-    return body.ownedNfts.map((n) => digits(n.tokenId)).filter((x): x is bigint => x !== null);
   }
+  const body = (await get(`${chain.nftApi}/getNFTsForOwner?owner=${owner.toLowerCase()}&contractAddresses[]=${pm}&withMetadata=false&pageSize=100`)) as { ownedNfts?: Array<{ tokenId?: unknown }> };
+  if (!Array.isArray(body?.ownedNfts)) throw new Error("bad response");
+  return body.ownedNfts.map((n) => digits(n.tokenId)).filter((x): x is bigint => x !== null);
 }
 
 /**
