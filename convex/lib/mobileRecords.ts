@@ -3,6 +3,7 @@ import { mutation } from "../_generated/server";
 import { requireEditor } from "./access";
 import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanRequired } from "./inputGuards";
 import type { Doc } from "../_generated/dataModel";
+import { majorUnits, minorUnits } from "./finance";
 import { withMutationReceipt } from "./mutationReceipts";
 import { refreshQuoteSoon } from "./quoteRefresh";
 import { isCryptoSymbol } from "./marketQuoteProviders";
@@ -180,11 +181,15 @@ const upsertAsset = mutation({
     currency: currencyValidator,
     notes: v.optional(v.string()),
     location: v.optional(v.string()),
+    /** Total paid, in the asset's currency; null clears it, leaving it out keeps what is saved. */
+    costBasis: v.optional(v.union(v.number(), v.null())),
+    acquiredAt: v.optional(v.union(v.number(), v.null())),
     clientMutationId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
     const location = cleanLocation(args.location);
+    const purchase = assetPurchase(args.costBasis, args.acquiredAt);
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertAsset", async () => {
       if (args.id) {
         const existing = await ctx.db.get(args.id);
@@ -201,6 +206,7 @@ const upsertAsset = mutation({
           currency: args.currency,
           notes: args.notes?.trim() || undefined,
           ...location,
+          ...purchase,
           updatedAt: Date.now()
         });
         return args.id;
@@ -214,11 +220,32 @@ const upsertAsset = mutation({
         currency: args.currency,
         notes: args.notes?.trim() || undefined,
         ...location,
+        ...purchase,
         updatedAt: Date.now()
       });
     }, args.portfolioId);
   }
 });
+
+const DAY_MS = 86_400_000;
+
+/** What an asset cost and when it was bought: undefined keeps what is stored, null clears it. */
+function assetPurchase(costBasis: number | null | undefined, acquiredAt: number | null | undefined): { costBasis?: number; acquiredAt?: number } {
+  const out: { costBasis?: number; acquiredAt?: number } = {};
+  if (costBasis !== undefined) {
+    if (costBasis !== null && (!Number.isFinite(costBasis) || costBasis <= 0 || majorUnits(minorUnits(costBasis)) !== costBasis)) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "What it cost must be more than zero, to the cent" });
+    }
+    out.costBasis = costBasis ?? undefined;
+  }
+  if (acquiredAt !== undefined) {
+    if (acquiredAt !== null && (!Number.isSafeInteger(acquiredAt) || acquiredAt > Date.now() + DAY_MS)) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "When it was bought can't be in the future" });
+    }
+    out.acquiredAt = acquiredAt ?? undefined;
+  }
+  return out;
+}
 
 const deleteAsset = mutation({
   args: {

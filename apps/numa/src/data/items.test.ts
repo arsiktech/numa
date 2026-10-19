@@ -1,8 +1,8 @@
 import type { CloudSnapshot } from '@/cloud/api';
 import { ago, freshness } from '@/domain/freshness';
-import { deletePlan, editPlan, fieldProblems, holdingFields } from './editPlan';
+import { deletePlan, editPlan, fieldProblems, holdingFields, monthYear, parseBought } from './editPlan';
 import { fromSnapshot } from './fromSnapshot';
-import { groupTotal, itemsFrom } from './items';
+import { gainOf, groupTotal, itemsFrom } from './items';
 
 const now = new Date('2026-10-12T09:00:00Z');
 const t = now.getTime();
@@ -76,6 +76,36 @@ describe('edit and delete plans', () => {
   });
   it('refuses a holding without a ticker, units or cost', () => {
     expect(fieldProblems('holding', { ...before, symbol: '', quantity: 0, costBasisCents: 0 })).toHaveLength(3);
-    expect(fieldProblems('asset', { name: ' ', kind: 'cash', balanceCents: 0, currency: 'EUR', location: '' })).toEqual(['Add a name.']);
+    expect(fieldProblems('asset', { name: ' ', kind: 'cash', balanceCents: 0, currency: 'EUR', location: '', costCents: null, acquiredAt: null })).toEqual(['Add a name.']);
+  });
+  it('saves what an asset cost and when it was bought, and clears them with null', () => {
+    const watch = { name: 'Watch', kind: 'collectible' as const, balanceCents: 1_200_000, currency: 'EUR' as const, location: '', costCents: 1_100_000, acquiredAt: Date.UTC(2025, 1, 1, 12) };
+    const p = editPlan('asset', 'a1', watch, { ...watch, costCents: null, acquiredAt: null }, 'p1');
+    expect(p.apply.args).toMatchObject({ id: 'a1', costBasis: null, acquiredAt: null });
+    expect(p.undo.args).toMatchObject({ id: 'a1', costBasis: 11000, acquiredAt: Date.UTC(2025, 1, 1, 12) });
+  });
+});
+
+describe('since bought', () => {
+  const now = Date.UTC(2026, 9, 19);
+  it('reads the usual ways of writing when something was bought', () => {
+    expect(parseBought('Feb 2025', now)).toBe(Date.UTC(2025, 1, 1, 12));
+    expect(parseBought('february 2025', now)).toBe(Date.UTC(2025, 1, 1, 12));
+    expect(parseBought('14 Feb 2025', now)).toBe(Date.UTC(2025, 1, 14, 12));
+    expect(parseBought('2024-07-18', now)).toBe(Date.UTC(2024, 6, 18, 12));
+    expect(parseBought('2024-07', now)).toBe(Date.UTC(2024, 6, 1, 12));
+    expect(parseBought('next year', now)).toBeNull();
+    expect(parseBought('2027-01-01', now)).toBeNull();
+    expect(parseBought('2025-02-30', now)).toBeNull();
+    expect(monthYear(Date.UTC(2025, 1, 1, 12))).toBe('Feb 2025');
+  });
+  it('shows a gain against what was paid, in the portfolio currency, and nothing when cost or price is unknown', () => {
+    expect(gainOf(1_200_000, 11000, 'EUR', 'EUR', null, 5, true)).toEqual({ cents: 100_000, pct: 100_000 / 1_100_000, since: 5 });
+    expect(gainOf(1_000_000, 11000, 'EUR', 'EUR', null, null, true)?.cents).toBe(-100_000);
+    expect(gainOf(1_000_000, 11000, 'USD', 'EUR', null, null, true)).toBeNull();
+    expect(gainOf(1_000_000, 11000, 'USD', 'EUR', { usdPerEur: 1.1 } as never, null, true)?.cents).toBe(0);
+    expect(gainOf(null, 11000, 'EUR', 'EUR', null, null, true)).toBeNull();
+    expect(gainOf(1_000_000, null, 'EUR', 'EUR', null, null, true)).toBeNull();
+    expect(gainOf(1_000_000, 11000, 'EUR', 'EUR', null, null, false)).toBeNull();
   });
 });

@@ -89,6 +89,20 @@ describe("asset balance write integrity", () => {
     f.rows.get("member").role = "viewer";
     await expect(f.call(upsertAsset, { ...asset, balance: -10.01 })).rejects.toThrow();
   });
+  it("keeps what an asset cost and when it was bought, clears them with null, and refuses bad values", async () => {
+    const f = fixture();
+    const watch = { portfolioId: "pf", name: "Watch", kind: "collectible", balance: 12000, currency: "EUR" };
+    const { id } = await f.call(upsertAsset, { ...watch, costBasis: 11000, acquiredAt: Date.UTC(2025, 1, 1, 12), clientMutationId: "w1" });
+    expect(f.rows.get(id)).toMatchObject({ costBasis: 11000, acquiredAt: Date.UTC(2025, 1, 1, 12) });
+    await f.call(upsertAsset, { ...watch, id, balance: 12500, clientMutationId: "w2" });
+    expect(f.rows.get(id)).toMatchObject({ balance: 12500, costBasis: 11000 });
+    for (const bad of [{ costBasis: 0 }, { costBasis: -1 }, { costBasis: 1.005 }, { acquiredAt: Date.now() + 7 * 86_400_000 }, { acquiredAt: 1.5 }]) {
+      await expect(f.call(upsertAsset, { ...watch, id, ...bad })).rejects.toThrow();
+    }
+    await f.call(upsertAsset, { ...watch, id, costBasis: null, acquiredAt: null, clientMutationId: "w3" });
+    expect(f.rows.get(id).costBasis).toBeUndefined();
+    expect(f.rows.get(id).acquiredAt).toBeUndefined();
+  });
   it("preserves unchanged native legacy balances and permits an explicit repair", async () => {
     const f = fixture();
     for (const balance of [1.005, NaN, Infinity]) {

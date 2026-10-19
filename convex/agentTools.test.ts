@@ -57,6 +57,17 @@ describe("agent tools", () => {
     expect("location" in (f.writes()[1][2] as object)).toBe(false);
   });
 
+  it("passes what an asset cost and when it was bought only when the agent says it, and 0 clears the cost", async () => {
+    const f = fakeIo();
+    const watch = { name: "Watch", kind: "collectible", balance: 12000 };
+    await tool("save_asset").run(f.io, { ...watch, cost_basis: 11000, acquired_at: "2025-02-01" });
+    await tool("save_asset").run(f.io, { ...watch, id: "a1" });
+    await tool("save_asset").run(f.io, { ...watch, id: "a1", cost_basis: 0 });
+    expect(f.writes()[0][2]).toMatchObject({ costBasis: 11000, acquiredAt: Date.parse("2025-02-01T12:00:00Z") });
+    expect("costBasis" in (f.writes()[1][2] as object) || "acquiredAt" in (f.writes()[1][2] as object)).toBe(false);
+    expect(f.writes()[2][2]).toMatchObject({ costBasis: null });
+  });
+
   it("records a debt owed in an asset with its quantity", async () => {
     const f = fakeIo();
     await tool("save_liability").run(f.io, { name: "Razmik", kind: "other", balance: 12000, currency: "USD", owed_asset: "BTC", owed_quantity: 0.15 });

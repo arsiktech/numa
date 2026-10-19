@@ -77,6 +77,8 @@ export function mobileAsset(asset: Doc<"assets">) {
     currency: asset.currency,
     notes: asset.notes ?? null,
     location: asset.location ?? null,
+    costBasis: asset.costBasis ?? null,
+    acquiredAt: asset.acquiredAt ?? null,
     updatedAt: asset.updatedAt
   };
 }

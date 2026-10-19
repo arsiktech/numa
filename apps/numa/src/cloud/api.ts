@@ -25,6 +25,9 @@ export type CloudAsset = {
   currency: CloudCurrency;
   /** Where it is kept, like a bank or a safe. Older servers leave it out. */
   location?: string | null;
+  /** What it cost in total, in its own currency, and when it was bought. Older servers leave them out. */
+  costBasis?: number | null;
+  acquiredAt?: number | null;
   updatedAt: number;
 };
 
@@ -197,7 +200,7 @@ export const cloud = {
   createTransaction: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; occurredAt: number; description: string; categoryId?: string; kind: 'income' | 'expense'; amount: number; currency: CloudCurrency }>, Receipt>('mobile:createTransaction'),
   updateTransaction: makeFunctionReference<'mutation', WithReceipt<{ id: string; occurredAt?: number; description?: string; categoryId?: string | null; kind?: 'income' | 'expense'; amount?: number; currency?: CloudCurrency }>, Receipt>('mobile:updateTransaction'),
   deleteTransaction: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteTransaction'),
-  upsertAsset: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudAsset['kind']; balance: number; currency: CloudCurrency; location?: string }>, Receipt>('mobile:upsertAsset'),
+  upsertAsset: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudAsset['kind']; balance: number; currency: CloudCurrency; location?: string; costBasis?: number | null; acquiredAt?: number | null }>, Receipt>('mobile:upsertAsset'),
   deleteAsset: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteAsset'),
   upsertLiability: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudLiability['kind']; balance: number; currency: CloudCurrency; dueDate?: number }>, Receipt>('mobile:upsertLiability'),
   deleteLiability: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteLiability'),

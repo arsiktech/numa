@@ -244,6 +244,10 @@ export default defineSchema({
     notes: v.optional(v.string()),
     /** Where it is kept, like a bank or a safe. */
     location: v.optional(v.string()),
+    /** What it cost in total, in its own currency, so its value can show a gain or loss. */
+    costBasis: v.optional(v.number()),
+    /** When it was bought. */
+    acquiredAt: v.optional(v.number()),
     updatedAt: v.number()
   }).index("by_portfolio", ["portfolioId"]),
 
