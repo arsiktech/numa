@@ -15,7 +15,7 @@ export type DraftStatus = 'draft' | 'saving' | 'saved' | 'undoing' | 'undone' | 
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const day = (ms: number) => { const d = new Date(ms); return new Date().toDateString() === d.toDateString() ? 'Today' : `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`; };
-const assetKinds = { cash: 'Cash account', real_estate: 'Property', vehicle: 'Vehicle', collectible: 'Collectible', other: 'Other asset' } as const;
+const assetKinds = { cash: 'Cash account', real_estate: 'Property', vehicle: 'Vehicle', collectible: 'Collectible', business: 'Business', other: 'Other asset' } as const;
 
 function headline(d: Draft): { label: string; cents: number | null; sign: '' | '+' | '−'; lines: string[] } {
   switch (d.type) {

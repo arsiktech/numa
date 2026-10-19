@@ -41,6 +41,7 @@ export const assetKindValidator = v.union(
   v.literal("real_estate"),
   v.literal("vehicle"),
   v.literal("collectible"),
+  v.literal("business"),
   v.literal("other")
 );
 export const liabilityKindValidator = v.union(

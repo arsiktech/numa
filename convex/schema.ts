@@ -249,6 +249,7 @@ export default defineSchema({
       v.literal("real_estate"),
       v.literal("vehicle"),
       v.literal("collectible"),
+      v.literal("business"),
       v.literal("other")
     ),
     balance: v.number(),
@@ -297,7 +298,14 @@ export default defineSchema({
    */
   liabilitySources: defineTable({
     portfolioId: v.id("portfolios"),
-    liabilityId: v.id("liabilities"),
+    /** What follows the portal: a debt, or money owed to the person (an asset). One of the two. */
+    liabilityId: v.optional(v.id("liabilities")),
+    assetId: v.optional(v.id("assets")),
+    /** What is read: the company's shortfall (the default), or the total owed to some investors. */
+    metric: v.optional(v.union(v.literal("shortfall"), v.literal("investors"))),
+    investorIds: v.optional(v.array(v.string())),
+    /** Who the investors are, as shown on the record. */
+    label: v.optional(v.string()),
     url: v.string(),
     key: v.optional(v.string()),
     status: v.optional(v.union(v.literal("ok"), v.literal("incomplete"), v.literal("failed"))),
@@ -306,7 +314,7 @@ export default defineSchema({
     readingAt: v.optional(v.number()),
     createdBy: v.id("users"),
     createdAt: v.number()
-  }).index("by_portfolio", ["portfolioId"]).index("by_liability", ["liabilityId"]),
+  }).index("by_portfolio", ["portfolioId"]).index("by_liability", ["liabilityId"]).index("by_asset", ["assetId"]),
 
   /**
    * What happened to a debt, newest last: money taken, paid back, lent or received, or a note. A

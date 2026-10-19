@@ -367,15 +367,31 @@ export async function morpho(chains: Chain[], owner: string, post: Post): Promis
 /**
  * ether.fi Cash: each card is a smart account whose collateral and loans sit in ether.fi's debt
  * manager, on Optimism (current) and Scroll (where earlier loans can still be open). The manager
- * reports totals in dollars with 6 decimals. Ordinary wallets simply have none.
+ * reports totals in dollars with 6 decimals. On Optimism, loans taken since ether.fi's lending moved
+ * to its LendGateway (on Aave v4) sit there instead, against the same collateral. Ordinary wallets
+ * simply have none.
  */
 export const ETHERFI_CASH = {
   debtManager: "0x0078c5a459132e279056b2371fe8a8ec973a9553",
   chains: [
-    { id: "optimism", name: "Optimism", rpc: "https://optimism-rpc.publicnode.com" },
+    { id: "optimism", name: "Optimism", rpc: "https://optimism-rpc.publicnode.com", lendGateway: "0x01f8cdfb1694ea8fe4ed6c38a0fd78d1188e03f4" },
     { id: "scroll", name: "Scroll", rpc: "https://scroll-rpc.publicnode.com" },
-  ],
+  ] as Array<Chain & { lendGateway?: string }>,
 };
+
+/** A LendGateway account: its loans token by token and its health, in 6-decimal dollars. */
+async function lendGateway(chain: Chain, gateway: string, owner: string, call: Call): Promise<{ debt: number; health: number | null; owed: Array<{ token: string; amount: bigint }> } | null> {
+  // getAccountData(safe): (collateralUsd, debtUsd, availableBorrowsUsd, maxBorrowUsd, healthFactor).
+  const data = words(await call(chain.rpc, gateway, "0x5d78650e" + pad(owner)));
+  if (data.length < 5) return null;
+  const debt = Number(data[1]) / 1e6;
+  if (debt <= 0) return { debt: 0, health: null, owed: [] };
+  // borrowableAssets(), then debtOf(safe, asset) for each.
+  const list = words(await call(chain.rpc, gateway, "0x76636017"));
+  const assets = Array.from({ length: Number(list[1] ?? 0n) }, (_, k) => address(list[2 + k]));
+  const owed = await Promise.all(assets.map(async (token) => ({ token, amount: firstWord(await call(chain.rpc, gateway, "0x4c4ab169" + pad(owner) + pad(token))) ?? 0n })));
+  return { debt, health: data[4] < 10n ** 30n ? Number(data[4]) / 1e18 : null, owed: owed.filter((t) => t.amount > 0n) };
+}
 
 /** Token amounts in a (token, amount)[] list that starts `at` words into an ABI result. */
 function tokenList(w: bigint[], at: number): Array<{ token: string; amount: bigint }> {
@@ -397,9 +413,14 @@ export async function etherfiCash(owner: string, call: Call, get?: Get): Promise
       call(chain.rpc, ETHERFI_CASH.debtManager, "0x186c66cc" + pad(owner)),
     ]);
     const c = words(collateral), b = words(borrowing);
-    const asset = Number(c[1]) / 1e6, debt = Number(b[1]) / 1e6;
+    const asset = Number(c[1]) / 1e6;
+    const gateway = chain.lendGateway ? await lendGateway(chain, chain.lendGateway, owner, call).catch(() => null) : null;
+    const debt = Number(b[1]) / 1e6 + (gateway?.debt ?? 0);
     if (asset < MIN_POSITION_USD && debt < MIN_POSITION_USD) continue;
-    const held = tokenList(c, 2).filter((t) => t.amount > 0n), owed = tokenList(b, 2).filter((t) => t.amount > 0n);
+    // A loan with no collateral left behind it would have been liquidated: it is what ether.fi's move
+    // from Scroll to Optimism left in the old manager (the collateral went over in April 2026), not a debt.
+    if (asset < MIN_POSITION_USD && !chain.lendGateway) continue;
+    const held = tokenList(c, 2).filter((t) => t.amount > 0n), owed = [...tokenList(b, 2).filter((t) => t.amount > 0n), ...(gateway?.owed ?? [])];
     const tokens = [...held, ...owed].map((t) => t.token);
     const names = new Map(await Promise.all([...new Set(tokens)].map(async (t) => [t, await tokenSymbol(chain.rpc, t, call)] as const)));
     const symbols = [...new Set([...names.values()].filter((x): x is string => !!x))];
@@ -408,6 +429,7 @@ export async function etherfiCash(owner: string, call: Call, get?: Get): Promise
       id: `${chain.id}:etherfi-cash`, chain: chain.id, chainName: chain.name, protocol: "ether.fi Cash",
       label: debt > 0 && asset > 0 ? "ether.fi Cash collateral and loan" : debt > 0 ? "ether.fi Cash loan" : "ether.fi Cash collateral",
       kind: "supplied", valueUsd: round(asset - debt), assetValueUsd: round(asset), debtValueUsd: round(debt),
+      ...(gateway?.health ? { healthFactor: gateway.health } : {}),
       symbols,
       ...(assets?.length ? { assets } : {}),
     });

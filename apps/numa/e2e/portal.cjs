@@ -35,6 +35,23 @@ const { check, finish } = checker();
   check('the key never comes back from the server', listed.length === 1 && !JSON.stringify(listed).includes('qa-not-a-real-key'));
   await page.screenshot({ path: OUT + '/01-unreadable-dark-390.png', fullPage: true });
 
+  // Money owed back by the company, as a business investment, follows some investors through the same portal.
+  await c.mutation('mobile:upsertAsset', { portfolioId, name: 'Business investment', kind: 'business', balance: 233567, currency: 'EUR', owedBy: 'Company' });
+  const invest = (await snap()).assets.find((a) => a.name === 'Business investment');
+  await c.mutation('liabilitySources:followInvestors', { record: `asset:${invest.id}`, investorIds: ['parents', 'lyudmila'], label: 'Parents and Lyudmila' });
+  await page.goto(`${APP}/item/asset/${invest.id}`);
+  await page.getByText('Parents and Lyudmila · example.com').waitFor({ timeout: 15000 });
+  await page.getByText(/Showing the last value/).waitFor({ timeout: 30000 });
+  const assetPage = await page.locator('body').innerText();
+  check('money owed back follows investors through the same portal, and an unreadable portal keeps its value', /BUSINESS/.test(assetPage) && (await snap()).assets.find((a) => a.id === invest.id).balance === 233567, assetPage.split('\n').slice(0, 14).join(' | '));
+  check('a business investment counts under Business', /BUSINESS/.test(assetPage));
+  await page.screenshot({ path: OUT + '/02-investment-dark-390.png', fullPage: true });
+  await page.getByRole('button', { name: 'Stop following' }).click();
+  await wait(800);
+  check('the investment can stop following too', !(await c.query('liabilitySources:listForPortfolio', { portfolioId })).some((s) => s.assetId === invest.id));
+  await page.goto(`${APP}/item/liability/${id}`);
+  await page.getByText('example.com', { exact: true }).waitFor({ timeout: 10000 });
+
   await page.getByRole('button', { name: 'Stop following' }).click();
   await page.getByRole('button', { name: 'Keep in step with a company portal' }).waitFor({ timeout: 10000 });
   check('stopping keeps the last value', (await debt()).balance === 148602.38 && (await c.query('liabilitySources:listForPortfolio', { portfolioId })).length === 0);

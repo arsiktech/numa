@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { connect, disconnect, listForPortfolio, save } from "./liabilitySources";
-import { checkPortalUrl, fetchCompanyBalance, readCompanyBalance, type Post } from "./lib/portalSource";
+import { connect, disconnect, followInvestors, listForPortfolio, save } from "./liabilitySources";
+import { checkPortalUrl, fetchPortal, readCompanyBalance, readInvestors, type Post } from "./lib/portalSource";
 
 const NOW = Date.UTC(2026, 9, 19, 20, 10);
 const balance = (difference: string | null, summary = "Balance below what is owed") => JSON.stringify({
@@ -11,8 +11,8 @@ const reply = (text: string, isError = false) => JSON.stringify({ jsonrpc: "2.0"
 
 describe("reading a portal's company balance", () => {
   it("turns a negative difference into what is owed, and a positive one into nothing owed", () => {
-    expect(readCompanyBalance(balance("-80251.11"), NOW)).toEqual({ status: "ok", shortfall: 80251.11, currency: "EUR", asOf: Date.parse("2026-10-19T20:10:17.025Z") });
-    expect(readCompanyBalance(balance("1200.50"), NOW)).toMatchObject({ status: "ok", shortfall: 0 });
+    expect(readCompanyBalance(balance("-80251.11"), NOW)).toEqual({ status: "ok", amount: 80251.11, currency: "EUR", asOf: Date.parse("2026-10-19T20:10:17.025Z") });
+    expect(readCompanyBalance(balance("1200.50"), NOW)).toMatchObject({ status: "ok", amount: 0 });
   });
 
   it("never turns a difference the portal couldn't complete into zero", () => {
@@ -23,7 +23,7 @@ describe("reading a portal's company balance", () => {
   it("calls the tool with the key in a header only, and reads replies sent as events", async () => {
     const seen: Array<{ url: string; headers: Record<string, string>; body: string }> = [];
     const post: Post = async (url, headers, body) => { seen.push({ url, headers, body }); return { ok: true, status: 200, text: `event: message\ndata: ${reply(balance("-148602.38"))}\n\n` }; };
-    expect(await fetchCompanyBalance("https://portal.example.com/api/mcp", "secret", post, NOW)).toMatchObject({ status: "ok", shortfall: 148602.38 });
+    expect(await fetchPortal("https://portal.example.com/api/mcp", "secret", post, NOW)).toMatchObject({ status: "ok", amount: 148602.38 });
     expect(seen[0].url).toBe("https://portal.example.com/api/mcp");
     expect(seen[0].headers.authorization).toBe("Bearer secret");
     expect(JSON.parse(seen[0].body)).toMatchObject({ method: "tools/call", params: { name: "company_balance" } });
@@ -31,9 +31,22 @@ describe("reading a portal's company balance", () => {
 
   it("says why a reading failed", async () => {
     const answer = (status: number, text = "") => (async () => ({ ok: status < 400, status, text })) as Post;
-    expect(await fetchCompanyBalance("https://p.example.com/mcp", undefined, answer(401), NOW)).toMatchObject({ status: "failed", message: expect.stringMatching(/refused/) });
-    expect(await fetchCompanyBalance("https://p.example.com/mcp", undefined, answer(200, reply("Tool failed", true)), NOW)).toEqual({ status: "failed", message: "Tool failed" });
-    expect(await fetchCompanyBalance("https://p.example.com/mcp", undefined, async () => { throw new TypeError("fetch failed"); }, NOW)).toEqual({ status: "failed", message: "The portal didn't answer: fetch failed" });
+    expect(await fetchPortal("https://p.example.com/mcp", undefined, answer(401), NOW)).toMatchObject({ status: "failed", message: expect.stringMatching(/refused/) });
+    expect(await fetchPortal("https://p.example.com/mcp", undefined, answer(200, reply("Tool failed", true)), NOW)).toEqual({ status: "failed", message: "Tool failed" });
+    expect(await fetchPortal("https://p.example.com/mcp", undefined, async () => { throw new TypeError("fetch failed"); }, NOW)).toEqual({ status: "failed", message: "The portal didn't answer: fetch failed" });
+  });
+
+  it("adds up what is owed to the investors followed, and knows nothing when one is missing or unknown", async () => {
+    const investors = (rows: object[]) => JSON.stringify({ asOf: "2026-10-19T20:10:17.025Z", investors: rows });
+    const owed = (id: string, amount: string | null) => ({ id, name: id, totalOwed: amount === null ? null : { amount, currency: "EUR", text: "" } });
+    const text = investors([owed("parents", "188309.00"), owed("lyudmila", "45258.00"), owed("other", "1000.00")]);
+    expect(readInvestors(text, ["parents", "lyudmila"], NOW)).toMatchObject({ status: "ok", amount: 233567, currency: "EUR" });
+    expect(readInvestors(text, ["parents", "gone"], NOW)).toMatchObject({ status: "incomplete", message: expect.stringMatching(/no longer/) });
+    expect(readInvestors(investors([owed("parents", null)]), ["parents"], NOW)).toMatchObject({ status: "incomplete", message: expect.stringMatching(/parents/) });
+    const seen: string[] = [];
+    const post: Post = async (_u, _h, body) => { seen.push(body); return { ok: true, status: 200, text: reply(text) }; };
+    expect(await fetchPortal("https://p.example.com/mcp", "k", post, NOW, { kind: "investors", ids: ["lyudmila"] })).toMatchObject({ status: "ok", amount: 45258 });
+    expect(JSON.parse(seen[0])).toMatchObject({ params: { name: "list_investors" } });
   });
 
   it("accepts only https links to named hosts", () => {
@@ -57,7 +70,9 @@ function fixture() {
   seed("memberships", "m2", { userId: "viewer", portfolioId: "pf", role: "viewer" });
   seed("liabilities", "l1", { portfolioId: "pf", name: "Company shortfall", balance: 148602.38, currency: "EUR" });
   seed("liabilities", "lbtc", { portfolioId: "pf", name: "Parents", balance: 31000, currency: "USD", owedSymbol: "BTC", owedQuantity: 0.4 });
+  seed("assets", "a1", { portfolioId: "pf", name: "Business investment", kind: "business", balance: 233000, currency: "EUR", owedBy: "Company" });
   const db = {
+    normalizeId: (table: string, id: string) => (tables.get(id) === table ? id : null),
     get: async (id: string) => (rows.has(id) ? { ...rows.get(id) } : null),
     insert: async (table: string, value: object) => seed(table, `${table}-${++sequence}`, value),
     patch: async (id: string, patch: object) => { rows.set(id, { ...rows.get(id), ...patch }); },
@@ -107,7 +122,7 @@ describe("a debt that follows a portal", () => {
   it("sets the debt from a complete reading and leaves it from any other", async () => {
     const f = fixture();
     const { id } = await f.call(connect, { liabilityId: "l1", url: "https://portal.example.com/mcp" });
-    await f.call(save, { sourceId: id, reading: { status: "ok", shortfall: 80251.11, currency: "EUR", asOf: NOW }, checkedAt: NOW });
+    await f.call(save, { sourceId: id, reading: { status: "ok", amount: 80251.11, currency: "EUR", asOf: NOW }, checkedAt: NOW });
     expect(f.row("l1").balance).toBe(80251.11);
     await f.call(save, { sourceId: id, reading: { status: "incomplete", message: "2 investors not counted" }, checkedAt: NOW + 1 });
     expect(f.row("l1").balance).toBe(80251.11);
@@ -123,5 +138,19 @@ describe("a debt that follows a portal", () => {
     const again = await f.call(connect, { liabilityId: "l1", url: "https://portal.example.com/mcp" });
     expect(f.sources()).toHaveLength(1);
     expect(id).not.toBe(again.id);
+  });
+
+  it("follows investors through the portal already connected, copying the link on the server", async () => {
+    const f = fixture();
+    await expect(f.call(followInvestors, { record: "liability:l1", investorIds: ["parents"], label: "Parents" })).rejects.toThrow(/Connect the company portal/);
+    await f.call(connect, { liabilityId: "l1", url: "https://portal.example.com/mcp", key: "secret" });
+    const { id } = await f.call(followInvestors, { record: "asset:a1", investorIds: ["parents", "lyudmila", "parents"], label: "Parents and Lyudmila" });
+    expect(f.row(id)).toMatchObject({ assetId: "a1", metric: "investors", investorIds: ["parents", "lyudmila"], url: "https://portal.example.com/mcp", key: "secret" });
+    await f.call(save, { sourceId: id, reading: { status: "ok", amount: 233567, currency: "EUR", asOf: NOW }, checkedAt: NOW });
+    expect(f.row("a1").balance).toBe(233567);
+    expect(await f.call(listForPortfolio, { portfolioId: "pf" })).toContainEqual(expect.objectContaining({ assetId: "a1", label: "Parents and Lyudmila" }));
+    await f.call(disconnect, { assetId: "a1" });
+    expect(f.row(id)).toBeUndefined();
+    expect(f.row("a1").balance).toBe(233567);
   });
 });

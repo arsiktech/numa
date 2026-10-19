@@ -3,7 +3,7 @@ import { addMoney, assertCurrency, assertTimestamp, financeMonth, majorUnits, mi
 export type MobileDashboardCurrency = "USD" | "EUR";
 
 type TxKind = "income" | "expense";
-type AssetKind = "cash" | "real_estate" | "vehicle" | "collectible" | "other";
+type AssetKind = "cash" | "real_estate" | "vehicle" | "collectible" | "business" | "other";
 type QuoteProvider = "coingecko" | "coinbase" | "alpha-vantage" | "stooq" | "finnhub" | "mock";
 
 interface DashboardPortfolio {

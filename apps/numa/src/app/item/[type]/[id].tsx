@@ -173,6 +173,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
         </Pressable>
       )}
       {item.type === 'liability' && !(item.raw as CloudLiability).owedSymbol && <PortalSource portfolioId={portfolioId} liabilityId={item.id} now={now} />}
+      {item.type === 'asset' && <PortalSource portfolioId={portfolioId} assetId={item.id} now={now} />}
       {editing && (
         <View style={{ marginTop: 22, gap: 12 }}>
           {item.type === 'holding' ? (
@@ -194,7 +195,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
                 <Field label={item.type === 'liability' ? 'You owe' : 'Value'} numeric value={text.amount} onChangeText={(t) => { setText((x) => ({ ...x, amount: t })); set({ balanceCents: toCents(t) ?? -1 }); }} />
               </View>
               {item.type === 'asset'
-                ? <Seg label="Kind" options={[['cash', 'Cash'], ['real_estate', 'Property'], ['vehicle', 'Vehicle'], ['collectible', 'Collectible'], ['other', 'Other']]} value={(form as AssetFields).kind} onChange={(k) => set({ kind: k })} />
+                ? <Seg label="Kind" options={[['cash', 'Cash'], ['real_estate', 'Property'], ['vehicle', 'Vehicle'], ['collectible', 'Collectible'], ['business', 'Business'], ['other', 'Other']]} value={(form as AssetFields).kind} onChange={(k) => set({ kind: k })} />
                 : <Seg label="Kind" options={[['credit_card', 'Card'], ['loan', 'Loan'], ['mortgage', 'Mortgage'], ['other', 'Other']]} value={(form as DebtFields).kind} onChange={(k) => set({ kind: k })} />}
               {item.type === 'asset' && (form as AssetFields).kind !== 'cash' && (
                 <View style={{ gap: 4 }}>
