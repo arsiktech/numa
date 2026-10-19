@@ -20,6 +20,9 @@ crons.interval("refresh market quotes", { minutes: 15 }, internal.marketQuotes.r
 // Public wallet balances from free explorers (mempool.space, Blockscout). No key, no cost.
 crons.interval("refresh public wallets", { minutes: 30 }, internal.walletSync.refreshDue);
 
+// Debts that follow a company portal, read through its read-only agent link.
+crons.interval("refresh portal debts", { minutes: 30 }, internal.liabilitySources.refreshDue);
+
 // Phone alerts: hourly, so quiet hours end on time. At most three a day per person.
 crons.hourly("send phone alerts", { minuteUTC: 5 }, internal.pushAlerts.sendDue);
 

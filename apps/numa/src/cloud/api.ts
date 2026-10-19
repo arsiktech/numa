@@ -194,6 +194,9 @@ export type ExportLimit = 32 | 8 | 1;
 type Receipt = { id: string; replayed: boolean };
 type WithReceipt<T> = T & { clientMutationId: string };
 
+/** A debt kept in step with a company portal; the portal's key never comes back from the server. */
+export type PortalSource = { liabilityId: string; host: string; status: 'ok' | 'incomplete' | 'failed' | null; message: string | null; checkedAt: number | null; readingAt: number | null };
+
 export const cloud = {
   authFlags: makeFunctionReference<'query', Record<string, never>, { passwordReset: boolean; emailVerification: boolean; googleOAuth: boolean; appleOAuth: boolean }>('authConfig:flags'),
   bootstrap: makeFunctionReference<'mutation', Record<string, never>, CloudBootstrap>('mobile:bootstrap'),
@@ -232,6 +235,9 @@ export const cloud = {
   debtEvents: makeFunctionReference<'query', { portfolioId: string }, DebtEvent[]>('debtEvents:listForPortfolio'),
   addDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; subject: string; kind: DebtEvent['kind']; amount?: number; unit?: string; occurredAt: number; note?: string; apply: boolean }>, Receipt>('debtEvents:add'),
   removeDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt | null>('debtEvents:remove'),
+  portalSources: makeFunctionReference<'query', { portfolioId: string }, PortalSource[]>('liabilitySources:listForPortfolio'),
+  followPortal: makeFunctionReference<'mutation', { liabilityId: string; url: string; key?: string }, { id: string }>('liabilitySources:connect'),
+  unfollowPortal: makeFunctionReference<'mutation', { liabilityId: string }, null>('liabilitySources:disconnect'),
   setLoanLinks: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; loanKey: string; targets: CloudLoanLink['targets'] }>, Receipt | null>('loanLinks:set'),
   refreshWallet: makeFunctionReference<'action', { walletId: string }, { status: 'ok' | 'partial' | 'failed' | 'recent' | 'unsupported' }>('walletSync:refresh'),
   registerDevice: makeFunctionReference<'mutation', { token: string; platform: 'ios' | 'android'; timeZone: string }, null>('pushAlerts:registerDevice'),

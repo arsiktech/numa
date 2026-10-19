@@ -10,12 +10,13 @@ export function toCents(text: string): number | null {
   return Math.round(Number(clean) * 100);
 }
 
-export function Field({ label, value, onChangeText, numeric }: { label: string; value: string; onChangeText: (t: string) => void; numeric?: boolean }) {
+export function Field({ label, value, onChangeText, numeric, kind }: { label: string; value: string; onChangeText: (t: string) => void; numeric?: boolean; kind?: 'url' | 'secret' }) {
   const { c } = useTheme();
   return (
     <View style={{ gap: 4, flex: 1, minWidth: 120 }}>
       <Txt v="small" c="ink3">{label}</Txt>
-      <TextInput value={value} onChangeText={onChangeText} accessibilityLabel={label} keyboardType={numeric ? 'decimal-pad' : 'default'} inputMode={numeric ? 'decimal' : 'text'}
+      <TextInput value={value} onChangeText={onChangeText} accessibilityLabel={label} keyboardType={numeric ? 'decimal-pad' : kind === 'url' ? 'url' : 'default'} inputMode={numeric ? 'decimal' : kind === 'url' ? 'url' : 'text'}
+        secureTextEntry={kind === 'secret'} autoCapitalize={kind ? 'none' : undefined} autoCorrect={kind ? false : undefined}
         style={{ minHeight: 44, borderRadius: 12, paddingHorizontal: 12, backgroundColor: c.s2, color: c.ink, fontFamily: numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium', fontSize: 15, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
     </View>
   );

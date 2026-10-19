@@ -6,7 +6,7 @@ delete process.env.CONVEX_DEPLOY_KEY;
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const ALL = ['signin-home', 'quick-sign-in', 'ask', 'ask-claude', 'holdings', 'flow', 'plan', 'alerts', 'push-alerts', 'import', 'import-file', 'wealth-log', 'wallets', 'loans', 'money-map', 'settings', 'sign-in-methods', 'agent', 'offline'];
+const ALL = ['signin-home', 'quick-sign-in', 'ask', 'ask-claude', 'holdings', 'flow', 'plan', 'alerts', 'push-alerts', 'import', 'import-file', 'wealth-log', 'wallets', 'loans', 'money-map', 'portal', 'settings', 'sign-in-methods', 'agent', 'offline'];
 const chosen = process.argv.slice(2).length ? process.argv.slice(2) : ALL;
 const results = [];
 for (const name of chosen) {
