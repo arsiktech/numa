@@ -25,6 +25,7 @@ import type * as clientErrors from "../clientErrors.js";
 import type * as crons from "../crons.js";
 import type * as cryptoWallets from "../cryptoWallets.js";
 import type * as dataExport from "../dataExport.js";
+import type * as debtEvents from "../debtEvents.js";
 import type * as goals from "../goals.js";
 import type * as holdings from "../holdings.js";
 import type * as http from "../http.js";
@@ -125,6 +126,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   cryptoWallets: typeof cryptoWallets;
   dataExport: typeof dataExport;
+  debtEvents: typeof debtEvents;
   goals: typeof goals;
   holdings: typeof holdings;
   http: typeof http;

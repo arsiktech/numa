@@ -207,11 +207,13 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
                 <View style={{ gap: 4 }}>
                   <Field label="Due date (like 20 Oct, or leave empty)" value={text.due} onChangeText={(t) => setText((x) => ({ ...x, due: t }))} />
                   <Txt v="small" c={dueBad ? 'warn' : 'ink3'}>{dueBad ? 'That doesn’t look like a date.' : dueText ? `Due ${shortDay(dueText.at, now)}` : 'No due date'}</Txt>
+                  <View style={{ marginTop: 8 }}><Field label="Owed to (like Stas or a bank)" value={(form as DebtFields).counterparty} onChangeText={(t) => set({ counterparty: t })}  /></View>
                 </View>
               )}
             </>
           )}
           {item.type !== 'liability' && <Field label={item.type === 'holding' ? 'Where it is (like Trade Republic or Ledger)' : 'Where it is (like a bank or a safe)'} value={(form as AssetFields | HoldingFields).location} onChangeText={(t) => set({ location: t })} />}
+          {item.type === 'asset' && <Field label="Owed to you by (if you lent this money)" value={(form as AssetFields).owedBy} onChangeText={(t) => set({ owedBy: t })} />}
           <Seg label="Currency" options={[['EUR', '€ EUR'], ['USD', '$ USD']]} value={form.currency} onChange={(v) => set({ currency: v })} />
           {problems.length > 0 && <Txt v="small" c="warn">{problems[0]}</Txt>}
         </View>

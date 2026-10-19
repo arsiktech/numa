@@ -25,6 +25,17 @@ export function cleanLocation(value: string | undefined): { location?: string } 
   return { location: trimmed || undefined };
 }
 
+/**
+ * Who a debt is with: a person, a company or a lender. Left out keeps what is saved; an empty
+ * string clears it.
+ */
+export function cleanParty<K extends "counterparty" | "owedBy">(key: K, value: string | undefined): Partial<Record<K, string | undefined>> {
+  if (value === undefined) return {};
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (trimmed.length > 60) throw new ConvexError({ code: "INVALID_INPUT", message: "Keep the name to 60 characters" });
+  return { [key]: trimmed || undefined } as Partial<Record<K, string | undefined>>;
+}
+
 export function cleanRequired(value: string, label: string) {
   const trimmed = value.trim();
   if (!trimmed) {

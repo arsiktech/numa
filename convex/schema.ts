@@ -256,6 +256,8 @@ export default defineSchema({
     notes: v.optional(v.string()),
     /** Where it is kept, like a bank or a safe. */
     location: v.optional(v.string()),
+    /** Who owes it to the person, when this asset is money lent out, like a loan to a company. */
+    owedBy: v.optional(v.string()),
     /** What it cost in total, in its own currency, so its value can show a gain or loss. */
     costBasis: v.optional(v.number()),
     /** When it was bought. */
@@ -284,8 +286,28 @@ export default defineSchema({
      */
     owedSymbol: v.optional(v.string()),
     owedQuantity: v.optional(v.number()),
+    /** Who the debt is owed to: a person, a company or a lender. Debts to one party group together. */
+    counterparty: v.optional(v.string()),
     updatedAt: v.number()
   }).index("by_portfolio", ["portfolioId"]),
+
+  /**
+   * What happened to a debt, newest last: money taken, paid back, lent or received, or a note. A
+   * payment that was applied changed the record's balance when it was saved, and removing it
+   * gives that amount back. `subject` is "liability:<id>" or "asset:<id>" (money owed to you).
+   */
+  debtEvents: defineTable({
+    portfolioId: v.id("portfolios"),
+    subject: v.string(),
+    kind: v.union(v.literal("borrowed"), v.literal("repaid"), v.literal("lent"), v.literal("received"), v.literal("note")),
+    /** In `unit`: the record's currency or the coin it is owed in. */
+    amount: v.optional(v.number()),
+    unit: v.optional(v.string()),
+    applied: v.boolean(),
+    occurredAt: v.number(),
+    note: v.optional(v.string()),
+    createdAt: v.number()
+  }).index("by_portfolio", ["portfolioId"]).index("by_subject", ["portfolioId", "subject"]),
 
   marketQuotes: defineTable({
     symbol: v.string(),

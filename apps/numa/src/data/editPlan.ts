@@ -5,18 +5,18 @@ const major = (cents: number) => Math.round(cents) / 100;
 const minor = (amount: number) => Math.round(amount * 100);
 
 /** `costCents` and `acquiredAt` are what it cost and when it was bought; null when not known. */
-export type AssetFields = { name: string; kind: CloudAsset['kind']; balanceCents: number; currency: CloudCurrency; location: string; costCents: number | null; acquiredAt: number | null };
-export type DebtFields = { name: string; kind: CloudLiability['kind']; balanceCents: number; currency: CloudCurrency; dueDate: number | null };
+export type AssetFields = { name: string; kind: CloudAsset['kind']; balanceCents: number; currency: CloudCurrency; location: string; costCents: number | null; acquiredAt: number | null; owedBy: string };
+export type DebtFields = { name: string; kind: CloudLiability['kind']; balanceCents: number; currency: CloudCurrency; dueDate: number | null; counterparty: string };
 export type HoldingFields = { symbol: string; name: string; kind: CloudHolding['kind']; quantity: number; costBasisCents: number; currency: CloudCurrency; location: string };
 export type Fields = AssetFields | DebtFields | HoldingFields;
 
-export const assetFields = (a: CloudAsset): AssetFields => ({ name: a.name, kind: a.kind, balanceCents: minor(a.balance), currency: a.currency, location: a.location ?? '', costCents: a.costBasis ? minor(a.costBasis) : null, acquiredAt: a.acquiredAt ?? null });
-export const debtFields = (l: CloudLiability): DebtFields => ({ name: l.name, kind: l.kind, balanceCents: minor(l.balance), currency: l.currency, dueDate: l.dueDate });
+export const assetFields = (a: CloudAsset): AssetFields => ({ name: a.name, kind: a.kind, balanceCents: minor(a.balance), currency: a.currency, location: a.location ?? '', costCents: a.costBasis ? minor(a.costBasis) : null, acquiredAt: a.acquiredAt ?? null, owedBy: a.owedBy ?? '' });
+export const debtFields = (l: CloudLiability): DebtFields => ({ name: l.name, kind: l.kind, balanceCents: minor(l.balance), currency: l.currency, dueDate: l.dueDate, counterparty: l.counterparty ?? '' });
 export const holdingFields = (h: CloudHolding): HoldingFields => ({ symbol: h.symbol, name: h.name, kind: h.kind, quantity: h.quantity, costBasisCents: minor(h.costBasis), currency: h.currency, location: h.location ?? '' });
 
 function args(type: 'asset' | 'liability' | 'holding', f: Fields, portfolioId: string, extra: Record<string, unknown>) {
-  if (type === 'asset') { const a = f as AssetFields; return { portfolioId, name: a.name.trim(), kind: a.kind, balance: major(a.balanceCents), currency: a.currency, location: a.location.trim(), costBasis: a.costCents ? major(a.costCents) : null, acquiredAt: a.acquiredAt, ...extra }; }
-  if (type === 'liability') { const d = f as DebtFields; return { portfolioId, name: d.name.trim(), kind: d.kind, balance: major(d.balanceCents), currency: d.currency, ...(d.dueDate !== null ? { dueDate: d.dueDate } : {}), ...extra }; }
+  if (type === 'asset') { const a = f as AssetFields; return { portfolioId, name: a.name.trim(), kind: a.kind, balance: major(a.balanceCents), currency: a.currency, location: a.location.trim(), costBasis: a.costCents ? major(a.costCents) : null, acquiredAt: a.acquiredAt, owedBy: a.owedBy.trim(), ...extra }; }
+  if (type === 'liability') { const d = f as DebtFields; return { portfolioId, name: d.name.trim(), kind: d.kind, balance: major(d.balanceCents), currency: d.currency, ...(d.dueDate !== null ? { dueDate: d.dueDate } : {}), counterparty: d.counterparty.trim(), ...extra }; }
   const h = f as HoldingFields;
   return { portfolioId, symbol: h.symbol.trim().toUpperCase(), name: h.name.trim() || h.symbol.trim().toUpperCase(), kind: h.kind, quantity: h.quantity, costBasis: major(h.costBasisCents), currency: h.currency, location: h.location.trim(), ...extra };
 }
@@ -55,6 +55,7 @@ export function fieldProblems(type: 'asset' | 'liability' | 'holding', f: Fields
   if (!a.name.trim()) out.push('Add a name.');
   if (!(a.balanceCents >= 0)) out.push('Add an amount.');
   if ('location' in a && a.location.trim().length > 60) out.push('Keep where it is to 60 characters.');
+  if (('owedBy' in a ? a.owedBy : 'counterparty' in a ? a.counterparty : '').trim().length > 60) out.push('Keep the name to 60 characters.');
   if ('costCents' in a && a.costCents !== null && !(a.costCents > 0)) out.push('What it cost must be more than zero, or empty.');
   return out;
 }

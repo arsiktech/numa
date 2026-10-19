@@ -77,6 +77,7 @@ export function mobileAsset(asset: Doc<"assets">) {
     currency: asset.currency,
     notes: asset.notes ?? null,
     location: asset.location ?? null,
+    owedBy: asset.owedBy ?? null,
     costBasis: asset.costBasis ?? null,
     acquiredAt: asset.acquiredAt ?? null,
     updatedAt: asset.updatedAt
@@ -107,6 +108,7 @@ export function mobileLiability(liability: Doc<"liabilities"> & { owedPriceAt?: 
     owedSymbol: liability.owedSymbol ?? null,
     owedQuantity: liability.owedQuantity ?? null,
     owedPriceAt: liability.owedPriceAt ?? null,
+    counterparty: liability.counterparty ?? null,
     updatedAt: liability.updatedAt
   };
 }

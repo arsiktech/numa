@@ -522,6 +522,11 @@ async function deletePortfolioCascade(
         .take(n),
     (n) =>
       ctx.db
+        .query("debtEvents")
+        .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))
+        .take(n),
+    (n) =>
+      ctx.db
         .query("assets")
         .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))
         .take(n),

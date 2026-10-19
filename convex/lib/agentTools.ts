@@ -141,7 +141,7 @@ function walletSummary(w: WalletDoc, detail: boolean) {
 const snapshotOf = (io: AgentIo, space: Space) => io.query("mobile:portfolioSnapshot", { portfolioId: space.id }) as Promise<Snapshot>;
 const walletsOf = (io: AgentIo, space: Space) => io.query("cryptoWallets:listForPortfolio", { portfolioId: space.id }) as Promise<WalletDoc[]>;
 
-const SECTIONS = ["assets", "liabilities", "holdings", "goals", "categories", "recurring", "revenue", "wallets", "loans"] as const;
+const SECTIONS = ["assets", "liabilities", "holdings", "goals", "categories", "recurring", "revenue", "wallets", "loans", "debt_history"] as const;
 
 export const AGENT_TOOLS: AgentTool[] = [
   {
@@ -184,7 +184,8 @@ export const AGENT_TOOLS: AgentTool[] = [
       for (const key of SECTIONS) {
         if (!want.has(key)) continue;
         out[key] = key === "wallets" ? (await walletsOf(io, space)).map((w) => walletSummary(w, true))
-          : key === "loans" ? await io.query("loanLinks:listForPortfolio", { portfolioId: space.id }) : snap[key];
+          : key === "loans" ? await io.query("loanLinks:listForPortfolio", { portfolioId: space.id })
+          : key === "debt_history" ? await io.query("debtEvents:listForPortfolio", { portfolioId: space.id }) : snap[key];
       }
       return out;
     },
@@ -253,7 +254,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "save_asset", title: "Add or update an asset", write: true,
     description: "Cash accounts, property, vehicles, collectibles. Send id to update an existing one; leave it out to add a new one. cost_basis and acquired_at show how much it gained or lost since it was bought.",
-    inputSchema: schema({ id: str("Asset id to update."), space_id: spaceId, name: str("Name, like Revolut EUR or Flat in Lisbon."), kind: str("Kind of asset.", { enum: ["cash", "real_estate", "vehicle", "collectible", "other"] }), balance: num("Current value."), currency, location: where, cost_basis: num("What it cost in total, in the same currency, to show its gain or loss. 0 clears it.", { minimum: 0 }), acquired_at: str("When it was bought, like 2025-02-01."), request_id: requestId }, ["name", "kind", "balance"]),
+    inputSchema: schema({ id: str("Asset id to update."), space_id: spaceId, name: str("Name, like Revolut EUR or Flat in Lisbon."), kind: str("Kind of asset.", { enum: ["cash", "real_estate", "vehicle", "collectible", "other"] }), balance: num("Current value."), currency, location: where, cost_basis: num("What it cost in total, in the same currency, to show its gain or loss. 0 clears it.", { minimum: 0 }), acquired_at: str("When it was bought, like 2025-02-01."), owed_by: str("When this is money lent out: who owes it to the user, like XCHAINGER. Empty string clears it."), request_id: requestId }, ["name", "kind", "balance"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
       const cost = args.cost_basis === undefined || args.cost_basis === null ? undefined : amount(args, "cost_basis");
@@ -261,7 +262,8 @@ export const AGENT_TOOLS: AgentTool[] = [
         ...(cost === undefined ? {} : { costBasis: cost > 0 ? cost : null }), ...(args.acquired_at === undefined ? {} : { acquiredAt: date(args, "acquired_at") ?? null }),
         ...(text(args, "id", false) ? { id: text(args, "id") } : {}), portfolioId: space.id, name: text(args, "name"),
         kind: oneOf(args, "kind", ["cash", "real_estate", "vehicle", "collectible", "other"] as const), balance: amount(args, "balance"),
-        currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, ...place(args), ...write(io, args),
+        currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, ...place(args),
+        ...(typeof args.owed_by === "string" ? { owedBy: args.owed_by } : {}), ...write(io, args),
       });
     },
   },
@@ -274,7 +276,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "save_liability", title: "Add or update a debt", write: true,
     description: "Credit cards, loans, mortgages and other money owed. Balance is the amount owed, positive. A debt owed in an asset (like 0.15 BTC or 26,800 USDC) also sends owed_asset and owed_quantity; Numa then values it at that asset's live price. Send id to update.",
-    inputSchema: schema({ id: str("Liability id to update."), space_id: spaceId, name: str("Name, like Car loan."), kind: str("Kind of debt.", { enum: ["credit_card", "loan", "mortgage", "other"] }), balance: num("Amount owed, in currency. For a debt owed in an asset, today's value.", { minimum: 0 }), currency, due_date: str("Next due date, like 2026-11-01."), owed_asset: str("Asset the debt is owed in, when not money.", { enum: ["BTC", "ETH", "SOL", "USDC", "USDT", "EURC"] }), owed_quantity: num("How much of owed_asset is owed.", { exclusiveMinimum: 0 }), request_id: requestId }, ["name", "kind", "balance"]),
+    inputSchema: schema({ id: str("Liability id to update."), space_id: spaceId, name: str("Name, like Car loan."), kind: str("Kind of debt.", { enum: ["credit_card", "loan", "mortgage", "other"] }), balance: num("Amount owed, in currency. For a debt owed in an asset, today's value.", { minimum: 0 }), currency, due_date: str("Next due date, like 2026-11-01."), owed_asset: str("Asset the debt is owed in, when not money.", { enum: ["BTC", "ETH", "SOL", "USDC", "USDT", "EURC"] }), owed_quantity: num("How much of owed_asset is owed.", { exclusiveMinimum: 0 }), who: str("Who it is owed to, like Stas or Compound. Debts to the same party group together. Empty string clears it."), request_id: requestId }, ["name", "kind", "balance"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
       return io.mutation("mobile:upsertLiability", {
@@ -282,7 +284,8 @@ export const AGENT_TOOLS: AgentTool[] = [
         kind: oneOf(args, "kind", ["credit_card", "loan", "mortgage", "other"] as const), balance: amount(args, "balance"),
         currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency,
         ...(args.due_date !== undefined ? { dueDate: date(args, "due_date") } : {}),
-        ...(typeof args.owed_asset === "string" ? { owedSymbol: args.owed_asset, owedQuantity: amount(args, "owed_quantity") } : {}), ...write(io, args),
+        ...(typeof args.owed_asset === "string" ? { owedSymbol: args.owed_asset, owedQuantity: amount(args, "owed_quantity") } : {}),
+        ...(typeof args.who === "string" ? { counterparty: args.who } : {}), ...write(io, args),
       });
     },
   },
@@ -394,6 +397,35 @@ export const AGENT_TOOLS: AgentTool[] = [
       const targets = [...keys("went_to").map((k) => ({ key: k, role: "deployed" })), ...keys("backed_by").map((k) => ({ key: k, role: "collateral" }))];
       return io.mutation("loanLinks:set", { portfolioId: space.id, loanKey: text(args, "loan"), targets, ...write(io, args) });
     },
+  },
+  {
+    name: "record_debt_event", title: "Record what happened to a debt", write: true,
+    description: "Add to a debt's history: money borrowed or repaid on a liability, money lent or received on money owed to the user (an asset with owed_by), or a note. With apply true a payment also changes the debt's balance (or its coin amount); with apply false it is history only, for what is already in the balance. Amounts are in the debt's currency or the coin it is owed in. Confirm with the user first.",
+    inputSchema: schema({
+      space_id: spaceId,
+      debt: str("liability:<id> or asset:<id> from get_records."),
+      kind: str("What happened.", { enum: ["borrowed", "repaid", "lent", "received", "note"] }),
+      amount: num("How much, positive. Leave out for a note.", { exclusiveMinimum: 0 }),
+      unit: str("Currency or coin of the amount, like EUR, USD, USDC or BTC."),
+      date: str("When, like 2026-09-20."),
+      note: str("Short note, like Paid to Liza via Zen."),
+      apply: { type: "boolean", description: "Also change the debt's balance. Default false." },
+      request_id: requestId,
+    }, ["debt", "kind", "date"]),
+    async run(io, args) {
+      const space = await resolveSpace(io, args);
+      return io.mutation("debtEvents:add", {
+        portfolioId: space.id, subject: text(args, "debt"), kind: oneOf(args, "kind", ["borrowed", "repaid", "lent", "received", "note"] as const),
+        ...(args.amount !== undefined ? { amount: amount(args, "amount"), unit: text(args, "unit") } : {}),
+        occurredAt: date(args, "date"), ...(text(args, "note", false) ? { note: text(args, "note") } : {}), apply: args.apply === true, ...write(io, args),
+      });
+    },
+  },
+  {
+    name: "delete_debt_event", title: "Delete a debt history entry", write: true,
+    description: "Remove one entry from a debt's history. If it had changed the balance, that amount is given back.",
+    inputSchema: schema({ id: str("Entry id from get_records debt_history."), request_id: requestId }, ["id"]),
+    run: (io, args) => io.mutation("debtEvents:remove", { id: text(args, "id"), ...write(io, args) }),
   },
   {
     name: "save_history_point", title: "Save a net worth history point", write: true,
