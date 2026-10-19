@@ -111,6 +111,45 @@ export function positionsOf(items: Item[], group: GroupId): Position[] {
   return out.sort((a, b) => (b.valueCents ?? 0) - (a.valueCents ?? 0) || b.places.length - a.places.length);
 }
 
+/**
+ * What a token really is underneath: wrapped, bridged and staked versions of Bitcoin are Bitcoin,
+ * and so on. `peg` marks a token worth one of the underlying, so amounts can be added up.
+ */
+const UNDERLYING: Record<string, { family: 'BTC' | 'ETH' | 'USD' | 'EUR'; peg: boolean }> = Object.fromEntries([
+  ...['BTC', 'WBTC', 'CBBTC', 'TBTC', 'BTCB', 'FBTC', 'LBTC', 'SOLVBTC', 'EBTC'].map((k) => [k, { family: 'BTC', peg: true }]),
+  ...['ETH', 'WETH', 'STETH', 'EETH', 'OETH', 'FRXETH'].map((k) => [k, { family: 'ETH', peg: true }]),
+  ...['WSTETH', 'RETH', 'CBETH', 'WEETH', 'EZETH', 'RSETH', 'METH', 'SFRXETH', 'SWETH', 'ETHX', 'OSETH'].map((k) => [k, { family: 'ETH', peg: false }]),
+  ...['USDC', 'USDT', 'DAI', 'USDS', 'USDE', 'PYUSD', 'FDUSD', 'TUSD', 'GHO', 'LUSD', 'USDC.E', 'USDBC', 'FRAX', 'CRVUSD', 'RLUSD', 'USDG'].map((k) => [k, { family: 'USD', peg: true }]),
+  ...['SUSDE', 'SDAI', 'SUSDS', 'LIQUIDUSD'].map((k) => [k, { family: 'USD', peg: false }]),
+  ...['EURC', 'EURE', 'EURS', 'AGEUR', 'EURA'].map((k) => [k, { family: 'EUR', peg: true }]),
+  ...['WEEUR'].map((k) => [k, { family: 'EUR', peg: false }]),
+] as [string, { family: 'BTC' | 'ETH' | 'USD' | 'EUR'; peg: boolean }][]);
+const FAMILY_NAMES = { BTC: 'Bitcoin', ETH: 'Ether', USD: 'US dollar', EUR: 'Euro' } as const;
+
+/** Assets that are the same thing underneath, with the versions held. One version stays a plain position. */
+export type Family = { key: string; name: string; unit: string | null; quantity: number | null; valueCents: number | null; unknown: number; members: Position[] };
+export const isFamilyKey = (key: string) => key.startsWith('fam:');
+
+/** Positions grouped by what they really are, biggest first. Amounts add up only when every version is worth one. */
+export function familiesOf(positions: Position[]): Family[] {
+  const by = new Map<string, Family>();
+  const out: Family[] = [];
+  for (const p of positions) {
+    const u = p.unit ? UNDERLYING[p.unit.toUpperCase()] : undefined;
+    if (!u) { out.push({ key: p.key, name: p.name, unit: p.unit, quantity: p.quantity, valueCents: p.valueCents, unknown: p.unknown, members: [p] }); continue; }
+    let f = by.get(u.family);
+    if (!f) { f = { key: `fam:${u.family}`, name: FAMILY_NAMES[u.family], unit: u.family === 'BTC' || u.family === 'ETH' ? u.family : null, quantity: 0, valueCents: 0, unknown: 0, members: [] }; by.set(u.family, f); out.push(f); }
+    f.members.push(p);
+    f.quantity = f.quantity === null || !u.peg || p.quantity === null ? null : f.quantity + p.quantity;
+    f.valueCents = (f.valueCents ?? 0) + (p.valueCents ?? 0);
+    f.unknown += p.unknown;
+  }
+  // A family of one is just that position, under its own name.
+  const flat = out.map((f) => (f.members.length === 1 ? { ...f, key: f.members[0].key, name: f.members[0].name, unit: f.members[0].unit, quantity: f.members[0].quantity } : f));
+  for (const f of flat) if (f.unit === null) f.quantity = null;
+  return flat.sort((a, b) => (b.valueCents ?? 0) - (a.valueCents ?? 0));
+}
+
 /** One place things sit: a wallet, a protocol inside it, an account. What it holds and its value. */
 export type Spot = { key: string; name: string; items: { id: string; type: Item['type'] }[]; assets: string[]; valueCents: number | null; unknown: number };
 

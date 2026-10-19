@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-n
 
 import { useSession } from '@/cloud/session';
 import { groupNames, groupTotal, type GroupId } from '@/data/items';
-import { FOUR_CLASSES, positionsOf, spotsOf, type Spot } from '@/data/positions';
+import { familiesOf, FOUR_CLASSES, positionsOf, spotsOf, type Spot } from '@/data/positions';
 import { useCloudItems, useDemoItems, type ItemsSource } from '@/data/useItems';
 import { CATEGORY_ORDER } from '@/domain/summary';
 import type { CategoryId } from '@/domain/types';
@@ -15,7 +15,7 @@ import { LoansSection } from '@/loans/LoansSection';
 import { ItemRow } from '@/ui/ItemRow';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { WIDE } from '@/ui/Panel';
-import { PositionRow } from '@/ui/PositionRow';
+import { FamilyRow, PositionRow } from '@/ui/PositionRow';
 import { Screen } from '@/ui/Screen';
 import { Hint } from '@/ui/Hint';
 import { Treemap } from '@/ui/Treemap';
@@ -86,6 +86,8 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
   const total = single ? groupTotal(single.items) : null;
   const positions = only ? positionsOf(source.items, only) : [];
   const spots = only && only !== 'debts' ? spotsOf(source.items, only) : [];
+  // Crypto by what it really is: cbBTC, WBTC and tBTC are one Bitcoin block that opens into them.
+  const families = only === 'crypto' ? familiesOf(positions) : null;
   const owned = groups.filter((x) => x.g !== 'debts');
   const ownedCents = owned.reduce((t, x) => t + groupTotal(x.items).cents, 0);
   const swatch = (g: GroupId) => (g === 'debts' ? c.down : c[categoryColor(g as CategoryId)]);
@@ -144,12 +146,19 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
             </>
           ) : (
             <>
-              <Treemap height={wide ? 240 : 190} tiles={positions.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: only!, key: p.key } }) }))} />
+              <Treemap height={wide ? 240 : 190} tiles={(families ?? positions).filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: only!, key: p.key } }) }))} />
               {/* Signed in, each debt is a loan with what backs it and where its money went. */}
               {only === 'debts' && !source.demo ? <LoansSection /> : (
                 <>
                   <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">{only === 'cash' ? 'BY CURRENCY' : only === 'debts' ? 'BY DEBT' : 'BY ASSET'}</Txt>
-                  {positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === positions.length - 1} />)}
+                  {families
+                    ? families.map((f, n) => {
+                      const share = total && total.cents > 0 && f.valueCents !== null ? f.valueCents / total.cents : null;
+                      return f.members.length > 1
+                        ? <FamilyRow key={f.key} family={f} group={only!} share={share} swatch={swatch(only!)} last={n === families.length - 1} />
+                        : <PositionRow key={f.key} position={f.members[0]} share={share} swatch={swatch(only!)} last={n === families.length - 1} />;
+                    })
+                    : positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === positions.length - 1} />)}
                 </>
               )}
             </>

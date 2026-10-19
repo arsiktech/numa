@@ -1,17 +1,19 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import { groupNames, type GroupId } from '@/data/items';
-import { positionsOf, type Place, type Position } from '@/data/positions';
+import { familiesOf, isFamilyKey, positionsOf, type Family, type Place, type Position } from '@/data/positions';
 import { useCloudItems, useDemoItems, type ItemsSource } from '@/data/useItems';
 import type { CategoryId } from '@/domain/types';
 import { useTheme } from '@/theme/theme';
 import { categoryColor } from '@/ui/CompositionBar';
 import { CurrencyScope, useMoney } from '@/ui/money';
-import { quantityText } from '@/ui/PositionRow';
+import { WIDE } from '@/ui/Panel';
+import { PositionRow, quantityText } from '@/ui/PositionRow';
 import { PriceChart } from '@/ui/PriceChart';
 import { Screen } from '@/ui/Screen';
+import { Treemap } from '@/ui/Treemap';
 import { Txt } from '@/ui/Txt';
 
 const TAGS: Record<NonNullable<Place['tag']>, string> = { pledged: 'Pledged', lent: 'Lent out', locked: 'Locked', pool: 'In a pool' };
@@ -30,7 +32,13 @@ function Body({ source, group, id }: { source: ItemsSource; group: GroupId; id: 
   if (source.status !== 'ready') {
     return <Screen><View style={{ marginTop: 60, alignItems: 'center' }}>{source.status === 'error' ? <Txt v="body" c="ink2">{source.message}</Txt> : <ActivityIndicator accessibilityLabel="Loading" />}</View></Screen>;
   }
-  const position = positionsOf(source.items, group).find((p) => p.key === id);
+  const positions = positionsOf(source.items, group);
+  if (isFamilyKey(id)) {
+    const family = familiesOf(positions).find((f) => f.key === id);
+    if (!family) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>This is no longer in {groupNames[group].toLowerCase()}.</Txt></Screen>;
+    return <CurrencyScope currency={source.currency}><FamilyDetail family={family} group={group} demo={source.demo} now={source.now} /></CurrencyScope>;
+  }
+  const position = positions.find((p) => p.key === id);
   if (!position) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>This is no longer in {groupNames[group].toLowerCase()}.</Txt></Screen>;
   return <CurrencyScope currency={source.currency}><Detail position={position} demo={source.demo} now={source.now} /></CurrencyScope>;
 }
@@ -81,6 +89,31 @@ function Detail({ position, demo, now }: { position: Position; demo: boolean; no
           <Txt v="body" c="ink3">›</Txt>
         </Pressable>
       ))}
+    </Screen>
+  );
+}
+
+/** One underlying asset and the versions it is held as: Bitcoin as cbBTC, WBTC and tBTC. Each opens where it sits. */
+function FamilyDetail({ family, group, demo, now }: { family: Family; group: GroupId; demo: boolean; now: number }) {
+  const { c } = useTheme();
+  const { money, mask } = useMoney();
+  const wide = useWindowDimensions().width >= WIDE;
+  const color = c[categoryColor(group as CategoryId)];
+  const qty = quantityText(family.quantity, family.unit);
+  const total = family.valueCents ?? 0;
+  return (
+    <Screen>
+      <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{groupNames[group].toUpperCase()}{demo ? ' · DEMO DATA' : ''}</Txt>
+      <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{family.name}</Txt>
+      <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40 }}>{family.valueCents === null ? '—' : money(family.valueCents, { cents: true })}</Txt>
+      {qty && <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(qty)}</Txt>}
+      {family.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{family.unknown} {family.unknown === 1 ? 'place has' : 'places have'} no value yet and {family.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
+      {!demo && family.unit && <PriceChart symbol={family.unit} kind="crypto" now={now} />}
+      <Txt v="label" c="ink3" style={{ marginTop: 24, marginBottom: 10 }} accessibilityRole="header">HELD AS</Txt>
+      <Treemap height={wide ? 220 : 170} tiles={family.members.filter((m) => (m.valueCents ?? 0) > 0).map((m) => ({ id: m.key, label: m.name, cents: m.valueCents ?? 0, color: categoryColor(group as CategoryId), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group, key: m.key } }) }))} />
+      <View style={{ marginTop: 14 }}>
+        {family.members.map((m, n) => <PositionRow key={m.key} position={m} share={total > 0 && m.valueCents !== null ? m.valueCents / total : null} swatch={color} last={n === family.members.length - 1} />)}
+      </View>
     </Screen>
   );
 }
