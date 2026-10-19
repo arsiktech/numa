@@ -38,15 +38,29 @@ const post: Post = async (url, body) => {
   return await response.json();
 };
 
-const call: Call = async (rpcUrl, to, data, from) => {
+class Reverted extends Error {}
+
+async function callOnce(rpcUrl: string, to: string, data: string, from?: string): Promise<string> {
   const response = await fetch(rpcUrl, {
     method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS),
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data, ...(from ? { from } : {}) }, "latest"] }),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const body = (await response.json()) as { result?: unknown; error?: unknown };
-  if (typeof body.result !== "string") throw new Error("RPC error");
-  return body.result;
+  const body = (await response.json()) as { result?: unknown; error?: { message?: unknown } };
+  if (typeof body.result === "string") return body.result;
+  if (/revert/i.test(String(body.error?.message ?? ""))) throw new Reverted("execution reverted");
+  throw new Error("RPC error");
+}
+
+/** One eth_call, tried twice: public nodes drop the odd request under a burst. A contract that reverts isn't asked again. */
+const call: Call = async (rpcUrl, to, data, from) => {
+  try {
+    return await callOnce(rpcUrl, to, data, from);
+  } catch (error) {
+    if (error instanceof Reverted) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return await callOnce(rpcUrl, to, data, from);
+  }
 };
 
 type Target = { id: Id<"cryptoWallets">; address: string; addressType: "bitcoin" | "evm"; checkedAt: number | null };
