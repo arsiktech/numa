@@ -37,6 +37,7 @@ describe("DeFi positions", () => {
     };
     const [p] = await priceDrafts(drafts, get);
     expect(p).toMatchObject({ protocol: "Uniswap V3", kind: "liquidity", label: "WETH / USDC 0.05% pool", symbols: ["WETH", "USDC"], assetValueUsd: 2020 + 3025, debtValueUsd: 0, valueUsd: 5045 });
+    expect(p.assets).toEqual([{ symbol: "USDC", quantity: "3025", valueUsd: 3025 }, { symbol: "WETH", quantity: "1.01", valueUsd: 2020 }]);
   });
 
   it("calls a position out of range when it holds only one token", async () => {
@@ -69,6 +70,7 @@ describe("DeFi positions", () => {
     const prices = { [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" }, [`base:${CBBTC}`]: { price: 100_000, decimals: 8, symbol: "cbBTC" } };
     const [p] = await priceDrafts(drafts, async () => ({ coins: prices }));
     expect(p).toMatchObject({ protocol: "Compound V3", label: "Compound V3 lending and borrowing", assetValueUsd: 100_000, debtValueUsd: 40_000, valueUsd: 60_000, positionAddress: COMET_USDC.toLowerCase() });
+    expect(p.assets).toEqual([{ symbol: "cbBTC", quantity: "1", valueUsd: 100_000 }, { symbol: "USDC", quantity: "40000", valueUsd: 40_000, debt: true }]);
     expect(await priceDrafts(drafts, async () => ({ coins: { [`base:${USDC}`]: prices[`base:${USDC}`] } }))).toEqual([]);
   });
 
@@ -101,7 +103,7 @@ describe("DeFi positions", () => {
     expect(query).toContain(`base: userByAddress(address: "${OWNER}", chainId: 8453)`);
     expect(r.failed).toEqual(["arbitrum"]);
     expect(r.positions).toEqual([
-      expect.objectContaining({ id: "base:morpho:0xab", label: "Morpho cbBTC / USDC lending and borrowing", assetValueUsd: 12147.1, debtValueUsd: 7969.8 }),
+      expect.objectContaining({ id: "base:morpho:0xab", label: "Morpho cbBTC / USDC lending and borrowing", assetValueUsd: 12147.1, debtValueUsd: 7969.8, assets: [{ symbol: "cbBTC", valueUsd: 12147.1 }, { symbol: "USDC", valueUsd: 7969.8, debt: true }] }),
       expect.objectContaining({ id: "base:morpho-vault:0x7bfa", label: "Spark USDC Vault", assetValueUsd: 500, positionAddress: "0x7bfa" }),
     ]);
   });

@@ -20,6 +20,7 @@ export type Position = { key: string; group: GroupId; name: string; unit: string
 const COINS: Record<string, string> = {
   BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', USDC: 'USD Coin', USDT: 'Tether', DAI: 'Dai', POL: 'Polygon', MATIC: 'Polygon',
   ARB: 'Arbitrum', OP: 'Optimism', LINK: 'Chainlink', UNI: 'Uniswap', AAVE: 'Aave', WBTC: 'Wrapped Bitcoin', CBBTC: 'Coinbase Bitcoin', WETH: 'Wrapped Ether',
+  TBTC: 'tBTC', WSTETH: 'Lido staked Ether', STETH: 'Lido staked Ether', WEETH: 'ether.fi staked Ether', EZETH: 'Renzo restaked Ether', CBETH: 'Coinbase staked Ether', GHO: 'GHO', EURC: 'Euro Coin',
 };
 const CURRENCIES: Record<string, string> = { EUR: 'Euro', USD: 'US dollar', GBP: 'Pound sterling', CHF: 'Swiss franc' };
 export const shortAddress = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
@@ -38,12 +39,28 @@ export function walletPieces(w: CloudWallet, currency: Currency, fx: FxRate | nu
   }));
   for (const p of s.defiPositions ?? []) {
     const detail = `${shortAddress(w.address)} · ${p.protocol} on ${p.chainName}`;
+    const own = (p.assets ?? []).filter((a) => !a.debt && a.valueUsd > 0);
+    // Token by token when the position says what it holds: WBTC lent on Compound is WBTC you own.
+    // Values follow the position's own total (Aave's oracle, ether.fi's manager), shared by token.
+    if (own.length) {
+      const sum = own.reduce((t, a) => t + a.valueUsd, 0);
+      const tag: Piece['tag'] = p.kind === 'liquidity' ? 'pool' : p.debtValueUsd > 0 ? 'pledged' : 'lent';
+      for (const a of own) {
+        const symbol = a.symbol.toUpperCase();
+        pieces.push({
+          key: symbol, name: COINS[symbol] ?? a.symbol, unit: a.symbol, quantity: a.quantity === undefined ? null : Number(a.quantity),
+          valueCents: value(sum > 0 ? (a.valueUsd / sum) * p.assetValueUsd : undefined), detail, tag, where: `${w.label} · ${p.protocol}`,
+        });
+      }
+      continue;
+    }
+    if (!(p.assetValueUsd > 0)) continue; // Only a loan: it is under What you owe.
     // A pool is its own position, named by its pair; lending merges by protocol.
     if (p.kind === 'liquidity') {
       const pair = (p.symbols ?? []).join(' / ') || p.label;
-      pieces.push({ key: `pool:${p.protocol}:${pair}`, name: `${pair} pool`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail, tag: 'pool' });
+      pieces.push({ key: `pool:${p.protocol}:${pair}`, name: `${pair} pool`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail, tag: 'pool', where: `${w.label} · ${p.protocol}` });
     } else {
-      pieces.push({ key: `lent:${p.protocol}`, name: `Lent on ${p.protocol}`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail, tag: 'lent' });
+      pieces.push({ key: `lent:${p.protocol}`, name: `Lent on ${p.protocol}`, unit: null, quantity: null, valueCents: value(p.assetValueUsd), detail, tag: 'lent', where: `${w.label} · ${p.protocol}` });
     }
   }
   return pieces;
@@ -92,6 +109,28 @@ export function positionsOf(items: Item[], group: GroupId): Position[] {
   const out = [...byKey.values()];
   for (const p of out) p.places.sort((a, b) => (b.valueCents ?? -1) - (a.valueCents ?? -1));
   return out.sort((a, b) => (b.valueCents ?? 0) - (a.valueCents ?? 0) || b.places.length - a.places.length);
+}
+
+/** One place things sit: a wallet, a protocol inside it, an account. What it holds and its value. */
+export type Spot = { key: string; name: string; items: { id: string; type: Item['type'] }[]; assets: string[]; valueCents: number | null; unknown: number };
+
+/** The same group seen by where things are instead of what they are, biggest first. */
+export function spotsOf(items: Item[], group: GroupId): Spot[] {
+  const by = new Map<string, Spot>();
+  for (const item of items) {
+    if (item.group !== group) continue;
+    for (const piece of piecesOf(item)) {
+      // A wallet's own tokens sit in the wallet; what it lent or pooled sits in that protocol.
+      const name = item.type === 'wallet' ? piece.where ?? `${item.name} · Wallet` : piece.where ?? item.name;
+      let spot = by.get(name);
+      if (!spot) { spot = { key: name, name, items: [], assets: [], valueCents: 0, unknown: 0 }; by.set(name, spot); }
+      if (!spot.items.some((i) => i.id === item.id)) spot.items.push({ id: item.id, type: item.type });
+      const label = piece.unit ?? piece.name;
+      if (!spot.assets.includes(label)) spot.assets.push(label);
+      if (piece.valueCents === null) spot.unknown += 1; else spot.valueCents = (spot.valueCents ?? 0) + piece.valueCents;
+    }
+  }
+  return [...by.values()].sort((a, b) => (b.valueCents ?? 0) - (a.valueCents ?? 0));
 }
 
 /**

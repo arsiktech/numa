@@ -9,7 +9,7 @@ import { BLOCKSCOUT_PRO } from "./lib/evm";
 import { fetchPublicWallet, type Call, type Get } from "./lib/publicWallets";
 
 /**
- * Keeps tracked public wallets current from free public explorers (and Blockscout PRO, when a key is set). Nothing here moves money
+ * Keeps tracked public wallets current from free public explorers (and Blockscout PRO or Alchemy, when a key is set). Nothing here moves money
  * or touches keys: wallets are public addresses only (checked when they are added).
  */
 
@@ -92,7 +92,7 @@ export const saveSnapshot = internalMutation({
 
 async function check(target: Target, now: number) {
   try {
-    return await fetchPublicWallet(target.address, target.addressType, get, now, call, post, Boolean(blockscoutKey()));
+    return await fetchPublicWallet(target.address, target.addressType, get, now, call, post, { blockscoutPro: Boolean(blockscoutKey()), alchemyKey: process.env.ALCHEMY_API_KEY || undefined });
   } catch {
     return null;
   }

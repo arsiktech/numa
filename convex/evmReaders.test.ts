@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { aerodrome, chainDrafts, etherfiCash, fluidLending, priceDrafts, rangeAmounts, uniswapV4, V4 } from "./lib/defiPositions";
+import { aaveLegs, aerodrome, chainDrafts, etherfiCash, fluidLending, priceDrafts, priceLegs, rangeAmounts, uniswapV4, V4 } from "./lib/defiPositions";
 import { decodeAggregate3, encodeAggregate3, MULTICALL } from "./lib/evm";
 import { keccak256, keccakHex } from "./lib/keccak";
 import { fetchPublicWallet, type Call, type Get } from "./lib/publicWallets";
@@ -90,6 +90,15 @@ describe("Uniswap V4", () => {
     const some: Call = async (_rpc, to, data) => (to === v4.pm && data.startsWith("0x70a08231") ? ret(1) : zero);
     const r = await chainDrafts(BASE, OWNER, some, async () => { throw new Error("bot check"); });
     expect(r).toEqual({ drafts: [], incomplete: true });
+    // With a free Alchemy key, its NFT API lists the positions instead; closed ones (no liquidity) count as nothing.
+    const nftApi = "https://base-mainnet.g.alchemy.com/nft/v3/free-key";
+    const closed: Call = async (_rpc, to, data) => (to === MULTICALL ? multicallAnswer(data, () => ret(0)) : some(_rpc, to, data));
+    const viaAlchemy = await chainDrafts({ ...BASE, nftApi }, OWNER, closed, async (url) => {
+      if (url.startsWith("https://base.blockscout.com")) throw new Error("bot check");
+      expect(url).toBe(`${nftApi}/getNFTsForOwner?owner=${OWNER}&contractAddresses[]=${v4.pm}&withMetadata=false&pageSize=100`);
+      return { ownedNfts: [{ tokenId: "2589280" }, { tokenId: "15787" }] };
+    });
+    expect(viaAlchemy).toEqual({ drafts: [], incomplete: false });
   });
 });
 
@@ -162,6 +171,8 @@ describe("ether.fi Cash and Fluid", () => {
       if (sel === "0x95d89b41") return "0x" + word(0x20) + word(5) + Buffer.from("weEUR").toString("hex").padEnd(64, "0");
       if (rpc.includes("optimism") && sel === "0x1aefb107") return ret(0x40, 40_851_644_527, 1, WEEUR, 23_090n * 10n ** 18n);
       if (rpc.includes("scroll") && sel === "0x186c66cc") return ret(0x40, 12_738_000_716, 1, USDC, 12_738_000_716);
+      if (sel === "0xc5b66b4a") return ret(26_536_750_000); // convertCollateralTokenToUsd: ether.fi values its own tokens.
+      if (sel === "0x313ce567") return ret(18);
       return ret(0x40, 0, 0);
     };
     expect(await etherfiCash("0x3115b79b73562aa183500752a0bb11bf082765e8", call)).toEqual([]);
@@ -172,6 +183,11 @@ describe("ether.fi Cash and Fluid", () => {
       expect.objectContaining({ id: "optimism:etherfi-cash", assetValueUsd: 40851.64, debtValueUsd: 0, label: "ether.fi Cash collateral", symbols: ["weEUR"] }),
       expect.objectContaining({ id: "scroll:etherfi-cash", chainName: "Scroll", assetValueUsd: 0, debtValueUsd: 12738, label: "ether.fi Cash loan" }),
     ]);
+    // With prices, each token shows on its own: collateral valued by ether.fi, the loan by DefiLlama.
+    const get: Get = async () => ({ coins: { [`scroll:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } });
+    const split = await etherfiCash(OWNER, call, get);
+    expect(split[0].assets).toEqual([{ symbol: "weEUR", quantity: "23090", valueUsd: 26536.75 }]);
+    expect(split[1].assets).toEqual([{ symbol: "USDC", quantity: "12738.000716", valueUsd: 12738, debt: true }]);
   });
 
   it("reads Fluid lending from its API and skips unpriced or empty positions", async () => {
@@ -186,5 +202,36 @@ describe("ether.fi Cash and Fluid", () => {
     const out = await fluidLending({ id: "arbitrum", name: "Arbitrum", rpc: "" }, OWNER, get);
     expect(out).toEqual([expect.objectContaining({ id: "arbitrum:fluid:0xf1", protocol: "Fluid", label: "Fluid USDT lending", assetValueUsd: 15095.39, positionAddress: "0xf1" })]);
     expect(await fluidLending({ id: "optimism", name: "Optimism", rpc: "" }, OWNER, get)).toEqual([]);
+  });
+
+  it("splits an Aave account into what it supplies and owes, reserve by reserve", async () => {
+    const POOL = "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5", PROVIDER = "0x00000000000000000000000000000000000000aa", DP = "0x00000000000000000000000000000000000000dd", GHO = "0x6bb7a212910682dcfdbd5bcbb3e28fb4e8da10ee";
+    const CBBTC = "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf";
+    const reply = (data: string) => {
+      const sel = data.slice(0, 10);
+      if (sel === "0x28dd2d01") {
+        const asset = "0x" + data.slice(34, 74);
+        return asset === CBBTC ? ret(134_213_134, 0, 0) : asset === USDC ? ret(0, 0, 20_731_027_841n) : asset === GHO ? ret(0, 0, 15_706n * 10n ** 18n) : ret(0, 0, 0);
+      }
+      throw new Error(`unexpected ${sel}`);
+    };
+    const call: Call = async (_rpc, to, data) => {
+      const sel = data.slice(0, 10);
+      if (to === POOL && sel === "0xd1946dbc") return ret(32, 4, USDC, CBBTC, GHO, WETH);
+      if (to === POOL && sel === "0x0542975c") return ret(PROVIDER);
+      if (to === PROVIDER && sel === "0xe860accb") return ret(DP);
+      if (to === MULTICALL && sel === "0x82ad56cb") return multicallAnswer(data, (_to, d) => reply(d));
+      throw new Error(`unexpected ${to} ${sel}`);
+    };
+    const legs = await aaveLegs({ ...BASE, aave: POOL }, OWNER, call);
+    expect(legs).toEqual([{ token: USDC, raw: 20_731_027_841, debt: true }, { token: CBBTC, raw: 134_213_134 }, { token: GHO, raw: 15706e18, debt: true }]);
+    const get: Get = async () => ({ coins: { [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" }, [`base:${CBBTC}`]: { price: 100_000, decimals: 8, symbol: "cbBTC" }, [`base:${GHO}`]: { price: 1, decimals: 18, symbol: "GHO" } } });
+    expect(await priceLegs("base", legs, get)).toEqual([
+      { symbol: "cbBTC", quantity: "1.34213134", valueUsd: 134_213.13 },
+      { symbol: "USDC", quantity: "20731.027841", valueUsd: 20_731.03, debt: true },
+      { symbol: "GHO", quantity: "15706", valueUsd: 15_706, debt: true },
+    ]);
+    // One unpriced token: no split at all, rather than a split that doesn't add up.
+    expect(await priceLegs("base", legs, async () => ({ coins: { [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } }))).toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import type { CloudWallet } from '@/cloud/api';
 import { squarify } from '@/ui/treemapLayout';
 import { demoHoldings } from './demo';
 import type { Item } from './items';
-import { positionsOf, walletPieces } from './positions';
+import { positionsOf, spotsOf, walletPieces } from './positions';
 import { useDemoItems } from './useItems';
 
 const fx = { usdPerEur: 1.25, asOf: '2026-10-17' } as never;
@@ -43,6 +43,27 @@ describe('positions', () => {
     expect(walletPieces(pools, 'EUR', fx).map((p) => [p.key, p.name, p.valueCents, p.tag])).toEqual([
       ['pool:Uniswap V3:WETH / USDC', 'WETH / USDC pool', 40_000, 'pool'],
       ['lent:Compound V3', 'Lent on Compound V3', 20_000, 'lent'],
+    ]);
+  });
+
+  it('splits lending into the coins it holds, sized to the position total, and sees them by place too', () => {
+    const lent: CloudWallet = { ...wallet, snapshot: { ...wallet.snapshot!, tokens: [{ id: 'arb:usdc', chainName: 'Arbitrum', symbol: 'USDC', name: 'USDC', quantity: '125', valueUsd: 125 }], defiPositions: [
+      { id: 'arbitrum:compound-v3:0x9c', chainName: 'Arbitrum', protocol: 'Compound V3', label: 'Compound V3 lending and borrowing', kind: 'supplied', assetValueUsd: 1000, debtValueUsd: 400,
+        assets: [{ symbol: 'WBTC', quantity: '0.01', valueUsd: 700 }, { symbol: 'WETH', quantity: '0.1', valueUsd: 290 }, { symbol: 'USDC', quantity: '400', valueUsd: 400, debt: true }] },
+      { id: 'scroll:etherfi-cash', chainName: 'Scroll', protocol: 'ether.fi Cash', label: 'ether.fi Cash loan', kind: 'supplied', assetValueUsd: 0, debtValueUsd: 50, assets: [{ symbol: 'USDC', valueUsd: 50, debt: true }] },
+    ] } };
+    const pieces = walletPieces(lent, 'EUR', fx);
+    // 700 and 290 of a 990 split, scaled to the 1,000 the protocol reports; the loan stays under debts.
+    expect(pieces.map((p) => [p.key, p.name, p.quantity, p.valueCents, p.tag, p.where])).toEqual([
+      ['USDC', 'USD Coin', 125, 10_000, undefined, undefined],
+      ['WBTC', 'Wrapped Bitcoin', 0.01, 56_566, 'pledged', 'Ledger · Compound V3'],
+      ['WETH', 'Wrapped Ether', 0.1, 23_434, 'pledged', 'Ledger · Compound V3'],
+    ]);
+    const items: Item[] = [{ id: 'w1', type: 'wallet', group: 'crypto', name: 'Ledger', detail: null, valueCents: 0, changeTodayCents: null, freshness: fresh, raw: lent, pieces }];
+    expect(positionsOf(items, 'crypto').map((p) => p.key)).toEqual(['WBTC', 'WETH', 'USDC']);
+    expect(spotsOf(items, 'crypto').map((s) => [s.name, s.assets, s.valueCents, s.items.length])).toEqual([
+      ['Ledger · Compound V3', ['WBTC', 'WETH'], 80_000, 1],
+      ['Ledger · Wallet', ['USDC'], 10_000, 1],
     ]);
   });
 
