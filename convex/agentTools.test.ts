@@ -120,4 +120,11 @@ describe("agent tools", () => {
     const out = (await tool("get_overview").run(f.io, {})) as Record<string, unknown>;
     expect(out).toMatchObject({ space: { id: "p1", currency: "EUR" }, totals: { net_worth: 1000, owed: 100 }, this_month: { kept: 30 }, counts: { holdings: 2 }, latest_history_point: { netWorth: 900 } });
   });
+
+  it("links a loan to where its money went as typed targets, with a receipt id", async () => {
+    const f = fakeIo();
+    await tool("link_loan").run(f.io, { loan: "liability:l1", went_to: ["holding:h1"], backed_by: ["asset:a1"] });
+    expect(f.writes()).toEqual([["mutation", "loanLinks:set", { portfolioId: "p1", loanKey: "liability:l1", targets: [{ key: "holding:h1", role: "deployed" }, { key: "asset:a1", role: "collateral" }], clientMutationId: "req-1" }]]);
+    await expect(tool("link_loan").run(f.io, { loan: "liability:l1", went_to: "holding:h1" })).rejects.toThrow(AgentInputError);
+  });
 });

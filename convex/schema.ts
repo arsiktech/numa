@@ -228,6 +228,18 @@ export default defineSchema({
     .index("by_portfolio", ["portfolioId"])
     .index("by_portfolio_address", ["portfolioId", "address"]),
 
+  /**
+   * Where one loan's money went and, for a recorded debt, what backs it. A loan key is a wallet
+   * borrowing ("defi:<walletId>:<positionId>") or a recorded debt ("liability:<id>"); targets name
+   * places already counted in net worth, so a link never changes a total. See lib/loanLinks.ts.
+   */
+  loanLinks: defineTable({
+    portfolioId: v.id("portfolios"),
+    loanKey: v.string(),
+    targets: v.array(v.object({ key: v.string(), role: v.union(v.literal("deployed"), v.literal("collateral")) })),
+    updatedAt: v.number()
+  }).index("by_portfolio", ["portfolioId"]),
+
   assets: defineTable({
     portfolioId: v.id("portfolios"),
     wealthObservation,

@@ -9,6 +9,7 @@ import { groupNames, type Item } from '@/data/items';
 import { walletSource } from '@/data/wallets';
 import { ago } from '@/domain/freshness';
 import { useTheme } from '@/theme/theme';
+import { openLoan } from '@/loans/LoansSection';
 import { toneColor } from '@/ui/ItemRow';
 import { useMoney } from '@/ui/money';
 import { amountText } from '@/ui/PositionRow';
@@ -120,6 +121,12 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
             )}
             {/* Aave sells collateral when this drops to 1; below about 1.5 is worth watching. */}
             {p.healthFactor !== undefined && <Txt v="small" c={p.healthFactor < 1.5 ? 'down' : 'ink3'}>Health factor {p.healthFactor.toFixed(2)}{p.healthFactor < 1.5 ? ' · close to liquidation' : ''}</Txt>}
+            {p.debtValueUsd > 0 && editable && (
+              <Pressable onPress={() => openLoan(`defi:${w.id}:${p.id}`)} accessibilityRole="link" style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Where the borrowed money went</Txt>
+                <Txt v="body" c="ink3">›</Txt>
+              </Pressable>
+            )}
           </View>
         );
       })}

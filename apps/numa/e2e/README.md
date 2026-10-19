@@ -3,13 +3,15 @@
 Scripted user journeys for the web build, run against a throwaway local Convex
 backend. Each journey signs up a fresh `@example.com` identity, seeds data
 through the same Convex functions the app uses, and drives the UI with
-Playwright. Never point them at a shared or production deployment.
+Playwright. Never point them at a shared or production deployment. A
+`CONVEX_DEPLOY_KEY` in the environment makes every Convex CLI command target that
+deployment, so start the backend with it unset; the scripts drop it themselves.
 
 CI runs them in the `e2e` job. To run them locally, from the repository root:
 
 ```sh
 npm ci && (cd apps/numa && npm ci)
-CONVEX_AGENT_MODE=anonymous npx convex dev --typecheck disable --tail-logs disable &   # wait for "Convex functions ready"
+env -u CONVEX_DEPLOY_KEY CONVEX_AGENT_MODE=anonymous npx convex dev --typecheck disable --tail-logs disable &   # wait for "Convex functions ready"
 node apps/numa/e2e/setup-auth.mjs
 (cd apps/numa && EXPO_PUBLIC_CONVEX_URL=http://127.0.0.1:3210 npx expo export --platform web && npx -y serve@14.2.4 -s -l 5196 dist &)
 node apps/numa/e2e/run.cjs            # or: node apps/numa/e2e/run.cjs flow plan

@@ -1,5 +1,8 @@
 // Shared helpers for the browser journeys. They run against a throwaway local
 // Convex backend (see README.md) with disposable example.com identities.
+// A deploy key in the environment points the Convex CLI at that deployment, which can be
+// production. These journeys only ever talk to the throwaway local backend, so drop it.
+delete process.env.CONVEX_DEPLOY_KEY;
 const path = require('path');
 const ROOT = path.resolve(__dirname, '../../..');
 const req = require('module').createRequire(path.join(ROOT, 'package.json'));

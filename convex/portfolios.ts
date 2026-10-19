@@ -191,6 +191,12 @@ export const remove = mutation({
           .collect();
         for (const row of cryptoWallets) await ctx.db.delete(row._id);
 
+        const loanLinks = await ctx.db
+          .query("loanLinks")
+          .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))
+          .collect();
+        for (const row of loanLinks) await ctx.db.delete(row._id);
+
         const assets = await ctx.db
           .query("assets")
           .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))

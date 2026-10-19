@@ -47,6 +47,7 @@ function Root() {
         <Stack.Screen name="position/[group]/[key]" options={panel} />
         <Stack.Screen name="day/[t]" options={panel} />
         <Stack.Screen name="item/[type]/[id]" options={panel} />
+        <Stack.Screen name="loan/[key]" options={panel} />
         <Stack.Screen name="tx/[id]" options={panel} />
         <Stack.Screen name="import" options={panel} />
         <Stack.Screen name="password" options={panel} />

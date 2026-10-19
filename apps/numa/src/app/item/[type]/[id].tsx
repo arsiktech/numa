@@ -13,6 +13,7 @@ import { useWriter } from '@/data/writes';
 import { shortDay } from '@/domain/freshness';
 import { formatMoney } from '@/domain/money';
 import type { Currency } from '@/domain/types';
+import { openLoan } from '@/loans/LoansSection';
 import { useTheme } from '@/theme/theme';
 import { Field, Seg, toCents } from '@/ui/form';
 import { toneColor } from '@/ui/ItemRow';
@@ -164,6 +165,12 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
   return (
     <View>
       <Facts item={item} now={now} />
+      {item.type === 'liability' && (
+        <Pressable onPress={() => openLoan(`liability:${item.id}`)} accessibilityRole="link" style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: c.line }}>
+          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>What backs it and where the money went</Txt>
+          <Txt v="body" c="ink3">›</Txt>
+        </Pressable>
+      )}
       {editing && (
         <View style={{ marginTop: 22, gap: 12 }}>
           {item.type === 'holding' ? (

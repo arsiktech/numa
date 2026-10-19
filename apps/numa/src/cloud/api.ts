@@ -1,5 +1,7 @@
 import { makeFunctionReference } from 'convex/server';
 
+import type { CloudLoanLink } from '@/data/loans';
+
 /**
  * The Convex functions this app calls. They are the same ones the iOS app uses, so the
  * new app needs no backend change. Only the fields the app reads are typed here; the
@@ -221,6 +223,8 @@ export const cloud = {
   listWallets: makeFunctionReference<'query', { portfolioId: string }, CloudWalletDoc[]>('cryptoWallets:listForPortfolio'),
   addWallet: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; address: string; addressType: 'bitcoin' | 'evm'; label: string; includeInNetWorth: boolean }>, string | Receipt>('cryptoWallets:add'),
   removeWallet: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, unknown>('cryptoWallets:remove'),
+  loanLinks: makeFunctionReference<'query', { portfolioId: string }, CloudLoanLink[]>('loanLinks:listForPortfolio'),
+  setLoanLinks: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; loanKey: string; targets: CloudLoanLink['targets'] }>, Receipt | null>('loanLinks:set'),
   refreshWallet: makeFunctionReference<'action', { walletId: string }, { status: 'ok' | 'partial' | 'failed' | 'recent' | 'unsupported' }>('walletSync:refresh'),
   registerDevice: makeFunctionReference<'mutation', { token: string; platform: 'ios' | 'android'; timeZone: string }, null>('pushAlerts:registerDevice'),
   unregisterDevice: makeFunctionReference<'mutation', { token: string }, null>('pushAlerts:unregisterDevice'),

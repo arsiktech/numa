@@ -11,6 +11,7 @@ import type { CategoryId } from '@/domain/types';
 import { useTheme } from '@/theme/theme';
 import type { CategoryColor } from '@/theme/tokens';
 import { categoryColor } from '@/ui/CompositionBar';
+import { LoansSection } from '@/loans/LoansSection';
 import { ItemRow } from '@/ui/ItemRow';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { WIDE } from '@/ui/Panel';
@@ -144,8 +145,13 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
           ) : (
             <>
               <Treemap height={wide ? 240 : 190} tiles={positions.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: only!, key: p.key } }) }))} />
-              <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">{only === 'cash' ? 'BY CURRENCY' : only === 'debts' ? 'BY DEBT' : 'BY ASSET'}</Txt>
-              {positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === positions.length - 1} />)}
+              {/* Signed in, each debt is a loan with what backs it and where its money went. */}
+              {only === 'debts' && !source.demo ? <LoansSection /> : (
+                <>
+                  <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">{only === 'cash' ? 'BY CURRENCY' : only === 'debts' ? 'BY DEBT' : 'BY ASSET'}</Txt>
+                  {positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === positions.length - 1} />)}
+                </>
+              )}
             </>
           )}
           <Txt v="label" c="ink3" style={{ marginTop: 26 }} accessibilityRole="header">RECORDS</Txt>
