@@ -11,7 +11,8 @@ import type { Call, DefiAsset, DefiPosition, Get } from "./publicWallets";
 
 export type Post = (url: string, body: unknown) => Promise<unknown>;
 /** A chain as the readers need it; `host` is its Blockscout explorer. */
-type Chain = { id: string; name: string; rpc: string; hosts?: readonly string[] };
+/** `nftApi`: Alchemy's NFT API for this chain, key included, when the server has one. */
+type Chain = { id: string; name: string; rpc: string; hosts?: readonly string[]; nftApi?: string };
 
 /** An amount of one token in a position, in the token's smallest unit. */
 type Leg = { token: string; raw: number; debt?: boolean };
@@ -118,6 +119,21 @@ export const V4: Record<string, { pm: string; stateView: string }> = {
 const int24 = (w: bigint) => { const x = Number(w & 0xffffffn); return x >= 0x800000 ? x - 0x1000000 : x; };
 const MOD = 2n ** 256n;
 
+/** The V4 position NFTs an owner holds: from the explorer, or from Alchemy's NFT API when the explorer refuses. */
+async function v4Ids(chain: Chain, pm: string, owner: string, get: Get): Promise<bigint[]> {
+  const digits = (x: unknown) => (typeof x === "string" && /^\d+$/.test(x) ? BigInt(x) : null);
+  try {
+    const page = (await explorerGet(chain.hosts ?? [], `/api/v2/tokens/${pm}/instances?holder_address_hash=${owner.toLowerCase()}`, get)) as { items?: Array<{ id?: unknown }> };
+    if (!Array.isArray(page?.items)) throw new Error("bad response");
+    return page.items.map((i) => digits(i.id)).filter((x): x is bigint => x !== null);
+  } catch (error) {
+    if (!chain.nftApi) throw error;
+    const body = (await get(`${chain.nftApi}/getNFTsForOwner?owner=${owner.toLowerCase()}&contractAddresses[]=${pm}&withMetadata=false&pageSize=100`)) as { ownedNfts?: Array<{ tokenId?: unknown }> };
+    if (!Array.isArray(body?.ownedNfts)) throw new Error("bad response");
+    return body.ownedNfts.map((n) => digits(n.tokenId)).filter((x): x is bigint => x !== null);
+  }
+}
+
 /**
  * Uniswap V4 positions can't be listed per owner on chain, so the explorer names the NFTs; the
  * chain then gives each one's pool, range, liquidity and uncollected fees. With no V4 NFT in the
@@ -128,9 +144,7 @@ export async function uniswapV4(chain: Chain, owner: string, call: Call, get: Ge
   if (!v4) return [];
   const [count] = words(await call(chain.rpc, v4.pm, "0x70a08231" + pad(owner)));
   if (count === 0n) return [];
-  const page = (await explorerGet(chain.hosts ?? [], `/api/v2/tokens/${v4.pm}/instances?holder_address_hash=${owner.toLowerCase()}`, get)) as { items?: Array<{ id?: unknown }> };
-  if (!Array.isArray(page?.items)) throw new Error("bad response");
-  const ids = page.items.map((i) => (typeof i.id === "string" && /^\d+$/.test(i.id) ? BigInt(i.id) : null)).filter((x): x is bigint => x !== null).slice(0, 50);
+  const ids = (await v4Ids(chain, v4.pm, owner, get)).slice(0, 50);
   const liquidity = await multicall(call, chain.rpc, ids.map((id) => ({ to: v4.pm, data: "0x1efeed33" + uint(id) })));
   const open = ids.map((id, i) => ({ id, liquidity: firstWord(liquidity[i]) ?? 0n })).filter((x) => x.liquidity > 0n).slice(0, MAX_OPEN);
   return Promise.all(open.map(async ({ id, liquidity: L }) => {

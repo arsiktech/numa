@@ -90,6 +90,15 @@ describe("Uniswap V4", () => {
     const some: Call = async (_rpc, to, data) => (to === v4.pm && data.startsWith("0x70a08231") ? ret(1) : zero);
     const r = await chainDrafts(BASE, OWNER, some, async () => { throw new Error("bot check"); });
     expect(r).toEqual({ drafts: [], incomplete: true });
+    // With a free Alchemy key, its NFT API lists the positions instead; closed ones (no liquidity) count as nothing.
+    const nftApi = "https://base-mainnet.g.alchemy.com/nft/v3/free-key";
+    const closed: Call = async (_rpc, to, data) => (to === MULTICALL ? multicallAnswer(data, () => ret(0)) : some(_rpc, to, data));
+    const viaAlchemy = await chainDrafts({ ...BASE, nftApi }, OWNER, closed, async (url) => {
+      if (url.startsWith("https://base.blockscout.com")) throw new Error("bot check");
+      expect(url).toBe(`${nftApi}/getNFTsForOwner?owner=${OWNER}&contractAddresses[]=${v4.pm}&withMetadata=false&pageSize=100`);
+      return { ownedNfts: [{ tokenId: "2589280" }, { tokenId: "15787" }] };
+    });
+    expect(viaAlchemy).toEqual({ drafts: [], incomplete: false });
   });
 });
 

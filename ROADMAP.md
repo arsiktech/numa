@@ -36,7 +36,8 @@ hard to copy because it's a system, not a feature:
 | Add AI Gateway credits (or BYOK Anthropic key) | Numa AI chat + receipt/voice scan (everything else is built and verified) | Vercel dashboard → AI Gateway |
 | Create Resend account, set `AUTH_RESEND_KEY` (+ `AUTH_EMAIL_FROM`) on prod Convex | Password-reset emails AND email verification at signup (both shipped, auto-light-up) | `npx convex env set … --prod` |
 | Copy `NUMA_PUSH_INTERNAL_SECRET` from Vercel env to prod Convex | Weekly recap push notifications (cron shipped v0.7.0, skips quietly until set) | `npx convex env set … --prod` |
-| Free Blockscout PRO key (dev.blockscout.com), set `BLOCKSCOUT_API_KEY` on prod Convex | Full token lists and Uniswap V4 positions on Base and Arbitrum, whose public explorers refuse datacenters (without it they show "Only main tokens counted") | `npx convex env set … --prod` |
+| Free Alchemy key (alchemy.com, no card), set `ALCHEMY_API_KEY` on prod Convex | Every priced token and Uniswap V4 positions on Base, Arbitrum and the other chains whose public explorers refuse datacenters (without it they show "Only main tokens counted") | `npx convex env set … --prod` |
+| Optional free Blockscout PRO key (dev.blockscout.com), set `BLOCKSCOUT_API_KEY` | A second source for Arbitrum, Ethereum and Optimism; Base is not on its free plan | `npx convex env set … --prod` |
 | Apple Developer account (when ready) | Apple sign-in (provider wiring already in `convex/auth.ts`) | developer.apple.com |
 
 ## Phase 1 — Trust & account lifecycle — ✅ SHIPPED v0.7.0

@@ -77,12 +77,32 @@ describe("fetchPublicWallet", () => {
       ] },
       [`https://api.blockscout.com/8453/api/v2/addresses/${EVM}`]: { coin_balance: "0", exchange_rate: "2500" },
     };
-    const withKey = await fetchPublicWallet(EVM, "evm", fake(routes), 1000, undefined, undefined, true);
+    const withKey = await fetchPublicWallet(EVM, "evm", fake(routes), 1000, undefined, undefined, { blockscoutPro: true });
     expect(withKey.tokens.map((t) => [t.chain, t.symbol, t.valueUsd])).toEqual([["base", "USDC", 2500]]);
     expect(withKey.chains).toEqual(["base"]);
     const without = await fetchPublicWallet(EVM, "evm", fake({ ...routes, [`https://eth.blockscout.com/api/v2/addresses/${EVM}`]: { coin_balance: "0", exchange_rate: "2500" }, [`https://eth.blockscout.com/api/v2/addresses/${EVM}/tokens`]: { items: [] } }), 1000);
     expect(without.chains).toEqual(["ethereum"]);
     expect(without.tokenFailedChains).toContain("base");
+  });
+
+  it("reads every priced token from Alchemy when the explorer refuses and the server has a free Alchemy key", async () => {
+    const asked: unknown[] = [];
+    const post = async (url: string, body: unknown) => {
+      expect(url).toBe("https://api.g.alchemy.com/data/v1/free-key/assets/tokens/by-address");
+      asked.push(body);
+      return { data: { pageKey: null, tokens: [
+        { tokenAddress: null, tokenBalance: "0x0de0b6b3a7640000", tokenMetadata: { symbol: null, decimals: null }, tokenPrices: [{ currency: "usd", value: "2400" }] },
+        { tokenAddress: "0xCBB7", tokenBalance: "0x5f5e100", tokenMetadata: { symbol: "cbBTC", decimals: 8, name: "Coinbase Wrapped BTC" }, tokenPrices: [{ currency: "usd", value: "100000" }] },
+        { tokenAddress: "0xSPAM", tokenBalance: "0x10", tokenMetadata: { symbol: "FREE", decimals: 0 }, tokenPrices: [] },
+        { tokenAddress: "0xA", tokenBalance: "0x5f5e100", tokenMetadata: { symbol: "aBasUSDC", decimals: 6, name: "Aave Base USDC" }, tokenPrices: [{ currency: "usd", value: "1" }] },
+      ] } };
+    };
+    const get = fake({ [`https://eth.blockscout.com/api/v2/addresses/${EVM}`]: { coin_balance: "0", exchange_rate: "2500" }, [`https://eth.blockscout.com/api/v2/addresses/${EVM}/tokens`]: { items: [] } });
+    const s = await fetchPublicWallet(EVM, "evm", get, 1000, undefined, post, { alchemyKey: "free-key" });
+    expect(s.tokens.filter((t) => t.chain === "base").map((t) => [t.symbol, t.quantity, t.valueUsd])).toEqual([["cbBTC", "1", 100_000], ["ETH", "1", 2400]]);
+    expect(s.tokenFailedChains).toEqual([]);
+    expect(s.tokenFallbackChains).toEqual([]);
+    expect(asked).toContainEqual(expect.objectContaining({ addresses: [{ address: EVM, networks: ["base-mainnet"] }], withPrices: true }));
   });
 
   it("fails when no chain answers, so the last good snapshot stays", async () => {
