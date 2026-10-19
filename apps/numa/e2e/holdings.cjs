@@ -140,7 +140,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const owed = (await snapNow()).liabilities.find((l) => l.name === 'Razmik');
   check('a debt owed in BTC is valued at the BTC price, in dollars', owed && owed.owedSymbol === 'BTC' && owed.balance === 9000 && owed.currency === 'USD', JSON.stringify(owed));
   await page.goto(APP + '/holdings/debts');
-  await page.getByText('Razmik').first().waitFor({ timeout: 15000 });
+  await page.getByText('Razmik', { exact: true }).first().waitFor({ timeout: 15000 });
   check('the debts list says what the debt is owed in', (await page.locator('body').innerText()).includes('0.15 BTC'));
 
   const wide = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'light' });
@@ -157,6 +157,17 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const all = await w.locator('body').innerText();
   check('sidebar Holdings lists every group', ['Crypto', 'Cash', 'What you owe', 'Bitcoin', 'Car loan'].every((x) => all.includes(x)));
   await w.screenshot({ path: OUT + '/06-holdings-light-1440.png', fullPage: true });
+
+  // Opened straight from its address (a reload, a bookmark), a panel still has Home behind it.
+  await w.goto(APP + '/holdings/crypto');
+  await w.getByRole('heading', { name: 'Crypto' }).waitFor({ timeout: 20000 });
+  await wait(1500);
+  const behind = await w.locator('body').innerText();
+  check('a panel opened by its address keeps Home behind it', behind.includes('What you own') && behind.includes('Bitcoin'), behind.slice(0, 300).replace(/\n/g, ' | '));
+  await w.getByRole('button', { name: 'Back' }).first().click();
+  await wait(800);
+  check('Back from it lands on Home', (await w.getByRole('heading', { name: 'Crypto' }).count()) === 0 && (await w.getByText('What you own').count()) > 0);
+  await w.screenshot({ path: OUT + '/07-deep-link-light-1440.png' });
 
   const dm = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
   const dp = await dm.newPage();
