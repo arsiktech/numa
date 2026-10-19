@@ -162,8 +162,10 @@ describe("tokens without the explorer", () => {
   });
 });
 
+const GATEWAY = "0x01f8cdfb1694ea8fe4ed6c38a0fd78d1188e03f4", OP_USDC = "0x0b2c639c533813f4aa9d7837caf62653d097ff85";
+
 describe("ether.fi Cash and Fluid", () => {
-  it("reads ether.fi Cash collateral on Optimism and a loan on Scroll, in dollars", async () => {
+  it("reads ether.fi Cash collateral and its LendGateway loan on Optimism, and drops what the Scroll move left behind", async () => {
     const WEEUR = "0xcc476b1a49bcdf5192561e87b6fb8ea78aa28c13";
     const SYMBOL = "0x" + word(0x20) + word(5) + Buffer.from("weEUR").toString("hex").padEnd(64, "0");
     const call: Call = async (rpc, to, data) => {
@@ -171,7 +173,12 @@ describe("ether.fi Cash and Fluid", () => {
       if (sel === "0xb334ed86") return to === OWNER ? ret("0xdc515cb479a64552c5a11a57109c314e40a1a778") : "0x";
       if (sel === "0x95d89b41") return SYMBOL;
       if (rpc.includes("optimism") && sel === "0x1aefb107") return ret(0x40, 40_851_644_527, 1, WEEUR, 23_090n * 10n ** 18n);
+      // The old Scroll manager still lists a loan, but the collateral behind it moved to Optimism.
       if (rpc.includes("scroll") && sel === "0x186c66cc") return ret(0x40, 12_738_000_716, 1, USDC, 12_738_000_716);
+      // LendGateway on Optimism: getAccountData, borrowableAssets, debtOf.
+      if (to === GATEWAY && sel === "0x5d78650e") return ret(40_893_708_395, 5_080_447_881, 31_185_931_530, 36_266_379_411, 7_133_512_384_212_123_875n);
+      if (to === GATEWAY && sel === "0x76636017") return ret(0x20, 1, OP_USDC);
+      if (to === GATEWAY && sel === "0x4c4ab169") return ret(5_080_447_881);
       // convertCollateralTokenToUsd (ether.fi values its own tokens) and decimals(), in one Multicall3 request.
       if (to === MULTICALL) return multicallAnswer(data, (_t, d) => (d.startsWith("0xc5b66b4a") ? ret(26_536_750_000) : d.startsWith("0x313ce567") ? ret(18) : null));
       return ret(0x40, 0, 0);
@@ -181,19 +188,18 @@ describe("ether.fi Cash and Fluid", () => {
     expect(await etherfiCash("0xbce2bd513714d294ded39c7e6a5bc52020588289", refuses)).toEqual([]);
     const out = await etherfiCash(OWNER, call);
     expect(out).toEqual([
-      expect.objectContaining({ id: "optimism:etherfi-cash", assetValueUsd: 40851.64, debtValueUsd: 0, label: "ether.fi Cash collateral", symbols: ["weEUR"] }),
-      expect.objectContaining({ id: "scroll:etherfi-cash", chainName: "Scroll", assetValueUsd: 0, debtValueUsd: 12738, label: "ether.fi Cash loan" }),
+      expect.objectContaining({ id: "optimism:etherfi-cash", assetValueUsd: 40851.64, debtValueUsd: 5080.45, healthFactor: 7.133512384212124, label: "ether.fi Cash collateral and loan" }),
     ]);
     // With prices, each token shows on its own: collateral valued by ether.fi, the loan by DefiLlama.
-    const get: Get = async () => ({ coins: { [`scroll:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } });
+    const get: Get = async () => ({ coins: { [`optimism:${OP_USDC}`]: { price: 1, decimals: 6, symbol: "USDC" } } });
     // Convex's default runtime has no Node Buffer; the reader must not need it.
     const buffer = globalThis.Buffer;
     let split: Awaited<ReturnType<typeof etherfiCash>>;
     try { (globalThis as { Buffer?: unknown }).Buffer = undefined; split = await etherfiCash(OWNER, call, get); }
     finally { globalThis.Buffer = buffer; }
-    expect(split[0].symbols).toEqual(["weEUR"]);
-    expect(split[0].assets).toEqual([{ symbol: "weEUR", quantity: "23090", valueUsd: 26536.75 }]);
-    expect(split[1].assets).toEqual([{ symbol: "USDC", quantity: "12738.000716", valueUsd: 12738, debt: true }]);
+    expect(split[0].assets?.[0]).toEqual({ symbol: "weEUR", quantity: "23090", valueUsd: 26536.75 });
+    expect(split[0].assets).toContainEqual({ symbol: "USDC", quantity: "5080.447881", valueUsd: 5080.45, debt: true });
+    expect(split).toHaveLength(1);
   });
 
   it("reads Fluid lending from its API and skips unpriced or empty positions", async () => {
