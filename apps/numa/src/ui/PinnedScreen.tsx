@@ -80,38 +80,42 @@ export function PinnedScreen({ nav, buttons, children, maxWidth = 1240, keyboard
 
   const layout = reduce ? undefined : LinearTransition.duration(180);
   const fade = (ms: number) => (reduce ? undefined : FadeIn.duration(ms));
+  // The scroll view is the screen's root: iOS looks for it there to shrink the tab bar while scrolling down.
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView style={{ flex: 1 }} scrollEventThrottle={16} keyboardShouldPersistTaps={keyboard ? 'handled' : undefined} automaticallyAdjustKeyboardInsets={keyboard}
-        onScroll={(e) => {
-          const y = e.nativeEvent.contentOffset.y;
-          if (!compact && y > COLLAPSE_AT) setCompact(true);
-          else if (compact && y < EXPAND_AT) setCompact(false);
-        }}
-        scrollIndicatorInsets={{ top: open }}
-        contentContainerStyle={{ paddingTop: (open || insets.top + 100) + 6, paddingHorizontal: 20, paddingBottom: insets.bottom + 150 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} scrollEventThrottle={16} keyboardShouldPersistTaps={keyboard ? 'handled' : undefined} automaticallyAdjustKeyboardInsets={keyboard}
+      onScroll={(e) => {
+        const y = e.nativeEvent.contentOffset.y;
+        if (!compact && y > COLLAPSE_AT) setCompact(true);
+        else if (compact && y < EXPAND_AT) setCompact(false);
+      }}
+      stickyHeaderIndices={[0]}
+      scrollIndicatorInsets={{ top: open }}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 150 }}>
+      {/* Keeps the open bar's height, so folding never moves the page; below the folded bar it is see-through. */}
+      <View pointerEvents="box-none" style={{ height: compact && open ? open : undefined }}>
+        <Animated.View layout={layout}
+          onLayout={(e) => { if (!compact) setOpen(Math.round(e.nativeEvent.layout.height)); }}
+          style={{ paddingTop: insets.top + 4, paddingHorizontal: 20, paddingBottom: compact ? 6 : 0, backgroundColor: c.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: compact ? c.line2 : 'transparent' }}>
+          {compact ? (
+            <Animated.View key="compact" entering={fade(160)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: -10 }}>
+              <Image source={APP_ICON} accessibilityLabel="Numa Pro" accessibilityRole="image" style={{ width: 28, height: 28, borderRadius: 7, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line2 }} />
+              <View style={{ flex: 1, minWidth: 0 }}>{nav(true)}</View>
+              {buttons(true)}
+            </Animated.View>
+          ) : (
+            <Animated.View key="open" entering={fade(200)} exiting={reduce ? undefined : FadeOut.duration(80)}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: -10 }}>
+                <MiniWordmark />
+                {buttons(false)}
+              </View>
+              {nav(false)}
+            </Animated.View>
+          )}
+        </Animated.View>
+      </View>
+      <View style={{ paddingTop: 6, paddingHorizontal: 20 }}>
         <View style={{ width: '100%', maxWidth, alignSelf: 'center' }}>{children}</View>
-      </ScrollView>
-      <Animated.View layout={layout}
-        // The page leaves room for the open bar; the folded bar is shorter and simply overlaps less.
-        onLayout={(e) => { if (!compact) setOpen(Math.round(e.nativeEvent.layout.height)); }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 4, paddingHorizontal: 20, paddingBottom: compact ? 6 : 0, backgroundColor: c.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: compact ? c.line2 : 'transparent' }}>
-        {compact ? (
-          <Animated.View key="compact" entering={fade(160)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: -10 }}>
-            <Image source={APP_ICON} accessibilityLabel="Numa Pro" accessibilityRole="image" style={{ width: 28, height: 28, borderRadius: 7, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line2 }} />
-            <View style={{ flex: 1, minWidth: 0 }}>{nav(true)}</View>
-            {buttons(true)}
-          </Animated.View>
-        ) : (
-          <Animated.View key="open" entering={fade(200)} exiting={reduce ? undefined : FadeOut.duration(80)}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: -10 }}>
-              <MiniWordmark />
-              {buttons(false)}
-            </View>
-            {nav(false)}
-          </Animated.View>
-        )}
-      </Animated.View>
-    </View>
+      </View>
+    </ScrollView>
   );
 }
