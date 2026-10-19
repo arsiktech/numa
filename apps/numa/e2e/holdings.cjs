@@ -140,7 +140,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const owed = (await snapNow()).liabilities.find((l) => l.name === 'Razmik');
   check('a debt owed in BTC is valued at the BTC price, in dollars', owed && owed.owedSymbol === 'BTC' && owed.balance === 9000 && owed.currency === 'USD', JSON.stringify(owed));
   await page.goto(APP + '/holdings/debts');
-  await page.getByText('Razmik').first().waitFor({ timeout: 15000 });
+  await page.getByText('Razmik', { exact: true }).first().waitFor({ timeout: 15000 });
   check('the debts list says what the debt is owed in', (await page.locator('body').innerText()).includes('0.15 BTC'));
 
   const wide = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'light' });
