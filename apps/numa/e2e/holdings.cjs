@@ -57,7 +57,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   // The local backend refreshes real prices every 15 minutes, so read the price it holds.
   const price = (await snapNow()).holdings[0].marketPrice;
   const usd = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  check('detail shows units, price, cost and gain', d.includes('0.5 BTC') && d.includes(usd) && d.includes('$15,000.00') && /Gain\s*\n?\s*\+€/.test(d), d.split('\n').slice(0, 16).join(' | '));
+  check('detail shows units, price, cost and gain', d.includes('0.5 BTC') && d.includes(usd) && d.includes('$15,000.00') && /Since \w{3} \d{4}\s*\n?\s*\+€[\d,.]+ · \+\d+\.\d%/.test(d), d.split('\n').slice(0, 16).join(' | '));
   await page.screenshot({ path: OUT + '/02-bitcoin-dark-390.png' });
 
   await page.getByRole('button', { name: 'Edit' }).click();
@@ -112,6 +112,18 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
   await page.goto(APP + '/holdings/things');
   await page.getByRole('link', { name: /^Watch,/ }).last().click();
+  // What a thing cost and when it was bought: the card then shows how much it gained.
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.getByLabel('You paid in total').fill('7000');
+  await page.getByLabel(/^Bought/).fill('Feb 2025');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByText('Watch saved').waitFor({ timeout: 10000 });
+  await wait(800);
+  const watch = (await snapNow()).assets.find((a) => a.name === 'Watch');
+  check('an asset keeps what it cost and when it was bought', watch.costBasis === 7000 && watch.acquiredAt === Date.UTC(2025, 1, 1, 12), JSON.stringify(watch));
+  const wt = await page.locator('body').innerText();
+  check('the asset card shows its gain since bought', /You paid\s*\n?\s*€7,000\.00/.test(wt) && /Since Feb 2025\s*\n?\s*\+€1,000\.00 · \+14\.3%/.test(wt), wt.split('\n').slice(0, 20).join(' | '));
+  await page.screenshot({ path: OUT + '/05b-watch-gain-dark-390.png' });
   await page.getByRole('button', { name: 'Delete' }).click();
   await page.getByRole('button', { name: 'Delete' }).click();
   await page.getByText('Watch deleted').waitFor({ timeout: 10000 });

@@ -6,8 +6,7 @@ import { parseDate } from '@/ask/parse';
 import type { CloudAsset, CloudHolding, CloudLiability } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
-import { assetFields, debtFields, deletePlan, editPlan, fieldProblems, holdingFields, type AssetFields, type DebtFields, type Fields, type HoldingFields } from '@/data/editPlan';
-import { convertCents } from '@/data/fx';
+import { assetFields, debtFields, deletePlan, editPlan, fieldProblems, holdingFields, monthYear, parseBought, type AssetFields, type DebtFields, type Fields, type HoldingFields } from '@/data/editPlan';
 import { groupNames, type Item, type ItemType } from '@/data/items';
 import { useCloudItems, useDemoItems, type ItemsSource } from '@/data/useItems';
 import { useWriter } from '@/data/writes';
@@ -51,7 +50,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Facts({ item, gainCents, now }: { item: Item; gainCents?: number | null; now: number }) {
+function Facts({ item, now }: { item: Item; now: number }) {
   const { c } = useTheme();
   const { money, mask } = useMoney();
   const m = (cents: number, cur: Currency) => mask(formatMoney(cents, cur, { cents: true }));
@@ -73,10 +72,12 @@ function Facts({ item, gainCents, now }: { item: Item; gainCents?: number | null
               <Fact label="Units" value={`${mask(String(h.quantity))} ${h.symbol}`} />
               {h.quoteProvider && h.quoteProvider !== 'mock' && <Fact label="Price" value={m(Math.round(h.marketPrice * 100), 'USD')} />}
               <Fact label="You paid" value={m(Math.round(h.costBasis * 100), h.currency)} />
-              {gainCents != null && <Fact label="Gain" value={(gainCents >= 0 ? '+' : '−') + money(Math.abs(gainCents), { cents: true }).replace('−', '')} />}
             </>
           );
         })()}
+        {item.type === 'asset' && (raw as CloudAsset).costBasis ? <Fact label="You paid" value={m(Math.round((raw as CloudAsset).costBasis! * 100), (raw as CloudAsset).currency)} /> : null}
+        {item.type === 'asset' && (raw as CloudAsset).acquiredAt && !item.gain ? <Fact label="Bought" value={monthYear((raw as CloudAsset).acquiredAt!)} /> : null}
+        {item.gain && <GainFact gain={item.gain} />}
         {item.type === 'asset' && <Fact label="Kind" value={item.detail ?? ''} />}
         {item.type === 'asset' && <Fact label="Updated" value={shortDay((raw as CloudAsset).updatedAt, now)} />}
         {item.type === 'liability' && <Fact label="Kind" value={item.detail ?? ''} />}
@@ -87,6 +88,23 @@ function Facts({ item, gainCents, now }: { item: Item; gainCents?: number | null
         {(item.type === 'holding' || item.type === 'asset') && <Fact label="Where it is" value={(raw as CloudHolding | CloudAsset).location || 'Not set'} />}
         {'currency' in raw && <Fact label="Currency" value={raw.currency} />}
       </View>
+    </View>
+  );
+}
+
+/** What it gained or lost since it was bought, in money and percent, coloured by direction. */
+function GainFact({ gain }: { gain: NonNullable<Item['gain']> }) {
+  const { c } = useTheme();
+  const { money, hidden } = useMoney();
+  const up = gain.cents >= 0;
+  const pct = `${up ? '+' : '−'}${Math.abs(gain.pct * 100).toFixed(1)}%`;
+  const label = gain.since ? `Since ${monthYear(gain.since)}` : 'Since bought';
+  return (
+    <View style={{ minHeight: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.line, gap: 12 }}>
+      <Txt v="body" c="ink2">{label}</Txt>
+      <Txt v="figureSm" style={{ fontSize: 14, color: up ? c.upInk : c.down }} accessibilityLabel={`${up ? 'Up' : 'Down'} ${hidden ? '' : money(Math.abs(gain.cents), { cents: true })} ${pct.replace('−', 'minus ')}`}>
+        {(up ? '+' : '−') + money(Math.abs(gain.cents), { cents: true }).replace('−', '')} · {pct}
+      </Txt>
     </View>
   );
 }
@@ -107,19 +125,18 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
   const [form, setForm] = useState<Fields>(() => fieldsOf(item));
   const [text, setText] = useState(() => initialText(item, fieldsOf(item)));
   if (cloud.status !== 'ready') return null;
-  const { portfolioId, fx, data } = cloud;
+  const { portfolioId } = cloud;
   const acquiredAt = item.type === 'holding' ? (item.raw as CloudHolding).acquiredAt : undefined;
-  const h = item.type === 'holding' ? (item.raw as CloudHolding) : null;
-  const cost = h ? convertCents(Math.round(h.costBasis * 100), h.currency, data.currency, fx) : null;
-  const gainCents = h && item.valueCents !== null && cost !== null && item.freshness.tone !== 'missing' ? item.valueCents - cost : null;
   const problems = fieldProblems(item.type, form);
   const dueText = item.type === 'liability' ? (text.due.trim() ? parseDate(text.due, new Date(now), 'future') : null) : null;
   const dueBad = item.type === 'liability' && text.due.trim() !== '' && !dueText;
+  const boughtAt = item.type === 'asset' && text.bought.trim() ? parseBought(text.bought, now) : null;
+  const boughtBad = item.type === 'asset' && text.bought.trim() !== '' && boughtAt === null;
 
   async function save() {
     setBusy(true); setError(null);
     try {
-      const after = item.type === 'liability' ? { ...(form as DebtFields), dueDate: dueText?.at ?? null } : form;
+      const after = item.type === 'liability' ? { ...(form as DebtFields), dueDate: dueText?.at ?? null } : item.type === 'asset' ? { ...(form as AssetFields), acquiredAt: boughtAt } : form;
       const p = editPlan(item.type, item.id, fieldsOf(item), after, portfolioId, acquiredAt);
       await run(p.apply);
       setEditing(false);
@@ -146,7 +163,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
   const set = (patch: Record<string, unknown>) => setForm((f) => ({ ...f, ...patch }) as Fields);
   return (
     <View>
-      <Facts item={item} gainCents={gainCents} now={now} />
+      <Facts item={item} now={now} />
       {editing && (
         <View style={{ marginTop: 22, gap: 12 }}>
           {item.type === 'holding' ? (
@@ -170,6 +187,15 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
               {item.type === 'asset'
                 ? <Seg label="Kind" options={[['cash', 'Cash'], ['real_estate', 'Property'], ['vehicle', 'Vehicle'], ['collectible', 'Collectible'], ['other', 'Other']]} value={(form as AssetFields).kind} onChange={(k) => set({ kind: k })} />
                 : <Seg label="Kind" options={[['credit_card', 'Card'], ['loan', 'Loan'], ['mortgage', 'Mortgage'], ['other', 'Other']]} value={(form as DebtFields).kind} onChange={(k) => set({ kind: k })} />}
+              {item.type === 'asset' && (form as AssetFields).kind !== 'cash' && (
+                <View style={{ gap: 4 }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                    <Field label="You paid in total" numeric value={text.cost} onChangeText={(t) => { setText((x) => ({ ...x, cost: t })); set({ costCents: t.trim() ? toCents(t) ?? -1 : null }); }} />
+                    <Field label="Bought (like Feb 2025)" value={text.bought} onChangeText={(t) => setText((x) => ({ ...x, bought: t }))} />
+                  </View>
+                  <Txt v="small" c={boughtBad ? 'warn' : 'ink3'}>{boughtBad ? 'That doesn’t look like a past date.' : 'Leave empty if you don’t know. Numa then shows no gain.'}</Txt>
+                </View>
+              )}
               {item.type === 'liability' && (
                 <View style={{ gap: 4 }}>
                   <Field label="Due date (like 20 Oct, or leave empty)" value={text.due} onChangeText={(t) => setText((x) => ({ ...x, due: t }))} />
@@ -202,7 +228,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
         <View style={{ marginTop: 22, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
           {editing ? (
             <>
-              <Pressable onPress={save} disabled={busy || problems.length > 0 || dueBad} accessibilityRole="button" aria-disabled={busy || problems.length > 0 || dueBad} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: problems.length || dueBad ? 0.4 : 1 }}>
+              <Pressable onPress={save} disabled={busy || problems.length > 0 || dueBad || boughtBad} accessibilityRole="button" aria-disabled={busy || problems.length > 0 || dueBad || boughtBad} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: problems.length || dueBad || boughtBad ? 0.4 : 1 }}>
                 {busy ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt>}
               </Pressable>
               <Pressable onPress={() => { setEditing(false); setForm(fieldsOf(item)); setText(initialText(item, fieldsOf(item))); setError(null); }} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
@@ -227,6 +253,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
 
 function initialText(item: Item, f: Fields) {
   const due = item.type === 'liability' && (f as DebtFields).dueDate ? shortDay((f as DebtFields).dueDate!, 0).replace(/^(\d+ \w+)$/, '$1') : '';
-  if (item.type === 'holding') return { amount: ((f as HoldingFields).costBasisCents / 100).toFixed(2), qty: String((f as HoldingFields).quantity), due };
-  return { amount: ((f as AssetFields).balanceCents / 100).toFixed(2), qty: '', due };
+  if (item.type === 'holding') return { amount: ((f as HoldingFields).costBasisCents / 100).toFixed(2), qty: String((f as HoldingFields).quantity), due, cost: '', bought: '' };
+  const a = f as AssetFields;
+  return { amount: (a.balanceCents / 100).toFixed(2), qty: '', due, cost: a.costCents ? (a.costCents / 100).toFixed(2) : '', bought: a.acquiredAt ? new Date(a.acquiredAt).toISOString().slice(0, 10) : '' };
 }

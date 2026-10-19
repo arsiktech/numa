@@ -251,11 +251,13 @@ export const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "save_asset", title: "Add or update an asset", write: true,
-    description: "Cash accounts, property, vehicles, collectibles. Send id to update an existing one; leave it out to add a new one.",
-    inputSchema: schema({ id: str("Asset id to update."), space_id: spaceId, name: str("Name, like Revolut EUR or Flat in Lisbon."), kind: str("Kind of asset.", { enum: ["cash", "real_estate", "vehicle", "collectible", "other"] }), balance: num("Current value."), currency, location: where, request_id: requestId }, ["name", "kind", "balance"]),
+    description: "Cash accounts, property, vehicles, collectibles. Send id to update an existing one; leave it out to add a new one. cost_basis and acquired_at show how much it gained or lost since it was bought.",
+    inputSchema: schema({ id: str("Asset id to update."), space_id: spaceId, name: str("Name, like Revolut EUR or Flat in Lisbon."), kind: str("Kind of asset.", { enum: ["cash", "real_estate", "vehicle", "collectible", "other"] }), balance: num("Current value."), currency, location: where, cost_basis: num("What it cost in total, in the same currency, to show its gain or loss. 0 clears it.", { minimum: 0 }), acquired_at: str("When it was bought, like 2025-02-01."), request_id: requestId }, ["name", "kind", "balance"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
+      const cost = args.cost_basis === undefined || args.cost_basis === null ? undefined : amount(args, "cost_basis");
       return io.mutation("mobile:upsertAsset", {
+        ...(cost === undefined ? {} : { costBasis: cost > 0 ? cost : null }), ...(args.acquired_at === undefined ? {} : { acquiredAt: date(args, "acquired_at") ?? null }),
         ...(text(args, "id", false) ? { id: text(args, "id") } : {}), portfolioId: space.id, name: text(args, "name"),
         kind: oneOf(args, "kind", ["cash", "real_estate", "vehicle", "collectible", "other"] as const), balance: amount(args, "balance"),
         currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, ...place(args), ...write(io, args),

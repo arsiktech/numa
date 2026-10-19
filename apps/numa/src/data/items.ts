@@ -3,7 +3,7 @@ import { freshness, shortDay, type Freshness } from '@/domain/freshness';
 import { countedValue } from '@/domain/summary';
 import type { CategoryId, Holding } from '@/domain/types';
 import type { HomeData } from './fromSnapshot';
-import type { FxRate } from './fx';
+import { convertCents, type FxRate } from './fx';
 import { walletPieces, type Piece } from './positions';
 import { walletDetail, walletLoanId } from './wallets';
 
@@ -25,13 +25,25 @@ export type Item = {
   raw: CloudAsset | CloudHolding | CloudLiability | CloudWallet;
   /** What the record holds, when it holds several things (a wallet's tokens and lending). */
   pieces?: Piece[];
+  /** Gained (or lost) since it was bought, in the portfolio currency, when its cost is known. */
+  gain?: Gain | null;
 };
+
+export type Gain = { cents: number; pct: number; since: number | null };
 
 export const groupNames: Record<GroupId, string> = { crypto: 'Crypto', stocks: 'Stocks and funds', business: 'Business', property: 'Property', cash: 'Cash', things: 'Things', debts: 'What you owe' };
 const assetKindNames: Record<CloudAsset['kind'], string> = { cash: 'Cash account', real_estate: 'Property', vehicle: 'Vehicle', collectible: 'Collectible', other: 'Other' };
 const debtKindNames: Record<CloudLiability['kind'], string> = { credit_card: 'Credit card', loan: 'Loan', mortgage: 'Mortgage', other: 'Debt' };
 const DAY = 86_400_000;
 const NEEDS_RATE: Freshness = { text: 'Needs today’s exchange rate', tone: 'missing' };
+
+/** Value against what was paid. Unknown when either side is unknown or the price is missing. */
+export function gainOf(valueCents: number | null, cost: number | null | undefined, costCurrency: CloudAsset['currency'], currency: CloudAsset['currency'], fx: FxRate | null, since: number | null, fresh: boolean): Gain | null {
+  if (valueCents === null || !fresh || !cost || !(cost > 0)) return null;
+  const costCents = convertCents(Math.round(cost * 100), costCurrency, currency, fx);
+  if (costCents === null || costCents <= 0) return null;
+  return { cents: valueCents - costCents, pct: (valueCents - costCents) / costCents, since };
+}
 
 function fromDomain(h: Holding | undefined, now: number) {
   if (!h) return { valueCents: null, changeTodayCents: null, freshness: NEEDS_RATE, group: null };
@@ -50,11 +62,13 @@ export function itemsFrom(s: CloudSnapshot, data: HomeData, now: number, fx: FxR
       continue;
     }
     const d = fromDomain(byId.get(a.id), now);
-    items.push({ id: a.id, type: 'asset', group: d.group ?? (a.kind === 'cash' ? 'cash' : a.kind === 'real_estate' ? 'property' : 'things'), name: a.name, detail: assetKindNames[a.kind], valueCents: d.valueCents, changeTodayCents: null, freshness: d.freshness, raw: a });
+    const gain = gainOf(d.valueCents, a.costBasis, a.currency, data.currency, fx, a.acquiredAt ?? null, d.freshness.tone !== 'missing');
+    items.push({ id: a.id, type: 'asset', group: d.group ?? (a.kind === 'cash' ? 'cash' : a.kind === 'real_estate' ? 'property' : 'things'), name: a.name, detail: assetKindNames[a.kind], valueCents: d.valueCents, changeTodayCents: null, freshness: d.freshness, raw: a, gain });
   }
   for (const h of s.holdings) {
     const d = fromDomain(byId.get(h.id), now);
-    items.push({ id: h.id, type: 'holding', group: d.group ?? (h.kind === 'crypto' ? 'crypto' : 'stocks'), name: h.name || h.symbol, detail: `${h.quantity} ${h.symbol}`, valueCents: d.valueCents, changeTodayCents: d.changeTodayCents, freshness: d.freshness, raw: h });
+    const gain = gainOf(d.valueCents, h.costBasis, h.currency, data.currency, fx, h.acquiredAt ?? null, d.freshness.tone !== 'missing');
+    items.push({ id: h.id, type: 'holding', group: d.group ?? (h.kind === 'crypto' ? 'crypto' : 'stocks'), name: h.name || h.symbol, detail: `${h.quantity} ${h.symbol}`, valueCents: d.valueCents, changeTodayCents: d.changeTodayCents, freshness: d.freshness, raw: h, gain });
   }
   for (const w of s.wallets ?? []) {
     const d = fromDomain(byId.get(w.id), now);
