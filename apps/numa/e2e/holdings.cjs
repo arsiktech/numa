@@ -158,6 +158,17 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check('sidebar Holdings lists every group', ['Crypto', 'Cash', 'What you owe', 'Bitcoin', 'Car loan'].every((x) => all.includes(x)));
   await w.screenshot({ path: OUT + '/06-holdings-light-1440.png', fullPage: true });
 
+  // Opened straight from its address (a reload, a bookmark), a panel still has Home behind it.
+  await w.goto(APP + '/holdings/crypto');
+  await w.getByRole('heading', { name: 'Crypto' }).waitFor({ timeout: 20000 });
+  await wait(1500);
+  const behind = await w.locator('body').innerText();
+  check('a panel opened by its address keeps Home behind it', behind.includes('What you own') && behind.includes('Bitcoin'), behind.slice(0, 300).replace(/\n/g, ' | '));
+  await w.getByRole('button', { name: 'Back' }).first().click();
+  await wait(800);
+  check('Back from it lands on Home', (await w.getByRole('heading', { name: 'Crypto' }).count()) === 0 && (await w.getByText('What you own').count()) > 0);
+  await w.screenshot({ path: OUT + '/07-deep-link-light-1440.png' });
+
   const dm = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
   const dp = await dm.newPage();
   await dp.goto(APP + '/sign-in');

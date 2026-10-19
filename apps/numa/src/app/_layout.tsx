@@ -22,6 +22,10 @@ import { ToastProvider } from '@/ui/Toast';
 
 SplashScreen.preventAutoHideAsync();
 
+// A page opened straight from its address (a reload, a bookmark, a link) gets Home beneath it, so a
+// detail shown as a panel on wide screens never sits beside an empty page, and Back goes Home.
+export const unstable_settings = { initialRouteName: '(tabs)' };
+
 function Root() {
   const { name, c } = useTheme();
   const session = useSession();
