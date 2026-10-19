@@ -126,5 +126,8 @@ describe("agent tools", () => {
     await tool("link_loan").run(f.io, { loan: "liability:l1", went_to: ["holding:h1"], backed_by: ["asset:a1"] });
     expect(f.writes()).toEqual([["mutation", "loanLinks:set", { portfolioId: "p1", loanKey: "liability:l1", targets: [{ key: "holding:h1", role: "deployed" }, { key: "asset:a1", role: "collateral" }], clientMutationId: "req-1" }]]);
     await expect(tool("link_loan").run(f.io, { loan: "liability:l1", went_to: "holding:h1" })).rejects.toThrow(AgentInputError);
+    await tool("link_loan").run(f.io, { loan: "liability:l1", went_to: [{ key: "defi:w1:arbitrum:compound", symbol: "BTC", quantity: 0.377 }] });
+    expect(f.writes()[1][2]).toMatchObject({ targets: [{ key: "defi:w1:arbitrum:compound", role: "deployed", part: { symbol: "BTC", quantity: 0.377 } }] });
+    await expect(tool("link_loan").run(f.io, { loan: "liability:l1", went_to: [{ key: "holding:h1", symbol: "BTC" }] })).rejects.toThrow(AgentInputError);
   });
 });

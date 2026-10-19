@@ -4,12 +4,12 @@ import { useCallback, useMemo } from 'react';
 
 import { cloud } from '@/cloud/api';
 import { newMutationId, useCloudData } from '@/data/cloud';
-import { loanPlaces, loansOf, takenBy, type CloudLoanLink, type Loan, type LoanPlace, type LoanRole } from '@/data/loans';
+import { loanPlaces, loansOf, takenBy, type CloudLoanLink, type Loan, type LoanPart, type LoanPlace, type LoanRole, type Taken } from '@/data/loans';
 import { useCloudItems } from '@/data/useItems';
 
 export type LoansState =
   | { status: 'loading' }
-  | { status: 'ready'; loans: Loan[]; places: Map<string, LoanPlace>; links: CloudLoanLink[]; taken: Map<string, string>; portfolioId: string; now: number };
+  | { status: 'ready'; loans: Loan[]; places: Map<string, LoanPlace>; links: CloudLoanLink[]; taken: Taken; portfolioId: string; now: number };
 
 /** The signed-in space's loans, with where their money went. */
 export function useLoans(): LoansState {
@@ -38,7 +38,7 @@ export function linkErrorText(e: unknown): string {
   return (data?.code && ERRORS[data.code]) || 'Couldn’t save that. Check your connection and try again.';
 }
 
-/** Save one loan's links. Moving a place from another loan clears it there first. */
+/** Save one loan's links. Moving a place linked whole from another loan clears it there first. */
 export function useLinkWrites(state: LoansState) {
   const set = useMutation(cloud.setLoanLinks);
   const save = useCallback(async (loanKey: string, targets: CloudLoanLink['targets']) => {
@@ -47,12 +47,17 @@ export function useLinkWrites(state: LoansState) {
   }, [set, state]);
   const current = useCallback((loanKey: string) => (state.status === 'ready' ? state.links.find((l) => l.loanKey === loanKey)?.targets ?? [] : []), [state]);
   return {
-    add: useCallback(async (loanKey: string, key: string, role: LoanRole) => {
+    add: useCallback(async (loanKey: string, key: string, role: LoanRole, part?: LoanPart) => {
       if (state.status !== 'ready') return;
-      const other = state.taken.get(key);
-      if (other && other !== loanKey) await save(other, current(other).filter((t) => t.key !== key));
-      await save(loanKey, [...current(loanKey).filter((t) => t.key !== key), { key, role }]);
+      for (const other of state.taken.get(key) ?? []) {
+        if (other.loanKey !== loanKey && other.whole) await save(other.loanKey, current(other.loanKey).filter((t) => t.key !== key));
+      }
+      await save(loanKey, [...current(loanKey).filter((t) => t.key !== key), { key, role, ...(part ? { part } : {}) }]);
     }, [state, save, current]),
+    /** Only part of a place, or the whole of it again when `part` is left out. */
+    setPart: useCallback(async (loanKey: string, key: string, part?: LoanPart) => {
+      await save(loanKey, current(loanKey).map((t) => (t.key !== key ? t : { key: t.key, role: t.role, ...(part ? { part } : {}) })));
+    }, [save, current]),
     remove: useCallback(async (loanKey: string, key: string) => {
       await save(loanKey, current(loanKey).filter((t) => t.key !== key));
     }, [save, current]),

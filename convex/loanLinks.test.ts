@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkLoanLinks, parseKey } from "./lib/loanLinks";
+import { checkLoanLinks, parseKey, takenBy } from "./lib/loanLinks";
 import { listForPortfolio, set } from "./loanLinks";
 
 // Bounded synthetic DB: the registered handlers with real auth and receipt helpers.
@@ -53,13 +53,24 @@ describe("loan link keys", () => {
   });
 
   it("keeps one place on one loan, never the loan itself, and collateral only on a recorded debt", () => {
-    const others = new Map([["holding:h1", "liability:l1"]]);
+    const others = takenBy([{ loanKey: "liability:l1", targets: [{ key: "holding:h1", role: "deployed" }] }]);
     expect(() => checkLoanLinks(LOAN, [{ key: "holding:h1", role: "deployed" }], others)).toThrow(/another loan/);
     expect(() => checkLoanLinks(LOAN, [{ key: LOAN, role: "deployed" }], new Map())).toThrow(/itself/);
     expect(() => checkLoanLinks(LOAN, [{ key: "asset:a1", role: "collateral" }], new Map())).toThrow(/protocol/);
     expect(() => checkLoanLinks("holding:h1", [], new Map())).toThrow(/wallet borrowing or a recorded debt/);
     expect(() => checkLoanLinks(LOAN, [{ key: "asset:a1", role: "deployed" }, { key: "asset:a1", role: "deployed" }], new Map())).toThrow(/twice/);
     expect(checkLoanLinks("liability:l1", [{ key: "holding:h1", role: "collateral" }], others)).toHaveLength(1);
+  });
+
+  it("lets several loans share one place by parts, but never a place another loan holds whole", () => {
+    const parts = takenBy([{ loanKey: "liability:l1", targets: [{ key: "defi:w1:arbitrum:compound", role: "deployed", part: { symbol: "BTC", quantity: 0.377 } }] }]);
+    expect(checkLoanLinks("liability:l2", [{ key: "defi:w1:arbitrum:compound", role: "deployed", part: { symbol: "BTC", quantity: 0.15 } }], parts)).toHaveLength(1);
+    expect(() => checkLoanLinks("liability:l2", [{ key: "defi:w1:arbitrum:compound", role: "deployed" }], parts)).toThrow(/another loan/);
+    const whole = takenBy([{ loanKey: "liability:l1", targets: [{ key: "holding:h1", role: "deployed" }] }]);
+    expect(() => checkLoanLinks("liability:l2", [{ key: "holding:h1", role: "deployed", part: { symbol: "BTC", quantity: 0.1 } }], whole)).toThrow(/another loan/);
+    for (const part of [{ symbol: "BTC", quantity: 0 }, { symbol: "BTC", quantity: Number.NaN }, { symbol: "B T C", quantity: 1 }]) {
+      expect(() => checkLoanLinks("liability:l2", [{ key: "holding:h1", role: "deployed", part }], new Map())).toThrow(/positive amount/);
+    }
   });
 });
 

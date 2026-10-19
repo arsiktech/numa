@@ -236,7 +236,12 @@ export default defineSchema({
   loanLinks: defineTable({
     portfolioId: v.id("portfolios"),
     loanKey: v.string(),
-    targets: v.array(v.object({ key: v.string(), role: v.union(v.literal("deployed"), v.literal("collateral")) })),
+    targets: v.array(v.object({
+      key: v.string(),
+      role: v.union(v.literal("deployed"), v.literal("collateral")),
+      /** Only this many of one coin in the place; without it the whole place is the loan's. */
+      part: v.optional(v.object({ symbol: v.string(), quantity: v.number() }))
+    })),
     updatedAt: v.number()
   }).index("by_portfolio", ["portfolioId"]),
 

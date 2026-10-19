@@ -1,4 +1,4 @@
-import type { CloudSnapshot, CloudWallet } from '@/cloud/api';
+import type { CloudHolding, CloudSnapshot, CloudWallet } from '@/cloud/api';
 import type { Currency } from '@/domain/types';
 import { convertCents, type FxRate } from './fx';
 import type { Item, ItemType } from './items';
@@ -13,11 +13,19 @@ import { STALE_AFTER, walletLoanId } from './wallets';
  * position, "token:<walletId>:<tokenId>", "holding:<id>", "asset:<id>" and "liability:<id>".
  */
 export type LoanRole = 'deployed' | 'collateral';
-export type CloudLoanLink = { loanKey: string; targets: { key: string; role: LoanRole }[]; updatedAt: number };
+/** Only this many of one coin in a place; without it the whole place belongs to the loan. */
+export type LoanPart = { symbol: string; quantity: number };
+export type LoanTarget = { key: string; role: LoanRole; part?: LoanPart };
+export type CloudLoanLink = { loanKey: string; targets: LoanTarget[]; updatedAt: number };
 
 export type Open = { type: ItemType; id: string };
-/** One place money can sit. `gone` when a link names something that is no longer there. */
-export type LoanPlace = { key: string; name: string; detail: string | null; valueCents: number | null; open: Open | null; gone?: boolean };
+/** One coin in a place, valued at the place's own total. */
+export type Coin = { symbol: string; quantity: number | null; valueCents: number | null };
+/**
+ * One place money can sit. `gone` when a link names something that is no longer there. With a
+ * `part`, the value is only that share; `wholeCents` keeps what the whole place is worth.
+ */
+export type LoanPlace = { key: string; name: string; detail: string | null; valueCents: number | null; open: Open | null; coins: Coin[]; gone?: boolean; part?: LoanPart; wholeCents?: number | null };
 
 export type Loan = {
   key: string;
@@ -60,20 +68,49 @@ export function loanPlaces(s: CloudSnapshot, items: Item[], currency: Currency, 
     const open: Open = { type: 'wallet', id: w.id };
     for (const p of w.snapshot!.defiPositions ?? []) {
       if (!(p.assetValueUsd > 0)) continue;
-      const coins = (p.assets ?? []).filter((a) => !a.debt).map((a) => a.symbol);
-      const what = (coins.length ? coins : p.symbols ?? []).join(', ');
-      out.set(`defi:${w.id}:${p.id}`, { key: `defi:${w.id}:${p.id}`, name: `${p.protocol} · ${p.chainName}`, detail: what ? `${w.label} · ${what}` : w.label, valueCents: usdCents(p.assetValueUsd, currency, fx), open });
+      const own = (p.assets ?? []).filter((a) => !a.debt);
+      const what = (own.length ? own.map((a) => a.symbol) : p.symbols ?? []).join(', ');
+      // Coin values follow the position's own total, as on Home.
+      const sum = own.reduce((t, a) => t + a.valueUsd, 0);
+      const coins = own.map((a) => ({ symbol: a.symbol, quantity: a.quantity === undefined ? null : Number(a.quantity), valueCents: sum > 0 ? usdCents((a.valueUsd / sum) * p.assetValueUsd, currency, fx) : null }));
+      out.set(`defi:${w.id}:${p.id}`, { key: `defi:${w.id}:${p.id}`, name: `${p.protocol} · ${p.chainName}`, detail: what ? `${w.label} · ${what}` : w.label, valueCents: usdCents(p.assetValueUsd, currency, fx), open, coins });
     }
     for (const t of w.snapshot!.tokens) {
       if (!(Number(t.quantity) > 0)) continue;
-      out.set(`token:${w.id}:${t.id}`, { key: `token:${w.id}:${t.id}`, name: `${t.symbol} · ${t.chainName}`, detail: `${w.label} · ${t.quantity} ${t.symbol}`, valueCents: t.valueUsd === undefined ? null : usdCents(t.valueUsd, currency, fx), open });
+      const valueCents = t.valueUsd === undefined ? null : usdCents(t.valueUsd, currency, fx);
+      out.set(`token:${w.id}:${t.id}`, { key: `token:${w.id}:${t.id}`, name: `${t.symbol} · ${t.chainName}`, detail: `${w.label} · ${t.quantity} ${t.symbol}`, valueCents, open, coins: [{ symbol: t.symbol, quantity: Number(t.quantity), valueCents }] });
     }
   }
   for (const i of items) {
     if (i.group === 'debts' || (i.type !== 'holding' && i.type !== 'asset')) continue;
-    out.set(`${i.type}:${i.id}`, { key: `${i.type}:${i.id}`, name: i.name, detail: i.detail, valueCents: i.valueCents, open: { type: i.type, id: i.id } });
+    const h = i.type === 'holding' ? (i.raw as CloudHolding) : null;
+    const coins = h ? [{ symbol: h.symbol, quantity: h.quantity, valueCents: i.valueCents }] : [];
+    out.set(`${i.type}:${i.id}`, { key: `${i.type}:${i.id}`, name: i.name, detail: i.detail, valueCents: i.valueCents, open: { type: i.type, id: i.id }, coins });
   }
   return out;
+}
+
+/** Wrapped forms count as the coin they wrap, so "0.377 BTC" finds WBTC, cbBTC or tBTC. */
+const FAMILY: Record<string, string> = { BTC: 'BTC', WBTC: 'BTC', CBBTC: 'BTC', TBTC: 'BTC', BTCB: 'BTC', ETH: 'ETH', WETH: 'ETH' };
+export const coinFamily = (symbol: string) => FAMILY[symbol.toUpperCase()] ?? symbol.toUpperCase();
+
+/** What `part` of a place is worth: its coins' own price times the amount. Unknown without a price. */
+export function partValue(coins: Coin[], part: LoanPart): number | null {
+  const match = coins.filter((c) => coinFamily(c.symbol) === coinFamily(part.symbol));
+  if (!match.length || match.some((c) => c.valueCents === null || c.quantity === null)) return null;
+  const qty = match.reduce((t, c) => t + (c.quantity ?? 0), 0);
+  const cents = match.reduce((t, c) => t + (c.valueCents ?? 0), 0);
+  return qty > 0 ? Math.round((cents / qty) * part.quantity) : null;
+}
+
+/** The coins a place holds, grouped as parts can name them: "BTC" for WBTC and cbBTC together. */
+export function partChoices(place: LoanPlace): { symbol: string; quantity: number | null }[] {
+  const by = new Map<string, number | null>();
+  for (const c of place.coins) {
+    const f = coinFamily(c.symbol), q = by.has(f) ? by.get(f)! : 0;
+    by.set(f, q === null || c.quantity === null ? null : q + c.quantity);
+  }
+  return [...by].map(([symbol, quantity]) => ({ symbol, quantity }));
 }
 
 const goneName = (key: string) => (key.startsWith('defi:') ? 'A position no longer in the wallet' : key.startsWith('token:') ? 'A token no longer in the wallet' : 'A deleted record');
@@ -87,17 +124,21 @@ function sum(places: LoanPlace[]): { cents: number | null; gaps: number } {
 function walletCollateral(w: CloudWallet, p: NonNullable<NonNullable<CloudWallet['snapshot']>['defiPositions']>[number], currency: Currency, fx: FxRate | null): LoanPlace[] {
   const own = (p.assets ?? []).filter((a) => !a.debt && a.valueUsd > 0);
   const open: Open = { type: 'wallet', id: w.id };
-  if (!own.length) return p.assetValueUsd > 0 ? [{ key: `defi:${w.id}:${p.id}`, name: `${p.protocol} collateral`, detail: null, valueCents: usdCents(p.assetValueUsd, currency, fx), open }] : [];
+  if (!own.length) return p.assetValueUsd > 0 ? [{ key: `defi:${w.id}:${p.id}`, name: `${p.protocol} collateral`, detail: null, valueCents: usdCents(p.assetValueUsd, currency, fx), open, coins: [] }] : [];
   const total = own.reduce((t, a) => t + a.valueUsd, 0);
-  return own.map((a) => ({ key: `defi:${w.id}:${p.id}#${a.symbol}`, name: a.symbol, detail: a.quantity === undefined ? null : `${a.quantity} ${a.symbol}`, valueCents: usdCents((a.valueUsd / total) * p.assetValueUsd, currency, fx), open }));
+  return own.map((a) => ({ key: `defi:${w.id}:${p.id}#${a.symbol}`, name: a.symbol, detail: a.quantity === undefined ? null : `${a.quantity} ${a.symbol}`, valueCents: usdCents((a.valueUsd / total) * p.assetValueUsd, currency, fx), open, coins: [] }));
 }
 
 /** Every loan in the space, biggest first, with its links resolved against what is there now. */
 export function loansOf(s: CloudSnapshot, items: Item[], links: CloudLoanLink[], currency: Currency, fx: FxRate | null, now: number): Loan[] {
   const places = loanPlaces(s, items, currency, fx);
   const byLoan = new Map(links.map((l) => [l.loanKey, l]));
-  const resolve = (key: string, role: LoanRole) => (byLoan.get(key)?.targets ?? []).filter((t) => t.role === role)
-    .map((t) => places.get(t.key) ?? { key: t.key, name: goneName(t.key), detail: null, valueCents: null, open: null, gone: true });
+  const resolve = (key: string, role: LoanRole) => (byLoan.get(key)?.targets ?? []).filter((t) => t.role === role).map((t): LoanPlace => {
+    const place = places.get(t.key);
+    if (!place) return { key: t.key, name: goneName(t.key), detail: null, valueCents: null, open: null, coins: [], gone: true, part: t.part };
+    if (!t.part) return place;
+    return { ...place, part: t.part, wholeCents: place.valueCents, valueCents: partValue(place.coins, t.part) };
+  });
   const loans: Loan[] = [];
 
   const finish = (base: Omit<Loan, 'collateralCents' | 'deployedCents' | 'gaps' | 'netCents' | 'resultCents' | 'ltv' | 'liquidationLtv' | 'linked'>, trustLtv: boolean): Loan => {
@@ -137,9 +178,13 @@ export function loansOf(s: CloudSnapshot, items: Item[], links: CloudLoanLink[],
   return loans.sort((a, b) => (b.debtCents ?? -1) - (a.debtCents ?? -1));
 }
 
-/** Which loan, if any, already holds each place, so one place is never counted for two loans. */
-export function takenBy(links: CloudLoanLink[]): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const l of links) for (const t of l.targets) out.set(t.key, l.loanKey);
+/**
+ * Which loans already use each place, and whether whole. A place linked whole belongs to that loan
+ * alone; parts of one place can go to several loans.
+ */
+export type Taken = Map<string, { loanKey: string; whole: boolean }[]>;
+export function takenBy(links: CloudLoanLink[]): Taken {
+  const out: Taken = new Map();
+  for (const l of links) for (const t of l.targets) out.set(t.key, [...(out.get(t.key) ?? []), { loanKey: l.loanKey, whole: !t.part }]);
   return out;
 }

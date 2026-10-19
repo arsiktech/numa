@@ -89,6 +89,33 @@ const save = (walletId, snapshot) => execFileSync('npx', ['convex', 'run', 'wall
   await page.screenshot({ path: OUT + '/02-wallet-borrowing-dark-390.png', fullPage: true });
   check('net worth still does not move', (await snap()).dashboard.netWorth === withWallet);
 
+  // Two debts share one position by parts: each is valued by its own amount of the coin, never the whole.
+  await page.goto(APP + '/holdings/debts');
+  await page.getByRole('link', { name: /^Loan from Sam, .* owed\./ }).click();
+  await page.getByRole('button', { name: 'Pick where it went' }).click();
+  await page.getByRole('button', { name: /^Link Aave V3 · Ethereum/ }).click();
+  await page.getByRole('button', { name: /Set how much of Aave V3 · Ethereum/ }).waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: /Set how much of Aave V3 · Ethereum/ }).click();
+  await page.getByLabel(/BTC amount/).fill('0.025');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByText(/^0\.025 BTC of it/).waitFor({ timeout: 10000 });
+  body = await page.locator('body').innerText();
+  const half = body.match(/0\.025 BTC of it · all of it (€[\d,]+)/);
+  check('a part shows its own amount and the whole place beside it', Boolean(half), body.slice(0, 900).replace(/\n/g, ' | '));
+  await page.goto(APP + '/holdings/debts');
+  await page.getByRole('link', { name: /^Car loan, .* owed\./ }).click();
+  await page.getByRole('button', { name: 'Pick where it went' }).click();
+  const shared = page.getByRole('button', { name: /^Link Aave V3 · Ethereum, part of it/ });
+  check('a place shared by parts is offered as another part, not a move', await shared.isVisible());
+  await shared.click();
+  await page.getByLabel(/BTC amount/).fill('0.01');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByText(/^0\.01 BTC of it/).waitFor({ timeout: 10000 });
+  saved = await links();
+  const parts = saved.flatMap((l) => l.targets.filter((t) => t.key.includes('aave-v3')).map((t) => [l.loanKey.startsWith('liability:'), t.part?.symbol, t.part?.quantity]));
+  check('both debts keep their own part of the same position', JSON.stringify(parts.map((x) => x.slice(1)).sort()) === JSON.stringify([['BTC', 0.01], ['BTC', 0.025]]), JSON.stringify(parts));
+  await page.screenshot({ path: OUT + '/04-part-of-a-place-dark-390.png', fullPage: true });
+
   // Desktop, light: the loans list on What you owe.
   const wide = await (await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'light' })).newPage();
   watchErrors(wide, errors);
@@ -101,7 +128,7 @@ const save = (walletId, snapshot) => execFileSync('npx', ['convex', 'run', 'wall
   await wide.getByText('LOANS AND WHERE THE MONEY WENT').waitFor({ timeout: 20000 });
   await wait(800);
   const list = await wide.locator('body').innerText();
-  check('the loans list says where each loan’s money went', list.includes('Frame · Went to ether.fi Cash · Optimism') && list.includes('Your record · Where it went: not set'), list.slice(0, 600));
+  check('the loans list says where each loan’s money went', list.includes('Frame · Went to ether.fi Cash · Optimism') && list.includes('Your record · Went to Aave V3 · Ethereum'), list.slice(0, 600));
   await wide.screenshot({ path: OUT + '/03-loans-light-1440.png', fullPage: true });
 
   const filtered = errors.filter((e) => !/favicon|Download the React DevTools/i.test(e));

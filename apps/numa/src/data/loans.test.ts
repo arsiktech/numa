@@ -1,6 +1,6 @@
 import type { CloudSnapshot, CloudWallet } from '@/cloud/api';
 import type { Item } from './items';
-import { loanPlaces, loansOf, takenBy, type CloudLoanLink } from './loans';
+import { coinFamily, loanPlaces, loansOf, partChoices, partValue, takenBy, type CloudLoanLink } from './loans';
 
 const NOW = Date.UTC(2026, 9, 19, 12);
 const fx = { usdPerEur: 1.25, asOf: '2026-10-19' };
@@ -41,7 +41,7 @@ describe('loans', () => {
     // Borrowed 3,200 euros of USDC; it now sits in 4,000 euros of ether.fi: up 800.
     expect(loan).toMatchObject({ deployedCents: 400_000, resultCents: 80_000, netCents: 880_000, gaps: 0, linked: true });
     expect(loan.deployed[0]).toMatchObject({ name: 'ether.fi Cash · Optimism', detail: 'Frame · liquidUSD', open: { type: 'wallet', id: 'w1' } });
-    expect(takenBy(links).get('defi:w1:optimism:etherfi-cash')).toBe('defi:w1:base:aave-v3');
+    expect(takenBy(links).get('defi:w1:optimism:etherfi-cash')).toEqual([{ loanKey: 'defi:w1:base:aave-v3', whole: true }]);
   });
 
   it('keeps a missing place visible and leaves the result unknown instead of counting it as zero', () => {
@@ -69,5 +69,30 @@ describe('loans', () => {
     const places = loanPlaces(snapshot(w), [holding, debt], 'EUR', fx);
     expect([...places.keys()]).toEqual(['defi:w1:base:aave-v3', 'defi:w1:optimism:etherfi-cash', 'token:w1:base:usdc', 'holding:h1']);
     expect(loanPlaces(snapshot({ ...w, includeInNetWorth: false }), [], 'EUR', fx).size).toBe(0);
+  });
+
+  it('values only part of a place: the coin’s own price times the amount, wrapped coins counting as the coin', () => {
+    const coins = [{ symbol: 'WBTC', quantity: 0.5, valueCents: 4_000_000 }, { symbol: 'cbBTC', quantity: 0.25, valueCents: 2_000_000 }, { symbol: 'WETH', quantity: 2, valueCents: 500_000 }];
+    expect(coinFamily('cbBTC')).toBe('BTC');
+    expect(partValue(coins, { symbol: 'BTC', quantity: 0.377 })).toBe(3_016_000);
+    expect(partValue(coins, { symbol: 'ETH', quantity: 1 })).toBe(250_000);
+    expect(partValue(coins, { symbol: 'USDC', quantity: 10 })).toBeNull();
+    expect(partValue([{ symbol: 'WBTC', quantity: 0.5, valueCents: null }], { symbol: 'BTC', quantity: 0.1 })).toBeNull();
+    expect(partChoices({ key: 'k', name: 'n', detail: null, valueCents: 0, open: null, coins })).toEqual([{ symbol: 'BTC', quantity: 0.75 }, { symbol: 'ETH', quantity: 2 }]);
+  });
+
+  it('lets two debts share one position by parts, each valued by its own amount, never the whole place', () => {
+    const links: CloudLoanLink[] = [
+      { loanKey: 'liability:l1', targets: [{ key: 'defi:w1:base:aave-v3', role: 'deployed', part: { symbol: 'BTC', quantity: 0.05 } }], updatedAt: 0 },
+      { loanKey: 'liability:l2', targets: [{ key: 'defi:w1:base:aave-v3', role: 'deployed', part: { symbol: 'BTC', quantity: 0.02 } }], updatedAt: 0 },
+    ];
+    const l2 = { ...liability, id: 'l2', name: 'Loan from Rae' };
+    const loans = loansOf(snapshot(wallet(), [liability, l2] as never), [debt, { ...debt, id: 'l2', name: 'Loan from Rae' }], links, 'EUR', fx, NOW);
+    const sam = loans.find((l) => l.key === 'liability:l1')!;
+    // 0.1 cbBTC is worth 8,000 euros here, so 0.05 BTC is 4,000; the debt is 4,000: even.
+    expect(sam.deployed[0]).toMatchObject({ part: { symbol: 'BTC', quantity: 0.05 }, valueCents: 400_000, wholeCents: 800_000 });
+    expect(sam.resultCents).toBe(0);
+    expect(loans.find((l) => l.key === 'liability:l2')!.deployedCents).toBe(160_000);
+    expect(takenBy(links).get('defi:w1:base:aave-v3')).toEqual([{ loanKey: 'liability:l1', whole: false }, { loanKey: 'liability:l2', whole: false }]);
   });
 });

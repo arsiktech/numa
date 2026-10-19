@@ -44,6 +44,8 @@ const requestId = str("Optional id for this write. Sending the same id again nev
 const where = str("Where it is kept, like Trade Republic, Ledger or Binance. Leave out to keep what is saved; send an empty string to clear it.");
 /** `location` only when the agent sent it, so an update without it keeps the saved place. */
 const place = (args: Json) => (typeof args.location === "string" ? { location: args.location } : {});
+/** A place key, or part of a place: this many of one coin in it. */
+const placeRef: Json = { anyOf: [{ type: "string" }, { type: "object", properties: { key: { type: "string" }, symbol: { type: "string", description: "Coin, like BTC or weEUR. BTC also matches WBTC, cbBTC and tBTC." }, quantity: { type: "number", exclusiveMinimum: 0 } }, required: ["key", "symbol", "quantity"], additionalProperties: false }] };
 const schema = (properties: Record<string, Json>, required: string[] = []): Schema =>
   ({ type: "object", properties, ...(required.length ? { required } : {}), additionalProperties: false });
 
@@ -376,22 +378,32 @@ export const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "link_loan", title: "Say where a loan's money went", write: true,
-    description: "Tie a loan to the places its borrowed money went, and for a recorded debt to what backs it. Nothing moves and net worth stays the same: Numa then shows the loan's collateral, what the money bought and whether the borrowing is ahead. Keys: a wallet borrowing or position is defi:<wallet id>:<lending id from get_records wallets>; a wallet token is token:<wallet id>:<token id>; a recorded debt is liability:<id>; a holding is holding:<id>; an asset is asset:<id>. Each place belongs to one loan. Replaces the loan's links; send empty lists to clear them. Confirm with the user first.",
+    description: "Tie a loan to the places its borrowed money went, and for a recorded debt to what backs it. Nothing moves and net worth stays the same: Numa then shows the loan's collateral, what the money bought and whether the borrowing is ahead. Keys: a wallet borrowing or position is defi:<wallet id>:<lending id from get_records wallets>; a wallet token is token:<wallet id>:<token id>; a recorded debt is liability:<id>; a holding is holding:<id>; an asset is asset:<id>. A place linked whole belongs to one loan; to share a place, link only part of it: { key, symbol, quantity }, like 0.377 BTC of a lending position. Replaces the loan's links; send empty lists to clear them. Confirm with the user first.",
     inputSchema: schema({
       space_id: spaceId,
       loan: str("The loan: defi:<wallet id>:<lending id> or liability:<id>."),
-      went_to: { type: "array", items: { type: "string" }, description: "Places the borrowed money went." },
-      backed_by: { type: "array", items: { type: "string" }, description: "What backs a recorded debt (liability only). A wallet borrowing's collateral is read from the protocol." },
+      went_to: { type: "array", items: placeRef, description: "Places the borrowed money went." },
+      backed_by: { type: "array", items: placeRef, description: "What backs a recorded debt (liability only). A wallet borrowing's collateral is read from the protocol." },
       request_id: requestId,
     }, ["loan"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
-      const keys = (key: string) => {
-        const value = args[key] ?? [];
-        if (!Array.isArray(value) || value.some((k) => typeof k !== "string")) throw new AgentInputError(`${key} must be a list of keys`);
-        return value as string[];
+      // A place is its key, or { key, symbol, quantity } for only part of it.
+      const places = (field: string, role: "deployed" | "collateral") => {
+        const value = args[field] ?? [];
+        if (!Array.isArray(value)) throw new AgentInputError(`${field} must be a list`);
+        return value.map((v) => {
+          if (typeof v === "string") return { key: v, role };
+          if (v && typeof v === "object" && typeof (v as Json).key === "string") {
+            const p = v as Json;
+            if (p.symbol === undefined && p.quantity === undefined) return { key: p.key as string, role };
+            if (typeof p.symbol !== "string" || typeof p.quantity !== "number") throw new AgentInputError(`${field}: a part needs symbol and quantity`);
+            return { key: p.key as string, role, part: { symbol: p.symbol, quantity: p.quantity } };
+          }
+          throw new AgentInputError(`${field} must list keys or { key, symbol, quantity }`);
+        });
       };
-      const targets = [...keys("went_to").map((k) => ({ key: k, role: "deployed" })), ...keys("backed_by").map((k) => ({ key: k, role: "collateral" }))];
+      const targets = [...places("went_to", "deployed"), ...places("backed_by", "collateral")];
       return io.mutation("loanLinks:set", { portfolioId: space.id, loanKey: text(args, "loan"), targets, ...write(io, args) });
     },
   },

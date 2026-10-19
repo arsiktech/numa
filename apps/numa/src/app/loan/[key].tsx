@@ -4,13 +4,13 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
-import type { Loan, LoanPlace, LoanRole } from '@/data/loans';
+import { partChoices, type Loan, type LoanPart, type LoanPlace, type LoanRole } from '@/data/loans';
 import { ago } from '@/domain/freshness';
 import { linkErrorText, useLinkWrites, useLoans, type LoansState } from '@/loans/useLoans';
 import { useTheme } from '@/theme/theme';
-import { Field } from '@/ui/form';
+import { Field, Seg } from '@/ui/form';
 import { CurrencyScope, useMoney } from '@/ui/money';
-import { quantityText } from '@/ui/PositionRow';
+import { amountText, quantityText } from '@/ui/PositionRow';
 import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
@@ -34,7 +34,7 @@ function Cloud({ loanKey }: { loanKey: string }) {
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const open = (p: LoanPlace) => p.open && router.push({ pathname: '/item/[type]/[id]', params: { type: p.open.type, id: p.open.id } });
 
-function PlaceRow({ place, onRemove, last }: { place: LoanPlace; onRemove?: () => void; last: boolean }) {
+function PlaceRow({ place, onRemove, onPart, last }: { place: LoanPlace; onRemove?: () => void; onPart?: () => void; last: boolean }) {
   const { c } = useTheme();
   const { money } = useMoney();
   return (
@@ -44,10 +44,17 @@ function PlaceRow({ place, onRemove, last }: { place: LoanPlace; onRemove?: () =
         style={{ flex: 1, minWidth: 0, minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Txt v="body" c={place.gone ? 'warn' : 'ink'} style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{place.name}</Txt>
-          {place.detail && <Txt v="small" c="ink2" numberOfLines={1}>{place.detail}</Txt>}
+          {place.part ? <Txt v="small" c="ink2" numberOfLines={1}>{amountText(place.part.quantity)} {place.part.symbol} of it{place.wholeCents != null ? ` · all of it ${money(place.wholeCents)}` : ''}</Txt>
+            : place.detail && <Txt v="small" c="ink2" numberOfLines={1}>{place.detail}</Txt>}
         </View>
         <Txt v="figure" style={{ fontSize: 15 }}>{place.valueCents === null ? '—' : money(place.valueCents)}</Txt>
       </Pressable>
+      {onPart && place.coins.length > 0 && (
+        <Pressable onPress={onPart} accessibilityRole="button" accessibilityLabel={`Set how much of ${place.name} is this loan's`}
+          style={{ minHeight: 44, paddingHorizontal: 8, justifyContent: 'center' }}>
+          <Txt v="small" style={{ fontFamily: 'Manrope_700Bold' }}>{place.part ? 'Amount' : 'Only part'}</Txt>
+        </Pressable>
+      )}
       {onRemove && (
         <Pressable onPress={onRemove} accessibilityRole="button" accessibilityLabel={`Unlink ${place.name}`} hitSlop={6}
           style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}>
@@ -59,7 +66,7 @@ function PlaceRow({ place, onRemove, last }: { place: LoanPlace; onRemove?: () =
 }
 
 /** Places the money could have gone, biggest first, with a filter once the list is long. */
-function Picker({ loan, role, state, onPick, onClose }: { loan: Loan; role: LoanRole; state: Extract<LoansState, { status: 'ready' }>; onPick: (key: string) => void; onClose: () => void }) {
+function Picker({ loan, role, state, onPick, onClose }: { loan: Loan; role: LoanRole; state: Extract<LoansState, { status: 'ready' }>; onPick: (key: string, onlyPart: boolean) => void; onClose: () => void }) {
   const { c } = useTheme();
   const { money } = useMoney();
   const [q, setQ] = useState('');
@@ -77,19 +84,48 @@ function Picker({ loan, role, state, onPick, onClose }: { loan: Loan; role: Loan
       {all.length > 8 && <Field label="Find a wallet, coin or record" value={q} onChangeText={setQ} />}
       {shown.length === 0 && <Txt v="body" c="ink2">{all.length ? 'Nothing matches.' : 'Nothing else to link yet. Add the account, holding or wallet first.'}</Txt>}
       {shown.slice(0, 40).map((p) => {
-        const other = state.taken.get(p.key);
+        // Linked whole elsewhere: picking moves it. Shared by parts: only a part can go here too.
+        const others = (state.taken.get(p.key) ?? []).filter((o) => o.loanKey !== loan.key);
+        const whole = others.find((o) => o.whole);
+        const note = whole ? `On ${loanName(whole.loanKey)} · tap to move it here` : others.length ? `Part is on ${loanName(others[0].loanKey)} · tap to link a part` : null;
         return (
-          <Pressable key={p.key} onPress={() => onPick(p.key)} accessibilityRole="button" accessibilityLabel={`Link ${p.name}${other ? `, moves it from ${loanName(other)}` : ''}`}
+          <Pressable key={p.key} onPress={() => onPick(p.key, !whole && others.length > 0)} accessibilityRole="button" accessibilityLabel={`Link ${p.name}${whole ? `, moves it from ${loanName(whole.loanKey)}` : others.length ? ', part of it' : ''}`}
             style={{ minHeight: 56, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: c.line }}>
             <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
               <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{p.name}</Txt>
-              <Txt v="small" c={other ? 'warn' : 'ink2'} numberOfLines={1}>{other ? `On ${loanName(other)} · tap to move it here` : p.detail}</Txt>
+              <Txt v="small" c={note ? 'warn' : 'ink2'} numberOfLines={1}>{note ?? p.detail}</Txt>
             </View>
             <Txt v="figureSm" style={{ fontSize: 14 }}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
             <Txt v="body" c="ink3">+</Txt>
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+/** How much of one place is this loan's: a coin it holds and an amount, or all of it. */
+function PartEditor({ place, onSave, onWhole, onCancel, canBeWhole }: { place: LoanPlace; onSave: (part: LoanPart) => void; onWhole: () => void; onCancel: () => void; canBeWhole: boolean }) {
+  const { c } = useTheme();
+  const choices = partChoices(place);
+  const [symbol, setSymbol] = useState(place.part?.symbol ?? choices[0]?.symbol ?? '');
+  const [text, setText] = useState(place.part ? String(place.part.quantity) : '');
+  const have = choices.find((x) => x.symbol === symbol)?.quantity ?? null;
+  const qty = Number(text.replace(',', '.'));
+  const ok = symbol !== '' && Number.isFinite(qty) && qty > 0;
+  return (
+    <View style={{ marginTop: 10, padding: 14, borderRadius: 18, backgroundColor: c.s1, gap: 10 }}>
+      <Txt v="cardTitle">How much of {place.name} is this loan’s?</Txt>
+      {choices.length > 1 && <Seg label="Coin" options={choices.map((x) => [x.symbol, x.symbol] as [string, string])} value={symbol} onChange={setSymbol} />}
+      <Field label={`${symbol} amount${have !== null ? ` (${amountText(have)} there)` : ''}`} numeric value={text} onChangeText={setText} />
+      {have !== null && ok && qty > have && <Txt v="small" c="warn">That is more {symbol} than this place holds.</Txt>}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+        <Pressable onPress={() => ok && onSave({ symbol, quantity: qty })} disabled={!ok} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: ok ? c.ink : c.s2, justifyContent: 'center' }}>
+          <Txt v="body" c={ok ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt>
+        </Pressable>
+        {canBeWhole && <Pressable onPress={onWhole} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>All of it</Txt></Pressable>}
+        <Pressable onPress={onCancel} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}><Txt v="body" c="ink2">Cancel</Txt></Pressable>
+      </View>
     </View>
   );
 }
@@ -108,7 +144,25 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
     try { await work(); toast({ text: done }); } catch (e) { toast({ text: linkErrorText(e) }); }
     setBusy(false);
   }
-  const pick = (key: string) => { if (!picking) return; const role = picking; setPicking(null); void run(() => writes.add(loan.key, key, role), 'Linked'); };
+  // A part being set: on a place already linked, or on one being added that others share by parts.
+  const [parting, setParting] = useState<{ key: string; role: LoanRole; adding: boolean } | null>(null);
+  const pick = (key: string, onlyPart: boolean) => {
+    if (!picking) return;
+    const role = picking; setPicking(null);
+    if (onlyPart) setParting({ key, role, adding: true }); else void run(() => writes.add(loan.key, key, role), 'Linked');
+  };
+  const savePart = (part: LoanPart) => {
+    if (!parting) return;
+    const { key, role, adding } = parting; setParting(null);
+    void run(() => (adding ? writes.add(loan.key, key, role, part) : writes.setPart(loan.key, key, part)), 'Saved');
+  };
+  const wholeAgain = () => { if (!parting) return; const { key } = parting; setParting(null); void run(() => writes.setPart(loan.key, key), 'Saved'); };
+  const sharedByOthers = (key: string) => (state.taken.get(key) ?? []).some((o) => o.loanKey !== loan.key);
+  const editor = (role: LoanRole) => {
+    if (!parting || parting.role !== role) return null;
+    const place = [...loan.deployed, ...loan.collateral].find((p) => p.key === parting.key) ?? state.places.get(parting.key);
+    return place ? <PartEditor place={place} onSave={savePart} onWhole={wholeAgain} onCancel={() => setParting(null)} canBeWhole={!parting.adding && !sharedByOthers(parting.key)} /> : null;
+  };
   const unlink = (p: LoanPlace) => run(() => writes.remove(loan.key, p.key), `${p.name} unlinked`);
 
   return (
@@ -135,14 +189,18 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
       </View>
 
       <Txt v="label" c="ink3" style={{ marginTop: 24 }} accessibilityRole="header">BACKED BY{loan.collateralCents !== null ? ` · ${money(loan.collateralCents)}` : ''}</Txt>
-      {loan.collateral.map((p, i) => <PlaceRow key={p.key} place={p} last={i === loan.collateral.length - 1} onRemove={loan.kind === 'debt' && !busy ? () => unlink(p) : undefined} />)}
+      {loan.collateral.map((p, i) => <PlaceRow key={p.key} place={p} last={i === loan.collateral.length - 1} onRemove={loan.kind === 'debt' && !busy ? () => unlink(p) : undefined}
+        onPart={loan.kind === 'debt' && !busy ? () => setParting({ key: p.key, role: 'collateral', adding: false }) : undefined} />)}
+      {editor('collateral')}
       {loan.kind === 'wallet' && !loan.collateral.length && <Txt v="body" c="ink2" style={{ marginTop: 8 }}>The protocol reports no collateral for this loan.</Txt>}
       {loan.kind === 'debt' && (picking === 'collateral' ? <Picker loan={loan} role="collateral" state={state} onPick={pick} onClose={() => setPicking(null)} />
         : <AddButton label={loan.collateral.length ? 'Add more' : 'Add what backs it, if anything'} onPress={() => setPicking('collateral')} disabled={busy} />)}
 
       <Txt v="label" c="ink3" style={{ marginTop: 24 }} accessibilityRole="header">WHERE THE MONEY WENT{loan.deployedCents !== null ? ` · ${money(loan.deployedCents)}` : ''}</Txt>
       {!loan.deployed.length && <Txt v="body" c="ink2" style={{ marginTop: 8 }}>Not set yet. Pick where the borrowed money went, and Numa shows whether borrowing has paid off. Nothing moves and your net worth stays the same.</Txt>}
-      {loan.deployed.map((p, i) => <PlaceRow key={p.key} place={p} last={i === loan.deployed.length - 1} onRemove={busy ? undefined : () => unlink(p)} />)}
+      {loan.deployed.map((p, i) => <PlaceRow key={p.key} place={p} last={i === loan.deployed.length - 1} onRemove={busy ? undefined : () => unlink(p)}
+        onPart={busy ? undefined : () => setParting({ key: p.key, role: 'deployed', adding: false })} />)}
+      {editor('deployed')}
       {loan.gaps > 0 && <Txt v="small" c="warn" style={{ marginTop: 6 }}>{loan.gaps} {loan.gaps === 1 ? 'place has' : 'places have'} no value now and {loan.gaps === 1 ? 'is' : 'are'} left out, so the result is unknown.</Txt>}
       {picking === 'deployed' ? <Picker loan={loan} role="deployed" state={state} onPick={pick} onClose={() => setPicking(null)} />
         : <AddButton label={loan.deployed.length ? 'Add another place' : 'Pick where it went'} onPress={() => setPicking('deployed')} disabled={busy} />}
