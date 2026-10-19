@@ -1,6 +1,7 @@
 import { makeFunctionReference } from 'convex/server';
 
 import type { CloudLoanLink } from '@/data/loans';
+import type { DebtEvent } from '@/data/moneyMap';
 
 /**
  * The Convex functions this app calls. They are the same ones the iOS app uses, so the
@@ -27,6 +28,8 @@ export type CloudAsset = {
   currency: CloudCurrency;
   /** Where it is kept, like a bank or a safe. Older servers leave it out. */
   location?: string | null;
+  /** Who owes it, when this is money lent out. */
+  owedBy?: string | null;
   /** What it cost in total, in its own currency, and when it was bought. Older servers leave them out. */
   costBasis?: number | null;
   acquiredAt?: number | null;
@@ -45,6 +48,8 @@ export type CloudLiability = {
   owedQuantity?: number | null;
   /** When the asset's price was last read; null when no price is known and the balance is the last one saved. */
   owedPriceAt?: number | null;
+  /** Who it is owed to; debts to one party group together. */
+  counterparty?: string | null;
   updatedAt: number;
 };
 
@@ -202,9 +207,9 @@ export const cloud = {
   createTransaction: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; occurredAt: number; description: string; categoryId?: string; kind: 'income' | 'expense'; amount: number; currency: CloudCurrency }>, Receipt>('mobile:createTransaction'),
   updateTransaction: makeFunctionReference<'mutation', WithReceipt<{ id: string; occurredAt?: number; description?: string; categoryId?: string | null; kind?: 'income' | 'expense'; amount?: number; currency?: CloudCurrency }>, Receipt>('mobile:updateTransaction'),
   deleteTransaction: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteTransaction'),
-  upsertAsset: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudAsset['kind']; balance: number; currency: CloudCurrency; location?: string; costBasis?: number | null; acquiredAt?: number | null }>, Receipt>('mobile:upsertAsset'),
+  upsertAsset: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudAsset['kind']; balance: number; currency: CloudCurrency; location?: string; owedBy?: string; costBasis?: number | null; acquiredAt?: number | null }>, Receipt>('mobile:upsertAsset'),
   deleteAsset: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteAsset'),
-  upsertLiability: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudLiability['kind']; balance: number; currency: CloudCurrency; dueDate?: number }>, Receipt>('mobile:upsertLiability'),
+  upsertLiability: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudLiability['kind']; balance: number; currency: CloudCurrency; dueDate?: number; counterparty?: string }>, Receipt>('mobile:upsertLiability'),
   deleteLiability: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteLiability'),
   upsertHolding: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; symbol: string; name: string; kind: CloudHolding['kind']; quantity: number; costBasis: number; currency: CloudCurrency; acquiredAt: number; location?: string }>, Receipt>('mobile:upsertHolding'),
   upsertGoal: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; scope: CloudGoal['scope']; target: number; currency: CloudCurrency; startAt: number; deadline?: number; label?: string; categoryId?: string; assetId?: string; holdingId?: string; createdAt: number }>, Receipt>('mobile:upsertGoal'),
@@ -224,6 +229,9 @@ export const cloud = {
   addWallet: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; address: string; addressType: 'bitcoin' | 'evm'; label: string; includeInNetWorth: boolean }>, string | Receipt>('cryptoWallets:add'),
   removeWallet: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, unknown>('cryptoWallets:remove'),
   loanLinks: makeFunctionReference<'query', { portfolioId: string }, CloudLoanLink[]>('loanLinks:listForPortfolio'),
+  debtEvents: makeFunctionReference<'query', { portfolioId: string }, DebtEvent[]>('debtEvents:listForPortfolio'),
+  addDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; subject: string; kind: DebtEvent['kind']; amount?: number; unit?: string; occurredAt: number; note?: string; apply: boolean }>, Receipt>('debtEvents:add'),
+  removeDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt | null>('debtEvents:remove'),
   setLoanLinks: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; loanKey: string; targets: CloudLoanLink['targets'] }>, Receipt | null>('loanLinks:set'),
   refreshWallet: makeFunctionReference<'action', { walletId: string }, { status: 'ok' | 'partial' | 'failed' | 'recent' | 'unsupported' }>('walletSync:refresh'),
   registerDevice: makeFunctionReference<'mutation', { token: string; platform: 'ios' | 'android'; timeZone: string }, null>('pushAlerts:registerDevice'),

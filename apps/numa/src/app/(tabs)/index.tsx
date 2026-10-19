@@ -15,6 +15,7 @@ import { type as typeScale } from '@/theme/tokens';
 import { CoachTip } from '@/ui/CoachTip';
 import { CompositionBar, type Lens } from '@/ui/CompositionBar';
 import { CurrencyScope, useMoney } from '@/ui/money';
+import { MoneyMapTeaser } from '@/loans/MoneyMapTeaser';
 import { MonthTeaser } from '@/ui/MonthTeaser';
 import { WIDE } from '@/ui/Nav';
 import { usePanelOpen } from '@/ui/Panel';
@@ -259,6 +260,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
 
   const panelOpen = usePanelOpen();
   const teaser = <MonthTeaser month={model.month} flow={model.flow} />;
+  const moneyMap = model.source === 'cloud' && !model.empty ? <MoneyMapTeaser /> : null;
   const needs = <NeedsYou items={model.attention} />;
 
   if (wide) {
@@ -268,7 +270,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
           {chart}
           {/* Beside an open panel the page is narrower, so the two columns stack. */}
           <View style={{ flexDirection: panelOpen ? 'column' : 'row', gap: panelOpen ? 28 : 48, alignItems: panelOpen ? 'stretch' : 'flex-start', marginTop: 14 }}>
-            <View style={{ flex: panelOpen ? undefined : 1.7, gap: 28 }}>{blocks}{teaser}</View>
+            <View style={{ flex: panelOpen ? undefined : 1.7, gap: 28 }}>{blocks}{moneyMap}{teaser}</View>
             <View style={{ flex: panelOpen ? undefined : 1, minWidth: 320 }}>{needs}</View>
           </View>
       </View>,
@@ -280,6 +282,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
       {chart && <View style={{ marginTop: 12 }}>{chart}</View>}
       {showChart && <View style={{ marginTop: 6, marginHorizontal: -6 }}>{rangePills}</View>}
       <View style={{ marginTop: 28 }}>{blocks}</View>
+      {moneyMap && <View style={{ marginTop: 20 }}>{moneyMap}</View>}
       <View style={{ marginTop: 28 }}>{teaser}</View>
       <View style={{ marginTop: 30 }}>{needs}</View>
     </>,

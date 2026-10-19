@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { requireEditor } from "./access";
-import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanRequired } from "./inputGuards";
+import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanParty, cleanRequired } from "./inputGuards";
 import type { Doc } from "../_generated/dataModel";
 import { majorUnits, minorUnits } from "./finance";
 import { withMutationReceipt } from "./mutationReceipts";
@@ -181,6 +181,8 @@ const upsertAsset = mutation({
     currency: currencyValidator,
     notes: v.optional(v.string()),
     location: v.optional(v.string()),
+    /** Who owes this money to the person; an empty string clears it, leaving it out keeps it. */
+    owedBy: v.optional(v.string()),
     /** Total paid, in the asset's currency; null clears it, leaving it out keeps what is saved. */
     costBasis: v.optional(v.union(v.number(), v.null())),
     acquiredAt: v.optional(v.union(v.number(), v.null())),
@@ -188,7 +190,7 @@ const upsertAsset = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
-    const location = cleanLocation(args.location);
+    const extra = { ...cleanLocation(args.location), ...cleanParty("owedBy", args.owedBy) };
     const purchase = assetPurchase(args.costBasis, args.acquiredAt);
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertAsset", async () => {
       if (args.id) {
@@ -205,7 +207,7 @@ const upsertAsset = mutation({
           balance: args.balance,
           currency: args.currency,
           notes: args.notes?.trim() || undefined,
-          ...location,
+          ...extra,
           ...purchase,
           updatedAt: Date.now()
         });
@@ -219,7 +221,7 @@ const upsertAsset = mutation({
         balance: args.balance,
         currency: args.currency,
         notes: args.notes?.trim() || undefined,
-        ...location,
+        ...extra,
         ...purchase,
         updatedAt: Date.now()
       });
@@ -295,11 +297,14 @@ const upsertLiability = mutation({
     /** Owed in an asset, like "BTC". Left out keeps what is saved; an empty string makes it a plain money debt again. */
     owedSymbol: v.optional(v.string()),
     owedQuantity: v.optional(v.number()),
+    /** Who it is owed to; an empty string clears it, leaving it out keeps what is saved. */
+    counterparty: v.optional(v.string()),
     clientMutationId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
     const owed = owedInKind(args.owedSymbol, args.owedQuantity);
+    const party = cleanParty("counterparty", args.counterparty);
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertLiability", async () => {
       // A debt owed in an asset is worth that asset at today's price; without a price yet, the
       // amount the caller sent stands until one arrives.
@@ -317,6 +322,7 @@ const upsertLiability = mutation({
         dueDate: args.dueDate,
         notes: args.notes?.trim() || undefined,
         ...(owed ?? {}),
+        ...party,
         updatedAt: Date.now()
       };
       if (args.id) {

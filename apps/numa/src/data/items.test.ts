@@ -66,20 +66,20 @@ describe('edit and delete plans', () => {
     expect(fieldProblems('holding', { ...before, location: 'x'.repeat(61) })).toEqual(['Keep where it is to 60 characters.']);
   });
   it('deletes and undoes by re-creating the same fields', () => {
-    const p = deletePlan('liability', 'l1', { name: 'Card', kind: 'credit_card', balanceCents: 42_000, currency: 'EUR', dueDate: 99 }, 'p1');
+    const p = deletePlan('liability', 'l1', { name: 'Card', kind: 'credit_card', balanceCents: 42_000, currency: 'EUR', dueDate: 99, counterparty: 'Bank' }, 'p1');
     expect(p.apply).toEqual({ fn: 'deleteLiability', args: { id: 'l1' } });
-    expect(p.undo).toEqual({ fn: 'upsertLiability', args: { portfolioId: 'p1', name: 'Card', kind: 'credit_card', balance: 420, currency: 'EUR', dueDate: 99 } });
+    expect(p.undo).toEqual({ fn: 'upsertLiability', args: { portfolioId: 'p1', name: 'Card', kind: 'credit_card', balance: 420, currency: 'EUR', dueDate: 99, counterparty: 'Bank' } });
   });
   it('clears a due date by leaving it out', () => {
-    const p = editPlan('liability', 'l1', { name: 'Card', kind: 'credit_card', balanceCents: 1, currency: 'EUR', dueDate: 99 }, { name: 'Card', kind: 'credit_card', balanceCents: 1, currency: 'EUR', dueDate: null }, 'p1');
+    const p = editPlan('liability', 'l1', { name: 'Card', kind: 'credit_card', balanceCents: 1, currency: 'EUR', dueDate: 99, counterparty: '' }, { name: 'Card', kind: 'credit_card', balanceCents: 1, currency: 'EUR', dueDate: null, counterparty: '' }, 'p1');
     expect('dueDate' in p.apply.args).toBe(false);
   });
   it('refuses a holding without a ticker, units or cost', () => {
     expect(fieldProblems('holding', { ...before, symbol: '', quantity: 0, costBasisCents: 0 })).toHaveLength(3);
-    expect(fieldProblems('asset', { name: ' ', kind: 'cash', balanceCents: 0, currency: 'EUR', location: '', costCents: null, acquiredAt: null })).toEqual(['Add a name.']);
+    expect(fieldProblems('asset', { name: ' ', kind: 'cash', balanceCents: 0, currency: 'EUR', location: '', costCents: null, acquiredAt: null, owedBy: '' })).toEqual(['Add a name.']);
   });
   it('saves what an asset cost and when it was bought, and clears them with null', () => {
-    const watch = { name: 'Watch', kind: 'collectible' as const, balanceCents: 1_200_000, currency: 'EUR' as const, location: '', costCents: 1_100_000, acquiredAt: Date.UTC(2025, 1, 1, 12) };
+    const watch = { name: 'Watch', kind: 'collectible' as const, balanceCents: 1_200_000, currency: 'EUR' as const, location: '', costCents: 1_100_000, acquiredAt: Date.UTC(2025, 1, 1, 12), owedBy: '' };
     const p = editPlan('asset', 'a1', watch, { ...watch, costCents: null, acquiredAt: null }, 'p1');
     expect(p.apply.args).toMatchObject({ id: 'a1', costBasis: null, acquiredAt: null });
     expect(p.undo.args).toMatchObject({ id: 'a1', costBasis: 11000, acquiredAt: Date.UTC(2025, 1, 1, 12) });

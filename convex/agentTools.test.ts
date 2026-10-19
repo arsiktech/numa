@@ -127,4 +127,14 @@ describe("agent tools", () => {
     expect(f.writes()).toEqual([["mutation", "loanLinks:set", { portfolioId: "p1", loanKey: "liability:l1", targets: [{ key: "holding:h1", role: "deployed" }, { key: "asset:a1", role: "collateral" }], clientMutationId: "req-1" }]]);
     await expect(tool("link_loan").run(f.io, { loan: "liability:l1", went_to: "holding:h1" })).rejects.toThrow(AgentInputError);
   });
+
+  it("records debt history and who a debt is with", async () => {
+    const f = fakeIo();
+    await tool("record_debt_event").run(f.io, { debt: "liability:l1", kind: "repaid", amount: 5000, unit: "EUR", date: "2026-09-20", note: "Paid to Liza", apply: true });
+    await tool("save_liability").run(f.io, { id: "l1", name: "Stas", kind: "other", balance: 19670, who: "Stas" });
+    expect(f.writes().map(([, path, args]) => [path, args])).toEqual([
+      ["debtEvents:add", { portfolioId: "p1", subject: "liability:l1", kind: "repaid", amount: 5000, unit: "EUR", occurredAt: Date.UTC(2026, 8, 20, 12), note: "Paid to Liza", apply: true, clientMutationId: "req-1" }],
+      ["mobile:upsertLiability", expect.objectContaining({ id: "l1", counterparty: "Stas" })],
+    ]);
+  });
 });

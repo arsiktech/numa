@@ -4,7 +4,7 @@ import { requireMember } from "./lib/access";
 
 export const SPACE_EXPORT_SECTIONS = [
   "portfolio", "membership", "categories", "transactions", "assets", "liabilities",
-  "holdings", "holdingEvents", "cryptoWallets", "loanLinks", "wealthSnapshots", "settlements",
+  "holdings", "holdingEvents", "cryptoWallets", "loanLinks", "debtEvents", "wealthSnapshots", "settlements",
   "goals", "recurring", "ledgerAccounts", "ledgerTransactions", "ledgerLines", "aiActionDrafts", "cashTransfers",
 ] as const;
 const sectionValidator = v.union(...SPACE_EXPORT_SECTIONS.map(section => v.literal(section)));
@@ -65,6 +65,7 @@ export const page = query({
         case "holdingEvents": return ctx.db.query("holdingEvents").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "cryptoWallets": return ctx.db.query("cryptoWallets").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "loanLinks": return ctx.db.query("loanLinks").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
+        case "debtEvents": return ctx.db.query("debtEvents").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "wealthSnapshots": return ctx.db.query("wealthSnapshots").withIndex("by_portfolio_export", q => q.eq("portfolioId", id)).paginate(options);
         case "settlements": return ctx.db.query("settlements").withIndex("by_portfolio_export", q => q.eq("portfolioId", id)).paginate(options);
         case "goals": return ctx.db.query("goals").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
