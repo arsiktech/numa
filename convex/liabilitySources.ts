@@ -13,7 +13,9 @@ const SCHEDULED_BATCH = 25;
 const bad = (message: string) => new ConvexError({ code: "INVALID_PORTAL_LINK", message });
 
 const post: Post = async (url, headers, body) => {
-  const response = await fetch(url, { method: "POST", headers, body, redirect: "error", signal: AbortSignal.timeout(TIMEOUT_MS) });
+  // Redirects are not followed, so the key only ever goes to the link given. "manual" is the mode the
+  // hosted runtime supports (as in sheetsImport); "error" made every call fail before it left.
+  const response = await fetch(url, { method: "POST", headers, body, redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
   return { ok: response.ok, status: response.status, text: (await response.text()).slice(0, 200_000) };
 };
 

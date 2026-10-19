@@ -33,7 +33,7 @@ describe("reading a portal's company balance", () => {
     const answer = (status: number, text = "") => (async () => ({ ok: status < 400, status, text })) as Post;
     expect(await fetchCompanyBalance("https://p.example.com/mcp", undefined, answer(401), NOW)).toMatchObject({ status: "failed", message: expect.stringMatching(/refused/) });
     expect(await fetchCompanyBalance("https://p.example.com/mcp", undefined, answer(200, reply("Tool failed", true)), NOW)).toEqual({ status: "failed", message: "Tool failed" });
-    expect(await fetchCompanyBalance("https://p.example.com/mcp", undefined, async () => { throw new Error("timeout"); }, NOW)).toMatchObject({ status: "failed" });
+    expect(await fetchCompanyBalance("https://p.example.com/mcp", undefined, async () => { throw new TypeError("fetch failed"); }, NOW)).toEqual({ status: "failed", message: "The portal didn't answer: fetch failed" });
   });
 
   it("accepts only https links to named hosts", () => {
