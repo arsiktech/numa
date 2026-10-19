@@ -69,6 +69,22 @@ describe("fetchPublicWallet", () => {
     expect(s).toMatchObject({ totalValueUsd: 11017.02, partial: true });
   });
 
+  it("asks Blockscout PRO by chain id when a public explorer turns it away, and only when a key is set", async () => {
+    const routes = {
+      [`https://base.blockscout.com/`]: new Error("HTTP 403"),
+      [`https://api.blockscout.com/8453/api/v2/addresses/${EVM}/tokens`]: { items: [
+        { value: "2500000000", token: { address_hash: "0x8335", symbol: "USDC", name: "USDC", decimals: "6", exchange_rate: "1", reputation: "ok" } },
+      ] },
+      [`https://api.blockscout.com/8453/api/v2/addresses/${EVM}`]: { coin_balance: "0", exchange_rate: "2500" },
+    };
+    const withKey = await fetchPublicWallet(EVM, "evm", fake(routes), 1000, undefined, undefined, true);
+    expect(withKey.tokens.map((t) => [t.chain, t.symbol, t.valueUsd])).toEqual([["base", "USDC", 2500]]);
+    expect(withKey.chains).toEqual(["base"]);
+    const without = await fetchPublicWallet(EVM, "evm", fake({ ...routes, [`https://eth.blockscout.com/api/v2/addresses/${EVM}`]: { coin_balance: "0", exchange_rate: "2500" }, [`https://eth.blockscout.com/api/v2/addresses/${EVM}/tokens`]: { items: [] } }), 1000);
+    expect(without.chains).toEqual(["ethereum"]);
+    expect(without.tokenFailedChains).toContain("base");
+  });
+
   it("fails when no chain answers, so the last good snapshot stays", async () => {
     await expect(fetchPublicWallet(EVM, "evm", fake({}), 1000)).rejects.toThrow();
   });

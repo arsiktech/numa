@@ -5,10 +5,11 @@ import type { Id } from "./_generated/dataModel";
 import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { cryptoWalletSnapshotValidator } from "./lib/cryptoValidators";
 import type { Post } from "./lib/defiPositions";
+import { BLOCKSCOUT_PRO } from "./lib/evm";
 import { fetchPublicWallet, type Call, type Get } from "./lib/publicWallets";
 
 /**
- * Keeps tracked public wallets current from free public explorers. Nothing here moves money
+ * Keeps tracked public wallets current from free public explorers (and Blockscout PRO, when a key is set). Nothing here moves money
  * or touches keys: wallets are public addresses only (checked when they are added).
  */
 
@@ -18,8 +19,13 @@ const MIN_MANUAL_GAP_MS = 60_000;
 const SCHEDULED_AGE_MS = 25 * 60_000;
 const SCHEDULED_BATCH = 25;
 
+/** Optional. With it, Base and Arbitrum are read through Blockscout PRO when their public explorers refuse datacenters. */
+const blockscoutKey = () => process.env.BLOCKSCOUT_API_KEY || "";
+
 const get: Get = async (url) => {
-  const response = await fetch(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  // The key travels only in a header, and only to Blockscout PRO.
+  const key = url.startsWith(`${BLOCKSCOUT_PRO}/`) ? blockscoutKey() : "";
+  const response = await fetch(url, { headers: { accept: "application/json", ...(key ? { authorization: `Bearer ${key}` } : {}) }, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return await response.json();
 };
@@ -86,7 +92,7 @@ export const saveSnapshot = internalMutation({
 
 async function check(target: Target, now: number) {
   try {
-    return await fetchPublicWallet(target.address, target.addressType, get, now, call, post);
+    return await fetchPublicWallet(target.address, target.addressType, get, now, call, post, Boolean(blockscoutKey()));
   } catch {
     return null;
   }

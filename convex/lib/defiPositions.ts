@@ -5,13 +5,13 @@
  * holding a token nobody prices is left out: that is almost always spam.
  */
 
-import { address, firstWord, int, multicall, pad, uint, words } from "./evm";
+import { address, explorerGet, firstWord, int, multicall, pad, uint, words } from "./evm";
 import { keccakHex } from "./keccak";
 import type { Call, DefiPosition, Get } from "./publicWallets";
 
 export type Post = (url: string, body: unknown) => Promise<unknown>;
 /** A chain as the readers need it; `host` is its Blockscout explorer. */
-type Chain = { id: string; name: string; rpc: string; host?: string };
+type Chain = { id: string; name: string; rpc: string; hosts?: readonly string[] };
 
 /** An amount of one token in a position, in the token's smallest unit. */
 type Leg = { token: string; raw: number; debt?: boolean };
@@ -128,8 +128,7 @@ export async function uniswapV4(chain: Chain, owner: string, call: Call, get: Ge
   if (!v4) return [];
   const [count] = words(await call(chain.rpc, v4.pm, "0x70a08231" + pad(owner)));
   if (count === 0n) return [];
-  if (!chain.host) throw new Error("no explorer");
-  const page = (await get(`${chain.host}/api/v2/tokens/${v4.pm}/instances?holder_address_hash=${owner.toLowerCase()}`)) as { items?: Array<{ id?: unknown }> };
+  const page = (await explorerGet(chain.hosts ?? [], `/api/v2/tokens/${v4.pm}/instances?holder_address_hash=${owner.toLowerCase()}`, get)) as { items?: Array<{ id?: unknown }> };
   if (!Array.isArray(page?.items)) throw new Error("bad response");
   const ids = page.items.map((i) => (typeof i.id === "string" && /^\d+$/.test(i.id) ? BigInt(i.id) : null)).filter((x): x is bigint => x !== null).slice(0, 50);
   const liquidity = await multicall(call, chain.rpc, ids.map((id) => ({ to: v4.pm, data: "0x1efeed33" + uint(id) })));
