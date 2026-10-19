@@ -12,6 +12,7 @@ const assetKindValidator = v.union(
   v.literal("real_estate"),
   v.literal("vehicle"),
   v.literal("collectible"),
+  v.literal("business"),
   v.literal("other")
 );
 const clearableStringValidator = v.union(v.string(), v.null());

@@ -254,14 +254,14 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "save_asset", title: "Add or update an asset", write: true,
     description: "Cash accounts, property, vehicles, collectibles. Send id to update an existing one; leave it out to add a new one. cost_basis and acquired_at show how much it gained or lost since it was bought.",
-    inputSchema: schema({ id: str("Asset id to update."), space_id: spaceId, name: str("Name, like Revolut EUR or Flat in Lisbon."), kind: str("Kind of asset.", { enum: ["cash", "real_estate", "vehicle", "collectible", "other"] }), balance: num("Current value."), currency, location: where, cost_basis: num("What it cost in total, in the same currency, to show its gain or loss. 0 clears it.", { minimum: 0 }), acquired_at: str("When it was bought, like 2025-02-01."), owed_by: str("When this is money lent out: who owes it to the user, like XCHAINGER. Empty string clears it."), request_id: requestId }, ["name", "kind", "balance"]),
+    inputSchema: schema({ id: str("Asset id to update."), space_id: spaceId, name: str("Name, like Revolut EUR or Flat in Lisbon."), kind: str("Kind of asset. business is a stake in a company.", { enum: ["cash", "real_estate", "vehicle", "collectible", "business", "other"] }), balance: num("Current value."), currency, location: where, cost_basis: num("What it cost in total, in the same currency, to show its gain or loss. 0 clears it.", { minimum: 0 }), acquired_at: str("When it was bought, like 2025-02-01."), owed_by: str("When this is money lent out: who owes it to the user, like XCHAINGER. Empty string clears it."), request_id: requestId }, ["name", "kind", "balance"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
       const cost = args.cost_basis === undefined || args.cost_basis === null ? undefined : amount(args, "cost_basis");
       return io.mutation("mobile:upsertAsset", {
         ...(cost === undefined ? {} : { costBasis: cost > 0 ? cost : null }), ...(args.acquired_at === undefined ? {} : { acquiredAt: date(args, "acquired_at") ?? null }),
         ...(text(args, "id", false) ? { id: text(args, "id") } : {}), portfolioId: space.id, name: text(args, "name"),
-        kind: oneOf(args, "kind", ["cash", "real_estate", "vehicle", "collectible", "other"] as const), balance: amount(args, "balance"),
+        kind: oneOf(args, "kind", ["cash", "real_estate", "vehicle", "collectible", "business", "other"] as const), balance: amount(args, "balance"),
         currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, ...place(args),
         ...(typeof args.owed_by === "string" ? { owedBy: args.owed_by } : {}), ...write(io, args),
       });
@@ -396,6 +396,22 @@ export const AGENT_TOOLS: AgentTool[] = [
       };
       const targets = [...keys("went_to").map((k) => ({ key: k, role: "deployed" })), ...keys("backed_by").map((k) => ({ key: k, role: "collateral" }))];
       return io.mutation("loanLinks:set", { portfolioId: space.id, loanKey: text(args, "loan"), targets, ...write(io, args) });
+    },
+  },
+  {
+    name: "follow_portal_investors", title: "Keep a record in step with investors in the company portal", write: true,
+    description: "Make a debt (liability:<id>) or money owed to the user (asset:<id>) follow what the company owes some of its investors, read every 30 minutes through the company portal this space already follows on a debt. The portal link and key are reused on the server and never sent here. investor_ids are the portal's investor ids; label says who they are, like Parents. Confirm with the user first.",
+    inputSchema: schema({
+      space_id: spaceId,
+      record: str("liability:<id> or asset:<id> from get_records."),
+      investor_ids: { type: "array", items: { type: "string" }, description: "The portal's investor ids to add up." },
+      label: str("Who the investors are, like Parents."),
+      request_id: requestId,
+    }, ["record", "investor_ids", "label"]),
+    async run(io, args) {
+      await resolveSpace(io, args);
+      const ids = Array.isArray(args.investor_ids) ? args.investor_ids.map(String) : [];
+      return io.mutation("liabilitySources:followInvestors", { record: text(args, "record"), investorIds: ids, label: text(args, "label"), ...write(io, args) });
     },
   },
   {

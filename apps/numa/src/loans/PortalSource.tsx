@@ -19,7 +19,7 @@ const errorText = (e: unknown) => {
  * A debt that follows a company portal: Numa reads the portal's company balance through its
  * read-only agent link every 30 minutes and sets the debt to how far the balance is below what is owed.
  */
-export function PortalSource({ portfolioId, liabilityId, now }: { portfolioId: string; liabilityId: string; now: number }) {
+export function PortalSource({ portfolioId, liabilityId, assetId, now }: { portfolioId: string; liabilityId?: string; assetId?: string; now: number }) {
   const { c } = useTheme();
   const toast = useToast();
   const sources = useQuery(cloud.portalSources, { portfolioId });
@@ -31,12 +31,12 @@ export function PortalSource({ portfolioId, liabilityId, now }: { portfolioId: s
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!sources) return null;
-  const source = sources.find((s) => s.liabilityId === liabilityId);
+  const source = sources.find((s) => (liabilityId ? s.liabilityId === liabilityId : s.assetId === assetId));
 
   async function save() {
     setBusy(true); setError(null);
     try {
-      await follow({ liabilityId, url: url.trim(), ...(key.trim() ? { key: key.trim() } : {}) });
+      await follow({ liabilityId: liabilityId!, url: url.trim(), ...(key.trim() ? { key: key.trim() } : {}) });
       setOpen(false); setUrl(''); setKey('');
       toast({ text: 'Following the portal. The first reading comes in a moment.' });
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
@@ -44,7 +44,7 @@ export function PortalSource({ portfolioId, liabilityId, now }: { portfolioId: s
 
   async function stop() {
     setBusy(true);
-    try { await unfollow({ liabilityId }); toast({ text: 'Stopped following. The debt keeps its last value.' }); }
+    try { await unfollow(liabilityId ? { liabilityId } : { assetId }); toast({ text: 'Stopped following. It keeps its last value.' }); }
     catch { toast({ text: 'Couldn’t stop following. Try again.' }); }
     finally { setBusy(false); }
   }
@@ -57,7 +57,7 @@ export function PortalSource({ portfolioId, liabilityId, now }: { portfolioId: s
       <View style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.line, gap: 4 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <Txt v="body" c="ink2">Follows</Txt>
-          <Txt v="figureSm" style={{ fontSize: 14, flexShrink: 1, textAlign: 'right' }}>{source.host}</Txt>
+          <Txt v="figureSm" style={{ fontSize: 14, flexShrink: 1, textAlign: 'right' }}>{source.label ? `${source.label} · ${source.host}` : source.host}</Txt>
         </View>
         <Txt v="small" c={source.status === 'ok' || source.status === null ? 'ink3' : 'warn'}>{state} Updated every 30 minutes.</Txt>
         <Pressable onPress={stop} disabled={busy} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
@@ -66,6 +66,9 @@ export function PortalSource({ portfolioId, liabilityId, now }: { portfolioId: s
       </View>
     );
   }
+
+  // Money owed to the person only shows what it follows; following starts from a debt or an agent.
+  if (!liabilityId) return null;
 
   if (!open) {
     return (

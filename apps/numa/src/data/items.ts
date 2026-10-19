@@ -32,7 +32,7 @@ export type Item = {
 export type Gain = { cents: number; pct: number; since: number | null };
 
 export const groupNames: Record<GroupId, string> = { crypto: 'Crypto', stocks: 'Stocks and funds', business: 'Business', property: 'Property', cash: 'Cash', things: 'Things', debts: 'What you owe' };
-const assetKindNames: Record<CloudAsset['kind'], string> = { cash: 'Cash account', real_estate: 'Property', vehicle: 'Vehicle', collectible: 'Collectible', other: 'Other' };
+const assetKindNames: Record<CloudAsset['kind'], string> = { cash: 'Cash account', real_estate: 'Property', vehicle: 'Vehicle', collectible: 'Collectible', business: 'Business', other: 'Other' };
 const debtKindNames: Record<CloudLiability['kind'], string> = { credit_card: 'Credit card', loan: 'Loan', mortgage: 'Mortgage', other: 'Debt' };
 const DAY = 86_400_000;
 const NEEDS_RATE: Freshness = { text: 'Needs today’s exchange rate', tone: 'missing' };

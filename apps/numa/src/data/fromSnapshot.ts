@@ -33,6 +33,7 @@ const assetPlace: Record<CloudAsset['kind'], { category: CategoryId; liquidity: 
   real_estate: { category: 'property', liquidity: { kind: 'illiquid' }, remindAfterDays: 180 },
   vehicle: { category: 'things', liquidity: { kind: 'illiquid' }, remindAfterDays: 180 },
   collectible: { category: 'things', liquidity: { kind: 'illiquid' }, remindAfterDays: 180 },
+  business: { category: 'business', liquidity: { kind: 'illiquid' }, remindAfterDays: 90 },
   other: { category: 'things', liquidity: { kind: 'illiquid' }, remindAfterDays: 180 },
 };
 
