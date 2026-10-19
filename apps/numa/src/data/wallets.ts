@@ -4,7 +4,7 @@ import { convertCents, type FxRate } from './fx';
 
 const HOUR = 3_600_000;
 /** Balances are checked every 30 minutes; after this long the value is called out as old. */
-const STALE_AFTER = 6 * HOUR;
+export const STALE_AFTER = 6 * HOUR;
 const chainNames: Record<string, string> = { bitcoin: 'Bitcoin', ethereum: 'Ethereum', base: 'Base', arbitrum: 'Arbitrum', optimism: 'Optimism', polygon: 'Polygon' };
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 

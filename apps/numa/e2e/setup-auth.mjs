@@ -7,6 +7,10 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// A deploy key in the environment points the Convex CLI at that deployment, which can be
+// production. This script only ever configures the throwaway local backend, so drop it.
+delete process.env.CONVEX_DEPLOY_KEY;
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const envLocal = readFileSync(path.join(root, '.env.local'), 'utf8');
 if (!/CONVEX_DEPLOYMENT=anonymous:/.test(envLocal)) {

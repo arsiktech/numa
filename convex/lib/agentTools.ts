@@ -141,7 +141,7 @@ function walletSummary(w: WalletDoc, detail: boolean) {
 const snapshotOf = (io: AgentIo, space: Space) => io.query("mobile:portfolioSnapshot", { portfolioId: space.id }) as Promise<Snapshot>;
 const walletsOf = (io: AgentIo, space: Space) => io.query("cryptoWallets:listForPortfolio", { portfolioId: space.id }) as Promise<WalletDoc[]>;
 
-const SECTIONS = ["assets", "liabilities", "holdings", "goals", "categories", "recurring", "revenue", "wallets"] as const;
+const SECTIONS = ["assets", "liabilities", "holdings", "goals", "categories", "recurring", "revenue", "wallets", "loans"] as const;
 
 export const AGENT_TOOLS: AgentTool[] = [
   {
@@ -174,7 +174,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "get_records", title: "Get records", write: false,
-    description: "Everything recorded in a space: assets (cash and property), liabilities, holdings (stocks, funds, crypto) with live values, goals, categories with spending limits, recurring income, business revenue and wallets with their tokens and lending. Use sections to fetch only some.",
+    description: "Everything recorded in a space: assets (cash and property), liabilities, holdings (stocks, funds, crypto) with live values, goals, categories with spending limits, recurring income, business revenue, wallets with their tokens and lending, and loans with where their money went. Use sections to fetch only some.",
     inputSchema: schema({ space_id: spaceId, sections: { type: "array", items: { type: "string", enum: [...SECTIONS] }, description: "Which parts to return. Leave out for all." } }),
     async run(io, args) {
       const space = await resolveSpace(io, args);
@@ -183,7 +183,8 @@ export const AGENT_TOOLS: AgentTool[] = [
       const out: Json = { space: { id: space.id, name: space.name, currency: space.currency } };
       for (const key of SECTIONS) {
         if (!want.has(key)) continue;
-        out[key] = key === "wallets" ? (await walletsOf(io, space)).map((w) => walletSummary(w, true)) : snap[key];
+        out[key] = key === "wallets" ? (await walletsOf(io, space)).map((w) => walletSummary(w, true))
+          : key === "loans" ? await io.query("loanLinks:listForPortfolio", { portfolioId: space.id }) : snap[key];
       }
       return out;
     },
@@ -372,6 +373,27 @@ export const AGENT_TOOLS: AgentTool[] = [
     description: "Read a tracked wallet's balances now instead of waiting for the 30-minute check.",
     inputSchema: schema({ id: str("Wallet id.") }, ["id"]),
     run: (io, args) => io.action("walletSync:refresh", { walletId: text(args, "id") }),
+  },
+  {
+    name: "link_loan", title: "Say where a loan's money went", write: true,
+    description: "Tie a loan to the places its borrowed money went, and for a recorded debt to what backs it. Nothing moves and net worth stays the same: Numa then shows the loan's collateral, what the money bought and whether the borrowing is ahead. Keys: a wallet borrowing or position is defi:<wallet id>:<lending id from get_records wallets>; a wallet token is token:<wallet id>:<token id>; a recorded debt is liability:<id>; a holding is holding:<id>; an asset is asset:<id>. Each place belongs to one loan. Replaces the loan's links; send empty lists to clear them. Confirm with the user first.",
+    inputSchema: schema({
+      space_id: spaceId,
+      loan: str("The loan: defi:<wallet id>:<lending id> or liability:<id>."),
+      went_to: { type: "array", items: { type: "string" }, description: "Places the borrowed money went." },
+      backed_by: { type: "array", items: { type: "string" }, description: "What backs a recorded debt (liability only). A wallet borrowing's collateral is read from the protocol." },
+      request_id: requestId,
+    }, ["loan"]),
+    async run(io, args) {
+      const space = await resolveSpace(io, args);
+      const keys = (key: string) => {
+        const value = args[key] ?? [];
+        if (!Array.isArray(value) || value.some((k) => typeof k !== "string")) throw new AgentInputError(`${key} must be a list of keys`);
+        return value as string[];
+      };
+      const targets = [...keys("went_to").map((k) => ({ key: k, role: "deployed" })), ...keys("backed_by").map((k) => ({ key: k, role: "collateral" }))];
+      return io.mutation("loanLinks:set", { portfolioId: space.id, loanKey: text(args, "loan"), targets, ...write(io, args) });
+    },
   },
   {
     name: "save_history_point", title: "Save a net worth history point", write: true,
