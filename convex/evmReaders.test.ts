@@ -7,7 +7,7 @@ import { fetchPublicWallet, type Call, type Get } from "./lib/publicWallets";
 import { fallbackTokens, FALLBACK_TOKENS } from "./lib/tokenFallback";
 
 const OWNER = "0x15536350beb171a2826ea1ba13e3c23fb052a2d8";
-const BASE = { id: "base", name: "Base", rpc: "https://base-rpc.publicnode.com", host: "https://base.blockscout.com", coin: "ETH", coinName: "Ether" };
+const BASE = { id: "base", name: "Base", rpc: "https://base-rpc.publicnode.com", hosts: ["https://base.blockscout.com"], coin: "ETH", coinName: "Ether" };
 const WETH = "0x4200000000000000000000000000000000000006", USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
 const word = (n: bigint | number | string) => (typeof n === "string" ? n.replace(/^0x/, "").padStart(64, "0") : (BigInt(n) < 0n ? 2n ** 256n + BigInt(n) : BigInt(n)).toString(16).padStart(64, "0"));
 const ret = (...xs: Array<bigint | number | string>) => "0x" + xs.map(word).join("");

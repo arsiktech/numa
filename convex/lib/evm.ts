@@ -3,7 +3,7 @@
  * and Multicall3 to ask one node many questions in a single request.
  */
 
-import type { Call } from "./publicWallets";
+import type { Call, Get } from "./publicWallets";
 
 export const pad = (hex: string) => hex.toLowerCase().replace(/^0x/, "").padStart(64, "0");
 /** A uint256 (or a negative number as two's complement, for int24 ticks). */
@@ -54,3 +54,15 @@ export async function multicall(call: Call, rpc: string, calls: Array<{ to: stri
 
 /** The uint256 a call returned, or null when it failed or returned nothing. */
 export const firstWord = (result: string | null): bigint | null => (result && result.length >= 66 ? BigInt(result.slice(0, 66)) : null);
+
+/** Blockscout PRO answers for every chain's explorer by chain id; Numa asks it only when a public explorer turns it away. */
+export const BLOCKSCOUT_PRO = "https://api.blockscout.com";
+
+/** One explorer API path (like `/api/v2/addresses/0x…`), from each host in turn until one answers. */
+export async function explorerGet(hosts: readonly string[], path: string, get: Get): Promise<unknown> {
+  let last: unknown = new Error("no explorer");
+  for (const host of hosts) {
+    try { return await get(host + path); } catch (error) { last = error; }
+  }
+  throw last;
+}

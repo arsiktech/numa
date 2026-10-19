@@ -7,6 +7,7 @@
  */
 
 import { chainDrafts, etherfiCash, fluidLending, morpho, priceDrafts, type Draft, type Post } from "./defiPositions";
+import { BLOCKSCOUT_PRO, explorerGet } from "./evm";
 import { fallbackTokens } from "./tokenFallback";
 
 export type Get = (url: string) => Promise<unknown>;
@@ -63,13 +64,13 @@ export type PublicWalletSnapshot = {
   partial: boolean;
 };
 
-// `aave` is the Aave V3 Pool on each chain; `rpc` is a keyless public node.
-export const EVM_CHAINS = [
-  { id: "ethereum", name: "Ethereum", host: "https://eth.blockscout.com", coin: "ETH", coinName: "Ether", rpc: "https://ethereum-rpc.publicnode.com", aave: "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2" },
-  { id: "base", name: "Base", host: "https://base.blockscout.com", coin: "ETH", coinName: "Ether", rpc: "https://base-rpc.publicnode.com", aave: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5" },
-  { id: "arbitrum", name: "Arbitrum", host: "https://arbitrum.blockscout.com", coin: "ETH", coinName: "Ether", rpc: "https://arbitrum-one-rpc.publicnode.com", aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" },
-  { id: "optimism", name: "Optimism", host: "https://explorer.optimism.io", coin: "ETH", coinName: "Ether", rpc: "https://optimism-rpc.publicnode.com", aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" },
-  { id: "polygon", name: "Polygon", host: "https://polygon.blockscout.com", coin: "POL", coinName: "Polygon", rpc: "https://polygon-bor-rpc.publicnode.com", aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" },
+// `aave` is the Aave V3 Pool on each chain; `rpc` is a keyless public node; `host` is its public explorer.
+export const EVM_CHAIN_LIST = [
+  { id: "ethereum", chainId: 1, name: "Ethereum", host: "https://eth.blockscout.com", coin: "ETH", coinName: "Ether", rpc: "https://ethereum-rpc.publicnode.com", aave: "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2" },
+  { id: "base", chainId: 8453, name: "Base", host: "https://base.blockscout.com", coin: "ETH", coinName: "Ether", rpc: "https://base-rpc.publicnode.com", aave: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5" },
+  { id: "arbitrum", chainId: 42161, name: "Arbitrum", host: "https://arbitrum.blockscout.com", coin: "ETH", coinName: "Ether", rpc: "https://arbitrum-one-rpc.publicnode.com", aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" },
+  { id: "optimism", chainId: 10, name: "Optimism", host: "https://explorer.optimism.io", coin: "ETH", coinName: "Ether", rpc: "https://optimism-rpc.publicnode.com", aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" },
+  { id: "polygon", chainId: 137, name: "Polygon", host: "https://polygon.blockscout.com", coin: "POL", coinName: "Polygon", rpc: "https://polygon-bor-rpc.publicnode.com", aave: "0x794a61358D6845594F94dc1DB02A252b5b4814aD" },
 ] as const;
 
 /**
@@ -80,7 +81,7 @@ export const isAaveToken = (symbol: string, name: string) =>
   /^Aave (Ethereum|Base|Arbitrum|Optimism|Polygon) /.test(name) || /^(variableDebt|stableDebt)/.test(symbol) || /^a(Eth|Bas|Arb|Opt|Pol)[A-Z]/.test(symbol);
 
 /** getUserAccountData(address): totals in US dollars with 8 decimals, and the health factor with 18. */
-export async function aaveV3(chain: (typeof EVM_CHAINS)[number], address: string, call: Call): Promise<DefiPosition | null> {
+export async function aaveV3(chain: (typeof EVM_CHAIN_LIST)[number], address: string, call: Call): Promise<DefiPosition | null> {
   const hex = await call(chain.rpc, chain.aave, "0xbf92857c" + address.toLowerCase().replace(/^0x/, "").padStart(64, "0"));
   if (!/^0x[0-9a-f]{384,}$/i.test(hex)) throw new Error("bad response");
   const word = (i: number) => BigInt("0x" + hex.slice(2 + i * 64, 2 + (i + 1) * 64));
@@ -134,8 +135,10 @@ async function bitcoin(address: string, get: Get): Promise<WalletToken[]> {
   return [priced({ id: "bitcoin:native", chain: "bitcoin", chainName: "Bitcoin", symbol: "BTC", name: "Bitcoin", quantity: formatUnits(String(Math.max(0, sats)), 8), verified: true, suspectedSpam: false }, price)];
 }
 
-async function evmChain(chain: (typeof EVM_CHAINS)[number], address: string, get: Get): Promise<WalletToken[]> {
-  const info = (await get(`${chain.host}/api/v2/addresses/${address}`)) as { coin_balance?: unknown; exchange_rate?: unknown };
+type EvmChain = (typeof EVM_CHAIN_LIST)[number] & { hosts: readonly string[] };
+
+async function evmChain(chain: EvmChain, address: string, get: Get): Promise<WalletToken[]> {
+  const info = (await explorerGet(chain.hosts, `/api/v2/addresses/${address}`, get)) as { coin_balance?: unknown; exchange_rate?: unknown };
   if (!info || typeof info !== "object") throw new Error("bad response");
   const out: WalletToken[] = [];
   const coin = typeof info.coin_balance === "string" ? info.coin_balance : info.coin_balance === null ? "0" : null;
@@ -143,7 +146,7 @@ async function evmChain(chain: (typeof EVM_CHAINS)[number], address: string, get
   if (coin !== "0") {
     out.push(priced({ id: `${chain.id}:native`, chain: chain.id, chainName: chain.name, symbol: chain.coin, name: chain.coinName, quantity: formatUnits(coin, 18), verified: true, suspectedSpam: false }, num(info.exchange_rate)));
   }
-  const page = (await get(`${chain.host}/api/v2/addresses/${address}/tokens?type=ERC-20`)) as { items?: unknown };
+  const page = (await explorerGet(chain.hosts, `/api/v2/addresses/${address}/tokens?type=ERC-20`, get)) as { items?: unknown };
   const items = Array.isArray(page?.items) ? page.items : [];
   const tokens: WalletToken[] = [];
   for (const item of items as Array<{ value?: unknown; token?: Record<string, unknown> }>) {
@@ -167,13 +170,13 @@ async function evmChain(chain: (typeof EVM_CHAINS)[number], address: string, get
 }
 
 /** Aave, Compound and pools on one chain, before pool and Compound tokens are priced. */
-async function evmDefi(chain: (typeof EVM_CHAINS)[number], address: string, call: Call, get: Get): Promise<{ aave: DefiPosition | null; drafts: Draft[]; priced: DefiPosition[]; incomplete: boolean }> {
+async function evmDefi(chain: EvmChain, address: string, call: Call, get: Get): Promise<{ aave: DefiPosition | null; drafts: Draft[]; priced: DefiPosition[]; incomplete: boolean }> {
   const [aave, { drafts, incomplete }, fluid] = await Promise.all([aaveV3(chain, address, call), chainDrafts(chain, address, call, get), fluidLending(chain, address, get)]);
   return { aave, drafts, priced: fluid, incomplete };
 }
 
 /** A chain's tokens from its explorer, or, when the explorer is down, its main tokens from the chain. */
-async function evmTokens(chain: (typeof EVM_CHAINS)[number], address: string, get: Get, call?: Call): Promise<{ tokens: WalletToken[]; fallback: boolean }> {
+async function evmTokens(chain: EvmChain, address: string, get: Get, call?: Call): Promise<{ tokens: WalletToken[]; fallback: boolean }> {
   try {
     return { tokens: await evmChain(chain, address, get), fallback: false };
   } catch (error) {
@@ -182,7 +185,12 @@ async function evmTokens(chain: (typeof EVM_CHAINS)[number], address: string, ge
   }
 }
 
-export async function fetchPublicWallet(address: string, addressType: "bitcoin" | "evm", get: Get, now: number, call?: Call, post?: Post): Promise<PublicWalletSnapshot> {
+/**
+ * `blockscoutPro`: the server holds a Blockscout PRO key, so an explorer that turns Numa away
+ * (Base and Arbitrum sit behind a bot check for datacenters) is asked through PRO instead.
+ */
+export async function fetchPublicWallet(address: string, addressType: "bitcoin" | "evm", get: Get, now: number, call?: Call, post?: Post, blockscoutPro = false): Promise<PublicWalletSnapshot> {
+  const EVM_CHAINS: EvmChain[] = EVM_CHAIN_LIST.map((c) => ({ ...c, hosts: blockscoutPro ? [c.host, `${BLOCKSCOUT_PRO}/${c.chainId}`] : [c.host] }));
   // Tokens and DeFi positions are read separately: a chain whose explorer is down still counts
   // its lending and pools, and the part that failed is named, never counted as zero.
   const tokenJobs = addressType === "bitcoin"
