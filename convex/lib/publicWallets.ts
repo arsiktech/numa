@@ -198,12 +198,12 @@ async function evmTokens(chain: EvmChain, address: string, get: Get, call?: Call
   }
 }
 
-/** Every token on one chain with Alchemy's price, from its Data API, a few pages at most. */
+/** Every token on one chain with Alchemy's price, from its Data API, up to six pages (spam-heavy wallets run to three). */
 async function alchemyTokens(chain: EvmChain, address: string, key: string, post: Post): Promise<WalletToken[]> {
   type Row = { tokenAddress?: string | null; tokenBalance?: string; tokenMetadata?: { symbol?: string | null; decimals?: number | null; name?: string | null }; tokenPrices?: Array<{ currency?: string; value?: string }> };
   const tokens: WalletToken[] = [];
   let pageKey: string | undefined;
-  for (let page = 0; page < 3; page++) {
+  for (let page = 0; page < 6; page++) {
     const body = (await post(`https://api.g.alchemy.com/data/v1/${key}/assets/tokens/by-address`, {
       addresses: [{ address, networks: [chain.alchemy] }], withMetadata: true, withPrices: true, includeNativeTokens: true, ...(pageKey ? { pageKey } : {}),
     })) as { data?: { tokens?: Row[]; pageKey?: string | null } };
