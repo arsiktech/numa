@@ -97,6 +97,13 @@ const token = (chain, chainName, symbol, quantity, valueUsd) => ({ id: `${chain}
   await page.getByText('WHERE IT IS').waitFor({ timeout: 15000 });
   const wbtc = await page.locator('body').innerText();
   check('a coin lent on a protocol is that coin, pledged, in the protocol inside the wallet', wbtc.includes('Wrapped Bitcoin') && wbtc.includes('Main · Aave V3') && /pledged/i.test(wbtc) && wbtc.includes('0.05 WBTC'), wbtc.split('\n').slice(0, 16).join(' | '));
+  // Bitcoin held as BTC and as WBTC is one Bitcoin row, which opens into the two.
+  await page.goto(APP + '/holdings/crypto');
+  await page.getByRole('link', { name: /^Bitcoin, .*held as BTC, WBTC/ }).click();
+  await page.getByText('HELD AS').waitFor({ timeout: 15000 });
+  const family = await page.locator('body').innerText();
+  check('coins group by what they really are and open into their versions', /0\.55 BTC/.test(family) && family.includes('Wrapped Bitcoin') && /HELD AS[\s\S]*Bitcoin[\s\S]*Wrapped Bitcoin/.test(family), family.split('\n').slice(0, 20).join(' | '));
+  await page.screenshot({ path: OUT + '/04-bitcoin-family-dark-390.png', fullPage: true });
   await page.goto(APP + '/holdings/crypto');
   await page.getByRole('tab', { name: 'By place' }).click();
   await page.getByText('BY PLACE', { exact: true }).waitFor({ timeout: 10000 });

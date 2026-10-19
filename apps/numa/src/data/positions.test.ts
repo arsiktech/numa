@@ -2,7 +2,7 @@ import type { CloudWallet } from '@/cloud/api';
 import { squarify } from '@/ui/treemapLayout';
 import { demoHoldings } from './demo';
 import type { Item } from './items';
-import { positionsOf, spotsOf, walletPieces } from './positions';
+import { familiesOf, positionsOf, spotsOf, walletPieces } from './positions';
 import { useDemoItems } from './useItems';
 
 const fx = { usdPerEur: 1.25, asOf: '2026-10-17' } as never;
@@ -113,5 +113,23 @@ describe('treemap layout', () => {
   it('draws nothing for an empty or zero box', () => {
     expect(squarify([], 100, 100)).toEqual([]);
     expect(squarify([1, 2], 0, 100)).toEqual([]);
+  });
+
+  it('groups versions of one asset by what they really are, and leaves a lone version as itself', () => {
+    const items: Item[] = [
+      holding('h1', 'CBBTC', 'Coinbase Bitcoin', 1.4, 10_000_000), holding('h2', 'WBTC', 'Wrapped Bitcoin', 0.6, 4_400_000), holding('h3', 'TBTC', 'tBTC', 0.2, 1_400_000),
+      holding('h4', 'WSTETH', 'Lido staked Ether', 10, 2_800_000), holding('h5', 'WETH', 'Wrapped Ether', 8, 1_700_000),
+      holding('h6', 'WEEUR', 'weEUR', 23_000, 2_360_000), holding('h7', 'LINK', 'Chainlink', 100, 100_000),
+    ];
+    const families = familiesOf(positionsOf(items, 'crypto'));
+    expect(families.map((f) => [f.key, f.name, f.valueCents, f.members.map((m) => m.unit)])).toEqual([
+      ['fam:BTC', 'Bitcoin', 15_800_000, ['CBBTC', 'WBTC', 'TBTC']],
+      ['fam:ETH', 'Ether', 4_500_000, ['WSTETH', 'WETH']],
+      ['WEEUR', 'weEUR', 2_360_000, ['WEEUR']],
+      ['LINK', 'Chainlink', 100_000, ['LINK']],
+    ]);
+    // Wrapped bitcoin is worth one bitcoin, so amounts add up; staked ether isn't, so they don't.
+    expect(families[0]).toMatchObject({ unit: 'BTC', quantity: 2.2 });
+    expect(families[1].quantity).toBeNull();
   });
 });

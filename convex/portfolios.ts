@@ -203,6 +203,12 @@ export const remove = mutation({
           .collect();
         for (const row of debtEvents) await ctx.db.delete(row._id);
 
+        const liabilitySources = await ctx.db
+          .query("liabilitySources")
+          .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))
+          .collect();
+        for (const row of liabilitySources) await ctx.db.delete(row._id);
+
         const assets = await ctx.db
           .query("assets")
           .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))

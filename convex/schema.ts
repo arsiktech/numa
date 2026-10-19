@@ -292,6 +292,23 @@ export default defineSchema({
   }).index("by_portfolio", ["portfolioId"]),
 
   /**
+   * A debt kept in step with a company portal: its agent link is read on a schedule and the debt
+   * becomes the portal's shortfall. `key` is the portal's secret and never leaves the server.
+   */
+  liabilitySources: defineTable({
+    portfolioId: v.id("portfolios"),
+    liabilityId: v.id("liabilities"),
+    url: v.string(),
+    key: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("ok"), v.literal("incomplete"), v.literal("failed"))),
+    message: v.optional(v.string()),
+    checkedAt: v.optional(v.number()),
+    readingAt: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number()
+  }).index("by_portfolio", ["portfolioId"]).index("by_liability", ["liabilityId"]),
+
+  /**
    * What happened to a debt, newest last: money taken, paid back, lent or received, or a note. A
    * payment that was applied changed the record's balance when it was saved, and removing it
    * gives that amount back. `subject` is "liability:<id>" or "asset:<id>" (money owed to you).
