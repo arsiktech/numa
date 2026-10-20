@@ -10,7 +10,9 @@ import { convertCents, type FxRate } from '@/data/fx';
 import { summarizeFlow } from '@/domain/flow';
 import { shortDay } from '@/domain/freshness';
 import type { Currency, MonthFlow } from '@/domain/types';
+import { monthCalendar } from '@/flow/calendar';
 import { monthCashback, rowDetails } from '@/flow/card';
+import { SpendCalendar } from '@/flow/SpendCalendar';
 import { availableMonths, monthFlow, monthName, monthOf, sameMonth, transactionsIn, type MonthKey } from '@/flow/month';
 import { mrr, recurringRows, type RecurringRow } from '@/flow/recurring';
 import { Sankey } from '@/flow/Sankey';
@@ -88,6 +90,9 @@ function Inner({ data }: { data: FlowData }) {
   const wide = width >= WIDE;
   const [month, setMonth] = useState<MonthKey>(data.months[data.months.length - 1]);
   const [focus, setFocus] = useState<string | null>(null);
+  // Streams (the Sankey) or the month as a calendar; a picked day narrows the list to it.
+  const [lens, setLens] = useState<'streams' | 'calendar'>('streams');
+  const [day, setDay] = useState<number | null>(null);
   const idx = data.months.findIndex((m) => sameMonth(m, month));
   const flow = data.flowFor(month);
   const sum = summarizeFlow(flow);
@@ -95,11 +100,13 @@ function Inner({ data }: { data: FlowData }) {
   const layout = layoutSankey(flow.incoming, flow.outgoing, chartW, wide ? 340 : 260);
   const lines = [...flow.incoming, ...flow.outgoing];
   const focused = lines.find((l) => l.id === focus) ?? null;
-  const txs = data.txsFor(month).filter((t) => !focused || focused.txIds?.includes(t.id));
+  const cal = lens === 'calendar' ? monthCalendar(data.txsFor(month), month, data.currency, data.fx, data.now) : null;
+  const dayIds = cal && day !== null ? new Set(cal.days[day - 1]?.txIds ?? []) : null;
+  const txs = data.txsFor(month).filter((t) => (dayIds ? dayIds.has(t.id) : !focused || focused.txIds?.includes(t.id)));
   // Cashback the month's card purchases earned, whatever stream is followed.
   const cashback = data.demo ? null : monthCashback(data.txsFor(month), data.currency, data.fx);
   const names = new Map(data.categories.map((x) => [x.id, x.name]));
-  const go = (by: number) => { const next = data.months[idx + by]; if (next) { setMonth(next); setFocus(null); } };
+  const go = (by: number) => { const next = data.months[idx + by]; if (next) { setMonth(next); setFocus(null); setDay(null); } };
   const products = mrr(data.recurring);
   const nothing = sum.inCents === 0 && sum.outCents === 0;
 
@@ -142,7 +149,16 @@ function Inner({ data }: { data: FlowData }) {
           <Txt v="body" c="ink2">Tap the plus and type “Coffee 4.50” or “Got paid 3,000 from Client A”. The month’s streams show up here.</Txt>
         </View>
       ) : (
-        <View style={{ marginTop: 22 }}>
+        <View style={{ marginTop: 18 }}>
+          <View style={{ flexDirection: 'row', gap: 4, padding: 3, borderRadius: 999, backgroundColor: c.s1, alignSelf: 'flex-start', marginBottom: 14 }} accessibilityRole="tablist">
+            {([['streams', 'Streams'], ['calendar', 'Calendar']] as const).map(([k, label]) => (
+              <Pressable key={k} onPress={() => { setLens(k); setDay(null); setFocus(null); }} accessibilityRole="tab" aria-selected={lens === k}
+                style={{ minHeight: 34, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center', backgroundColor: lens === k ? c.s2 : 'transparent' }}>
+                <Txt v="small" style={{ fontFamily: 'Manrope_600SemiBold', color: lens === k ? c.ink : c.ink2 }}>{label}</Txt>
+              </Pressable>
+            ))}
+          </View>
+          {cal ? <SpendCalendar cal={cal} selected={day} onSelect={setDay} /> : <View>
           <Hint id="flow-follow" text="Tap a stream, or its chip, to follow it. The list below shows just its transactions." />
           <View style={{ height: 14 }} />
           <Sankey layout={layout} focus={focus} onFocus={setFocus} />
@@ -157,6 +173,7 @@ function Inner({ data }: { data: FlowData }) {
               </Pressable>
             ))}
           </View>
+          </View>}
         </View>
       )}
 
@@ -172,7 +189,7 @@ function Inner({ data }: { data: FlowData }) {
 
       {!data.demo && txs.length > 0 && (
         <View style={{ marginTop: 26 }}>
-          <Txt v="section" accessibilityRole="header">{focused ? focused.label : 'Transactions'}</Txt>
+          <Txt v="section" accessibilityRole="header">{dayIds && day !== null ? new Date(month.year, month.month, day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : focused ? focused.label : 'Transactions'}</Txt>
           {txs.map((t, i) => {
             const cents = convertCents(Math.abs(t.amountMinor), t.currency, data.currency, data.fx);
             const income = t.kind === 'income';

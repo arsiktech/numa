@@ -91,6 +91,17 @@ const { check, finish } = checker();
   b = await page.locator('body').innerText();
   check('Flow adds up the month’s cashback and shows it on the row with the card', /Cashback in \w+[\s\S]*From 1 card purchase · about 3\.0% back/.test(b) && b.includes('+$5.15 back') && /••9969/.test(b), b.slice(0, 600).replace(/\n/g, ' | '));
   await page.screenshot({ path: OUT + '/03c-flow-cashback-dark-390.png' });
+  // The month as a calendar: days shaded by spending; picking one shows its total and narrows the list to it.
+  await page.getByRole('tab', { name: 'Calendar' }).click();
+  const busy = page.getByRole('button', { name: /: spent €/ }).first();
+  await busy.waitFor({ timeout: 10000 });
+  check('the calendar marks the days money went out and came in', (await page.getByRole('button', { name: /: spent €/ }).count()) >= 1 && (await page.getByRole('button', { name: /money came in/ }).count()) >= 1);
+  await busy.click();
+  await page.getByText(/your daily average|About your daily average/).waitFor({ timeout: 10000 });
+  b = await page.locator('body').innerText();
+  check('picking a day shows what it spent against the average and lists only that day', /−€[\d,]+\.\d\d/.test(b) && /\d+ (purchase|purchases)/.test(b) && !b.includes('Salary'), b.slice(0, 900).replace(/\n/g, ' | '));
+  await page.screenshot({ path: OUT + '/03d-flow-calendar-dark-390.png', fullPage: true });
+  await page.getByRole('tab', { name: 'Streams' }).click();
   const keep = (await snap()).transactions.find((t) => t.description === 'Amazon');
   check('the card details are saved with the transaction', keep?.card?.cashback?.amount === 5.15 && keep.card.last4 === '9969');
 
