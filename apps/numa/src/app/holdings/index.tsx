@@ -11,7 +11,7 @@ import type { CategoryId } from '@/domain/types';
 import { useTheme } from '@/theme/theme';
 import type { CategoryColor } from '@/theme/tokens';
 import { categoryColor } from '@/ui/CompositionBar';
-import { LoansSection } from '@/loans/LoansSection';
+import { LiquidationSection, LoansSection } from '@/loans/LoansSection';
 import { ItemRow } from '@/ui/ItemRow';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { WIDE } from '@/ui/Panel';
@@ -80,8 +80,7 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
   const { money } = useMoney();
   const wide = useWindowDimensions().width >= WIDE;
   const [view, setView] = useState<'kind' | 'classes'>('kind');
-  // What you owe opens by place (each loan with what backs it); by asset is one tap away.
-  const [lens, setLens] = useState<'asset' | 'place'>(only === 'debts' ? 'place' : 'asset');
+  const [lens, setLens] = useState<'asset' | 'place'>('asset');
   const groups = (only ? [only] : ORDER).map((g) => ({ g, items: source.items.filter((i) => i.group === g) })).filter((x) => x.items.length > 0 || x.g === only);
   const single = only ? groups[0] : null;
   const total = single ? groupTotal(single.items) : null;
@@ -106,6 +105,8 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
           {total.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{total.unknown} without a value {total.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
         </View>
       )}
+      {/* The answer first on What you owe: how close each crypto loan is to being sold. */}
+      {only === 'debts' && !source.demo && <LiquidationSection />}
 
       {/* The overview: what you own as areas, by kind or by Kiyosaki's four asset classes. */}
       {!only && owned.length > 0 && (

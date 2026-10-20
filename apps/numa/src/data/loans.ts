@@ -17,7 +17,7 @@ export type CloudLoanLink = { loanKey: string; targets: { key: string; role: Loa
 
 export type Open = { type: ItemType; id: string };
 /** One place money can sit. `gone` when a link names something that is no longer there. */
-export type LoanPlace = { key: string; name: string; detail: string | null; valueCents: number | null; open: Open | null; gone?: boolean };
+export type LoanPlace = { key: string; name: string; detail: string | null; valueCents: number | null; open: Open | null; gone?: boolean; /** The coin and amount, when a protocol reports them. */ coin?: { symbol: string; quantity: number } };
 
 export type Loan = {
   key: string;
@@ -89,7 +89,10 @@ function walletCollateral(w: CloudWallet, p: NonNullable<NonNullable<CloudWallet
   const open: Open = { type: 'wallet', id: w.id };
   if (!own.length) return p.assetValueUsd > 0 ? [{ key: `defi:${w.id}:${p.id}`, name: `${p.protocol} collateral`, detail: null, valueCents: usdCents(p.assetValueUsd, currency, fx), open }] : [];
   const total = own.reduce((t, a) => t + a.valueUsd, 0);
-  return own.map((a) => ({ key: `defi:${w.id}:${p.id}#${a.symbol}`, name: a.symbol, detail: a.quantity === undefined ? null : `${a.quantity} ${a.symbol}`, valueCents: usdCents((a.valueUsd / total) * p.assetValueUsd, currency, fx), open }));
+  return own.map((a) => ({
+    key: `defi:${w.id}:${p.id}#${a.symbol}`, name: a.symbol, detail: a.quantity === undefined ? null : `${a.quantity} ${a.symbol}`, valueCents: usdCents((a.valueUsd / total) * p.assetValueUsd, currency, fx), open,
+    ...(a.quantity !== undefined && Number(a.quantity) > 0 ? { coin: { symbol: a.symbol, quantity: Number(a.quantity) } } : {}),
+  }));
 }
 
 /** Every loan in the space, biggest first, with its links resolved against what is there now. */
@@ -143,3 +146,27 @@ export function takenBy(links: CloudLoanLink[]): Map<string, string> {
   for (const l of links) for (const t of l.targets) out.set(t.key, l.loanKey);
   return out;
 }
+
+/** Coins worth a dollar or a euro: a loan in them only moves when what backs it does. */
+const STABLE = new Set(['USDC', 'USDT', 'DAI', 'USDS', 'GHO', 'USDE', 'PYUSD', 'FDUSD', 'LUSD', 'FRAX', 'CRVUSD', 'RLUSD', 'USDG', 'USDC.E', 'USDBC', 'EURC', 'EURE']);
+
+export type Zone = 'safe' | 'watch' | 'danger';
+/**
+ * How far a loan is from liquidation, from the protocol's health factor (1 means sold now).
+ * `cushion`: how much what backs it can fall against what is owed before it is sold.
+ * `price`: for a loan in stablecoins backed by one coin, that coin's price now and where it is sold.
+ */
+export type Safety = { health: number; used: number; cushion: number; zone: Zone; price: { symbol: string; nowCents: number; liquidationCents: number } | null };
+
+export function safetyOf(loan: Loan): Safety | null {
+  const health = loan.healthFactor;
+  if (health === null || !(health > 0) || !Number.isFinite(health)) return null;
+  const used = Math.min(1, 1 / health);
+  const zone: Zone = health < 1.1 ? 'danger' : health < 1.5 ? 'watch' : 'safe';
+  const coins = loan.collateral.filter((p) => (p.valueCents ?? 0) > 0);
+  const one = coins.length === 1 && coins[0].coin && !STABLE.has(coins[0].coin.symbol.toUpperCase()) ? coins[0] : null;
+  const stableDebt = loan.owed.length > 0 && loan.owed.every((o) => STABLE.has(o.symbol.toUpperCase()));
+  const price = one && stableDebt ? { symbol: one.coin!.symbol, nowCents: Math.round(one.valueCents! / one.coin!.quantity), liquidationCents: Math.round(one.valueCents! / one.coin!.quantity / health) } : null;
+  return { health, used, cushion: 1 - used, zone, price };
+}
+

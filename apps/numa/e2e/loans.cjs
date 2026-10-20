@@ -26,7 +26,9 @@ const save = (walletId, snapshot) => execFileSync('npx', ['convex', 'run', 'wall
   const before = (await snap()).dashboard.netWorth;
 
   // A recorded debt: open it from What you owe.
+  // What you owe opens by asset; each loan with where its money went is under By place.
   await page.goto(APP + '/holdings/debts');
+  await page.getByRole('tab', { name: 'By place' }).click({ timeout: 20000 });
   await page.getByText('LOANS AND WHERE THE MONEY WENT').waitFor({ timeout: 20000 });
   const owe = await page.locator('body').innerText();
   check('What you owe lists each loan and says where its money went is not set', /Loan from Sam\s*\n\s*Your record · Where it went: not set/.test(owe), owe.slice(0, 400));
@@ -49,6 +51,7 @@ const save = (walletId, snapshot) => execFileSync('npx', ['convex', 'run', 'wall
 
   // The same savings can't count for two loans: picking it on the car loan moves it there.
   await page.goto(APP + '/holdings/debts');
+  await page.getByRole('tab', { name: 'By place' }).click({ timeout: 20000 });
   await page.getByRole('link', { name: /^Car loan, .* owed\./ }).click();
   await page.getByRole('button', { name: 'Pick where it went' }).click();
   const offer = page.getByRole('button', { name: /^Link Studio savings, moves it from Loan from Sam/ });
@@ -79,6 +82,10 @@ const save = (walletId, snapshot) => execFileSync('npx', ['convex', 'run', 'wall
   await page.getByRole('link', { name: 'Where the borrowed money went' }).click();
   await page.getByRole('heading', { name: /^BACKED BY/ }).last().waitFor({ timeout: 10000 });
   body = await page.locator('body').innerText();
+  // Health factor 2.4: the WBTC behind it can fall 58% before Aave sells it.
+  check('a wallet borrowing shows how far it is from liquidation', body.includes('−58%') && body.includes('can fall before it’s sold') && body.includes('Safe for now · health 2.40') && /Sold if WBTC falls below €[\d,]+ · now €[\d,]+/.test(body), body.slice(0, 900).replace(/\n/g, ' | '));
+  await wait(1800); // Let the arc finish drawing.
+  await page.screenshot({ path: OUT + '/02a-liquidation-gauge-dark-390.png' });
   check('a wallet borrowing shows its collateral coins, what is owed and the sell point from the health factor', body.includes('Aave V3 · Ethereum') && body.includes('1,000 USDC owed') && body.includes('0.05 WBTC') && /33% · sold at 80%/.test(body), body.slice(0, 1400).replace(/\n/g, ' | '));
   await page.getByRole('button', { name: 'Pick where it went' }).click();
   check('the protocol’s own collateral is not offered as a place the money went', (await page.getByRole('button', { name: /^Link Aave V3 · Ethereum/ }).count()) === 0);
@@ -98,11 +105,16 @@ const save = (walletId, snapshot) => execFileSync('npx', ['convex', 'run', 'wall
   await wide.getByRole('button', { name: 'Sign in' }).click();
   await wide.getByText('What you own').first().waitFor({ timeout: 20000 });
   await wide.goto(APP + '/holdings/debts');
+  await wide.getByText('DISTANCE TO LIQUIDATION').waitFor({ timeout: 20000 });
+  const risk = await wide.locator('body').innerText();
+  check('What you owe opens by asset, with each crypto loan’s distance to liquidation first', risk.includes('OWED IN') && /Aave V3 · Ethereum\s*\n\s*−58%/.test(risk) && risk.includes('Frame · health 2.40'), risk.slice(0, 700).replace(/\n/g, ' | '));
+  await wide.screenshot({ path: OUT + '/03-liquidation-light-1440.png', fullPage: true });
+  await wide.getByRole('tab', { name: 'By place' }).click();
   await wide.getByText('LOANS AND WHERE THE MONEY WENT').waitFor({ timeout: 20000 });
   await wait(800);
   const list = await wide.locator('body').innerText();
   check('the loans list says where each loan’s money went', list.includes('Frame · Went to ether.fi Cash · Optimism') && list.includes('Your record · Where it went: not set'), list.slice(0, 600));
-  await wide.screenshot({ path: OUT + '/03-loans-light-1440.png', fullPage: true });
+  await wide.screenshot({ path: OUT + '/04-loans-light-1440.png', fullPage: true });
 
   const filtered = errors.filter((e) => !/favicon|Download the React DevTools/i.test(e));
   check('no page or console errors', filtered.length === 0, filtered.slice(0, 4).join(' | '));
