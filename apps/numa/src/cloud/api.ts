@@ -1,5 +1,6 @@
 import { makeFunctionReference } from 'convex/server';
 
+import type { CloudEarning } from '@/data/earnings';
 import type { CloudLoanLink } from '@/data/loans';
 import type { DebtEvent } from '@/data/moneyMap';
 
@@ -201,6 +202,7 @@ export const cloud = {
   authFlags: makeFunctionReference<'query', Record<string, never>, { passwordReset: boolean; emailVerification: boolean; googleOAuth: boolean; appleOAuth: boolean }>('authConfig:flags'),
   bootstrap: makeFunctionReference<'mutation', Record<string, never>, CloudBootstrap>('mobile:bootstrap'),
   portfolioSnapshot: makeFunctionReference<'query', { portfolioId: string }, CloudSnapshot>('mobile:portfolioSnapshot'),
+  defiEarnings: makeFunctionReference<'query', { portfolioId: string }, CloudEarning[]>('defiEarnings:forPortfolio'),
   createPortfolio: makeFunctionReference<
     'mutation',
     { name: string; type: 'personal'; tagline: string; defaultCurrency: CloudCurrency; seedDefaults: boolean; clientMutationId: string },

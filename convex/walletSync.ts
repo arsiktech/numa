@@ -6,6 +6,7 @@ import { action, internalAction, internalMutation, internalQuery } from "./_gene
 import { cryptoWalletSnapshotValidator } from "./lib/cryptoValidators";
 import type { Post } from "./lib/defiPositions";
 import { BLOCKSCOUT_PRO } from "./lib/evm";
+import { readingRows, type Refs } from "./lib/defiEarnings";
 import { fetchPublicWallet, type Call, type Get } from "./lib/publicWallets";
 
 /**
@@ -93,16 +94,37 @@ export const dueWallets = internalQuery({
   },
 });
 
+const refsValidator = v.object({ ETH: v.optional(v.number()), BTC: v.optional(v.number()), EUR: v.optional(v.number()) });
+
 export const saveSnapshot = internalMutation({
-  args: { walletId: v.id("cryptoWallets"), snapshot: cryptoWalletSnapshotValidator },
-  handler: async (ctx, { walletId, snapshot }): Promise<boolean> => {
+  args: { walletId: v.id("cryptoWallets"), snapshot: cryptoWalletSnapshotValidator, refs: v.optional(refsValidator) },
+  handler: async (ctx, { walletId, snapshot, refs }): Promise<boolean> => {
     const wallet = await ctx.db.get(walletId);
     // A wallet removed meanwhile stays removed, and a slower request never overwrites a newer one.
     if (!wallet || (wallet.snapshot && wallet.snapshot.updatedAt > snapshot.updatedAt)) return false;
     await ctx.db.patch(walletId, { snapshot, updatedAt: Date.now() });
+    // The day's reading for earnings. A coin missing from one reading (a chain that failed) only skips that
+    // day for it, so a partial read still counts, but never replaces a complete one from the same day.
+    const day = new Date(snapshot.updatedAt).toISOString().slice(0, 10);
+    const reading = { portfolioId: wallet.portfolioId, walletId, day, takenAt: snapshot.updatedAt, refs: refs ?? {}, rows: readingRows(snapshot) };
+    const existing = await ctx.db.query("defiReadings").withIndex("by_wallet_day", (q) => q.eq("walletId", walletId).eq("day", day)).unique();
+    if (existing && !snapshot.partial) await ctx.db.replace(existing._id, reading);
+    else if (!existing && reading.rows.length) await ctx.db.insert("defiReadings", reading);
     return true;
   },
 });
+
+/** Ether, bitcoin and euro prices in dollars, for valuing vault shares. Empty when DefiLlama can't answer. */
+async function refsNow(): Promise<Refs> {
+  try {
+    const body = (await get("https://coins.llama.fi/prices/current/coingecko:ethereum,coingecko:bitcoin,coingecko:euro-coin")) as { coins?: Record<string, { price?: unknown }> };
+    const price = (id: string) => { const p = body?.coins?.[id]?.price; return typeof p === "number" && p > 0 ? p : undefined; };
+    const refs: Refs = { ETH: price("coingecko:ethereum"), BTC: price("coingecko:bitcoin"), EUR: price("coingecko:euro-coin") };
+    return Object.fromEntries(Object.entries(refs).filter(([, x]) => x !== undefined)) as Refs;
+  } catch {
+    return {};
+  }
+}
 
 async function check(target: Target, now: number) {
   try {
@@ -125,9 +147,9 @@ export const refresh = action({
     if (target === "unsupported") return { status: "unsupported" };
     const now = Date.now();
     if (target.checkedAt !== null && now - target.checkedAt < MIN_MANUAL_GAP_MS) return { status: "recent" };
-    const snapshot = await check(target, now);
+    const [snapshot, refs] = await Promise.all([check(target, now), refsNow()]);
     if (!snapshot) return { status: "failed" };
-    await ctx.runMutation(internal.walletSync.saveSnapshot, { walletId, snapshot });
+    await ctx.runMutation(internal.walletSync.saveSnapshot, { walletId, snapshot, refs });
     return { status: snapshot.partial ? "partial" : "ok" };
   },
 });
@@ -138,10 +160,11 @@ export const refreshDue = internalAction({
   handler: async (ctx): Promise<number> => {
     const now = Date.now();
     const due: Target[] = await ctx.runQuery(internal.walletSync.dueWallets, { now });
+    const refs = due.length ? await refsNow() : {};
     let saved = 0;
     for (const target of due) {
       const snapshot = await check(target, Date.now());
-      if (snapshot && await ctx.runMutation(internal.walletSync.saveSnapshot, { walletId: target.id, snapshot })) saved += 1;
+      if (snapshot && await ctx.runMutation(internal.walletSync.saveSnapshot, { walletId: target.id, snapshot, refs })) saved += 1;
     }
     return saved;
   },

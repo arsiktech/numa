@@ -11,6 +11,7 @@ import type { CategoryId } from '@/domain/types';
 import { useTheme } from '@/theme/theme';
 import type { CategoryColor } from '@/theme/tokens';
 import { categoryColor } from '@/ui/CompositionBar';
+import { EarningsTeaser } from '@/earnings/EarningsTeaser';
 import { LiquidationSection, LoansSection } from '@/loans/LoansSection';
 import { ItemRow } from '@/ui/ItemRow';
 import { CurrencyScope, useMoney } from '@/ui/money';
@@ -107,6 +108,7 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
       )}
       {/* The answer first on What you owe: how close each crypto loan is to being sold. */}
       {only === 'debts' && !source.demo && <LiquidationSection />}
+      {only === 'crypto' && !source.demo && <EarningsTeaser style={{ marginTop: 16 }} />}
 
       {/* The overview: what you own as areas, by kind or by Kiyosaki's four asset classes. */}
       {!only && owned.length > 0 && (
