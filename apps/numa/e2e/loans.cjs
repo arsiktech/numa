@@ -83,7 +83,7 @@ const save = (walletId, snapshot) => execFileSync('npx', ['convex', 'run', 'wall
   await page.getByRole('heading', { name: /^BACKED BY/ }).last().waitFor({ timeout: 10000 });
   body = await page.locator('body').innerText();
   // Health factor 2.4: the WBTC behind it can fall 58% before Aave sells it.
-  check('a wallet borrowing shows how far it is from liquidation', body.includes('−58%') && body.includes('can fall before it’s sold') && body.includes('Safe for now · health 2.40') && /Sold if WBTC falls below €[\d,]+ · now €[\d,]+/.test(body), body.slice(0, 900).replace(/\n/g, ' | '));
+  check('a wallet borrowing shows how far it is from liquidation', body.includes('−58%') && body.includes('can fall before it’s sold') && body.includes('Safe for now · health 2.40') && /Bitcoin · now €[\d,]+\s*\n?\s*sold below €[\d,]+/.test(body), body.slice(0, 900).replace(/\n/g, ' | '));
   await wait(1800); // Let the arc finish drawing.
   await page.screenshot({ path: OUT + '/02a-liquidation-gauge-dark-390.png' });
   check('a wallet borrowing shows its collateral coins, what is owed and the sell point from the health factor', body.includes('Aave V3 · Ethereum') && body.includes('1,000 USDC owed') && body.includes('0.05 WBTC') && /33% · sold at 80%/.test(body), body.slice(0, 1400).replace(/\n/g, ' | '));
@@ -106,8 +106,13 @@ const save = (walletId, snapshot) => execFileSync('npx', ['convex', 'run', 'wall
   await wide.getByText('What you own').first().waitFor({ timeout: 20000 });
   await wide.goto(APP + '/holdings/debts');
   await wide.getByText('DISTANCE TO LIQUIDATION').waitFor({ timeout: 20000 });
-  const risk = await wide.locator('body').innerText();
-  check('What you owe opens by asset, with each crypto loan’s distance to liquidation first', risk.includes('OWED IN') && /Aave V3 · Ethereum\s*\n\s*−58%/.test(risk) && risk.includes('Frame · health 2.40'), risk.slice(0, 700).replace(/\n/g, ' | '));
+  let risk = await wide.locator('body').innerText();
+  // Folded under what is owed, before the records: just the closest loan.
+  check('What you owe opens by asset, with distance to liquidation folded after Owed in', risk.indexOf('OWED IN') < risk.indexOf('DISTANCE TO LIQUIDATION') && risk.indexOf('DISTANCE TO LIQUIDATION') < risk.indexOf('RECORDS') && /Closest: Aave V3 · Ethereum\s*\n\s*−58%/.test(risk) && !risk.includes('Frame · health 2.40'), risk.slice(0, 900).replace(/\n/g, ' | '));
+  await wide.getByRole('button', { name: /^Distance to liquidation/ }).click();
+  await wide.getByText('Frame · health 2.40').waitFor({ timeout: 10000 });
+  risk = await wide.locator('body').innerText();
+  check('opened, each loan shows its health and the price its coin is sold at', /Bitcoin · now €[\d,]+\s*\n?\s*sold below €[\d,]+/.test(risk), risk.slice(0, 900).replace(/\n/g, ' | '));
   await wide.screenshot({ path: OUT + '/03-liquidation-light-1440.png', fullPage: true });
   await wide.getByRole('tab', { name: 'By place' }).click();
   await wide.getByText('LOANS AND WHERE THE MONEY WENT').waitFor({ timeout: 20000 });

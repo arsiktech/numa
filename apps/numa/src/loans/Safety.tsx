@@ -29,7 +29,6 @@ export const zoneText = (s: Safety) => (s.zone === 'danger' ? 'Close to liquidat
  */
 export function SafetyGauge({ safety, size = 280 }: { safety: Safety; size?: number }) {
   const { c } = useTheme();
-  const { money } = useMoney();
   const color = useZoneColor()(safety.zone);
   const reduce = useReducedMotion();
   const stroke = 16;
@@ -71,10 +70,34 @@ export function SafetyGauge({ safety, size = 280 }: { safety: Safety; size?: num
         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
         <Txt v="small" style={{ fontFamily: 'Manrope_600SemiBold' }}>{zoneText(safety)} · health {safety.health.toFixed(2)}</Txt>
       </View>
-      {safety.price && (
-        <Txt v="small" c="ink2" style={{ marginTop: 10, textAlign: 'center' }}>
-          Sold if {safety.price.symbol} falls below {money(safety.price.liquidationCents)} · now {money(safety.price.nowCents)}
-        </Txt>
+      {safety.prices.length > 0 && <View style={{ marginTop: 14, alignSelf: 'stretch', paddingHorizontal: 16 }}><CoinPrices safety={safety} /></View>}
+    </View>
+  );
+}
+
+/**
+ * Each coin behind a loan and the price it would have to fall to, on its own, for the loan to be sold;
+ * then the cushion if everything falls together.
+ */
+export function CoinPrices({ safety, dense }: { safety: Safety; dense?: boolean }) {
+  const { c } = useTheme();
+  const { money } = useMoney();
+  if (!safety.prices.length) return null;
+  return (
+    <View style={{ gap: dense ? 4 : 8 }}>
+      {safety.prices.map((p) => (
+        <View key={p.symbol} style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+          <Txt v="small" c="ink2" style={{ flexShrink: 1 }}>{p.name}{p.nowCents !== null ? ` · now ${money(p.nowCents)}` : ''}</Txt>
+          {p.drop === null
+            ? <Txt v="small" c="ink3">Can’t trigger it alone</Txt>
+            : <Txt v="figureSm" style={{ fontSize: 13, color: p.drop < 0.25 ? c.down : p.drop < 0.4 ? c.warn : c.ink }}>{p.liquidationCents !== null ? `sold below ${money(p.liquidationCents)}` : `sold after −${pct(p.drop)}`}</Txt>}
+        </View>
+      ))}
+      {safety.prices.length > 1 && (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
+          <Txt v="small" c="ink3">Everything falling together</Txt>
+          <Txt v="figureSm" c="ink3" style={{ fontSize: 13 }}>−{pct(safety.cushion)}</Txt>
+        </View>
       )}
     </View>
   );

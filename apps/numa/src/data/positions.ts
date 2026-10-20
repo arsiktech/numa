@@ -162,15 +162,17 @@ function collect(items: Item[], group: GroupId, piecesOf: (item: Item) => Piece[
 const UNDERLYING: Record<string, { family: 'BTC' | 'ETH' | 'USD' | 'EUR'; peg: boolean }> = Object.fromEntries([
   ...['BTC', 'WBTC', 'CBBTC', 'TBTC', 'BTCB', 'FBTC', 'LBTC', 'SOLVBTC', 'EBTC'].map((k) => [k, { family: 'BTC', peg: true }]),
   ...['ETH', 'WETH', 'STETH', 'EETH', 'OETH', 'FRXETH'].map((k) => [k, { family: 'ETH', peg: true }]),
-  ...['WSTETH', 'RETH', 'CBETH', 'WEETH', 'EZETH', 'RSETH', 'METH', 'SFRXETH', 'SWETH', 'ETHX', 'OSETH'].map((k) => [k, { family: 'ETH', peg: false }]),
-  ...['USDC', 'USDT', 'DAI', 'USDS', 'USDE', 'PYUSD', 'FDUSD', 'TUSD', 'GHO', 'LUSD', 'USDC.E', 'USDBC', 'FRAX', 'CRVUSD', 'RLUSD', 'USDG'].map((k) => [k, { family: 'USD', peg: true }]),
+  ...['WSTETH', 'RETH', 'CBETH', 'WEETH', 'EZETH', 'RSETH', 'METH', 'SFRXETH', 'SWETH', 'ETHX', 'OSETH', 'LIQUIDETH'].map((k) => [k, { family: 'ETH', peg: false }]),
+  ...['USDC', 'USDT', 'USDT0', 'USD₮0', 'DAI', 'USDS', 'USDE', 'PYUSD', 'FDUSD', 'TUSD', 'GHO', 'LUSD', 'USDC.E', 'USDBC', 'FRAX', 'CRVUSD', 'RLUSD', 'USDG'].map((k) => [k, { family: 'USD', peg: true }]),
   ...['SUSDE', 'SDAI', 'SUSDS', 'LIQUIDUSD'].map((k) => [k, { family: 'USD', peg: false }]),
   ...['EURC', 'EURE', 'EURS', 'AGEUR', 'EURA'].map((k) => [k, { family: 'EUR', peg: true }]),
   ...['WEEUR'].map((k) => [k, { family: 'EUR', peg: false }]),
   // Money itself, for what you owe in a currency.
   ['USD', { family: 'USD', peg: true }], ['EUR', { family: 'EUR', peg: true }],
 ] as [string, { family: 'BTC' | 'ETH' | 'USD' | 'EUR'; peg: boolean }][]);
-const FAMILY_NAMES = { BTC: 'Bitcoin', ETH: 'Ether', USD: 'US dollar', EUR: 'Euro' } as const;
+export const FAMILY_NAMES = { BTC: 'Bitcoin', ETH: 'Ether', USD: 'US dollar', EUR: 'Euro' } as const;
+/** What a token is underneath (Bitcoin, Ether, a dollar, a euro), when known. */
+export const underlyingOf = (symbol: string) => UNDERLYING[symbol.toUpperCase()];
 
 /** Assets that are the same thing underneath, with the versions held. One version stays a plain position. */
 export type Family = { key: string; name: string; unit: string | null; quantity: number | null; valueCents: number | null; unknown: number; members: Position[] };
