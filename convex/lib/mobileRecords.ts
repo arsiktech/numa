@@ -14,6 +14,7 @@ import {
   replayDeletedTransaction
 } from "./transactionFinance";
 import { assertCashAccountDefinitionChange, categoryBudgetCurrency } from "../money";
+import { cardDetailsValidator, cleanCardDetails } from "./cardDetails";
 import {
   assertGoalRefs,
   assetKindValidator,
@@ -43,6 +44,7 @@ const createTransaction = mutation({
     amount: v.number(),
     currency: currencyValidator,
     notes: v.optional(v.string()),
+    card: v.optional(cardDetailsValidator),
     clientMutationId: v.optional(v.string()),
     auditDraftId: v.optional(v.id("aiActionDrafts"))
   },
@@ -79,7 +81,7 @@ const createTransaction = mutation({
         "mobile.createTransaction",
         async () => {
           await applyTransactionChange(ctx, null, args);
-          const txId = await ctx.db.insert("transactions", auditedPayload);
+          const txId = await ctx.db.insert("transactions", { ...auditedPayload, ...(args.card ? { card: cleanCardDetails(args.card) } : {}) });
           return txId;
         },
         String(args.portfolioId)
@@ -99,6 +101,7 @@ const updateTransaction = mutation({
     amount: v.optional(v.number()),
     currency: v.optional(currencyValidator),
     notes: v.optional(v.union(v.string(), v.null())),
+    card: v.optional(v.union(cardDetailsValidator, v.null())),
     clientMutationId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
@@ -116,6 +119,7 @@ const updateTransaction = mutation({
       if (args.amount !== undefined) patch.amount = args.amount;
       if (args.currency !== undefined) patch.currency = args.currency;
       if (args.notes !== undefined) patch.notes = args.notes?.trim() || undefined;
+      if (args.card !== undefined) patch.card = args.card === null ? undefined : cleanCardDetails(args.card);
       const after = { ...before, ...patch } as Doc<"transactions">;
       await applyTransactionChange(ctx, before, after);
       await ctx.db.patch(args.id, patch);

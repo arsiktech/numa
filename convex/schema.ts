@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { financeClassificationValidator } from "./lib/financeValidators";
+import { cardDetailsValidator } from "./lib/cardDetails";
 import {
   cryptoWalletAddressTypeValidator,
   cryptoWalletSnapshotValidator
@@ -148,6 +149,8 @@ export default defineSchema({
     createdByUserId: v.id("users"),
     splits: v.optional(v.array(v.object({ userId: v.id("users"), bps: v.number() }))),
     notes: v.optional(v.string()),
+    /** A card purchase's statement details: card, merchant, what was charged, cashback. */
+    card: v.optional(cardDetailsValidator),
     // Optional GPS + reverse-geocoded label captured at create-time. Lat/lng
     // is stored alongside the label so we can re-resolve via Nominatim if the
     // human-readable string is stale or missing.

@@ -10,6 +10,7 @@ import { convertCents, type FxRate } from '@/data/fx';
 import { summarizeFlow } from '@/domain/flow';
 import { shortDay } from '@/domain/freshness';
 import type { Currency, MonthFlow } from '@/domain/types';
+import { monthCashback, rowDetails } from '@/flow/card';
 import { availableMonths, monthFlow, monthName, monthOf, sameMonth, transactionsIn, type MonthKey } from '@/flow/month';
 import { mrr, recurringRows, type RecurringRow } from '@/flow/recurring';
 import { Sankey } from '@/flow/Sankey';
@@ -95,6 +96,8 @@ function Inner({ data }: { data: FlowData }) {
   const lines = [...flow.incoming, ...flow.outgoing];
   const focused = lines.find((l) => l.id === focus) ?? null;
   const txs = data.txsFor(month).filter((t) => !focused || focused.txIds?.includes(t.id));
+  // Cashback the month's card purchases earned, whatever stream is followed.
+  const cashback = data.demo ? null : monthCashback(data.txsFor(month), data.currency, data.fx);
   const names = new Map(data.categories.map((x) => [x.id, x.name]));
   const go = (by: number) => { const next = data.months[idx + by]; if (next) { setMonth(next); setFocus(null); } };
   const products = mrr(data.recurring);
@@ -122,6 +125,16 @@ function Inner({ data }: { data: FlowData }) {
         )}
         <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{hidden ? 'Amounts hidden' : `in ${money(sum.inCents)} · out ${money(sum.outCents)}${sum.inCents > 0 && sum.keptCents >= 0 ? ` · ${Math.round(sum.keptShare * 100)}% kept` : ''}`}</Txt>
         {flow.unconverted.length > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{flow.unconverted.length} in another currency left out until today’s rate loads.</Txt>}
+        {cashback && (
+          <View style={{ marginTop: 14, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 18, backgroundColor: c.upBg, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+            accessibilityLabel={`Cashback in ${monthName(month, new Date(data.now))}: ${hidden ? 'amount hidden' : money(cashback.cents, { cents: true })} from ${cashback.count} card purchases`}>
+            <View style={{ flex: 1 }}>
+              <Txt v="small" c="upInk" style={{ fontFamily: 'Manrope_700Bold' }}>Cashback in {monthName(month, new Date(data.now))}</Txt>
+              <Txt v="small" c="ink2">From {cashback.count} card {cashback.count === 1 ? 'purchase' : 'purchases'}{cashback.share !== null ? ` · about ${(cashback.share * 100).toFixed(1)}% back` : ''}{cashback.unknown ? ` · ${cashback.unknown} in another coin left out` : ''}</Txt>
+            </View>
+            <Txt v="figure" style={{ fontSize: 17, color: c.upInk }}>+{money(cashback.cents, { cents: true })}</Txt>
+          </View>
+        )}
               </View>
 
       {nothing ? (
@@ -163,14 +176,18 @@ function Inner({ data }: { data: FlowData }) {
           {txs.map((t, i) => {
             const cents = convertCents(Math.abs(t.amountMinor), t.currency, data.currency, data.fx);
             const income = t.kind === 'income';
+            const detail = rowDetails(t);
             return (
               <Link key={t.id} href={{ pathname: '/tx/[id]', params: { id: t.id } }} asChild>
                 <Pressable accessibilityRole="link" style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === txs.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{t.description}</Txt>
-                    <Txt v="small" c="ink2" numberOfLines={1}>{[t.categoryId ? names.get(t.categoryId) : null, shortDay(t.occurredAt, data.now)].filter(Boolean).join(' · ')}</Txt>
+                    <Txt v="small" c="ink2" numberOfLines={1}>{[focused ? null : t.categoryId ? names.get(t.categoryId) : null, shortDay(t.occurredAt, data.now), ...detail.meta].filter(Boolean).join(' · ')}</Txt>
                   </View>
-                  <Txt v="figure" style={{ fontSize: 15, color: income ? c.upInk : c.ink }}>{cents === null ? '—' : (income ? '+' : '−') + money(cents, { cents: cents % 100 !== 0 }).replace('−', '')}</Txt>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Txt v="figure" style={{ fontSize: 15, color: income ? c.upInk : c.ink }}>{cents === null ? '—' : (income ? '+' : '−') + money(cents, { cents: cents % 100 !== 0 }).replace('−', '')}</Txt>
+                    {detail.extra && !hidden && <Txt v="figureSm" c="upInk" style={{ fontSize: 12 }}>{detail.extra}</Txt>}
+                  </View>
                 </Pressable>
               </Link>
             );

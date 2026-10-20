@@ -76,6 +76,24 @@ const { check, finish } = checker();
   const back = (await snap()).transactions.find((t) => t.description === 'Coffee');
   check('undo re-creates it in its category', !!back && back.categoryId === cat('Dining') && back.amount === 4.5);
 
+  // A card purchase with its statement details: what the card charged and at what rate, the cashback,
+  // the merchant; Flow adds the card and cashback to its row and adds up the month's cashback.
+  const card = { issuer: 'ether.fi', last4: '9969', merchant: 'WWW.AMAZON.ES, LU', mcc: '5999', mccName: 'Miscellaneous & Specialty Retail Stores', billed: { amount: 171.68, currency: 'USD' }, cashback: { amount: 5.15, currency: 'USD' }, mode: 'Borrow Mode', status: 'CLEARED' };
+  const shopId = await c.mutation('mobile:createTransaction', { portfolioId: p, description: 'Amazon', kind: 'expense', amount: 151.14, currency: 'EUR', occurredAt: now - 5 * 3600e3, card, notes: 'ether.fi card •9969 · WWW.AMAZON.ES, LU' });
+  await page.goto(APP + '/tx/' + (typeof shopId === 'string' ? shopId : shopId.id));
+  await page.getByText('CHARGED').waitFor({ timeout: 15000 });
+  b = await page.locator('body').innerText();
+  check('a card purchase shows its card, what was charged and at what rate, and the cashback', b.includes('ether.fi card ••9969') && b.includes('$171.68') && b.includes('1 EUR = 1.1359 USD') && b.includes('+$5.15') && b.includes('3.0% back') && b.includes('Borrow Mode: paid from your ether.fi credit line'), b.slice(0, 700).replace(/\n/g, ' | '));
+  check('it shows the merchant and its type, and not a note that only repeats them', b.includes('WWW.AMAZON.ES, LU') && b.includes('Miscellaneous & Specialty Retail Stores · MCC 5999') && !b.includes('ether.fi card •9969 ·'));
+  await page.screenshot({ path: OUT + '/03b-card-purchase-dark-390.png' });
+  await page.goto(APP + '/flow');
+  await page.getByText(/^Cashback in /).waitFor({ timeout: 20000 });
+  b = await page.locator('body').innerText();
+  check('Flow adds up the month’s cashback and shows it on the row with the card', /Cashback in \w+[\s\S]*From 1 card purchase · about 3\.0% back/.test(b) && b.includes('+$5.15 back') && /••9969/.test(b), b.slice(0, 600).replace(/\n/g, ' | '));
+  await page.screenshot({ path: OUT + '/03c-flow-cashback-dark-390.png' });
+  const keep = (await snap()).transactions.find((t) => t.description === 'Amazon');
+  check('the card details are saved with the transaction', keep?.card?.cashback?.amount === 5.15 && keep.card.last4 === '9969');
+
   const wide = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'light' });
   const w = await wide.newPage();
   watchErrors(w, errors);
