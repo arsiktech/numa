@@ -42,6 +42,44 @@ describe("agent tools", () => {
     expect(f.writes()).toEqual([["mutation", "mobile:createTransaction", { portfolioId: "p1", kind: "expense", amount: 24, currency: "EUR", description: "Lunch", occurredAt: NOW, clientMutationId: "req-1" }]]);
   });
 
+  it("keeps a trimmed note with a transaction, can clear it, and refuses one that is too long", async () => {
+    const f = fakeIo();
+    await tool("add_transaction").run(f.io, { kind: "expense", amount: 9.99, description: "Tesla", notes: "  card •1234 · Lisbon  " });
+    await tool("add_transaction").run(f.io, { kind: "expense", amount: 1, description: "Coffee", notes: "   " });
+    await tool("update_transaction").run(f.io, { id: "t1", notes: null });
+    await tool("update_transaction").run(f.io, { id: "t2", notes: "Shared with Ana" });
+    await tool("update_transaction").run(f.io, { id: "t3", amount: 5 });
+    expect(f.writes()[0][2]).toMatchObject({ notes: "card •1234 · Lisbon" });
+    expect("notes" in (f.writes()[1][2] as object)).toBe(false);
+    expect(f.writes()[2][2]).toMatchObject({ id: "t1", notes: null });
+    expect(f.writes()[3][2]).toMatchObject({ id: "t2", notes: "Shared with Ana" });
+    expect("notes" in (f.writes()[4][2] as object)).toBe(false);
+    await expect(tool("add_transaction").run(f.io, { kind: "expense", amount: 1, description: "x", notes: "a".repeat(501) })).rejects.toThrow(AgentInputError);
+  });
+
+  it("adds a category once, after the last one, and reuses a name the space already has", async () => {
+    const f = fakeIo();
+    const query = f.io.query;
+    f.io.query = async (path, args) => path === "categories:listForPortfolio"
+      ? [{ _id: "c1", name: "Groceries", kind: "expense", sortOrder: 0 }, { _id: "c2", name: "Salary", kind: "income", sortOrder: 6 }]
+      : query(path, args);
+    const made = await tool("save_category").run(f.io, { name: " Travel ", emoji: "✈️", icon: "plane", color: "sky", request_id: "cat-travel" });
+    expect(made).toEqual({ id: "new", replayed: false });
+    expect(f.writes()).toEqual([["mutation", "categories:add", { portfolioId: "p1", name: "Travel", kind: "expense", icon: "plane", color: "sky", emoji: "✈️", sortOrder: 7, clientMutationId: "scoped:cat-travel" }]]);
+    expect(await tool("save_category").run(f.io, { name: "groceries" })).toEqual({ id: "c1", replayed: true, existing: true });
+    await tool("save_category").run(f.io, { name: "Groceries", kind: "income" });
+    expect(f.writes()[1][2]).toMatchObject({ name: "Groceries", kind: "income", icon: "tag", color: "sand", sortOrder: 7 });
+    await expect(tool("save_category").run(f.io, {})).rejects.toThrow(AgentInputError);
+    await expect(tool("save_category").run(f.io, { name: "x".repeat(41) })).rejects.toThrow(AgentInputError);
+  });
+
+  it("renames or restyles a category by id and refuses an empty change", async () => {
+    const f = fakeIo();
+    await tool("save_category").run(f.io, { id: "c9", name: "Trips", emoji: "🧳" });
+    expect(f.writes()).toEqual([["mutation", "categories:update", { id: "c9", patch: { name: "Trips", emoji: "🧳" }, clientMutationId: "req-1" }]]);
+    await expect(tool("save_category").run(f.io, { id: "c9" })).rejects.toThrow(AgentInputError);
+  });
+
   it("uses the agent's own request id, so a retried call saves once", async () => {
     const f = fakeIo();
     await tool("save_asset").run(f.io, { space_id: "p2", name: "Chase", kind: "cash", balance: "1200.50", request_id: "same-id" });

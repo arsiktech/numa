@@ -41,6 +41,7 @@ export const toolWords: Record<string, string> = {
   delete_holding: 'Deleted a holding',
   save_goal: 'Saved a goal',
   delete_goal: 'Deleted a goal',
+  save_category: 'Saved a category',
   set_spending_limit: 'Set a spending limit',
   track_wallet: 'Started tracking a wallet',
   untrack_wallet: 'Stopped tracking a wallet',

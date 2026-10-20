@@ -42,6 +42,20 @@ const spaceId = str("Space (portfolio) id from list_spaces. Leave out to use the
 const currency = str("Currency code. Leave out to use the space's currency.", { enum: [...CURRENCIES] });
 const requestId = str("Optional id for this write. Sending the same id again never saves twice.");
 const where = str("Where it is kept, like Trade Republic, Ledger or Binance. Leave out to keep what is saved; send an empty string to clear it.");
+const notes = str("Optional note kept with it, like the card or shop it came from. At most 500 characters.");
+/** A trimmed note, or undefined when none was sent. */
+function noteOf(args: Json): string | undefined {
+  const value = text(args, "notes", false)?.trim();
+  if (value !== undefined && value.length > 500) throw new AgentInputError("notes must be at most 500 characters");
+  return value || undefined;
+}
+/** A category name: trimmed, 1 to 40 characters. */
+function categoryName(args: Json, required: boolean): string | undefined {
+  const value = text(args, "name", required)?.trim();
+  if (value === undefined) return undefined;
+  if (!value || value.length > 40) throw new AgentInputError("name must be 1 to 40 characters");
+  return value;
+}
 /** `location` only when the agent sent it, so an update without it keeps the saved place. */
 const place = (args: Json) => (typeof args.location === "string" ? { location: args.location } : {});
 const schema = (properties: Record<string, Json>, required: string[] = []): Schema =>
@@ -220,20 +234,22 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "add_transaction", title: "Add income or spending", write: true,
     description: "Record money that came in or went out. Amount is always positive; kind says the direction.",
-    inputSchema: schema({ space_id: spaceId, kind: str("income or expense", { enum: ["income", "expense"] }), amount: num("Positive amount.", { exclusiveMinimum: 0 }), currency, description: str("What it was, like Lunch or Salary."), date: str("When, like 2026-10-17. Default now."), category_id: str("Category id from get_records."), request_id: requestId }, ["kind", "amount", "description"]),
+    inputSchema: schema({ space_id: spaceId, kind: str("income or expense", { enum: ["income", "expense"] }), amount: num("Positive amount.", { exclusiveMinimum: 0 }), currency, description: str("What it was, like Lunch or Salary."), date: str("When, like 2026-10-17. Default now."), category_id: str("Category id from get_records."), notes: notes, request_id: requestId }, ["kind", "amount", "description"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
+      const note = noteOf(args);
       return io.mutation("mobile:createTransaction", {
         portfolioId: space.id, kind: oneOf(args, "kind", ["income", "expense"] as const), amount: amount(args, "amount"),
         currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, description: text(args, "description"),
-        occurredAt: date(args, "date", io.now()), ...(text(args, "category_id", false) ? { categoryId: text(args, "category_id") } : {}), ...write(io, args),
+        occurredAt: date(args, "date", io.now()), ...(text(args, "category_id", false) ? { categoryId: text(args, "category_id") } : {}),
+        ...(note ? { notes: note } : {}), ...write(io, args),
       });
     },
   },
   {
     name: "update_transaction", title: "Change a transaction", write: true,
     description: "Change any field of a transaction. Only the fields you send change.",
-    inputSchema: schema({ id: str("Transaction id."), kind: str("income or expense", { enum: ["income", "expense"] }), amount: num("Positive amount.", { exclusiveMinimum: 0 }), currency: str("Currency code.", { enum: [...CURRENCIES] }), description: str("New description."), date: str("New date."), category_id: { type: ["string", "null"], description: "New category id, or null for none." }, request_id: requestId }, ["id"]),
+    inputSchema: schema({ id: str("Transaction id."), kind: str("income or expense", { enum: ["income", "expense"] }), amount: num("Positive amount.", { exclusiveMinimum: 0 }), currency: str("Currency code.", { enum: [...CURRENCIES] }), description: str("New description."), date: str("New date."), category_id: { type: ["string", "null"], description: "New category id, or null for none." }, notes: { type: ["string", "null"], description: "New note, or null to remove it." }, request_id: requestId }, ["id"]),
     run: (io, args) => io.mutation("mobile:updateTransaction", {
       id: text(args, "id"),
       ...(args.kind !== undefined ? { kind: oneOf(args, "kind", ["income", "expense"] as const) } : {}),
@@ -242,6 +258,7 @@ export const AGENT_TOOLS: AgentTool[] = [
       ...(args.description !== undefined ? { description: text(args, "description") } : {}),
       ...(args.date !== undefined ? { occurredAt: date(args, "date") } : {}),
       ...(args.category_id !== undefined ? { categoryId: args.category_id === null ? null : text(args, "category_id") } : {}),
+      ...(args.notes !== undefined ? { notes: args.notes === null ? null : noteOf(args) ?? null } : {}),
       ...write(io, args),
     }),
   },
@@ -343,6 +360,27 @@ export const AGENT_TOOLS: AgentTool[] = [
     description: "Delete one goal.",
     inputSchema: schema({ id: str("Goal id."), request_id: requestId }, ["id"]),
     run: (io, args) => io.mutation("goals:remove", { id: text(args, "id"), ...write(io, args) }),
+  },
+  {
+    name: "save_category", title: "Add or update a category", write: true,
+    description: "Spending and income categories, like Travel or Pets. Send id to rename or restyle one; leave it out to add one. Adding a name the space already has (same kind, any letter case) returns that category instead of a second one.",
+    inputSchema: schema({ id: str("Category id to update, from get_records."), space_id: spaceId, name: str("Name, like Travel. At most 40 characters."), kind: str("expense or income. Default expense.", { enum: ["expense", "income"] }), emoji: str("One emoji shown with it, like ✈️."), icon: str("Icon name, like plane."), color: str("Color name, like sky, mint, peach, sand, lavender or blush."), request_id: requestId }),
+    async run(io, args) {
+      const name = categoryName(args, !args.id);
+      const style = { ...(text(args, "emoji", false) ? { emoji: text(args, "emoji") } : {}), ...(text(args, "icon", false) ? { icon: text(args, "icon") } : {}), ...(text(args, "color", false) ? { color: text(args, "color") } : {}) };
+      if (args.id !== undefined) {
+        const patch = { ...(name ? { name } : {}), ...style };
+        if (!Object.keys(patch).length) throw new AgentInputError("Send a name, emoji, icon or color to change.");
+        return io.mutation("categories:update", { id: text(args, "id"), patch, ...write(io, args) });
+      }
+      const space = await resolveSpace(io, args);
+      const kind = oneOf(args, "kind", ["expense", "income"] as const, false) ?? "expense";
+      const existing = (await io.query("categories:listForPortfolio", { portfolioId: space.id })) as Array<{ _id: string; name: string; kind: string; sortOrder: number }>;
+      const same = existing.find((c) => c.kind === kind && c.name.trim().toLowerCase() === name!.toLowerCase());
+      if (same) return { id: same._id, replayed: true, existing: true };
+      const sortOrder = existing.reduce((max, c) => Math.max(max, c.sortOrder), -1) + 1;
+      return io.mutation("categories:add", { portfolioId: space.id, name, kind, icon: "tag", color: "sand", ...style, sortOrder, ...write(io, args) });
+    },
   },
   {
     name: "set_spending_limit", title: "Set a monthly spending limit", write: true,
