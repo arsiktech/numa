@@ -375,6 +375,9 @@ export const remove = mutation({
       "cryptoWallets.remove",
       async () => {
         await ctx.db.delete(args.id);
+        // Its earnings history goes with it.
+        const readings = await ctx.db.query("defiReadings").withIndex("by_wallet_day", (q) => q.eq("walletId", args.id)).collect();
+        for (const r of readings) await ctx.db.delete(r._id);
         return args.id;
       }
     );

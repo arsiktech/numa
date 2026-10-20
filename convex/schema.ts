@@ -293,6 +293,25 @@ export default defineSchema({
   }).index("by_portfolio", ["portfolioId"]),
 
   /**
+   * One reading a day per wallet of what its DeFi positions hold and owe, coin by coin, with the
+   * prices of ether, bitcoin and the euro. What strategies earned is worked out from how these grow.
+   */
+  defiReadings: defineTable({
+    portfolioId: v.id("portfolios"),
+    walletId: v.id("cryptoWallets"),
+    /** UTC day, YYYY-MM-DD; the day's latest complete reading replaces earlier ones. */
+    day: v.string(),
+    takenAt: v.number(),
+    refs: v.object({ ETH: v.optional(v.number()), BTC: v.optional(v.number()), EUR: v.optional(v.number()) }),
+    rows: v.array(v.object({
+      position: v.string(), protocol: v.string(), chainName: v.string(), label: v.string(),
+      symbol: v.string(), debt: v.optional(v.boolean()), quantity: v.number(), valueUsd: v.number(),
+    })),
+  })
+    .index("by_wallet_day", ["walletId", "day"])
+    .index("by_portfolio", ["portfolioId"]),
+
+  /**
    * A debt kept in step with a company portal: its agent link is read on a schedule and the debt
    * becomes the portal's shortfall. `key` is the portal's secret and never leaves the server.
    */
