@@ -85,6 +85,14 @@ export type CloudTransaction = {
   currency: CloudCurrency;
   accountId: string | null;
   notes: string | null;
+  /** A card purchase's statement details, when it came from a card. */
+  card?: CardDetails | null;
+};
+
+type Amount = { amount: number; currency: string };
+export type CardDetails = {
+  issuer: string; last4?: string; merchant?: string; mcc?: string; mccName?: string;
+  original?: Amount; billed?: Amount; cashback?: Amount; mode?: string; status?: string;
 };
 
 export type CloudRecurring = {

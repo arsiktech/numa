@@ -57,6 +57,20 @@ describe("agent tools", () => {
     await expect(tool("add_transaction").run(f.io, { kind: "expense", amount: 1, description: "x", notes: "a".repeat(501) })).rejects.toThrow(AgentInputError);
   });
 
+  it("passes a card purchase's statement details through, and can remove them", async () => {
+    const f = fakeIo();
+    const card = { issuer: "ether.fi", last4: "1234", merchant: "SHOP, LISBON", mcc: "5411", mcc_name: "Grocery Stores", billed: { amount: 11.36, currency: "USD" }, cashback: { amount: 0.34, currency: "USD" }, mode: "Borrow Mode" };
+    await tool("add_transaction").run(f.io, { kind: "expense", amount: 10, description: "Shop", card });
+    await tool("update_transaction").run(f.io, { id: "t1", card });
+    await tool("update_transaction").run(f.io, { id: "t2", card: null });
+    await tool("update_transaction").run(f.io, { id: "t3", amount: 5 });
+    const expected = { issuer: "ether.fi", last4: "1234", merchant: "SHOP, LISBON", mcc: "5411", mccName: "Grocery Stores", billed: { amount: 11.36, currency: "USD" }, cashback: { amount: 0.34, currency: "USD" }, mode: "Borrow Mode" };
+    expect(f.writes()[0][2]).toMatchObject({ card: expected });
+    expect(f.writes()[1][2]).toMatchObject({ id: "t1", card: expected });
+    expect(f.writes()[2][2]).toMatchObject({ id: "t2", card: null });
+    expect("card" in (f.writes()[3][2] as object)).toBe(false);
+  });
+
   it("adds a category once, after the last one, and reuses a name the space already has", async () => {
     const f = fakeIo();
     const query = f.io.query;

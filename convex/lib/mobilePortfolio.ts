@@ -63,7 +63,8 @@ export function mobileTransaction(tx: Doc<"transactions">) {
     currency: tx.currency,
     createdByUserId: tx.createdByUserId,
     notes: tx.notes ?? null,
-    location: tx.location ?? null
+    location: tx.location ?? null,
+    card: tx.card ?? null
   };
 }
 

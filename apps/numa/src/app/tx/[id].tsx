@@ -9,6 +9,7 @@ import { useCloudData } from '@/data/cloud';
 import { useWriter } from '@/data/writes';
 import { shortDay } from '@/domain/freshness';
 import { formatMoney } from '@/domain/money';
+import { cashbackShare, formatAmount, noteRepeatsCard, rateText, whenOf } from '@/flow/card';
 import { txDeletePlan, txEditPlan, txFields, txProblems, type TxFields } from '@/flow/txPlan';
 import { useTheme } from '@/theme/theme';
 import { Field, Seg, toCents } from '@/ui/form';
@@ -73,10 +74,11 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
 
   return (
     <View>
-      <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{income ? 'INCOME' : 'SPENDING'}</Txt>
+      <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{income ? 'INCOME' : 'SPENDING'}{category ? ` · ${category.toUpperCase()}` : ''}</Txt>
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{tx.description}</Txt>
       <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: income ? c.upInk : c.ink }}>{mask((income ? '+' : '−') + formatMoney(Math.abs(tx.amountMinor), tx.currency, { cents: true }))}</Txt>
-      <Txt v="body" c="ink2" style={{ marginTop: 6 }}>{[category, shortDay(tx.occurredAt, now)].filter(Boolean).join(' · ')}</Txt>
+      <Txt v="body" c="ink2" style={{ marginTop: 6 }}>{whenOf(tx.occurredAt)}</Txt>
+      {!editing && <CardDetailsView tx={tx} category={category} />}
 
       {editing && (
         <View style={{ marginTop: 22, gap: 12 }}>
@@ -130,6 +132,66 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
           )}
         </View>
       )}
+    </View>
+  );
+}
+
+/** What the card statement says about a purchase: card, charge and rate, cashback, merchant. */
+function CardDetailsView({ tx, category }: { tx: CloudTransaction; category: string | null }) {
+  const { c } = useTheme();
+  const { mask } = useMoney();
+  const card = tx.card;
+  const rate = rateText(tx);
+  const share = cashbackShare(tx);
+  const charged = card?.billed && card.billed.currency !== tx.currency ? card.billed : null;
+  const rows: [string, string][] = [];
+  if (card?.original && card.original.currency !== tx.currency) rows.push(['Price where bought', mask(formatAmount(card.original.amount, card.original.currency))]);
+  if (card?.merchant) rows.push(['Merchant', card.merchant]);
+  if (card?.mccName || card?.mcc) rows.push(['Merchant type', [card.mccName, card.mcc ? `MCC ${card.mcc}` : null].filter(Boolean).join(' · ')]);
+  rows.push(['Category', category ?? 'None']);
+  if (tx.notes && !noteRepeatsCard(tx)) rows.push(['Note', tx.notes]);
+  if (card) rows.push(['Source', [`${card.issuer} statement`, card.status?.toLowerCase()].filter(Boolean).join(', ')]);
+  return (
+    <View style={{ marginTop: 16, gap: 14 }}>
+      {card && (
+        <View style={{ padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 34, height: 22, borderRadius: 5, backgroundColor: c.s2, borderWidth: 1, borderColor: c.line2, alignItems: 'center', justifyContent: 'center' }}>
+              <Txt v="label" c="ink2" style={{ fontSize: 9 }}>CARD</Txt>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Txt v="cardTitle">{card.issuer} card{card.last4 ? ` ••${card.last4}` : ''}</Txt>
+              {card.mode && <Txt v="small" c="ink2">{/borrow/i.test(card.mode) ? `${card.mode}: paid from your ${card.issuer} credit line` : card.mode}</Txt>}
+            </View>
+          </View>
+          {(charged || card.cashback) && (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {charged && (
+                <View style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: c.s2, gap: 2 }}>
+                  <Txt v="label" c="ink2">CHARGED</Txt>
+                  <Txt v="figure" style={{ fontSize: 15 }}>{mask(formatAmount(charged.amount, charged.currency))}</Txt>
+                  {rate && <Txt v="small" c="ink2">{rate}</Txt>}
+                </View>
+              )}
+              {card.cashback && (
+                <View style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: c.upBg, gap: 2 }}>
+                  <Txt v="label" c="upInk">CASHBACK</Txt>
+                  <Txt v="figure" style={{ fontSize: 15, color: c.upInk }}>{mask(`+${formatAmount(card.cashback.amount, card.cashback.currency)}`)}</Txt>
+                  {share !== null && <Txt v="small" c="ink2">{(share * 100).toFixed(1)}% back</Txt>}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      )}
+      <View>
+        {rows.map(([label, value], i) => (
+          <View key={label} style={{ minHeight: 48, paddingVertical: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, borderBottomWidth: i === rows.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
+            <Txt v="body" c="ink2">{label}</Txt>
+            <Txt v="small" style={{ flexShrink: 1, textAlign: 'right' }} selectable>{value}</Txt>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }

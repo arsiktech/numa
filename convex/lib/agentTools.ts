@@ -44,6 +44,29 @@ const requestId = str("Optional id for this write. Sending the same id again nev
 const where = str("Where it is kept, like Trade Republic, Ledger or Binance. Leave out to keep what is saved; send an empty string to clear it.");
 const notes = str("Optional note kept with it, like the card or shop it came from. At most 500 characters.");
 /** A trimmed note, or undefined when none was sent. */
+const money = (what: string): Json => ({ type: "object", description: what, properties: { amount: num("Amount, positive."), currency: str("Currency code, like USD, EUR or UAH.") }, required: ["amount", "currency"], additionalProperties: false });
+/** A card purchase's statement details, for add_transaction and update_transaction. */
+const card: Json = {
+  type: ["object", "null"],
+  description: "For a card purchase: what its card statement says. On update, null removes it.",
+  properties: {
+    issuer: str("Who issued the card, like ether.fi."), last4: str("The card's last four digits."), merchant: str("The merchant as the statement has it."),
+    mcc: str("Merchant category code, like 5411."), mcc_name: str("What the merchant code means, like Grocery Stores and Supermarkets."),
+    original: money("What it cost where it was bought, when that currency isn't the amount's, like 1,420 UAH."),
+    billed: money("What the card actually charged, when it differs from the amount (another currency)."), cashback: money("Cashback earned on it."),
+    mode: str("How it was paid, like Borrow Mode or Direct Pay."), status: str("Statement status, like cleared."),
+  },
+  required: ["issuer"], additionalProperties: false,
+};
+type CardArgs = { issuer: string; last4?: string; merchant?: string; mcc?: string; mcc_name?: string; original?: { amount: number; currency: string }; billed?: { amount: number; currency: string }; cashback?: { amount: number; currency: string }; mode?: string; status?: string };
+function cardOf(args: Json): Record<string, unknown> | null | undefined {
+  const c = args.card as CardArgs | null | undefined;
+  if (c === undefined || c === null) return c;
+  if (typeof c !== "object" || typeof c.issuer !== "string") throw new Error("card needs at least an issuer");
+  const { mcc_name, ...rest } = c;
+  return { ...rest, ...(mcc_name !== undefined ? { mccName: mcc_name } : {}) };
+}
+
 function noteOf(args: Json): string | undefined {
   const value = text(args, "notes", false)?.trim();
   if (value !== undefined && value.length > 500) throw new AgentInputError("notes must be at most 500 characters");
@@ -234,7 +257,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "add_transaction", title: "Add income or spending", write: true,
     description: "Record money that came in or went out. Amount is always positive; kind says the direction.",
-    inputSchema: schema({ space_id: spaceId, kind: str("income or expense", { enum: ["income", "expense"] }), amount: num("Positive amount.", { exclusiveMinimum: 0 }), currency, description: str("What it was, like Lunch or Salary."), date: str("When, like 2026-10-17. Default now."), category_id: str("Category id from get_records."), notes: notes, request_id: requestId }, ["kind", "amount", "description"]),
+    inputSchema: schema({ space_id: spaceId, kind: str("income or expense", { enum: ["income", "expense"] }), amount: num("Positive amount.", { exclusiveMinimum: 0 }), currency, description: str("What it was, like Lunch or Salary."), date: str("When, like 2026-10-17. Default now."), category_id: str("Category id from get_records."), notes: notes, card, request_id: requestId }, ["kind", "amount", "description"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
       const note = noteOf(args);
@@ -242,14 +265,14 @@ export const AGENT_TOOLS: AgentTool[] = [
         portfolioId: space.id, kind: oneOf(args, "kind", ["income", "expense"] as const), amount: amount(args, "amount"),
         currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, description: text(args, "description"),
         occurredAt: date(args, "date", io.now()), ...(text(args, "category_id", false) ? { categoryId: text(args, "category_id") } : {}),
-        ...(note ? { notes: note } : {}), ...write(io, args),
+        ...(note ? { notes: note } : {}), ...(cardOf(args) ? { card: cardOf(args) } : {}), ...write(io, args),
       });
     },
   },
   {
     name: "update_transaction", title: "Change a transaction", write: true,
     description: "Change any field of a transaction. Only the fields you send change.",
-    inputSchema: schema({ id: str("Transaction id."), kind: str("income or expense", { enum: ["income", "expense"] }), amount: num("Positive amount.", { exclusiveMinimum: 0 }), currency: str("Currency code.", { enum: [...CURRENCIES] }), description: str("New description."), date: str("New date."), category_id: { type: ["string", "null"], description: "New category id, or null for none." }, notes: { type: ["string", "null"], description: "New note, or null to remove it." }, request_id: requestId }, ["id"]),
+    inputSchema: schema({ id: str("Transaction id."), kind: str("income or expense", { enum: ["income", "expense"] }), amount: num("Positive amount.", { exclusiveMinimum: 0 }), currency: str("Currency code.", { enum: [...CURRENCIES] }), description: str("New description."), date: str("New date."), category_id: { type: ["string", "null"], description: "New category id, or null for none." }, notes: { type: ["string", "null"], description: "New note, or null to remove it." }, card, request_id: requestId }, ["id"]),
     run: (io, args) => io.mutation("mobile:updateTransaction", {
       id: text(args, "id"),
       ...(args.kind !== undefined ? { kind: oneOf(args, "kind", ["income", "expense"] as const) } : {}),
@@ -259,6 +282,7 @@ export const AGENT_TOOLS: AgentTool[] = [
       ...(args.date !== undefined ? { occurredAt: date(args, "date") } : {}),
       ...(args.category_id !== undefined ? { categoryId: args.category_id === null ? null : text(args, "category_id") } : {}),
       ...(args.notes !== undefined ? { notes: args.notes === null ? null : noteOf(args) ?? null } : {}),
+      ...(args.card !== undefined ? { card: cardOf(args) } : {}),
       ...write(io, args),
     }),
   },

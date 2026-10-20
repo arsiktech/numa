@@ -15,7 +15,7 @@ export type CloudEarning = {
 
 export type Range = '7d' | '30d' | 'all';
 export type Strategy = { key: string; name: string; where: string; earnedCents: number; paidCents: number; netCents: number; heldCents: number; rate: number | null; unknown: number };
-export type EarningsDay = { day: string; netCents: number; totalCents: number };
+export type EarningsDay = { day: string; earnedCents: number; paidCents: number; netCents: number; totalCents: number };
 export type Earnings = {
   /** When Numa first read any of them. */
   since: number | null;
@@ -41,7 +41,7 @@ export function summarize(rows: CloudEarning[], range: Range, now: number, curre
   const from = span === null ? '' : dayOf(now - span * DAY);
   const since = rows.length ? Math.min(...rows.map((r) => r.since)) : null;
   const days = since === null ? 0 : Math.min(span ?? Infinity, Math.max(0, (now - since) / DAY));
-  const byDay = new Map<string, number>();
+  const byDay = new Map<string, [number, number]>();
   let earned = 0, paid = 0, held = 0, unknown = 0;
   const strategies: Strategy[] = [];
   for (const r of rows) {
@@ -49,7 +49,8 @@ export function summarize(rows: CloudEarning[], range: Range, now: number, curre
     for (const [d, [x, y]] of Object.entries(r.daily)) {
       if (d <= from) continue;
       e += x; p += y;
-      byDay.set(d, (byDay.get(d) ?? 0) + x - y);
+      const t = byDay.get(d) ?? [0, 0];
+      byDay.set(d, [t[0] + x, t[1] + y]);
     }
     earned += e; paid += p; held += r.heldUsd; unknown += r.unknown;
     // A strategy closed before the range, with nothing in it, isn't shown.
@@ -62,7 +63,11 @@ export function summarize(rows: CloudEarning[], range: Range, now: number, curre
     });
   }
   let total = 0;
-  const series = [...byDay.keys()].sort().map((d) => { total += byDay.get(d)!; return { day: d, netCents: c(byDay.get(d)!), totalCents: c(total) }; });
+  const series = [...byDay.keys()].sort().map((d) => {
+    const [x, y] = byDay.get(d)!;
+    total += x - y;
+    return { day: d, earnedCents: c(x), paidCents: c(y), netCents: c(x - y), totalCents: c(total) };
+  });
   strategies.sort((a, b) => Math.abs(b.netCents) - Math.abs(a.netCents) || b.heldCents - a.heldCents);
   return {
     since, days, earnedCents: c(earned), paidCents: c(paid), netCents: c(earned - paid),

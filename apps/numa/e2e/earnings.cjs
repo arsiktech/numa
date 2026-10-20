@@ -51,6 +51,14 @@ const snapshot = (at, usdc, gho, liquid, liquidUsd) => ({
   check('the earnings screen shows the net, what was earned and the interest, with a yearly rate', /\+€\d+\.\d\d/.test(body) && /Earned €\d+\.\d\d · interest €\d\.\d\d/.test(body) && /About \d+(\.\d)?% a year/.test(body), body.slice(0, 600).replace(/\n/g, ' | '));
   check('each strategy is listed with where it is', body.includes('ether.fi Cash') && body.includes('Frame · Optimism') && body.includes('Aave V3 lending and borrowing'));
   await page.screenshot({ path: OUT + '/01-earnings-dark-390.png' });
+  // Tapping a day fades the rest and shows that day: the headline follows it, like scrubbing on Home.
+  await page.getByRole('button', { name: /: net \+€/ }).last().click();
+  await page.getByText(/^Total so far /).waitFor({ timeout: 10000 });
+  const tapped = await page.locator('body').innerText();
+  check('tapping a day shows what it earned and paid, and the total so far', /Earned\s*\n?\s*\+€\d+\.\d\d/.test(tapped) && /Interest\s*\n?\s*−€\d+\.\d\d/.test(tapped), tapped.slice(0, 500).replace(/\n/g, ' | '));
+  await page.screenshot({ path: OUT + '/02-day-tapped-dark-390.png' });
+  await page.getByRole('button', { name: /: net \+€/ }).last().click();
+  await page.getByText(/^Earned €/).first().waitFor({ timeout: 10000 });
 
   // Opened by its address, Crypto keeps Home mounted behind it; its own card is the last one.
   await page.goto(APP + '/holdings/crypto');

@@ -19,7 +19,7 @@ export function txDeletePlan(t: CloudTransaction, portfolioId: string): { apply:
       fn: 'createTransaction',
       args: {
         portfolioId, occurredAt: t.occurredAt, description: t.description, kind: t.kind, amount: Math.abs(t.amountMinor) / 100, currency: t.currency,
-        ...(t.categoryId ? { categoryId: t.categoryId } : {}), ...(t.accountId ? { accountId: t.accountId } : {}), ...(t.notes ? { notes: t.notes } : {}),
+        ...(t.categoryId ? { categoryId: t.categoryId } : {}), ...(t.accountId ? { accountId: t.accountId } : {}), ...(t.notes ? { notes: t.notes } : {}), ...(t.card ? { card: t.card } : {}),
       },
     },
   };
