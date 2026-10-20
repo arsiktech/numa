@@ -1,4 +1,4 @@
-import type { CloudAsset, CloudHolding, CloudWallet } from '@/cloud/api';
+import type { CloudAsset, CloudHolding, CloudLiability, CloudWallet } from '@/cloud/api';
 import type { Currency } from '@/domain/types';
 import { convertCents, type FxRate } from './fx';
 import type { GroupId, Item } from './items';
@@ -88,8 +88,52 @@ function piecesOf(item: Item): Piece[] {
   return [{ key: `item:${item.id}`, name: item.name, unit: null, quantity: null, valueCents: item.valueCents, detail: item.detail, ...(item.type === 'asset' ? placeOf(item.raw as CloudAsset) : {}) }];
 }
 
+/**
+ * What one debt is owed in: each coin a wallet borrowed (USDC on Compound, GHO on Aave), a record's
+ * coin (BTC) or its currency (EUR). A wallet's total is shared out by what each loan is worth.
+ */
+function debtPiecesOf(item: Item): Piece[] {
+  if (item.type === 'wallet') {
+    const w = item.raw as CloudWallet;
+    const loans = (w.snapshot?.defiPositions ?? []).filter((p) => p.debtValueUsd > 0);
+    const total = loans.reduce((t, p) => t + p.debtValueUsd, 0);
+    const share = (usd: number) => (item.valueCents === null || total <= 0 ? null : Math.round((usd / total) * item.valueCents));
+    const out: Piece[] = [];
+    for (const p of loans) {
+      const where = `${w.label} · ${p.protocol}`;
+      const owed = (p.assets ?? []).filter((a) => a.debt && a.valueUsd > 0);
+      const sum = owed.reduce((t, a) => t + a.valueUsd, 0);
+      if (!owed.length) { out.push({ key: `owed:${p.protocol}`, name: `Borrowed on ${p.protocol}`, unit: null, quantity: null, valueCents: share(p.debtValueUsd), detail: p.chainName, where }); continue; }
+      for (const a of owed) {
+        const symbol = a.symbol.toUpperCase();
+        out.push({ key: symbol, name: COINS[symbol] ?? a.symbol, unit: a.symbol, quantity: a.quantity === undefined ? null : Number(a.quantity), valueCents: share((a.valueUsd / sum) * p.debtValueUsd), detail: p.chainName, where });
+      }
+    }
+    return out.length ? out : [{ key: `item:${item.id}`, name: item.name, unit: null, quantity: null, valueCents: item.valueCents, detail: item.detail }];
+  }
+  if (item.type === 'liability') {
+    const l = item.raw as CloudLiability;
+    if (l.owedSymbol && l.owedQuantity != null) {
+      const symbol = l.owedSymbol.toUpperCase();
+      return [{ key: symbol, name: COINS[symbol] ?? l.owedSymbol, unit: l.owedSymbol, quantity: l.owedQuantity, valueCents: item.valueCents, detail: null, where: item.name }];
+    }
+    return [{ key: `cur:${l.currency}`, name: CURRENCIES[l.currency] ?? l.currency, unit: l.currency, quantity: null, valueCents: item.valueCents, detail: null, where: item.name }];
+  }
+  const cur = (item.raw as { currency?: string }).currency ?? '';
+  return [{ key: `cur:${cur}`, name: CURRENCIES[cur] ?? cur, unit: cur, quantity: null, valueCents: item.valueCents, detail: item.detail, where: item.name }];
+}
+
 /** The positions in one group, biggest first, with every place each one sits. */
 export function positionsOf(items: Item[], group: GroupId): Position[] {
+  return collect(items, group, piecesOf);
+}
+
+/** What you owe by what is owed (USDC, BTC, EUR…), each with the debts it is owed in. */
+export function debtAssetsOf(items: Item[]): Position[] {
+  return collect(items, 'debts', debtPiecesOf);
+}
+
+function collect(items: Item[], group: GroupId, piecesOf: (item: Item) => Piece[]): Position[] {
   const byKey = new Map<string, Position>();
   for (const item of items) {
     if (item.group !== group) continue;
@@ -123,6 +167,8 @@ const UNDERLYING: Record<string, { family: 'BTC' | 'ETH' | 'USD' | 'EUR'; peg: b
   ...['SUSDE', 'SDAI', 'SUSDS', 'LIQUIDUSD'].map((k) => [k, { family: 'USD', peg: false }]),
   ...['EURC', 'EURE', 'EURS', 'AGEUR', 'EURA'].map((k) => [k, { family: 'EUR', peg: true }]),
   ...['WEEUR'].map((k) => [k, { family: 'EUR', peg: false }]),
+  // Money itself, for what you owe in a currency.
+  ['USD', { family: 'USD', peg: true }], ['EUR', { family: 'EUR', peg: true }],
 ] as [string, { family: 'BTC' | 'ETH' | 'USD' | 'EUR'; peg: boolean }][]);
 const FAMILY_NAMES = { BTC: 'Bitcoin', ETH: 'Ether', USD: 'US dollar', EUR: 'Euro' } as const;
 

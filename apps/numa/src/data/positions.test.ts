@@ -2,7 +2,7 @@ import type { CloudWallet } from '@/cloud/api';
 import { squarify } from '@/ui/treemapLayout';
 import { demoHoldings } from './demo';
 import type { Item } from './items';
-import { familiesOf, positionsOf, spotsOf, walletPieces } from './positions';
+import { debtAssetsOf, familiesOf, positionsOf, spotsOf, walletPieces } from './positions';
 import { useDemoItems } from './useItems';
 
 const fx = { usdPerEur: 1.25, asOf: '2026-10-17' } as never;
@@ -131,5 +131,40 @@ describe('treemap layout', () => {
     // Wrapped bitcoin is worth one bitcoin, so amounts add up; staked ether isn't, so they don't.
     expect(families[0]).toMatchObject({ unit: 'BTC', quantity: 2.2 });
     expect(families[1].quantity).toBeNull();
+  });
+
+  it('shows what you owe by what it is owed in: wallet loans by coin, records by coin or currency', () => {
+    const borrowed: CloudWallet = { ...wallet, label: 'Frame', snapshot: { ...wallet.snapshot!, tokens: [], defiPositions: [
+      { id: 'base:compound', chainName: 'Base', protocol: 'Compound V3', label: 'Compound V3', assetValueUsd: 900, debtValueUsd: 300,
+        assets: [{ symbol: 'WETH', valueUsd: 900 }, { symbol: 'USDC', quantity: '300', valueUsd: 300, debt: true }] },
+      { id: 'eth:aave', chainName: 'Ethereum', protocol: 'Aave V3', label: 'Aave V3', assetValueUsd: 500, debtValueUsd: 100,
+        assets: [{ symbol: 'USDC', quantity: '60', valueUsd: 60, debt: true }, { symbol: 'GHO', quantity: '40', valueUsd: 40, debt: true }] },
+    ] } };
+    const debt = (id: string, name: string, cents: number, extra: object): Item => ({ id, type: 'liability', group: 'debts', name, detail: null, valueCents: cents, changeTodayCents: null, freshness: fresh, raw: { id, name, kind: 'other', currency: 'EUR', balance: cents / 100, ...extra } as never });
+    const items: Item[] = [
+      { id: 'w1', type: 'wallet', group: 'debts', name: 'Frame loans', detail: null, valueCents: 40_000, changeTodayCents: null, freshness: fresh, raw: borrowed },
+      debt('l1', 'Company shortfall', 50_000, {}),
+      debt('l2', 'Card', 5_000, {}),
+      debt('l3', 'Parents', 20_000, { owedSymbol: 'BTC', owedQuantity: 0.003 }),
+      debt('l4', 'US loan', 10_000, { currency: 'USD' }),
+    ];
+    const owed = debtAssetsOf(items);
+    // The wallet's 400 is shared by what each loan is worth: 300 + 60 USDC, 40 GHO.
+    expect(owed.map((p) => [p.key, p.valueCents])).toEqual([['cur:EUR', 55_000], ['USDC', 36_000], ['BTC', 20_000], ['cur:USD', 10_000], ['GHO', 4_000]]);
+    expect(owed.find((p) => p.key === 'USDC')!.places.map((p) => [p.where, p.quantity])).toEqual([['Frame · Compound V3', 300], ['Frame · Aave V3', 60]]);
+    expect(owed.find((p) => p.key === 'cur:EUR')!.places.map((p) => p.where)).toEqual(['Company shortfall', 'Card']);
+    const families = familiesOf(owed);
+    expect(families.map((f) => [f.key, f.name, f.valueCents, f.members.map((m) => m.key)])).toEqual([
+      ['cur:EUR', 'Euro', 55_000, ['cur:EUR']],
+      ['fam:USD', 'US dollar', 50_000, ['USDC', 'cur:USD', 'GHO']],
+      ['BTC', 'Bitcoin', 20_000, ['BTC']],
+    ]);
+    // Every cent owed is in exactly one block.
+    expect(families.reduce((t, f) => t + (f.valueCents ?? 0), 0)).toBe(125_000);
+  });
+
+  it('keeps a debt without a value unknown when seen by asset', () => {
+    const items: Item[] = [{ id: 'l1', type: 'liability', group: 'debts', name: 'Loan', detail: null, valueCents: null, changeTodayCents: null, freshness: fresh, raw: { id: 'l1', currency: 'EUR', balance: 0 } as never }];
+    expect(debtAssetsOf(items)).toMatchObject([{ key: 'cur:EUR', unknown: 1, places: [{ valueCents: null }] }]);
   });
 });
