@@ -142,8 +142,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.goto(APP + '/holdings/debts');
   await page.getByText('Razmik', { exact: true }).first().waitFor({ timeout: 15000 });
   check('the debts list says what the debt is owed in', (await page.locator('body').innerText()).includes('0.15 BTC'));
-  // The same list by what is owed: a Bitcoin block and a Euro block, each opening its debts.
-  await page.getByRole('tab', { name: 'By asset' }).click();
+  // What you owe opens by what is owed: a Bitcoin block and a Euro block, each opening its debts.
   await page.getByText('OWED IN').waitFor({ timeout: 10000 });
   const byAsset = await page.locator('body').innerText();
   check('what you owe can be seen by asset', byAsset.includes('Bitcoin') && byAsset.includes('Euro'), byAsset.slice(0, 400).replace(/\n/g, ' | '));

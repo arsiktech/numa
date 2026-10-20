@@ -62,7 +62,7 @@ describe("DeFi positions", () => {
       if (sel === "0xdc4abafd") return ret(-1000, 0, 0, 0b10, 0); // Borrowing, holding collateral asset 1.
       if (sel === "0xc55dae63") return ret(USDC);
       if (sel === "0x374c49b4") return ret(40_000_000_000); // 40,000 USDC owed.
-      if (sel === "0xc8c7fe6b") { expect(data.endsWith(word(1))).toBe(true); return ret(1, CBBTC, 0, 0, 0, 0, 0, 0); }
+      if (sel === "0xc8c7fe6b") { expect(data.endsWith(word(1))).toBe(true); return ret(1, CBBTC, 0, 0, 0, 900_000_000_000_000_000n, 0, 0); } // Liquidated at 90%.
       if (sel === "0x2b92a07d") return ret(100_000_000, 0); // 1 cbBTC.
       throw new Error(`unexpected ${sel}`);
     };
@@ -70,6 +70,8 @@ describe("DeFi positions", () => {
     const prices = { [`base:${USDC}`]: { price: 1, decimals: 6, symbol: "USDC" }, [`base:${CBBTC}`]: { price: 100_000, decimals: 8, symbol: "cbBTC" } };
     const [p] = await priceDrafts(drafts, async () => ({ coins: prices }));
     expect(p).toMatchObject({ protocol: "Compound V3", label: "Compound V3 lending and borrowing", assetValueUsd: 100_000, debtValueUsd: 40_000, valueUsd: 60_000, positionAddress: COMET_USDC.toLowerCase() });
+    // 100,000 of cbBTC counted at 90% against 40,000 owed.
+    expect(p.healthFactor).toBe(2.25);
     expect(p.assets).toEqual([{ symbol: "cbBTC", quantity: "1", valueUsd: 100_000 }, { symbol: "USDC", quantity: "40000", valueUsd: 40_000, debt: true }]);
     expect(await priceDrafts(drafts, async () => ({ coins: { [`base:${USDC}`]: prices[`base:${USDC}`] } }))).toEqual([]);
   });
@@ -88,7 +90,7 @@ describe("DeFi positions", () => {
           ethereum: null,
           base: {
             marketPositions: [
-              { market: { marketId: "0xAB", loanAsset: { symbol: "USDC" }, collateralAsset: { symbol: "cbBTC" } }, state: { supplyAssetsUsd: 0, borrowAssetsUsd: 7969.8, collateralUsd: 12147.1 } },
+              { healthFactor: 1.2913, market: { marketId: "0xAB", loanAsset: { symbol: "USDC" }, collateralAsset: { symbol: "cbBTC" } }, state: { supplyAssetsUsd: 0, borrowAssetsUsd: 7969.8, collateralUsd: 12147.1 } },
               { market: { marketId: "0xCD", loanAsset: { symbol: "KITE" }, collateralAsset: { symbol: "SENT" } }, state: { supplyAssetsUsd: 0, borrowAssetsUsd: null, collateralUsd: null } },
               { market: { marketId: "0xEF", loanAsset: { symbol: "USDC" }, collateralAsset: null }, state: { supplyAssetsUsd: 0.02, borrowAssetsUsd: 0, collateralUsd: 0 } },
             ],
@@ -103,7 +105,7 @@ describe("DeFi positions", () => {
     expect(query).toContain(`base: userByAddress(address: "${OWNER}", chainId: 8453)`);
     expect(r.failed).toEqual(["arbitrum"]);
     expect(r.positions).toEqual([
-      expect.objectContaining({ id: "base:morpho:0xab", label: "Morpho cbBTC / USDC lending and borrowing", assetValueUsd: 12147.1, debtValueUsd: 7969.8, assets: [{ symbol: "cbBTC", valueUsd: 12147.1 }, { symbol: "USDC", valueUsd: 7969.8, debt: true }] }),
+      expect.objectContaining({ id: "base:morpho:0xab", label: "Morpho cbBTC / USDC lending and borrowing", assetValueUsd: 12147.1, debtValueUsd: 7969.8, assets: [{ symbol: "cbBTC", valueUsd: 12147.1 }, { symbol: "USDC", valueUsd: 7969.8, debt: true }], healthFactor: 1.291 }),
       expect.objectContaining({ id: "base:morpho-vault:0x7bfa", label: "Spark USDC Vault", assetValueUsd: 500, positionAddress: "0x7bfa" }),
     ]);
   });

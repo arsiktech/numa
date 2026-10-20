@@ -14,8 +14,8 @@ export type Post = (url: string, body: unknown) => Promise<unknown>;
 /** `nftApi`: Alchemy's NFT API for this chain, key included, when the server has one. */
 type Chain = { id: string; name: string; rpc: string; hosts?: readonly string[]; nftApi?: string };
 
-/** An amount of one token in a position, in the token's smallest unit. */
-type Leg = { token: string; raw: number; debt?: boolean };
+/** An amount of one token in a position, in the token's smallest unit. `liquidateAt`: the share of its value that counts against a loan before liquidation. */
+type Leg = { token: string; raw: number; debt?: boolean; liquidateAt?: number };
 /** A position before prices: its legs and how to name it once symbols are known. */
 export type Draft = { id: string; chain: Chain; protocol: string; kind: DefiPosition["kind"]; legs: Leg[]; label: (symbols: string[]) => string; positionAddress?: string };
 
@@ -90,8 +90,10 @@ async function cometPosition(chain: Chain, comet: string, owner: string, call: C
   if (principal < 0n) legs.push({ token: base, raw: Number(words(await call(chain.rpc, comet, "0x374c49b4" + pad(owner)))[0]), debt: true });
   for (let i = 0; i < 16; i++) {
     if (!(assetsIn & (1 << i))) continue;
-    const asset = address(words(await call(chain.rpc, comet, "0xc8c7fe6b" + uint(i)))[1]);
-    legs.push({ token: asset, raw: Number(words(await call(chain.rpc, comet, "0x2b92a07d" + pad(owner) + pad(asset)))[0]) });
+    // getAssetInfo(i): (offset, asset, priceFeed, scale, borrowCollateralFactor, liquidateCollateralFactor, …), factors scaled by 1e18.
+    const info = words(await call(chain.rpc, comet, "0xc8c7fe6b" + uint(i)));
+    const asset = address(info[1]);
+    legs.push({ token: asset, raw: Number(words(await call(chain.rpc, comet, "0x2b92a07d" + pad(owner) + pad(asset)))[0]), liquidateAt: Number(info[5]) / 1e18 });
   }
   const borrowing = principal < 0n;
   return {
@@ -253,10 +255,14 @@ export async function priceDrafts(drafts: Draft[], get: Get): Promise<DefiPositi
     const legSymbols = legs.map((l) => l.p?.symbol.slice(0, 24) ?? "?");
     const assets = assetsOf(legs.filter((l): l is typeof l & { p: Price } => !!l.p));
     const symbols = [...new Set(legs.filter((l) => l.p && (l.raw > 0 || legs.indexOf(l) < 2)).map((l) => l.p!.symbol.slice(0, 24)))];
+    // Health factor as Compound measures it: collateral weighted by its liquidation factor, against the debt.
+    const backing = legs.filter((l) => !l.debt && l.raw > 0);
+    const health = debt > 0 && backing.length && backing.every((l) => (l.liquidateAt ?? 0) > 0)
+      ? backing.reduce((t, l) => t + usd(l) * l.liquidateAt!, 0) / debt : undefined;
     out.push({
       id: d.id, chain: d.chain.id, chainName: d.chain.name, protocol: d.protocol, label: d.label(legSymbols), kind: d.kind,
       valueUsd: round(asset - debt), assetValueUsd: asset, debtValueUsd: debt, symbols, ...(d.positionAddress ? { positionAddress: d.positionAddress } : {}),
-      ...(assets.length ? { assets } : {}),
+      ...(assets.length ? { assets } : {}), ...(health !== undefined ? { healthFactor: Math.round(health * 1000) / 1000 } : {}),
     });
   }
   return out;
@@ -315,7 +321,7 @@ export async function aaveLegs(chain: Chain & { aave: string }, owner: string, c
 
 const MORPHO_CHAINS: Record<string, number> = { ethereum: 1, base: 8453, arbitrum: 42161, optimism: 10, polygon: 137 };
 type MorphoUser = {
-  marketPositions?: Array<{ market?: { marketId?: string; loanAsset?: { symbol?: string }; collateralAsset?: { symbol?: string } | null }; state?: { supplyAssetsUsd?: number | null; borrowAssetsUsd?: number | null; collateralUsd?: number | null; supplyAssets?: unknown; borrowAssets?: unknown; collateral?: unknown } | null }>;
+  marketPositions?: Array<{ healthFactor?: number | null; market?: { marketId?: string; loanAsset?: { symbol?: string }; collateralAsset?: { symbol?: string } | null }; state?: { supplyAssetsUsd?: number | null; borrowAssetsUsd?: number | null; collateralUsd?: number | null; supplyAssets?: unknown; borrowAssets?: unknown; collateral?: unknown } | null }>;
   vaultPositions?: Array<{ vault?: { name?: string; address?: string; asset?: { symbol?: string } }; state?: { assetsUsd?: number | null } | null }>;
 } | null;
 
@@ -323,7 +329,7 @@ type MorphoUser = {
 export async function morpho(chains: Chain[], owner: string, post: Post): Promise<{ positions: DefiPosition[]; failed: string[] }> {
   const asked = chains.filter((c) => MORPHO_CHAINS[c.id]);
   const query = `{ ${asked.map((c) => `${c.id}: userByAddress(address: "${owner.toLowerCase()}", chainId: ${MORPHO_CHAINS[c.id]}) {
-    marketPositions { market { marketId loanAsset { symbol } collateralAsset { symbol } } state { supplyAssetsUsd borrowAssetsUsd collateralUsd } }
+    marketPositions { healthFactor market { marketId loanAsset { symbol } collateralAsset { symbol } } state { supplyAssetsUsd borrowAssetsUsd collateralUsd } }
     vaultPositions { vault { name address asset { symbol } } state { assetsUsd } } }`).join(" ")} }`;
   const body = (await post("https://blue-api.morpho.org/graphql", { query })) as { data?: Record<string, MorphoUser>; errors?: Array<{ path?: string[]; status?: string }> };
   if (!body || typeof body !== "object" || !body.data) throw new Error("bad response");
@@ -348,6 +354,7 @@ export async function morpho(chains: Chain[], owner: string, post: Post): Promis
         id: `${chain.id}:morpho:${String(m.market?.marketId ?? symbols.join("-")).toLowerCase()}`, chain: chain.id, chainName: chain.name, protocol: "Morpho",
         label: debt > 0 ? `Morpho ${symbols.join(" / ")} lending and borrowing` : `Morpho ${loan} lending`, kind: "supplied",
         valueUsd: round(asset - debt), assetValueUsd: asset, debtValueUsd: debt, symbols, assets,
+        ...(debt > 0 && typeof m.healthFactor === "number" && Number.isFinite(m.healthFactor) && m.healthFactor > 0 ? { healthFactor: Math.round(m.healthFactor * 1000) / 1000 } : {}),
       });
     }
     for (const v of user.vaultPositions ?? []) {

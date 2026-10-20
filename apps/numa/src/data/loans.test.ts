@@ -1,6 +1,6 @@
 import type { CloudSnapshot, CloudWallet } from '@/cloud/api';
 import type { Item } from './items';
-import { loanPlaces, loansOf, takenBy, type CloudLoanLink } from './loans';
+import { loanPlaces, loansOf, safetyOf, takenBy, type CloudLoanLink } from './loans';
 
 const NOW = Date.UTC(2026, 9, 19, 12);
 const fx = { usdPerEur: 1.25, asOf: '2026-10-19' };
@@ -70,4 +70,22 @@ describe('loans', () => {
     expect([...places.keys()]).toEqual(['defi:w1:base:aave-v3', 'defi:w1:optimism:etherfi-cash', 'token:w1:base:usdc', 'holding:h1']);
     expect(loanPlaces(snapshot({ ...w, includeInNetWorth: false }), [], 'EUR', fx).size).toBe(0);
   });
+
+  it('says how far a loan is from liquidation, and the coin price where it is sold', () => {
+    const [loan] = loansOf(snapshot(wallet()), [], [], 'EUR', fx, NOW);
+    // Health 2: what backs it can halve before it is sold. 0.1 cbBTC is 8,000 euros, so 80,000 a coin, sold at 40,000.
+    expect(safetyOf(loan)).toEqual({ health: 2, used: 0.5, cushion: 0.5, zone: 'safe', price: { symbol: 'cbBTC', nowCents: 8_000_000, liquidationCents: 4_000_000 } });
+    expect(safetyOf({ ...loan, healthFactor: 1.3 })?.zone).toBe('watch');
+    expect(safetyOf({ ...loan, healthFactor: 1.05 })?.zone).toBe('danger');
+    expect(safetyOf({ ...loan, healthFactor: 0.9 })).toMatchObject({ used: 1, cushion: 0 });
+    // A coin owed against a coin moves both ways: no single price to watch.
+    expect(safetyOf({ ...loan, owed: [{ symbol: 'ETH', quantity: 1 }] })?.price).toBeNull();
+  });
+
+  it('knows nothing about liquidation without a health factor, never that it is safe', () => {
+    const links: CloudLoanLink[] = [{ loanKey: 'liability:l1', targets: [{ key: 'holding:h1', role: 'collateral' }], updatedAt: 0 }];
+    const loan = loansOf(snapshot(wallet(), [liability] as never), [holding, debt], links, 'EUR', fx, NOW).find((l) => l.kind === 'debt')!;
+    expect(safetyOf(loan)).toBeNull();
+  });
 });
+

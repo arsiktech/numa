@@ -4,8 +4,9 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
-import type { Loan, LoanPlace, LoanRole } from '@/data/loans';
+import { safetyOf, type Loan, type LoanPlace, type LoanRole } from '@/data/loans';
 import { ago } from '@/domain/freshness';
+import { SafetyGauge } from '@/loans/Safety';
 import { linkErrorText, useLinkWrites, useLoans, type LoansState } from '@/loans/useLoans';
 import { useTheme } from '@/theme/theme';
 import { Field } from '@/ui/form';
@@ -102,6 +103,7 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
   const [picking, setPicking] = useState<LoanRole | null>(null);
   const [busy, setBusy] = useState(false);
   const owed = loan.owed.map((o) => quantityText(o.quantity, o.symbol) ?? o.symbol).join(' + ');
+  const safety = safetyOf(loan);
 
   async function run(work: () => Promise<void>, done: string) {
     setBusy(true);
@@ -117,6 +119,14 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{loan.name}</Txt>
       <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: c.down }}>{loan.debtCents === null ? '—' : money(loan.debtCents, { cents: true })}</Txt>
       {owed !== '' && <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(owed)} owed</Txt>}
+
+      {/* How close the protocol is to selling what backs it. */}
+      {safety && (
+        <View style={{ marginTop: 20, paddingVertical: 20, borderRadius: 18, backgroundColor: c.s1 }}>
+          <SafetyGauge safety={safety} />
+          {loan.checkedAt !== null && <Txt v="small" c="ink3" style={{ textAlign: 'center', marginTop: 8 }}>Read from {loan.name.split(' · ')[0]} {ago(loan.checkedAt, state.now)}</Txt>}
+        </View>
+      )}
 
       {/* The answer first: has borrowing paid off so far? */}
       {loan.resultCents !== null && loan.deployedCents !== null && loan.debtCents !== null && (
