@@ -2,6 +2,7 @@ import type { CloudSnapshot, CloudWallet } from '@/cloud/api';
 import type { Currency } from '@/domain/types';
 import { convertCents, type FxRate } from './fx';
 import type { Item, ItemType } from './items';
+import { FAMILY_NAMES, underlyingOf } from './positions';
 import { STALE_AFTER, walletLoanId } from './wallets';
 
 /**
@@ -147,26 +148,53 @@ export function takenBy(links: CloudLoanLink[]): Map<string, string> {
   return out;
 }
 
-/** Coins worth a dollar or a euro: a loan in them only moves when what backs it does. */
-const STABLE = new Set(['USDC', 'USDT', 'DAI', 'USDS', 'GHO', 'USDE', 'PYUSD', 'FDUSD', 'LUSD', 'FRAX', 'CRVUSD', 'RLUSD', 'USDG', 'USDC.E', 'USDBC', 'EURC', 'EURE']);
+/** Money itself (dollars, euros and coins pegged to them): it doesn't fall the way a coin does. */
+const isMoney = (symbol: string) => { const u = underlyingOf(symbol); return !!u && (u.family === 'USD' || u.family === 'EUR'); };
 
 export type Zone = 'safe' | 'watch' | 'danger';
 /**
- * How far a loan is from liquidation, from the protocol's health factor (1 means sold now).
- * `cushion`: how much what backs it can fall against what is owed before it is sold.
- * `price`: for a loan in stablecoins backed by one coin, that coin's price now and where it is sold.
+ * How far one coin behind a loan can fall, everything else holding, before the loan is sold.
+ * `liquidationCents` is null when that coin alone can't bring it down.
  */
-export type Safety = { health: number; used: number; cushion: number; zone: Zone; price: { symbol: string; nowCents: number; liquidationCents: number } | null };
+export type CoinPrice = { name: string; symbol: string; nowCents: number | null; liquidationCents: number | null; drop: number | null };
+/**
+ * How far a loan is from liquidation, from the protocol's health factor (1 means sold now).
+ * `cushion`: how much everything backing it can fall together before it is sold.
+ * `prices`: for a loan in dollars or euros, each coin (grouped by what it is: WBTC, cbBTC and tBTC are
+ * Bitcoin) and the price it would have to fall to on its own. Coins pegged to money don't move.
+ */
+export type Safety = { health: number; used: number; cushion: number; zone: Zone; prices: CoinPrice[] };
 
 export function safetyOf(loan: Loan): Safety | null {
   const health = loan.healthFactor;
   if (health === null || !(health > 0) || !Number.isFinite(health)) return null;
   const used = Math.min(1, 1 / health);
   const zone: Zone = health < 1.1 ? 'danger' : health < 1.5 ? 'watch' : 'safe';
-  const coins = loan.collateral.filter((p) => (p.valueCents ?? 0) > 0);
-  const one = coins.length === 1 && coins[0].coin && !STABLE.has(coins[0].coin.symbol.toUpperCase()) ? coins[0] : null;
-  const stableDebt = loan.owed.length > 0 && loan.owed.every((o) => STABLE.has(o.symbol.toUpperCase()));
-  const price = one && stableDebt ? { symbol: one.coin!.symbol, nowCents: Math.round(one.valueCents! / one.coin!.quantity), liquidationCents: Math.round(one.valueCents! / one.coin!.quantity / health) } : null;
-  return { health, used, cushion: 1 - used, zone, price };
+  const backing = loan.collateral.filter((p) => (p.valueCents ?? 0) > 0);
+  const total = backing.reduce((t, p) => t + p.valueCents!, 0);
+  const moneyDebt = loan.owed.length > 0 && loan.owed.every((o) => isMoney(o.symbol));
+  const prices: CoinPrice[] = [];
+  if (moneyDebt && total > 0 && backing.every((p) => p.coin)) {
+    // Group the coins that move by what they are; each group's price now comes from a version worth one of it.
+    const groups = new Map<string, { name: string; symbol: string; cents: number; nowCents: number | null }>();
+    for (const p of backing) {
+      const c = p.coin!;
+      if (isMoney(c.symbol)) continue;
+      const u = underlyingOf(c.symbol);
+      const key = u ? u.family : c.symbol.toUpperCase();
+      const g = groups.get(key) ?? { name: u ? FAMILY_NAMES[u.family] : c.symbol, symbol: u ? u.family : c.symbol, cents: 0, nowCents: null };
+      g.cents += p.valueCents!;
+      if (g.nowCents === null && (!u || u.peg) && c.quantity > 0) g.nowCents = Math.round(p.valueCents! / c.quantity);
+      groups.set(key, g);
+    }
+    // With the protocol's limit taken as the same for each coin, the loan is sold when one group alone
+    // loses (1 − 1/health) of everything backing it.
+    const room = 1 - 1 / health;
+    for (const g of [...groups.values()].sort((a, b) => b.cents - a.cents)) {
+      const drop = room * (total / g.cents);
+      const alone = drop < 1;
+      prices.push({ name: g.name, symbol: g.symbol, nowCents: g.nowCents, drop: alone ? drop : null, liquidationCents: alone && g.nowCents !== null ? Math.round(g.nowCents * (1 - drop)) : null });
+    }
+  }
+  return { health, used, cushion: 1 - used, zone, prices };
 }
-

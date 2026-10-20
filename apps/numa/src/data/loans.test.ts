@@ -74,18 +74,33 @@ describe('loans', () => {
   it('says how far a loan is from liquidation, and the coin price where it is sold', () => {
     const [loan] = loansOf(snapshot(wallet()), [], [], 'EUR', fx, NOW);
     // Health 2: what backs it can halve before it is sold. 0.1 cbBTC is 8,000 euros, so 80,000 a coin, sold at 40,000.
-    expect(safetyOf(loan)).toEqual({ health: 2, used: 0.5, cushion: 0.5, zone: 'safe', price: { symbol: 'cbBTC', nowCents: 8_000_000, liquidationCents: 4_000_000 } });
+    expect(safetyOf(loan)).toEqual({ health: 2, used: 0.5, cushion: 0.5, zone: 'safe', prices: [{ name: 'Bitcoin', symbol: 'BTC', nowCents: 8_000_000, liquidationCents: 4_000_000, drop: 0.5 }] });
     expect(safetyOf({ ...loan, healthFactor: 1.3 })?.zone).toBe('watch');
     expect(safetyOf({ ...loan, healthFactor: 1.05 })?.zone).toBe('danger');
     expect(safetyOf({ ...loan, healthFactor: 0.9 })).toMatchObject({ used: 1, cushion: 0 });
     // A coin owed against a coin moves both ways: no single price to watch.
-    expect(safetyOf({ ...loan, owed: [{ symbol: 'ETH', quantity: 1 }] })?.price).toBeNull();
+    expect(safetyOf({ ...loan, owed: [{ symbol: 'ETH', quantity: 1 }] })?.prices).toEqual([]);
   });
 
   it('knows nothing about liquidation without a health factor, never that it is safe', () => {
     const links: CloudLoanLink[] = [{ loanKey: 'liability:l1', targets: [{ key: 'holding:h1', role: 'collateral' }], updatedAt: 0 }];
     const loan = loansOf(snapshot(wallet(), [liability] as never), [holding, debt], links, 'EUR', fx, NOW).find((l) => l.kind === 'debt')!;
     expect(safetyOf(loan)).toBeNull();
+  });
+
+  it('gives each kind of coin behind a loan its own sell price, as if only it fell', () => {
+    const [base] = loansOf(snapshot(wallet()), [], [], 'EUR', fx, NOW);
+    const coin = (symbol: string, quantity: number, valueCents: number) => ({ key: symbol, name: symbol, detail: null, valueCents, open: null, coin: { symbol, quantity } });
+    // 60,000 of Bitcoin (as WBTC and tBTC), 30,000 of Ether (WETH and wstETH), 10,000 of a dollar vault; health 2.
+    const loan = { ...base, healthFactor: 2, owed: [{ symbol: 'USDT0', quantity: 40_000 }],
+      collateral: [coin('WBTC', 0.4, 4_000_000), coin('tBTC', 0.2, 2_000_000), coin('WETH', 5, 2_000_000), coin('wstETH', 2, 1_000_000), coin('liquidUSD', 1_000, 1_000_000)] };
+    const s = safetyOf(loan)!;
+    // Bitcoin alone must lose half of everything (50,000 of 100,000): 50,000 / 60,000 of its value.
+    expect(s.prices).toEqual([
+      { name: 'Bitcoin', symbol: 'BTC', nowCents: 10_000_000, drop: 5 / 6, liquidationCents: Math.round(10_000_000 / 6) },
+      // Ether is only 30,000: even at zero it can't take away 50,000, so on its own it can't trigger a sale.
+      { name: 'Ether', symbol: 'ETH', nowCents: 400_000, drop: null, liquidationCents: null },
+    ]);
   });
 });
 

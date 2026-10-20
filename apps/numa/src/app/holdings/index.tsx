@@ -106,8 +106,6 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
           {total.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{total.unknown} without a value {total.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
         </View>
       )}
-      {/* The answer first on What you owe: how close each crypto loan is to being sold. */}
-      {only === 'debts' && !source.demo && <LiquidationSection />}
       {only === 'crypto' && !source.demo && <EarningsTeaser style={{ marginTop: 16 }} />}
 
       {/* The overview: what you own as areas, by kind or by Kiyosaki's four asset classes. */}
@@ -174,6 +172,8 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
                 : positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === positions.length - 1} />)}
             </>
           )}
+          {/* How close each crypto loan is to being sold, folded, before the records. */}
+          {only === 'debts' && !source.demo && <LiquidationSection />}
           <Txt v="label" c="ink3" style={{ marginTop: 26 }} accessibilityRole="header">RECORDS</Txt>
         </View>
       )}

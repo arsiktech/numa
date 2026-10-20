@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { safetyOf, type Loan } from '@/data/loans';
+import { safetyOf, type Loan, type Safety } from '@/data/loans';
 import { useTheme } from '@/theme/theme';
 import { useMoney } from '@/ui/money';
 import { Txt } from '@/ui/Txt';
-import { SafetyBar, useZoneColor, zoneText } from './Safety';
+import { CoinPrices, SafetyBar, useZoneColor, zoneText } from './Safety';
 import { useLoans } from './useLoans';
 
 export const openLoan = (key: string) => router.push({ pathname: '/loan/[key]', params: { key } });
@@ -44,36 +45,58 @@ export function LoansSection() {
 }
 
 /**
- * Crypto loans and how close each is to liquidation, riskiest first, at the top of What you owe.
+ * Crypto loans and how close each is to liquidation, near the end of What you owe. Folded to one line
+ * (the closest loan); open, each loan with its zone bar and the price each coin behind it is sold at.
  * Only loans whose protocol reports a health factor; the rest say nothing rather than look safe.
  */
 export function LiquidationSection() {
   const state = useLoans();
   const { c } = useTheme();
-  const { money } = useMoney();
   const zoneColor = useZoneColor();
+  const [open, setOpen] = useState(false);
   if (state.status !== 'ready') return null;
-  const rows = state.loans.map((l) => ({ loan: l, safety: safetyOf(l) })).filter((r): r is { loan: Loan; safety: NonNullable<ReturnType<typeof safetyOf>> } => r.safety !== null)
+  const rows = state.loans.map((l) => ({ loan: l, safety: safetyOf(l) })).filter((r): r is { loan: Loan; safety: Safety } => r.safety !== null)
     .sort((a, b) => a.safety.health - b.safety.health);
   if (!rows.length) return null;
+  const closest = rows[0];
+  const fall = (s: Safety) => `−${Math.round(s.cushion * 100)}%`;
   return (
-    <View style={{ marginTop: 18, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 14 }}>
-      <Txt v="label" c="ink3" accessibilityRole="header">DISTANCE TO LIQUIDATION</Txt>
-      {rows.map(({ loan, safety }) => (
-        <Pressable key={loan.key} onPress={() => openLoan(loan.key)} accessibilityRole="link"
-          accessibilityLabel={`${loan.name}, ${loan.where}. ${zoneText(safety)}: can fall ${Math.round(safety.cushion * 100)} percent before it is sold. Open`} style={{ gap: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-            <Txt v="body" style={{ flex: 1, fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{loan.name}</Txt>
-            <Txt v="figureSm" style={{ fontSize: 14, color: zoneColor(safety.zone) }}>−{Math.round(safety.cushion * 100)}%</Txt>
-          </View>
-          <SafetyBar safety={safety} />
-          <Txt v="small" c="ink3" numberOfLines={1}>
-            {loan.where} · health {safety.health.toFixed(2)}{safety.price ? ` · ${safety.price.symbol} sold below ${money(safety.price.liquidationCents)}` : ''}
-          </Txt>
-        </Pressable>
-      ))}
-      <Txt v="small" c="ink3">How far what backs each loan can fall before the protocol sells it.</Txt>
+    <View style={{ marginTop: 22, borderRadius: 18, backgroundColor: c.s1 }}>
+      <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" aria-expanded={open}
+        accessibilityLabel={`Distance to liquidation. Closest: ${closest.loan.name}, can fall ${Math.round(closest.safety.cushion * 100)} percent. ${open ? 'Hide' : 'Show'} each loan`}
+        style={{ padding: 16, gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Txt v="label" c="ink3" style={{ flex: 1 }} accessibilityRole="header">DISTANCE TO LIQUIDATION</Txt>
+          <Txt v="body" c="ink3" style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>›</Txt>
+        </View>
+        {!open && (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+              <Txt v="small" c="ink2" style={{ flex: 1 }} numberOfLines={1}>Closest: {closest.loan.name}</Txt>
+              <Txt v="figureSm" style={{ fontSize: 14, color: zoneColor(closest.safety.zone) }}>{fall(closest.safety)}</Txt>
+            </View>
+            <SafetyBar safety={closest.safety} />
+            {rows.length > 1 && <Txt v="small" c="ink3">{rows.length} loans · tap to see each, and the coin prices they’re sold at</Txt>}
+          </>
+        )}
+      </Pressable>
+      {open && (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 16 }}>
+          {rows.map(({ loan, safety }) => (
+            <Pressable key={loan.key} onPress={() => openLoan(loan.key)} accessibilityRole="link"
+              accessibilityLabel={`${loan.name}, ${loan.where}. ${zoneText(safety)}: can fall ${Math.round(safety.cushion * 100)} percent before it is sold. Open`} style={{ gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                <Txt v="body" style={{ flex: 1, fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{loan.name}</Txt>
+                <Txt v="figureSm" style={{ fontSize: 14, color: zoneColor(safety.zone) }}>{fall(safety)}</Txt>
+              </View>
+              <SafetyBar safety={safety} />
+              <Txt v="small" c="ink3" numberOfLines={1}>{loan.where} · health {safety.health.toFixed(2)}</Txt>
+              <CoinPrices safety={safety} dense />
+            </Pressable>
+          ))}
+          <Txt v="small" c="ink3">Each coin’s price is where the loan is sold if only that coin falls. The percentage is how far everything can fall together.</Txt>
+        </View>
+      )}
     </View>
   );
 }
-
