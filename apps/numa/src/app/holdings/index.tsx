@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-n
 
 import { useSession } from '@/cloud/session';
 import { groupNames, groupTotal, type GroupId } from '@/data/items';
-import { familiesOf, FOUR_CLASSES, positionsOf, spotsOf, type Spot } from '@/data/positions';
+import { debtAssetsOf, familiesOf, FOUR_CLASSES, positionsOf, spotsOf, type Spot } from '@/data/positions';
 import { useCloudItems, useDemoItems, type ItemsSource } from '@/data/useItems';
 import { CATEGORY_ORDER } from '@/domain/summary';
 import type { CategoryId } from '@/domain/types';
@@ -80,14 +80,16 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
   const { money } = useMoney();
   const wide = useWindowDimensions().width >= WIDE;
   const [view, setView] = useState<'kind' | 'classes'>('kind');
-  const [lens, setLens] = useState<'asset' | 'place'>('asset');
+  // What you owe opens by place (each loan with what backs it); by asset is one tap away.
+  const [lens, setLens] = useState<'asset' | 'place'>(only === 'debts' ? 'place' : 'asset');
   const groups = (only ? [only] : ORDER).map((g) => ({ g, items: source.items.filter((i) => i.group === g) })).filter((x) => x.items.length > 0 || x.g === only);
   const single = only ? groups[0] : null;
   const total = single ? groupTotal(single.items) : null;
   const positions = only ? positionsOf(source.items, only) : [];
   const spots = only && only !== 'debts' ? spotsOf(source.items, only) : [];
   // Crypto by what it really is: cbBTC, WBTC and tBTC are one Bitcoin block that opens into them.
-  const families = only === 'crypto' ? familiesOf(positions) : null;
+  // What you owe the same way: USDC, GHO and euro loans as US dollar and Euro blocks.
+  const families = only === 'crypto' ? familiesOf(positions) : only === 'debts' ? familiesOf(debtAssetsOf(source.items)) : null;
   const owned = groups.filter((x) => x.g !== 'debts');
   const ownedCents = owned.reduce((t, x) => t + groupTotal(x.items).cents, 0);
   const swatch = (g: GroupId) => (g === 'debts' ? c.down : c[categoryColor(g as CategoryId)]);
@@ -137,8 +139,19 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
       {/* One group: what it holds as areas, then each asset with where it sits; or the other way round. */}
       {single && positions.length > 0 && (
         <View style={{ marginTop: 16 }}>
-          {spots.length > 1 && <View style={{ marginBottom: 12 }}><Toggle value={lens} onChange={setLens} options={[['asset', only === 'cash' ? 'By currency' : 'By asset'], ['place', 'By place']]} /></View>}
-          {lens === 'place' && spots.length > 1 ? (
+          {(spots.length > 1 || only === 'debts') && <View style={{ marginBottom: 12 }}><Toggle value={lens} onChange={setLens} options={[['asset', only === 'cash' ? 'By currency' : 'By asset'], ['place', 'By place']]} /></View>}
+          {lens === 'place' && only === 'debts' ? (
+            <>
+              <Treemap height={wide ? 240 : 190} tiles={positions.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: 'down', onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: 'debts', key: p.key } }) }))} />
+              {/* Signed in, each debt is a loan with what backs it and where its money went. */}
+              {!source.demo ? <LoansSection /> : (
+                <>
+                  <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">BY DEBT</Txt>
+                  {positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch('debts')} last={n === positions.length - 1} />)}
+                </>
+              )}
+            </>
+          ) : lens === 'place' && spots.length > 1 ? (
             <>
               <Treemap height={wide ? 240 : 190} tiles={spots.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: p.items.length === 1 ? () => router.push({ pathname: '/item/[type]/[id]', params: { type: p.items[0].type, id: p.items[0].id } }) : undefined }))} />
               <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">BY PLACE</Txt>
@@ -147,20 +160,15 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
           ) : (
             <>
               <Treemap height={wide ? 240 : 190} tiles={(families ?? positions).filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: only!, key: p.key } }) }))} />
-              {/* Signed in, each debt is a loan with what backs it and where its money went. */}
-              {only === 'debts' && !source.demo ? <LoansSection /> : (
-                <>
-                  <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">{only === 'cash' ? 'BY CURRENCY' : only === 'debts' ? 'BY DEBT' : 'BY ASSET'}</Txt>
-                  {families
-                    ? families.map((f, n) => {
-                      const share = total && total.cents > 0 && f.valueCents !== null ? f.valueCents / total.cents : null;
-                      return f.members.length > 1
-                        ? <FamilyRow key={f.key} family={f} group={only!} share={share} swatch={swatch(only!)} last={n === families.length - 1} />
-                        : <PositionRow key={f.key} position={f.members[0]} share={share} swatch={swatch(only!)} last={n === families.length - 1} />;
-                    })
-                    : positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === positions.length - 1} />)}
-                </>
-              )}
+              <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">{only === 'cash' ? 'BY CURRENCY' : only === 'debts' ? 'OWED IN' : 'BY ASSET'}</Txt>
+              {families
+                ? families.map((f, n) => {
+                  const share = total && total.cents > 0 && f.valueCents !== null ? f.valueCents / total.cents : null;
+                  return f.members.length > 1
+                    ? <FamilyRow key={f.key} family={f} group={only!} share={share} swatch={swatch(only!)} last={n === families.length - 1} />
+                    : <PositionRow key={f.key} position={f.members[0]} share={share} swatch={swatch(only!)} last={n === families.length - 1} />;
+                })
+                : positions.map((p, n) => <PositionRow key={p.key} position={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === positions.length - 1} />)}
             </>
           )}
           <Txt v="label" c="ink3" style={{ marginTop: 26 }} accessibilityRole="header">RECORDS</Txt>

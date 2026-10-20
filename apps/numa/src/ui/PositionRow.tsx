@@ -43,7 +43,7 @@ export function FamilyRow({ family, group, share, swatch, last }: { family: Fami
   const versions = family.members.map((m) => m.unit ?? m.name).join(', ');
   return (
     <Link href={{ pathname: '/position/[group]/[key]', params: { group, key: family.key } }} asChild>
-      <Pressable accessibilityRole="link" accessibilityLabel={`${family.name}, ${family.valueCents === null ? 'no value' : hidden ? 'amount hidden' : money(family.valueCents)}, held as ${versions}. Open`}
+      <Pressable accessibilityRole="link" accessibilityLabel={`${family.name}, ${family.valueCents === null ? 'no value' : hidden ? 'amount hidden' : money(family.valueCents)}, ${group === 'debts' ? 'owed as' : 'held as'} ${versions}. Open`}
         style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
         <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: swatch }} />
         <View style={{ flex: 1, minWidth: 0 }}>
