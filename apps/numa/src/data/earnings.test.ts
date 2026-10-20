@@ -21,7 +21,7 @@ describe('DeFi earnings', () => {
     // Earned 25 dollars and paid 5 over 7 days: 16 euros net.
     expect(w).toMatchObject({ earnedCents: 2_000, paidCents: 400, netCents: 1_600, days: 7, unknown: 0 });
     expect(w.rate).toBeCloseTo((20 / 46_500) * (365 / 7), 6);
-    expect(w.series.map((d) => [d.day, d.netCents, d.totalCents])).toEqual([[day(3), 600, 600], [day(2), 400, 1_000], [day(1), 600, 1_600]]);
+    expect(w.series.map((d) => [d.day, d.earnedCents, d.paidCents, d.netCents, d.totalCents])).toEqual([[day(3), 800, 200, 600, 600], [day(2), 400, 0, 400, 1_000], [day(1), 800, 200, 600, 1_600]]);
     expect(w.strategies.map((s) => [s.name, s.where, s.netCents])).toEqual([['Aave V3 lending and borrowing', 'Frame · Base', 1_200], ['weETH held', 'Frame · Base', 400]]);
   });
 
