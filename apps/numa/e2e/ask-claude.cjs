@@ -55,16 +55,38 @@ async function ask(page, text) {
     watchErrors(page, errors);
     await signUp(page, APP, EMAIL);
     const { c, portfolioId, snap } = await client(EMAIL);
+    const choiceBefore = await c.query('privacy:status', {});
+    check('a fresh account has no AI sharing grant', !choiceBefore.allowed && !choiceBefore.granted);
     await c.mutation('mobile:upsertAsset', { portfolioId, name: 'Main account', kind: 'cash', balance: 4321, currency: 'EUR', clientMutationId: `qa.asset:${Date.now()}` });
 
     await page.getByRole('button', { name: 'Ask or add' }).click();
-    await page.getByText('What your phone can’t answer goes to Claude').waitFor({ timeout: 10000 });
-    check('Ask says what goes to Claude', true);
+    await page.getByText('Questions that need Claude require your AI sharing permission first.', { exact: false }).waitFor({ timeout: 10000 });
+    check('Ask explains that Claude needs sharing permission', true);
 
     await ask(page, 'What’s my net worth?');
     check('questions the device can answer stay on the device', requests.length === 0 && (await page.locator('body').innerText()).includes('Net worth is'));
 
-    await ask(page, 'Can I afford a €2,000 trip in December?');
+    const question = 'Can I afford a €2,000 trip in December?';
+    await ask(page, question);
+    await page.getByText('Allow AI replies?', { exact: true }).waitFor({ timeout: 10000 });
+    check('no provider work occurs before consent', requests.length === 0
+      && (await page.locator('body').innerText()).includes('Your question hasn’t been sent.'));
+    const disclosure = await page.locator('body').innerText();
+    check('disclosure names recipients, financial context, withdrawal and the local alternative',
+      ['Anthropic (Claude)', 'financial names, balances, debts, holdings', 'turn AI sharing off in Settings', 'Manual tracking and local answers stay available without AI sharing.']
+        .every((text) => disclosure.includes(text)));
+    await page.getByRole('button', { name: 'Not now', exact: true }).click();
+    check('declining keeps the question unsent and restores editing', requests.length === 0
+      && await page.getByLabel('Ask or add anything').inputValue() === question);
+    await ask(page, question);
+    await page.getByText('Allow AI replies?', { exact: true }).waitFor({ timeout: 10000 });
+    check('retry remains unsent before approval', requests.length === 0);
+    await page.getByRole('button', { name: 'Allow and send', exact: true }).click();
+    await page.getByText('You have €4,321 in Main account', { exact: false }).waitFor({ timeout: 30000 });
+    check('approval authorizes exactly one provider request', requests.length === 1);
+    const choiceAfter = await c.query('privacy:status', {});
+    check('approval records the current version for the same account', choiceAfter.allowed && choiceAfter.granted
+      && choiceAfter.requiredVersion === choiceBefore.requiredVersion && choiceAfter.userId === choiceBefore.userId);
     check('an open question is answered from the person’s numbers', (await page.locator('body').innerText()).includes('You have €4,321 in Main account'));
     const first = requests[0];
     check('the request asks for the right model, fallbacks and a strict tool',
@@ -89,6 +111,7 @@ async function ask(page, text) {
     await dinner.getByText('SAVED', { exact: true }).waitFor({ timeout: 10000 });
     await visa.getByRole('button', { name: 'Discard' }).click();
     const s = await snap();
+    check('Save and Discard do not trigger additional provider work', requests.length === 2);
     const tx = s.transactions[0];
     const when = new Date(tx?.occurredAt ?? 0);
     check('Save writes the drafted spend, dated yesterday, and nothing else', s.transactions.length === 1 && tx.description === 'Dinner with Ana' && tx.amount === 60 && tx.kind === 'expense'

@@ -87,9 +87,18 @@ const lastDraft = (page) => page.getByLabel(/^Draft\./).last();
   await card.getByRole('button', { name: 'Discard' }).click();
   check('discard saves nothing', (await card.innerText()).includes('DISCARDED'));
 
-  // Without a Claude key on the backend, what the device can't read gets a plain reply and adding still works.
+  // Unknown input stays unsent until the person explicitly allows AI sharing.
   await ask(page, 'blah');
-  await page.getByText('I can’t reach Numa’s assistant right now').waitFor({ timeout: 15000 }).catch(() => {});
+  await page.getByText('Allow AI replies?', { exact: true }).waitFor({ timeout: 10000 });
+  check('unknown input asks permission instead of silently sending',
+    (await page.locator('body').innerText()).includes('Your question hasn’t been sent.')
+    && await page.getByLabel('Ask or add anything').count() === 0);
+  await page.getByRole('button', { name: 'Not now', exact: true }).click();
+  check('declining restores the unsent question', await page.getByLabel('Ask or add anything').inputValue() === 'blah');
+  await ask(page, 'blah');
+  await page.getByRole('button', { name: 'Allow and send', exact: true }).click();
+  // No provider key is configured for this journey. Permission does not imply availability.
+  await page.getByText('I can’t reach Numa’s assistant right now', { exact: false }).waitFor({ timeout: 15000 });
   check('no amount, no assistant: a plain reply', (await page.locator('body').innerText()).includes('I can’t reach Numa’s assistant right now'));
 
   // Quotes for VOO so the holding is valued like on the server.

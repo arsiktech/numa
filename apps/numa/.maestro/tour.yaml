@@ -9,10 +9,25 @@ appId: com.arsiktech.numa
     timeout: 60000
 - waitForAnimationToEnd
 - takeScreenshot: ${SHOT}-01-home
-# The first-visit tip over the chart; dismissing it is part of a real first visit.
-- tapOn:
-    text: "Got it"
-    optional: true
+# Center the actual tip action before tapping: large text can place it behind the fixed bars.
+# A missed dismissal must fail here, not open Ask and scroll the wrong screen.
+- runFlow:
+    when:
+      visible: "Drag the line to go back in time"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "coach-tip-dismiss"
+          direction: DOWN
+          centerElement: true
+          timeout: 30000
+      - takeScreenshot: ${SHOT}-01a-tip-action
+      - tapOn:
+          id: "coach-tip-dismiss"
+      - assertNotVisible:
+          id: "coach-tip"
+      - assertNotVisible:
+          id: "ask-input"
 - scrollUntilVisible:
     element: "Needs you.*"
     direction: DOWN
