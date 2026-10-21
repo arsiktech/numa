@@ -63,7 +63,7 @@ export function itemsFrom(s: CloudSnapshot, data: HomeData, now: number, fx: FxR
     }
     const d = fromDomain(byId.get(a.id), now);
     const gain = gainOf(d.valueCents, a.costBasis, a.currency, data.currency, fx, a.acquiredAt ?? null, d.freshness.tone !== 'missing');
-    items.push({ id: a.id, type: 'asset', group: d.group ?? (a.kind === 'cash' ? 'cash' : a.kind === 'real_estate' ? 'property' : 'things'), name: a.name, detail: assetKindNames[a.kind], valueCents: d.valueCents, changeTodayCents: null, freshness: d.freshness, raw: a, gain });
+    items.push({ id: a.id, type: 'asset', group: d.group ?? (a.kind === 'other' && a.investmentType === 'fund' ? 'stocks' : a.kind === 'cash' ? 'cash' : a.kind === 'real_estate' ? 'property' : 'things'), name: a.name, detail: a.kind === 'other' && a.investmentType === 'fund' ? 'Fund' : assetKindNames[a.kind], valueCents: d.valueCents, changeTodayCents: null, freshness: d.freshness, raw: a, gain });
   }
   for (const h of s.holdings) {
     const d = fromDomain(byId.get(h.id), now);

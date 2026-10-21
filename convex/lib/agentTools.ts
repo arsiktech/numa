@@ -309,6 +309,23 @@ export const AGENT_TOOLS: AgentTool[] = [
     },
   },
   {
+    name: "classify_asset", title: "Classify an asset", write: true,
+    description: "Classify an existing other asset as a manually valued fund, or clear that classification. Read get_records first and send its exact space, id and current investmentType. Changes no value, valuation date, notes or history. Never create a substitute holding or invent a cost.",
+    inputSchema: schema({ id: str("Existing asset id."), space_id: str("Exact owning space id from get_records. Required; no default space."), investment_type: { type: ["string", "null"], enum: ["fund", null], description: "fund, or null to clear." }, expected_investment_type: { type: ["string", "null"], enum: ["fund", null], description: "Current investmentType from get_records, or null when absent." }, request_id: requestId }, ["id", "space_id", "investment_type", "expected_investment_type"]),
+    async run(io, args) {
+      text(args, "id");
+      text(args, "space_id");
+      const classification = (key: string): "fund" | null => {
+        if (args[key] !== "fund" && args[key] !== null) throw new AgentInputError(`${key} must be fund or null`);
+        return args[key] as "fund" | null;
+      };
+      const investmentType = classification("investment_type");
+      const expectedInvestmentType = classification("expected_investment_type");
+      const space = await resolveSpace(io, args);
+      return io.mutation("assets:classify", { id: text(args, "id"), portfolioId: space.id, investmentType, expectedInvestmentType, ...write(io, args) });
+    },
+  },
+  {
     name: "delete_asset", title: "Delete an asset", write: true,
     description: "Delete one asset.",
     inputSchema: schema({ id: str("Asset id."), request_id: requestId }, ["id"]),

@@ -1,4 +1,4 @@
-import { addMoney, assertCurrency, assertTimestamp, financeMonth, majorUnits, minorUnits } from "./finance";
+import { isManualFund, addMoney, assertCurrency, assertTimestamp, financeMonth, majorUnits, minorUnits } from "./finance";
 
 export type MobileDashboardCurrency = "USD" | "EUR";
 
@@ -19,6 +19,7 @@ interface DashboardTransaction {
 
 interface DashboardAsset {
   kind: AssetKind;
+  investmentType?: "fund" | null;
   balance: number;
   currency: MobileDashboardCurrency;
 }
@@ -165,7 +166,7 @@ export function buildMobileDashboard(input: MobileDashboardInput) {
     .filter((asset) => asset.kind === "cash")
     .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency)), 0);
   const hardAssets = input.assets
-    .filter((asset) => asset.kind !== "cash")
+    .filter((asset) => asset.kind !== "cash" && !isManualFund(asset))
     .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency)), 0);
   const debt = input.liabilities.reduce(
     (sum, liability) => addMoney(sum, convertCurrency(liability.balance, liability.currency, currency)),
@@ -174,7 +175,9 @@ export function buildMobileDashboard(input: MobileDashboardInput) {
   const holdingValuations = input.holdings.map(({ holding, quote }) =>
     valueDashboardHolding(holding, quote, currency, nowMs, input.quoteStaleMs)
   );
-  const invested = holdingValuations.reduce((sum, valuation) => addMoney(sum, valuation.marketValue), 0);
+  const manualInvested = input.assets.filter(isManualFund)
+    .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency)), 0);
+  const invested = holdingValuations.reduce((sum, valuation) => addMoney(sum, valuation.marketValue), manualInvested);
   const marketDriver = holdingValuations.reduce((sum, valuation) => addMoney(sum, valuation.gain), 0);
   const missingQuoteSymbols = input.holdings
     .filter(({ quote }) => !quote || quote.provider === "mock")
@@ -187,7 +190,7 @@ export function buildMobileDashboard(input: MobileDashboardInput) {
   const cashflowDriver = addMoney(income, -expenses);
   const sharedDriver = 0;
   const monthDelta = addMoney(cashflowDriver, marketDriver, sharedDriver);
-  const manualDriver = addMoney(liquid, hardAssets, -debt);
+  const manualDriver = addMoney(liquid, manualInvested, hardAssets, -debt);
   const netWorth = addMoney(liquid, invested, hardAssets, -debt);
 
   return {

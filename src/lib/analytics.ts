@@ -1,3 +1,4 @@
+import { isManualFund } from "../../convex/lib/finance";
 import type {
   Asset,
   Category,
@@ -224,7 +225,7 @@ export function holdingGain(
 
 export interface NetWorthBreakdown {
   liquid: number; // cash + savings (assets with kind=cash)
-  invested: number; // holdings at market
+  invested: number; // holdings at market plus manually valued funds
   hardAssets: number; // non-cash, non-market assets
   liabilities: number;
   netWorth: number;
@@ -241,9 +242,11 @@ export function rollupNetWorth(
     .filter((a) => a.kind === "cash")
     .reduce((sum, a) => sum + maybeConvert(a.balance, a.currency, fx), 0);
   const hardAssets = assets
-    .filter((a) => a.kind !== "cash")
+    .filter((a) => a.kind !== "cash" && !isManualFund(a))
     .reduce((sum, a) => sum + maybeConvert(a.balance, a.currency, fx), 0);
-  const invested = holdings.reduce(
+  const manualInvested = assets.filter(isManualFund)
+    .reduce((sum, a) => sum + maybeConvert(a.balance, a.currency, fx), 0);
+  const invested = manualInvested + holdings.reduce(
     (sum, h) =>
       sum + maybeConvert(holdingValue(h, quotes), holdingValueCurrency(h, quotes[h.symbol]), fx),
     0

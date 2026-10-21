@@ -61,6 +61,41 @@ export const add = mutation({
   }
 });
 
+/** Classification is not a valuation: no other asset fields or saved history change. */
+export const classify = mutation({
+  args: {
+    id: v.id("assets"),
+    portfolioId: v.id("portfolios"),
+    investmentType: v.union(v.literal("fund"), v.null()),
+    expectedInvestmentType: v.union(v.literal("fund"), v.null()),
+    clientMutationId: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireEditor(ctx, args.portfolioId);
+    if (!await ctx.db.get(args.portfolioId)) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Portfolio not found" });
+    }
+    // Unlike absolute saves, bind retries to the exact target AND classification intent.
+    // Keeping the checks below in run lets the original receipt replay after a later
+    // reclassification or deletion, without applying the old intent a second time.
+    const operation = `assets.classify:${JSON.stringify([args.id, args.expectedInvestmentType, args.investmentType])}`;
+    return await withMutationReceipt(ctx, userId, args.clientMutationId, operation, async () => {
+      const existing = await ctx.db.get(args.id);
+      if (!existing || existing.portfolioId !== args.portfolioId) {
+        throw new ConvexError({ code: "NOT_FOUND", message: "Asset not found in this portfolio" });
+      }
+      if (existing.kind !== "other") {
+        throw new ConvexError({ code: "INVALID_INPUT", message: "Only other assets support fund classification" });
+      }
+      if ((existing.investmentType ?? null) !== args.expectedInvestmentType) {
+        throw new ConvexError({ code: "CONFLICT", message: "Asset classification changed. Read it again before retrying." });
+      }
+      await ctx.db.patch(args.id, { investmentType: args.investmentType ?? undefined });
+      return args.id;
+    }, String(args.portfolioId));
+  }
+});
+
 export const update = mutation({
   args: {
     id: v.id("assets"),
@@ -91,6 +126,7 @@ export const update = mutation({
       await assertCashAccountDefinitionChange(ctx, existing, {
         kind: args.patch.kind ?? existing.kind, currency: args.patch.currency ?? existing.currency
       });
+      if ((args.patch.kind ?? existing.kind) !== "other") patch.investmentType = undefined;
       await ctx.db.patch(args.id, patch);
       return args.id;
     });

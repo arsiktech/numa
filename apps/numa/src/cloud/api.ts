@@ -25,6 +25,8 @@ export type CloudAsset = {
   id: string;
   name: string;
   kind: 'cash' | 'real_estate' | 'vehicle' | 'collectible' | 'business' | 'other';
+  investmentType?: 'fund' | null;
+  notes?: string | null;
   balance: number;
   currency: CloudCurrency;
   /** Where it is kept, like a bank or a safe. Older servers leave it out. */
@@ -221,6 +223,7 @@ export const cloud = {
   updateTransaction: makeFunctionReference<'mutation', WithReceipt<{ id: string; occurredAt?: number; description?: string; categoryId?: string | null; kind?: 'income' | 'expense'; amount?: number; currency?: CloudCurrency }>, Receipt>('mobile:updateTransaction'),
   deleteTransaction: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteTransaction'),
   upsertAsset: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudAsset['kind']; balance: number; currency: CloudCurrency; location?: string; owedBy?: string; costBasis?: number | null; acquiredAt?: number | null }>, Receipt>('mobile:upsertAsset'),
+  classifyAsset: makeFunctionReference<'mutation', { id: string; portfolioId: string; investmentType: 'fund' | null; expectedInvestmentType: 'fund' | null; clientMutationId?: string }, Receipt>('assets:classify'),
   deleteAsset: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteAsset'),
   upsertLiability: makeFunctionReference<'mutation', WithReceipt<{ id?: string; portfolioId: string; name: string; kind: CloudLiability['kind']; balance: number; currency: CloudCurrency; dueDate?: number; counterparty?: string }>, Receipt>('mobile:upsertLiability'),
   deleteLiability: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt>('mobile:deleteLiability'),

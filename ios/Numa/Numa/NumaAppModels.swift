@@ -258,6 +258,7 @@ struct MobileAsset: Codable, Identifiable, Equatable {
   let portfolioId: String
   let name: String
   let kind: String
+  var investmentType: String? = nil
   let balance: Double
   let currency: CurrencyCode
   let notes: String?

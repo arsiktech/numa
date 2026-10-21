@@ -74,6 +74,7 @@ export function mobileAsset(asset: Doc<"assets">) {
     portfolioId: asset.portfolioId,
     name: asset.name,
     kind: asset.kind,
+    investmentType: asset.investmentType ?? null,
     balance: asset.balance,
     currency: asset.currency,
     notes: asset.notes ?? null,

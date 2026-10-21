@@ -45,6 +45,17 @@ describe('fx', () => {
 });
 
 describe('fromSnapshot', () => {
+  it('keeps a manually valued fund in Stocks and funds without inventing a quote', () => {
+    // A variable admits additive server metadata on the old client type too.
+    const asset = { id: 'manual-fund', name: 'Synthetic mutual fund', kind: 'other' as const, investmentType: 'fund' as const, balance: 234.56, currency: 'EUR' as const, updatedAt: now.getTime() - DAY };
+    const home = fromSnapshot(snapshot({ assets: [asset] }), fx, now);
+    expect(home.holdings[0].category).toBe('stocks');
+    expect(home.holdings[0]).toMatchObject({ id: asset.id, liquidity: { kind: 'liquid' }, valuation: { kind: 'manual', valueCents: 23_456, asOf: new Date(asset.updatedAt).toISOString() } });
+    expect(home.holdings[0].quantity).toBeUndefined();
+    expect(home.holdings[0].changeTodayCents).toBeUndefined();
+    expect(summarize(home.holdings, home.debts, now)).toMatchObject({ netCents: 23_456, liquidCents: 23_456, cashCents: 0 });
+  });
+
   it('values a quoted holding from the USD quote, converted to the portfolio currency', () => {
     const home = fromSnapshot(snapshot({ holdings: [quoted] }), fx, now);
     expect(home.holdings[0].valuation).toEqual({ kind: 'synced', valueCents: 400_000, asOf: new Date(quoted.quoteUpdatedAt).toISOString(), source: 'Finnhub' });
@@ -151,5 +162,23 @@ describe('fromSnapshot', () => {
 
   it('calls a new portfolio empty', () => {
     expect(fromSnapshot(snapshot({ assets: [{ id: 'a1', name: 'Cash', kind: 'cash', balance: 0, currency: 'EUR', updatedAt: 0 }] }), fx, now).empty).toBe(true);
+  });
+});
+
+describe('explicit fund classification', () => {
+  it('does not infer a fund from a name or provenance and keeps saved history unchanged', () => {
+    const assets = [undefined, null, 'fund' as const].map((investmentType, i) => ({ id: `a${i}`, name: 'Synthetic Fund ISIN label', kind: 'other' as const, investmentType, balance: 108, currency: 'USD' as const, location: 'Synthetic broker · 3.25 units', updatedAt: now.getTime() - 210 * DAY }));
+    const wealthSnapshots = [{ takenAt: now.getTime() - DAY, netWorth: 324, liquid: 0, invested: 0, hardAssets: 324, liabilities: 0, currency: 'USD' as const }];
+    const s = snapshot({ assets, wealthSnapshots });
+    const before = JSON.stringify(s);
+    const home = fromSnapshot(s, fx, now);
+    expect(home.holdings.map((h) => h.category)).toEqual(['things', 'things', 'stocks']);
+    expect(home.holdings[2].valuation).toMatchObject({ kind: 'manual', valueCents: 8640, asOf: new Date(assets[2].updatedAt).toISOString() });
+    expect(summarize(home.holdings, [], now).stale).toHaveLength(3);
+    expect(home.history[0].parts).toEqual({ liquidCents: 0, investedCents: 0, hardCents: 25920, oweCents: 0 });
+    expect(JSON.stringify(s)).toBe(before);
+    const missingFx = fromSnapshot(snapshot({ assets: [assets[2]] }), null, now);
+    expect(missingFx.unconverted).toEqual([assets[2].name]);
+    expect(missingFx.holdings).toEqual([]);
   });
 });

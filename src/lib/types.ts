@@ -235,6 +235,7 @@ export interface Asset {
   portfolioId: string;
   name: string;
   kind: AssetKind;
+  investmentType?: "fund" | null;
   balance: number;
   currency: CurrencyCode;
   notes?: string;
