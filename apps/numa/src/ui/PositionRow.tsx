@@ -1,7 +1,7 @@
 import { Link } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import type { Family, Position } from '@/data/positions';
+import { familyMembersText, positionPlacesText, type Family, type Position } from '@/data/positions';
 import { useTheme } from '@/theme/theme';
 import { useMoney } from './money';
 import { Txt } from './Txt';
@@ -13,8 +13,7 @@ export const quantityText = (q: number | null, unit: string | null) => (q === nu
 export function PositionRow({ position, share, swatch, last }: { position: Position; share: number | null; swatch: string; last?: boolean }) {
   const { c } = useTheme();
   const { money, mask, hidden } = useMoney();
-  const places = position.places.length;
-  const where = places === 1 ? position.places[0].where : `${places} places`;
+  const where = positionPlacesText(position);
   const qty = quantityText(position.quantity, position.unit);
   return (
     <Link href={{ pathname: '/position/[group]/[key]', params: { group: position.group, key: position.key } }} asChild>
@@ -40,7 +39,7 @@ export function FamilyRow({ family, group, share, swatch, last }: { family: Fami
   const { c } = useTheme();
   const { money, mask, hidden } = useMoney();
   const qty = quantityText(family.quantity, family.unit);
-  const versions = family.members.map((m) => m.unit ?? m.name).join(', ');
+  const versions = familyMembersText(family);
   return (
     <Link href={{ pathname: '/position/[group]/[key]', params: { group, key: family.key } }} asChild>
       <Pressable accessibilityRole="link" accessibilityLabel={`${family.name}, ${family.valueCents === null ? 'no value' : hidden ? 'amount hidden' : money(family.valueCents)}, ${group === 'debts' ? 'owed as' : 'held as'} ${versions}. Open`}

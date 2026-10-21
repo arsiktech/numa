@@ -17,6 +17,11 @@ const TIMEOUT_MS = 10_000;
 const MAX_SYMBOLS = 30;
 const CALLS_PER_MINUTE = 30;
 const rangeValidator = v.union(v.literal("1D"), v.literal("1W"), v.literal("1M"), v.literal("1Y"));
+const observationValidator = v.optional(v.object({
+  t: v.array(v.number()), p: v.array(v.number()),
+  source: v.union(v.literal("coinbase"), v.literal("yahoo")),
+  granularityMs: v.number(), fetchedAt: v.number()
+}));
 
 const get: Get = async (url) => {
   const response = await fetch(url, { headers: { accept: "application/json", "user-agent": "Mozilla/5.0 (Numa Pro)" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -26,18 +31,18 @@ const get: Get = async (url) => {
 
 export const cached = internalQuery({
   args: { keys: v.array(v.string()) },
-  handler: async (ctx, { keys }): Promise<Array<{ key: string; fetchedAt: number; t: number[]; p: number[] } | null>> =>
+  handler: async (ctx, { keys }): Promise<Array<(Series & { key: string; fetchedAt: number }) | null>> =>
     await Promise.all(keys.map(async (key) => {
       const row = await ctx.db.query("priceHistory").withIndex("by_key", (q) => q.eq("key", key)).unique();
-      return row ? { key, fetchedAt: row.fetchedAt, t: row.t, p: row.p } : null;
+      return row ? { key, fetchedAt: row.fetchedAt, t: row.t, p: row.p, ...(row.observations ? { observations: row.observations } : {}) } : null;
     })),
 });
 
 export const store = internalMutation({
-  args: { key: v.string(), t: v.array(v.number()), p: v.array(v.number()), fetchedAt: v.number() },
+  args: { key: v.string(), t: v.array(v.number()), p: v.array(v.number()), fetchedAt: v.number(), observations: observationValidator },
   handler: async (ctx, args) => {
     const row = await ctx.db.query("priceHistory").withIndex("by_key", (q) => q.eq("key", args.key)).unique();
-    if (row) await ctx.db.patch(row._id, { t: args.t, p: args.p, fetchedAt: args.fetchedAt });
+    if (row) await ctx.db.patch(row._id, { t: args.t, p: args.p, fetchedAt: args.fetchedAt, observations: args.observations });
     else await ctx.db.insert("priceHistory", args);
     return null;
   },
@@ -75,14 +80,15 @@ export const series = action({
     const out: Record<string, Series> = {};
     await Promise.all(wanted.map(async (s, i) => {
       const row = rows[i];
-      if (row && now - row.fetchedAt < GRID[range as ChartRange].ttl) { out[s.symbol.toUpperCase()] = { t: row.t, p: row.p }; return; }
+      const saved: Series | null = row ? { t: row.t, p: row.p, ...(row.observations ? { observations: row.observations } : {}) } : null;
+      if (row && saved && now - row.fetchedAt >= 0 && now - row.fetchedAt < GRID[range as ChartRange].ttl) { out[s.symbol.toUpperCase()] = saved; return; }
       const fresh = await fetchSeries(s.symbol, s.kind, range as ChartRange, now, get);
       if (fresh) {
         out[s.symbol.toUpperCase()] = fresh;
-        await ctx.runMutation(internal.priceHistory.store, { key: keys[i], t: fresh.t, p: fresh.p, fetchedAt: now });
-      } else if (row) {
+        await ctx.runMutation(internal.priceHistory.store, { key: keys[i], ...fresh, fetchedAt: now });
+      } else if (saved) {
         // The provider didn't answer: an older history is better than a flat line.
-        out[s.symbol.toUpperCase()] = { t: row.t, p: row.p };
+        out[s.symbol.toUpperCase()] = saved;
       }
     }));
     return out;
