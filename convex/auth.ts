@@ -187,6 +187,21 @@ providers.push(
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers,
+  jwt: {
+    async customClaims(ctx, { userId, sessionId }) {
+      // The SDK reuses a credentials session without another creation hook.
+      // This supported hook runs inside the final token store mutation, after
+      // refresh insertion but before signing. These reads join its transaction;
+      // rejection rolls back the refresh row and conflicts with deletion.
+      // The SDK hook erases the app schema; restore this module’s read-only type.
+      await assertExistingAccount(ctx as unknown as QueryCtx, userId);
+      const session = await ctx.db.get(sessionId);
+      if (!session || session.userId !== userId || !Number.isFinite(session.expirationTime) || session.expirationTime <= Date.now()) {
+        throw new Error("Session no longer exists or has expired. Sign in again.");
+      }
+      return {};
+    },
+  },
   callbacks: {
     async beforeSessionCreation(ctx, { userId }) {
       await assertExistingAccount(ctx, userId);
@@ -220,7 +235,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           ...(email ? { email } : {}), ...(name ? { name } : {}),
           ...(email && args.profile.emailVerified ? { emailVerificationTime: Date.now() } : {}),
         });
-        if (target && name) await ctx.db.patch(target, { name });
+        // Existing profile metadata belongs to the user, not this link/migration.
+        // Apple's one-time name and our fallback apply only to a brand-new user.
         await saveAppleCredential(ctx, userId, apple);
         return userId;
       }

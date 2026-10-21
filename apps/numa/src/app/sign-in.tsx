@@ -87,15 +87,18 @@ function QuickSignIn({ busy, last, onApple, onGoogle }: { busy: boolean; last: S
     let live = true;
     appleSignInAvailable().then((ok) => {
       if (live) setApple(ok);
-      if (ok && Platform.OS === 'web') void prepareAppleWebSignIn().catch(() => {});
     });
     return () => { live = false; };
   }, []);
+  const appleReady = apple && appleLifecycle?.configured === true;
+  useEffect(() => {
+    if (appleReady && Platform.OS === 'web') void prepareAppleWebSignIn().catch(() => {});
+  }, [appleReady]);
   const google = flags?.googleOAuth === true;
   if (!apple && !google) return null;
   return (
     <View style={{ gap: 10, opacity: busy ? 0.5 : 1 }} pointerEvents={busy ? 'none' : 'auto'}>
-      {apple && Platform.OS !== 'web' && (
+      {appleReady && Platform.OS !== 'web' && (
         <View>
           <AppleAuthentication.AppleAuthenticationButton
             buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
@@ -107,14 +110,15 @@ function QuickSignIn({ busy, last, onApple, onGoogle }: { busy: boolean; last: S
           {last === 'apple' && <LastUsed on={name === 'dark' ? 'light' : 'dark'} />}
         </View>
       )}
-      {apple && Platform.OS === 'web' && (
+      {appleReady && Platform.OS === 'web' && (
         <Pressable onPress={onApple} accessibilityRole="button" accessibilityLabel={`Continue with Apple${last === 'apple' ? ', last used' : ''}`} style={{ minHeight: 52, borderRadius: 999, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink }}>
           <AppleMark color={c.bg} />
           <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold', fontSize: 16 }}>Continue with Apple</Txt>
           {last === 'apple' && <LastUsed on={name === 'dark' ? 'light' : 'dark'} />}
         </Pressable>
       )}
-      {apple && appleLifecycle?.configured === false && <Txt v="small" c="ink2">Apple sign-in currently supports accounts already linked through this app’s current Apple button. For older Apple accounts or new accounts, use email or Google while Apple token management is being configured.</Txt>}
+      {apple && appleLifecycle === undefined && <Txt v="small" c="ink2">Checking Apple sign-in…</Txt>}
+      {apple && appleLifecycle?.configured === false && <Txt v="small" c="ink2">Apple sign-in is unavailable right now. Use email{google ? ' or Google' : ''}.</Txt>}
       {google && (
         <Pressable onPress={onGoogle} accessibilityRole="button" accessibilityLabel={`Continue with Google${last === 'google' ? ', last used' : ''}`} style={{ minHeight: 52, borderRadius: 999, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.s1, borderWidth: 1, borderColor: c.s2 }}>
           <GoogleMark />

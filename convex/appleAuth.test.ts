@@ -400,6 +400,107 @@ it.each([null, '', 9, 'https://evil.invalid'])('supplied bad web redirect with a
   expect(fetcher.mock.calls.filter(c => c[0].endsWith('/auth/token'))).toHaveLength(0);
 });
 
+// Pause after the real apple-native authorize has returned its bound session,
+// then execute the exact final store step used by the outer credentials handler.
+// No customClaims call is made by the tests, so the baseline reaches token minting.
+async function configureDummyTokenIssuance() {
+  const bytes = new Uint8Array(await crypto.subtle.exportKey('pkcs8', rsa.privateKey));
+  vi.stubEnv('JWT_PRIVATE_KEY', `-----BEGIN PRIVATE KEY-----\n${b64(bytes).match(/.{1,64}/g)!.join('\n')}\n-----END PRIVATE KEY-----`);
+  vi.stubEnv('CONVEX_SITE_URL', 'https://synthetic.invalid');
+}
+function issueBoundSession(session: { userId: string; sessionId: string }) {
+  return state.run('auth:store', { args: { type: 'signIn', userId: session.userId, sessionId: session.sessionId, generateTokens: true } });
+}
+
+it('final SDK token step rejects completed deletion after Apple binding without an orphan refresh row or JWT', async () => {
+  await configureDummyTokenIssuance();
+  const f = authFixture('user'); const signed = await token(); providerFetch(signed);
+  f.seed('profiles', 'delete-after-bind', { userId: 'user', deletionScheduledAt: now - 1 });
+  f.seed('users', 'unrelated-user', {});
+  f.seed('authSessions', 'unrelated-session', { userId: 'unrelated-user', expirationTime: now + 100000 });
+  f.seed('authRefreshTokens', 'unrelated-refresh', { sessionId: 'unrelated-session', expirationTime: now + 100000 });
+  const bound = await authorize({ identityToken: signed, nonce });
+  expect(f.rows.get(bound.sessionId)).toMatchObject({ userId: 'user', appleSubject: 'dummy-auth-sub' });
+  // This is the registered cascade, not a fixture-only row deletion.
+  await f.call(executeScheduledDeletion, { userId: 'user' });
+  expect(f.rows.has('user')).toBe(false); expect(f.rows.has(bound.sessionId)).toBe(false);
+  const before = structuredClone(f.all('authRefreshTokens'));
+  let issued: any;
+  await expect(issueBoundSession(bound).then((result: any) => { issued = result; return result; })).rejects.toThrow(/no longer exists|deletion/i);
+  expect(issued).toBeUndefined();
+  expect(f.all('authRefreshTokens')).toEqual(before);
+  expect(f.all('authSessions')).toEqual([expect.objectContaining({ _id: 'unrelated-session' })]);
+});
+
+it('final SDK token step rejects deletion started after binding and rolls back its refresh insertion', async () => {
+  await configureDummyTokenIssuance();
+  const f = authFixture('user'); const signed = await token(); providerFetch(signed);
+  const bound = await authorize({ identityToken: signed, nonce });
+  f.seed('profiles', 'started-after-bind', { userId: 'user', deletionStartedAt: now });
+  const before = structuredClone(f.all('authRefreshTokens'));
+  await expect(issueBoundSession(bound)).rejects.toThrow(/deletion has started/i);
+  expect(f.all('authRefreshTokens')).toEqual(before);
+});
+
+it.each(['missing', 'wrong-owner', 'expired', 'expiration-boundary'])('final SDK token step rejects invalid bound session: %s', async variant => {
+  await configureDummyTokenIssuance();
+  const f = authFixture('user'); const signed = await token(); providerFetch(signed);
+  const bound = await authorize({ identityToken: signed, nonce });
+  const session = structuredClone(f.rows.get(bound.sessionId));
+  if (variant === 'missing') f.rows.delete(bound.sessionId);
+  else if (variant === 'wrong-owner') {
+    f.seed('users', 'other-owner', {});
+    f.seed('authSessions', bound.sessionId, { ...session, userId: 'other-owner' });
+  } else f.seed('authSessions', bound.sessionId, { ...session, expirationTime: variant === 'expired' ? now - 1 : now });
+  const before = structuredClone(f.all('authRefreshTokens'));
+  await expect(issueBoundSession(bound)).rejects.toThrow(/session no longer exists|expired/i);
+  expect(f.all('authRefreshTokens')).toEqual(before);
+});
+
+it.each([false, true])('final SDK token step issues a healthy bound session and preserves scheduled grace: %s', async grace => {
+  await configureDummyTokenIssuance();
+  const f = authFixture('user'); const signed = await token(); providerFetch(signed);
+  if (grace) f.seed('profiles', 'scheduled-grace', { userId: 'user', deletionScheduledAt: now + 100000 });
+  const bound = await authorize({ identityToken: signed, nonce });
+  const session = structuredClone(f.rows.get(bound.sessionId));
+  const result = await issueBoundSession(bound);
+  expect(result).toMatchObject({ userId: 'user', sessionId: bound.sessionId, tokens: { token: expect.any(String), refreshToken: expect.any(String) } });
+  const claims = JSON.parse(Buffer.from(result.tokens.token.split('.')[1], 'base64url').toString());
+  expect(claims).toMatchObject({ sub: `user|${bound.sessionId}`, iss: 'https://synthetic.invalid', aud: 'convex', iat: expect.any(Number), exp: Math.floor(now / 1000) + 3600 });
+  expect(Object.keys(claims).sort()).toEqual(['aud', 'exp', 'iat', 'iss', 'sub']);
+  expect(f.rows.get(bound.sessionId)).toEqual(session);
+  expect(f.all('authRefreshTokens')).toEqual([expect.objectContaining({ sessionId: bound.sessionId })]);
+});
+
+it.each(['legacy-no-email', 'legacy-email', 'verified-email'])('Apple migration preserves existing display name and profile metadata: %s', async route => {
+  for (const name of [undefined, '   ', 'Different Apple Name']) {
+    const f = authFixture();
+    const user = { email: emailClaims.email, emailVerificationTime: now - 1, name: 'My chosen display name', image: 'https://synthetic.invalid/avatar.png' };
+    f.seed('users', 'user', user);
+    f.seed('profiles', 'existing-profile', { userId: 'user', displayCurrency: 'EUR' });
+    if (route.startsWith('legacy')) f.seed('authAccounts', 'legacy-name', { userId: 'user', provider: 'apple', providerAccountId: 'dummy-auth-sub' });
+    const beforeUser = structuredClone(f.rows.get('user'));
+    const beforeProfiles = structuredClone(f.all('profiles'));
+    const signed = await token(route === 'legacy-no-email' ? {} : emailClaims); providerFetch(signed);
+    const credentials = { identityToken: signed, nonce, ...(name === undefined ? {} : { name }), ...(route === 'verified-email' ? { authorizationCode: 'link-code' } : {}) };
+    const bound = await authorize(credentials);
+    expect(bound.userId).toBe('user'); expect(f.all('users')).toHaveLength(1);
+    expect(f.rows.get('user')).toEqual(beforeUser);
+    expect(f.all('profiles')).toEqual(beforeProfiles);
+    expect(f.all('authAccounts').find(row => row.provider === 'apple-native')?.userId).toBe('user');
+  }
+});
+
+it.each([
+  { name: '  First   Apple Name  ', claims: emailClaims, expected: 'First Apple Name' },
+  { name: undefined, claims: emailClaims, expected: 'linked' },
+  { name: undefined, claims: {}, expected: 'Apple user' },
+])('brand-new Apple account still receives its full name or current default: $expected', async ({ name, claims, expected }) => {
+  const f = authFixture(); const signed = await token(claims); providerFetch(signed);
+  const result = await authorize({ identityToken: signed, nonce, authorizationCode: 'signup-code', ...(name === undefined ? {} : { name }) });
+  expect(result.userId).not.toBe('user'); expect(f.rows.get(result.userId).name).toBe(expected);
+});
+
 it.each(['another-subject', 'pending-revocation'])('identity-only cannot relabel or reactivate an existing encrypted grant: %s', async variant => {
   const f = authFixture('user');
   const capturedSubject = variant === 'another-subject' ? 'second-owned-apple' : 'dummy-auth-sub';
