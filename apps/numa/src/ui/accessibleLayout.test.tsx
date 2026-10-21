@@ -48,3 +48,41 @@ test('a coach tip keeps its dismissal inside an intrinsically sized touch contai
   expect(card).toBeDefined();
   expect(StyleSheet.flatten(card!.props.style).position).not.toBe('absolute');
 });
+
+
+function renderBoundedTip(height: number, top = 85) {
+  const bounds = { availableHeight: height };
+  act(() => { tree = TestRenderer.create(<CoachTip {...bounds} title="Drag the line to go back in time" body="Let go to stay on that date, then tap a block to see what was in it." onDismiss={jest.fn()} top={top} width={402} />); });
+}
+
+function reportTipHeight(height: number) {
+  const card = tree!.root.findAllByType(View).find((view) => view.props.accessibilityRole === 'alert')!;
+  act(() => { card.props.onLayout?.({ nativeEvent: { layout: { x: 0, y: 0, width: 300, height } } }); });
+}
+
+function tipContainerTop() {
+  return StyleSheet.flatten(tree!.root.findAllByType(View)[0].props.style).top as number;
+}
+
+test('a taller measured coach tip stays above the adjacent chart range controls', () => {
+  const plotHeight = 190, cardHeight = 146;
+  renderBoundedTip(plotHeight);
+  reportTipHeight(cardHeight);
+  expect(tipContainerTop() + cardHeight).toBeLessThanOrEqual(plotHeight);
+  expect(StyleSheet.flatten(tree!.root.findAllByType(View)[0].props.style).height).toBeUndefined();
+});
+
+test('a compact measured coach tip keeps its preferred chart anchor', () => {
+  renderBoundedTip(190);
+  reportTipHeight(80);
+  expect(tipContainerTop()).toBe(85);
+});
+
+test('coach-tip anchoring recovers after a layout height change', () => {
+  const plotHeight = 190, cardHeight = 146;
+  renderBoundedTip(plotHeight);
+  reportTipHeight(cardHeight);
+  expect(tipContainerTop() + cardHeight).toBeLessThanOrEqual(plotHeight);
+  reportTipHeight(80);
+  expect(tipContainerTop()).toBe(85);
+});

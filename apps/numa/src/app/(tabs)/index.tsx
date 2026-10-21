@@ -243,7 +243,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         labels={{ times: points.map((p) => p.t), at: (i) => pointLabel(points[i].t, range, model.now), tick: (t) => tickLabel(t, range) }}
         onPreview={(i) => { setPreview(i); if (i !== null && coach) seeTip(COACH); }}
         onPin={(i) => { setPreview(null); setPinnedAt(i >= points.length - 1 ? null : points[i].t); if (coach) seeTip(COACH); }} />
-      {coach && <CoachTip title="Drag the line to go back in time" body="Let go to stay on that date, then tap a block to see what was in it." top={chartHeight * 0.45} width={wide ? 1000 : width} onDismiss={() => seeTip(COACH)} />}
+      {coach && <CoachTip title="Drag the line to go back in time" body="Let go to stay on that date, then tap a block to see what was in it." top={chartHeight * 0.45} availableHeight={chartHeight} width={wide ? 1000 : width} onDismiss={() => seeTip(COACH)} />}
     </View>
   ) : null;
 
