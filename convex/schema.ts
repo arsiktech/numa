@@ -864,6 +864,11 @@ export default defineSchema({
     key: v.string(),
     t: v.array(v.number()),
     p: v.array(v.number()),
+    observations: v.optional(v.object({
+      t: v.array(v.number()), p: v.array(v.number()),
+      source: v.union(v.literal("coinbase"), v.literal("yahoo")),
+      granularityMs: v.number(), fetchedAt: v.number()
+    })),
     fetchedAt: v.number()
   }).index("by_key", ["key"])
 });

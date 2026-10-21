@@ -17,6 +17,7 @@ import { ThemeProvider, useTheme } from '@/theme/theme';
 import { useLiveUpdates } from '@/updates/useLiveUpdates';
 import { WIDE } from '@/ui/Nav';
 import { OfflineNotice } from '@/ui/Offline';
+import { CloudMoversProvider, MoversProvider } from '@/ui/MoversContext';
 import { clearWidget, WidgetSync } from '@/widget/WidgetSync';
 import { ToastProvider } from '@/ui/Toast';
 
@@ -50,6 +51,7 @@ function Root() {
       <Stack.Protected guard={inside}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="ask" options={wide ? panel : { presentation: 'modal' }} />
+        <Stack.Screen name="movers" options={wide ? panel : { presentation: 'modal' }} />
         <Stack.Screen name="settings" options={panel} />
         <Stack.Screen name="holdings/index" options={panel} />
         <Stack.Screen name="holdings/[group]" options={panel} />
@@ -73,7 +75,7 @@ function Root() {
   return (
     <>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
-      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><CloudDataProvider>{stack}<OfflineNotice /><WidgetSync /></CloudDataProvider></CloudBoundary> : stack}</ToastProvider>
+      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><CloudDataProvider><CloudMoversProvider>{stack}<OfflineNotice /><WidgetSync /></CloudMoversProvider></CloudDataProvider></CloudBoundary> : <MoversProvider scope={session.kind} evidence={session.kind}>{stack}</MoversProvider>}</ToastProvider>
     </>
   );
 }

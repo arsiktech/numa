@@ -7,7 +7,13 @@
 
 export type ChartRange = "1D" | "1W" | "1M" | "1Y";
 export type Get = (url: string) => Promise<unknown>;
-export type Series = { t: number[]; p: number[] };
+/** Raw provider candle starts and close prices, excluding unfinished/invalid candles.
+ * A close is only known at t + granularityMs. These are evidence, not the padded drawing grid.
+ */
+export type Observations = {
+  t: number[]; p: number[]; source: "coinbase" | "yahoo"; granularityMs: number; fetchedAt: number;
+};
+export type Series = { t: number[]; p: number[]; observations?: Observations };
 
 const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 export const GRID: Record<ChartRange, { step: number; span: number; ttl: number }> = {
@@ -33,7 +39,7 @@ export function gridFor(range: ChartRange, now: number): number[] {
 
 /** Each grid time takes the last known price at or before it; before the first, the first. */
 export function resample(times: number[], prices: number[], grid: number[]): number[] | null {
-  const pairs = times.map((t, i) => [t, prices[i]] as const).filter(([, p]) => Number.isFinite(p) && p > 0).sort((a, b) => a[0] - b[0]);
+  const pairs = times.map((t, i) => [t, prices[i]] as const).filter(([t, p]) => Number.isFinite(t) && Number.isFinite(p) && p > 0).sort((a, b) => a[0] - b[0]);
   if (!pairs.length) return null;
   const out: number[] = [];
   let j = 0;
@@ -42,6 +48,16 @@ export function resample(times: number[], prices: number[], grid: number[]): num
     out.push(pairs[j][1]);
   }
   return out;
+}
+
+function observations(times: number[], prices: number[], source: Observations["source"], granularityMs: number, now: number): Observations {
+  const pairs = new Map<number, number>();
+  times.forEach((t, i) => {
+    const p = prices[i];
+    if (Number.isSafeInteger(t) && t >= 0 && t + granularityMs <= now && Number.isFinite(p) && p > 0) pairs.set(t, p);
+  });
+  const sorted = [...pairs].sort((a, b) => a[0] - b[0]);
+  return { t: sorted.map(([t]) => t), p: sorted.map(([, p]) => p), source, granularityMs, fetchedAt: now };
 }
 
 /** Coinbase candles: [start, low, high, open, close, volume]; a candle's close is its price at its end. */
@@ -53,15 +69,19 @@ async function coinbase(symbol: string, range: ChartRange, now: number, get: Get
   const windows = Math.ceil(span / (granularity * 1000 * 290));
   const times: number[] = [], prices: number[] = [];
   for (let w = 0; w < windows; w++) {
-    const end = now - (w * span) / windows, start = now - ((w + 1) * span) / windows - granularity * 1000;
+    const end = now - (w * span) / windows;
+    // Include a completed candle at/before the floor-aligned chart baseline. The same
+    // number of requests still contains fewer than 300 candles in every range.
+    const start = Math.floor((now - ((w + 1) * span) / windows) / GRID[range].step) * GRID[range].step - granularity * 1000;
     const url = `https://api.exchange.coinbase.com/products/${product}/candles?granularity=${granularity}&start=${new Date(start).toISOString()}&end=${new Date(end).toISOString()}`;
     const rows = await get(url);
     if (!Array.isArray(rows)) return null;
-    for (const r of rows) if (Array.isArray(r) && r.length >= 5) { times.push(r[0] * 1000 + granularity * 1000); prices.push(Number(r[4])); }
+    for (const r of rows) if (Array.isArray(r) && r.length >= 5 && typeof r[0] === "number" && typeof r[4] === "number") { times.push(r[0] * 1000); prices.push(r[4]); }
   }
+  const observed = observations(times, prices, "coinbase", granularity * 1000, now);
   const grid = gridFor(range, now);
-  const p = resample(times, prices, grid);
-  return p ? { t: grid, p } : null;
+  const p = resample(observed.t.map((t) => t + observed.granularityMs), observed.p, grid);
+  return p ? { t: grid, p, observations: observed } : null;
 }
 
 const YAHOO: Record<ChartRange, string> = { "1D": "range=1d&interval=5m", "1W": "range=5d&interval=60m", "1M": "range=1mo&interval=60m", "1Y": "range=1y&interval=1d" };
@@ -75,13 +95,14 @@ async function yahoo(symbol: string, range: ChartRange, now: number, get: Get): 
   if (!r?.timestamp || !r.indicators?.quote?.[0]?.close) return null;
   // Prices in another currency would be read as dollars; leave those out rather than mislabel them.
   if (r.meta?.currency && r.meta.currency !== "USD") return null;
-  const times = r.timestamp.map((s) => s * 1000);
-  const prices = r.indicators.quote[0].close.map((c) => (c === null ? NaN : c));
+  const granularityMs = range === "1D" ? 5 * MIN : range === "1Y" ? DAY : HOUR;
+  const observed = observations(r.timestamp.map((s) => typeof s === "number" ? s * 1000 : NaN), r.indicators.quote[0].close.map((c) => typeof c === "number" ? c : NaN), "yahoo", granularityMs, now);
+  const times = [...observed.t], prices = [...observed.p];
   const prev = r.meta?.chartPreviousClose;
-  if (prev && prev > 0 && times.length) { times.unshift(times[0] - 1); prices.unshift(prev); }
+  if (typeof prev === "number" && Number.isFinite(prev) && prev > 0 && times.length) { times.unshift(times[0] - 1); prices.unshift(prev); }
   const grid = gridFor(range, now);
   const p = resample(times, prices, grid);
-  return p ? { t: grid, p } : null;
+  return p ? { t: grid, p, observations: observed } : null;
 }
 
 export async function fetchSeries(symbol: string, kind: "crypto" | "stock", range: ChartRange, now: number, get: Get): Promise<Series | null> {
