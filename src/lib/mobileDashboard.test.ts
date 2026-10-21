@@ -137,3 +137,24 @@ describe("valueDashboardHolding", () => {
     expect(valuation.quoteStale).toBe(false);
   });
 });
+
+describe("manual fund dashboard classification", () => {
+  it("moves value from hard assets to invested exactly once without changing manual driver or returns", () => {
+    const input = { portfolio: { defaultCurrency: "EUR" as const }, transactions: [], liabilities: [{ balance: 10, currency: "EUR" as const }], holdings: [], goals: [], nowMs: NOW_MS };
+    const asset = { kind: "other" as const, balance: 108, currency: "USD" as const };
+    const before = buildMobileDashboard({ ...input, assets: [asset] });
+    const after = buildMobileDashboard({ ...input, assets: [{ ...asset, investmentType: "fund" }] });
+    expect(before).toMatchObject({ liquid: 0, invested: 0, hardAssets: 100, netWorth: 90 });
+    expect(after).toMatchObject({ liquid: 0, invested: 100, hardAssets: 0, netWorth: 90, monthIncome: 0, monthDelta: 0, drivers: { cashflow: 0, manual: 90, market: 0 }, movementFeed: [] });
+    expect(after.drivers).toEqual(before.drivers);
+    expect(after.dataQuality).toMatchObject({ quoteCount: 0, missingQuoteCount: 0 });
+  });
+});
+
+describe("manual funds beside quoted holdings", () => {
+  it("adds the manual value once while market gain remains quote-derived", () => {
+    const dashboard = buildMobileDashboard({ portfolio: { defaultCurrency: "USD" }, transactions: [], assets: [{ kind: "other", investmentType: "fund", balance: 234.56, currency: "USD" }, { kind: "other", balance: 10, currency: "USD" }], liabilities: [], holdings: [{ holding: { symbol: "SYNTH", quantity: 2, costBasis: 100, currency: "USD" }, quote: { symbol: "SYNTH", price: 60, changePercent: 1, provider: "finnhub", updatedAt: NOW_MS } }], goals: [], nowMs: NOW_MS });
+    expect(dashboard).toMatchObject({ invested: 354.56, hardAssets: 10, netWorth: 364.56, monthDelta: 20, drivers: { market: 20, manual: 244.56 }, monthIncome: 0 });
+    expect(dashboard.dataQuality).toMatchObject({ quoteCount: 1, missingQuoteCount: 0 });
+  });
+});

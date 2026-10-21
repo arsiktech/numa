@@ -179,6 +179,7 @@ export function mapAsset(a: ConvexAsset, portfolioId: string): Asset {
     portfolioId,
     name: a.name,
     kind: a.kind,
+    investmentType: a.investmentType,
     balance: a.balance,
     currency: a.currency,
     notes: a.notes,

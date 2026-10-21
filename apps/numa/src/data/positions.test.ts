@@ -168,3 +168,17 @@ describe('treemap layout', () => {
     expect(debtAssetsOf(items)).toMatchObject([{ key: 'cur:EUR', unknown: 1, places: [{ valueCents: null }] }]);
   });
 });
+
+describe('manual fund positions', () => {
+  it('keeps an asset-key position and provenance rather than merging with a quoted ticker', () => {
+    const raw = { id: 'fund-asset', name: 'ACME', kind: 'other' as const, investmentType: 'fund' as const, balance: 234.56, currency: 'EUR' as const, location: 'Synthetic broker · 3.25 units', updatedAt: 1 };
+    const item: Item = { id: raw.id, type: 'asset', group: 'stocks', name: raw.name, detail: 'Fund', valueCents: 23_456, changeTodayCents: null, freshness: fresh, raw, gain: null };
+    const quoted = { ...holding('quoted', 'ACME', 'Acme stock', 2, 1000), group: 'stocks' as const };
+    const positions = positionsOf([item, quoted], 'stocks');
+    expect(positions).toHaveLength(2);
+    expect(positions[0]).toMatchObject({ key: 'item:fund-asset', unit: null, quantity: null, valueCents: 23_456, places: [{ itemId: raw.id, itemType: 'asset', where: raw.location, detail: 'Fund', quantity: null, unit: null }] });
+    // Both quote-history admission paths reject this stable item: key.
+    expect(/^[A-Z0-9.-]{1,15}$/.test(positions[0].key)).toBe(false);
+    expect(positions.filter((p) => !/^(item|cur|lent|pool):/.test(p.key)).map((p) => p.key)).toEqual(['ACME']);
+  });
+});

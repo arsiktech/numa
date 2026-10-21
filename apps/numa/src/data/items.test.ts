@@ -109,3 +109,16 @@ describe('since bought', () => {
     expect(gainOf(1_000_000, 11000, 'EUR', 'EUR', null, null, false)).toBeNull();
   });
 });
+
+describe('manual fund records', () => {
+  it('keeps raw money, unknown purchase fields, notes, location and identity without a gain', () => {
+    const asset = { id: 'fund-asset', name: 'Synthetic Fund', kind: 'other' as const, investmentType: 'fund' as const, balance: 234.56, currency: 'USD' as const, notes: 'Synthetic opening valuation', location: 'Synthetic broker · 3.25 units', updatedAt: t - DAY };
+    const s = { ...snap, assets: [asset], holdings: [], liabilities: [] };
+    const [item] = itemsFrom(s, fromSnapshot(s, fx, now), t, fx);
+    expect(item).toMatchObject({ id: asset.id, type: 'asset', group: 'stocks', detail: 'Fund', valueCents: 18_765, changeTodayCents: null, gain: null });
+    expect(item.raw).toBe(asset);
+    expect('costBasis' in item.raw || 'acquiredAt' in item.raw || 'symbol' in item.raw || 'quantity' in item.raw).toBe(false);
+    const [unknown] = itemsFrom(s, fromSnapshot(s, null, now), t);
+    expect(unknown).toMatchObject({ group: 'stocks', detail: 'Fund', valueCents: null, gain: null });
+  });
+});

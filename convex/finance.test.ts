@@ -1,3 +1,4 @@
+import { mobileAsset } from "./lib/mobilePortfolio";
 import { describe, expect, it } from "vitest";
 import { addMoney, assertClassifiedAccounts, financeMonth, majorUnits, minorUnits, exactPositiveMoney, type FinanceClassification } from "./lib/finance";
 import { recordClassifiedTransaction, reverseClassifiedTransaction, removeTransaction, recordTransaction, upsertAccount } from "./ledger";
@@ -9,7 +10,7 @@ import { ledgerCashflow, ledgerNetWorth, assertBalancedLedgerLines } from "../sr
 
 import { add as addHolding, update as updateHolding } from "./holdings";
 import { add as addSnapshot, update as updateSnapshot } from "./wealthSnapshots";
-import { add as addAsset, update as updateAsset, adjustBalance } from "./assets";
+import { add as addAsset, update as updateAsset, adjustBalance, classify } from "./assets";
 
 const NOW = Date.parse("2026-09-12T12:00:00Z");
 
@@ -482,5 +483,95 @@ describe("holding purchase transaction and snapshot retries", () => {
     expect(f.all("wealthSnapshots")[0]).toMatchObject({ netWorth: 1000, lines: [{ name: "EUR" }] });
     await f.call(updateSnapshot, { id: snapshotId, patch: { lines: [] }, clientMutationId: "clear" });
     expect(f.all("wealthSnapshots")[0].lines).toBeUndefined();
+  });
+});
+
+describe("classification-only asset repair", () => {
+  const args = { id: "manual-fund", portfolioId: "pf", investmentType: "fund", expectedInvestmentType: null, clientMutationId: "classify-fund" };
+  function fundFixture() {
+    const f = fixture();
+    f.seed("portfolios", "pf", { defaultCurrency: "EUR" });
+    f.seed("assets", "manual-fund", { portfolioId: "pf", name: "Synthetic Fund", kind: "other", balance: 234.565, currency: "USD", updatedAt: NOW - 86_400_000, notes: "Synthetic opening value", location: "Synthetic broker · 3.25 units" });
+    f.seed("wealthSnapshots", "saved", { portfolioId: "pf", netWorth: 200, hardAssets: 200, invested: 0 });
+    return f;
+  }
+  it("changes only the classification, retaining unknown cost/date and saved history", async () => {
+    const f = fundFixture();
+    const before = structuredClone(f.rows.get(args.id));
+    const history = structuredClone(f.all("wealthSnapshots"));
+    expect(await f.call(classify, args)).toMatchObject({ id: args.id, replayed: false });
+    expect(f.rows.get(args.id)).toEqual({ ...before, investmentType: "fund" });
+    expect(f.all("assets")).toHaveLength(4);
+    expect(f.all("holdings")).toHaveLength(0);
+    expect(f.all("wealthSnapshots")).toEqual(history);
+    expect(mobileAsset(f.rows.get(args.id))).toMatchObject({ id: args.id, investmentType: "fund", balance: before.balance, currency: before.currency, notes: before.notes, location: before.location, updatedAt: before.updatedAt, costBasis: null, acquiredAt: null });
+    await f.call(classify, { ...args, investmentType: null, expectedInvestmentType: "fund", clientMutationId: "clear-fund" });
+    expect(f.rows.get(args.id)).toEqual({ ...before, investmentType: undefined });
+  });
+  it("preserves existing purchase fields too", async () => {
+    const f = fundFixture();
+    f.rows.get(args.id).costBasis = 200;
+    f.rows.get(args.id).acquiredAt = NOW - 1000;
+    const before = structuredClone(f.rows.get(args.id));
+    await f.call(classify, args);
+    expect(f.rows.get(args.id)).toEqual({ ...before, investmentType: "fund" });
+  });
+  it("rejects anonymous, viewer, foreign/missing target, unsupported kind and stale expectation without receipts", async () => {
+    for (const scenario of ["anonymous", "viewer", "foreign", "missing", "kind", "conflict", "missing-portfolio", "nonmember"]) {
+      const f = fundFixture();
+      if (scenario === "anonymous") f.signOut();
+      if (scenario === "viewer") f.rows.get("member").role = "viewer";
+      if (scenario === "nonmember") f.rows.delete("member");
+      if (scenario === "foreign") f.rows.get(args.id).portfolioId = "other";
+      if (scenario === "missing") f.rows.delete(args.id);
+      if (scenario === "kind") f.rows.get(args.id).kind = "cash";
+      if (scenario === "conflict") f.rows.get(args.id).investmentType = "fund";
+      if (scenario === "missing-portfolio") f.rows.delete("pf");
+      const before = structuredClone([...f.rows]);
+      await expect(f.call(classify, args)).rejects.toThrow();
+      expect([...f.rows]).toEqual(before);
+      expect(f.all("mutationReceipts")).toHaveLength(0);
+    }
+  });
+  it("replays without reapplying and rejects a reused receipt for a different target or intent", async () => {
+    const f = fundFixture();
+    await f.call(classify, args);
+    expect(await f.call(classify, args)).toMatchObject({ replayed: true });
+    await f.call(classify, { ...args, investmentType: null, expectedInvestmentType: "fund", clientMutationId: "clear" });
+    expect(await f.call(classify, args)).toMatchObject({ replayed: true });
+    expect(f.rows.get(args.id).investmentType).toBeUndefined();
+    await expect(f.call(classify, { ...args, id: "cash-asset" })).rejects.toThrow();
+    await expect(f.call(classify, { ...args, investmentType: null })).rejects.toThrow();
+    await expect(f.call(classify, { ...args, expectedInvestmentType: "fund" })).rejects.toThrow();
+    f.rows.get("member").role = "viewer";
+    await expect(f.call(classify, args)).rejects.toThrow();
+    f.rows.get("member").role = "editor";
+    f.rows.delete(args.id);
+    expect(await f.call(classify, args)).toMatchObject({ id: args.id, replayed: true });
+    expect(f.rows.has(args.id)).toBe(false);
+  });
+  it("rejects a fresh stale CAS and cross-space receipt reuse even when both spaces are editable", async () => {
+    const f = fundFixture();
+    await f.call(classify, args);
+    await expect(f.call(classify, { ...args, clientMutationId: "stale" })).rejects.toThrow("Asset classification changed");
+    f.seed("portfolios", "other", { defaultCurrency: "EUR" });
+    f.seed("memberships", "other-member", { userId: "user", portfolioId: "other", role: "editor" });
+    await expect(f.call(classify, { ...args, portfolioId: "other" })).rejects.toThrow();
+    expect(f.rows.get(args.id).investmentType).toBe("fund");
+  });
+  it("full native and web saves preserve a fund for other, and clear it when the kind changes", async () => {
+    const f = fundFixture();
+    await f.call(classify, args);
+    const save = { id: args.id, portfolioId: "pf", name: "Synthetic Fund", kind: "other", balance: 234.565, currency: "USD" };
+    await f.call(upsertAsset, save);
+    expect(f.rows.get(args.id).investmentType).toBe("fund");
+    await f.call(updateAsset, { id: args.id, patch: { name: "Renamed", kind: "other" } });
+    expect(f.rows.get(args.id).investmentType).toBe("fund");
+    await f.call(updateAsset, { id: args.id, patch: { kind: "vehicle" } });
+    expect(f.rows.get(args.id).investmentType).toBeUndefined();
+    await f.call(upsertAsset, save);
+    await f.call(classify, { ...args, clientMutationId: "reclassify" });
+    await f.call(upsertAsset, { ...save, kind: "collectible" });
+    expect(f.rows.get(args.id).investmentType).toBeUndefined();
   });
 });

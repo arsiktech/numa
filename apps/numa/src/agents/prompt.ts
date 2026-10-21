@@ -34,6 +34,7 @@ export const toolWords: Record<string, string> = {
   update_transaction: 'Changed a transaction',
   delete_transaction: 'Deleted a transaction',
   save_asset: 'Saved an asset',
+  classify_asset: 'Classified an asset',
   delete_asset: 'Deleted an asset',
   save_liability: 'Saved a debt',
   delete_liability: 'Deleted a debt',

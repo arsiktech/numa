@@ -318,3 +318,11 @@ describe("recorded monthly forecast", () => {
     expect(result.lastMonth).toBe(50);
   });
 });
+
+describe("manual fund net-worth rollup", () => {
+  it("uses explicit metadata, not the name, and counts each value once", () => {
+    const asset: Asset = { id: "fund", portfolioId, name: "Synthetic Fund", kind: "other", balance: 100, currency: "EUR", updatedAt: NOW };
+    expect(rollupNetWorth([asset], [], [], {})).toEqual({ liquid: 0, invested: 0, hardAssets: 100, liabilities: 0, netWorth: 100 });
+    expect(rollupNetWorth([{ ...asset, investmentType: "fund" }], [], [], {})).toEqual({ liquid: 0, invested: 100, hardAssets: 0, liabilities: 0, netWorth: 100 });
+  });
+});

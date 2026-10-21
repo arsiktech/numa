@@ -100,7 +100,9 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
     if (cents === null) { unconverted.push(a.name); continue; }
     // An overdrawn account is money owed, not a negative block.
     if (cents < 0) { debts.push({ id: a.id, name: a.name, balanceCents: -cents }); continue; }
-    const place = assetPlace[a.kind];
+    const place = a.kind === 'other' && a.investmentType === 'fund'
+      ? { category: 'stocks' as const, liquidity: { kind: 'liquid' as const }, remindAfterDays: 180 }
+      : assetPlace[a.kind];
     holdings.push({ id: a.id, name: a.name, category: place.category, liquidity: place.liquidity, valuation: { kind: 'manual', valueCents: cents, asOf: iso(a.updatedAt), remindAfterDays: place.remindAfterDays } });
     const age = nowMs - a.updatedAt;
     if (cents > 0 && age > place.remindAfterDays * DAY) {

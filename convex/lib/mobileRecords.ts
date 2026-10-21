@@ -208,6 +208,7 @@ const upsertAsset = mutation({
         await ctx.db.patch(args.id, {
           name: cleanRequired(args.name, "Name"),
           kind: args.kind,
+          investmentType: args.kind === "other" ? existing.investmentType : undefined,
           balance: args.balance,
           currency: args.currency,
           notes: args.notes?.trim() || undefined,
