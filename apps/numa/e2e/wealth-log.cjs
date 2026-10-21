@@ -83,7 +83,7 @@ const LOG = [
   let kept = await page.locator('body').innerText();
   check('a tapped date stays after the pointer leaves', /What you owned · 5 Jan/.test(kept) && kept.includes('Back to today'), (kept.match(/What you own[^\n]*/) || ['none'])[0]);
   await page.screenshot({ path: OUT + '/03-home-kept-date-dark-390.png', fullPage: true });
-  await page.getByRole('link', { name: /^Invested, .* Open$/ }).click();
+  await page.getByRole('button', { name: /^Invested, .* Open$/ }).click();
   await page.getByText('What you had on').waitFor({ timeout: 10000 });
   await wait(500);
   const day = await page.locator('body').innerText();
