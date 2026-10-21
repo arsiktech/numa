@@ -9,9 +9,12 @@ import { summarize, type Summary } from '@/domain/summary';
 import type { Attention, Currency } from '@/domain/types';
 import { demoAttention, demoDebts, demoHoldings, demoNow, demoOctober, demoPoints } from './demo';
 import { useCloudData } from './cloud';
+import type { FxRate } from './fx';
 import { denseSeries, type HistoryRange, type PriceSeries, type PricedPiece, pricedPiecesOf } from './intraday';
-import { itemsFrom } from './items';
+import type { MovementBasis } from './homeMovers';
+import { itemsFrom, type Item } from './items';
 import { seriesFor, spanMs, todayFromMarkets, type Point, type Range } from './series';
+import { demoItems } from './useItems';
 
 /** Everything Home draws, whichever source it came from. */
 export type HomeModel =
@@ -21,8 +24,12 @@ export type HomeModel =
   | {
       status: 'ready';
       source: 'demo' | 'cloud';
+      /** In-memory scope only; never placed in a navigation URL. */
+      scope: string;
       now: number;
       currency: Currency;
+      /** Observation retained for movement evidence; existing totals may use last-known FX. */
+      fx: FxRate | null;
       summary: Summary;
       /** False while a record needs an exchange rate we do not have. */
       available: boolean;
@@ -33,12 +40,15 @@ export type HomeModel =
       flow: FlowSummary;
       attention: Attention[];
       empty: boolean;
+      items: Item[];
+      movementBasis: MovementBasis;
     };
 
 /** The labelled demo portfolio with a gentle live tick. */
 export function useDemoHome(range: Range): HomeModel {
   const { dismissed } = usePrefs();
   const summary = useMemo(() => summarize(demoHoldings, demoDebts, demoNow), []);
+  const items = useMemo(() => demoItems(), []);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + (Math.random() - 0.42) * 7000), 1700);
@@ -47,7 +57,7 @@ export function useDemoHome(range: Range): HomeModel {
   const netCents = summary.netCents + Math.round(tick);
   const points = useMemo(() => demoPoints(range, summary.netCents), [range, summary.netCents]);
   return {
-    status: 'ready', source: 'demo', now: demoNow.getTime(), currency: 'EUR', summary, available: true,
+    status: 'ready', source: 'demo', scope: 'demo', now: demoNow.getTime(), currency: 'EUR', fx: null, summary, available: true, items, movementBasis: { kind: 'demo' },
     points: [...points.slice(0, -1), { t: demoNow.getTime(), cents: netCents }], hasHistory: true, live: true,
     month: 'October', flow: summarizeFlow(demoOctober), attention: pickAttention(visibleAttention(demoAttention, dismissed, demoNow.getTime())), empty: false,
   };
@@ -77,12 +87,12 @@ function usePriceHistory(range: Range, pieces: PricedPiece[]): Record<string, Pr
 export function useCloudHome(range: Range): HomeModel {
   const cloudData = useCloudData();
   const { dismissed } = usePrefs();
+  const items = useMemo(() => cloudData.status === 'ready' ? itemsFrom(cloudData.snapshot, cloudData.data, cloudData.now, cloudData.fx) : [], [cloudData]);
   // Crypto and stocks that move with a market price, merged by symbol across records and wallets.
   const pieces = useMemo<PricedPiece[]>(() => {
     if (cloudData.status !== 'ready') return [];
-    const items = itemsFrom(cloudData.snapshot, cloudData.data, cloudData.now, cloudData.fx);
     return pricedPiecesOf(items);
-  }, [cloudData]);
+  }, [cloudData, items]);
   const history = usePriceHistory(range, pieces);
   if (cloudData.status !== 'ready') return cloudData;
   const { data, summary, now } = cloudData;
@@ -95,7 +105,9 @@ export function useCloudHome(range: Range): HomeModel {
   const today = range === '1D' && !dense ? todayFromMarkets(now, summary.netCents, marketsToday) : null;
   const { points, hasHistory } = dense ? { points: dense, hasHistory: true } : today ?? seriesFor(data.history, now, summary.netCents, range);
   return {
-    status: 'ready', source: 'cloud', now, currency: data.currency, summary, available: data.unconverted.length === 0,
+    status: 'ready', source: 'cloud', scope: `${cloudData.boot.profile.userId}:${cloudData.portfolioId}`, now, currency: data.currency, fx: cloudData.fx, summary,
+    available: data.unconverted.length === 0 && [summary.netCents, summary.ownCents, summary.oweCents, summary.liquidCents, summary.cashCents, ...points.map((p) => p.cents)].every(Number.isSafeInteger),
+    items, movementBasis: dense && history && range !== 'ALL' ? { kind: 'history', range, pieces, history } : { kind: today ? 'quotes' : 'saved' },
     points, hasHistory, live: priced.length > 0,
     month: data.month.month, flow: summarizeFlow(data.month), attention: pickAttention(visibleAttention(data.attention, dismissed, now)), empty: data.empty,
   };

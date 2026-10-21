@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-n
 
 import { useSession } from '@/cloud/session';
 import { groupNames, type GroupId } from '@/data/items';
-import { debtAssetsOf, familiesOf, isFamilyKey, positionsOf, type Family, type Place, type Position } from '@/data/positions';
+import { debtAssetsOf, familiesOf, isFamilyKey, positionPlacesText, positionsOf, type Family, type Place, type Position } from '@/data/positions';
 import { useCloudItems, useDemoItems, type ItemsSource } from '@/data/useItems';
 import type { CategoryId } from '@/domain/types';
 import { useTheme } from '@/theme/theme';
@@ -113,7 +113,7 @@ function FamilyDetail({ family, group, demo, now }: { family: Family; group: Gro
       {family.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{family.unknown} {family.unknown === 1 ? 'place has' : 'places have'} no value yet and {family.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
       {!demo && !debts && family.unit && <PriceChart symbol={family.unit} kind="crypto" now={now} />}
       <Txt v="label" c="ink3" style={{ marginTop: 24, marginBottom: 10 }} accessibilityRole="header">{debts ? 'OWED AS' : 'HELD AS'}</Txt>
-      <Treemap height={wide ? 220 : 170} tiles={family.members.filter((m) => (m.valueCents ?? 0) > 0).map((m) => ({ id: m.key, label: m.name, cents: m.valueCents ?? 0, color: debts ? 'down' : categoryColor(group as CategoryId), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group, key: m.key } }) }))} />
+      <Treemap height={wide ? 220 : 170} tiles={family.members.filter((m) => (m.valueCents ?? 0) > 0).map((m) => ({ id: m.key, label: m.name, detail: positionPlacesText(m), cents: m.valueCents ?? 0, color: debts ? 'down' : categoryColor(group as CategoryId), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group, key: m.key } }) }))} />
       <View style={{ marginTop: 14 }}>
         {family.members.map((m, n) => <PositionRow key={m.key} position={m} share={total > 0 && m.valueCents !== null ? m.valueCents / total : null} swatch={color} last={n === family.members.length - 1} />)}
       </View>

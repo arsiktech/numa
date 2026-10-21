@@ -1,0 +1,401 @@
+{
+  "version": 2,
+  "privacy": "visible",
+  "net": "−€260",
+  "today": "+€8.40 quote change today",
+  "up": true,
+  "line": [],
+  "updatedAt": 1792584000000,
+  "syncedAt": 1792584000000,
+  "freshness": {
+    "sourceAsOf": 1792583880000,
+    "quotesAsOf": 1792583880000,
+    "quotes": "current",
+    "stale": false,
+    "fxAsOf": "2026-10-21",
+    "fxRequired": true
+  },
+  "netWorth": {
+    "state": "ready",
+    "value": {
+      "text": "−€260",
+      "compact": "−€260",
+      "exact": "−€260.00"
+    },
+    "daily": {
+      "text": "+€8.40 quote change today",
+      "direction": "up",
+      "asOf": 1792583880000,
+      "amount": "+€8.40",
+      "period": "quoteChange",
+      "currency": "EUR",
+      "fxAsOf": "2026-10-21"
+    },
+    "historyMessage": "Not enough saved history. A trend needs 3 dated observations in 30 days."
+  },
+  "moneyMap": {
+    "state": "ready",
+    "toYou": {
+      "text": "€80",
+      "compact": "€80",
+      "exact": "€80.00"
+    },
+    "youOwe": {
+      "text": "€900",
+      "compact": "€900",
+      "exact": "€900.00"
+    },
+    "toFraction": 0.08888888888888889,
+    "oweFraction": 1
+  },
+  "spending": {
+    "state": "ready",
+    "month": "October",
+    "monthKey": "2026-10",
+    "validUntil": 1792627200000,
+    "total": {
+      "text": "€36",
+      "compact": "€36",
+      "exact": "€36.00"
+    },
+    "lead": 3,
+    "days": [
+      {
+        "key": "2026-10-01",
+        "day": 1,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "1 October: no spending"
+      },
+      {
+        "key": "2026-10-02",
+        "day": 2,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "2 October: no spending"
+      },
+      {
+        "key": "2026-10-03",
+        "day": 3,
+        "level": 4,
+        "future": false,
+        "unknown": false,
+        "description": "3 October: €32.00 spent"
+      },
+      {
+        "key": "2026-10-04",
+        "day": 4,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "4 October: no spending"
+      },
+      {
+        "key": "2026-10-05",
+        "day": 5,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "5 October: no spending"
+      },
+      {
+        "key": "2026-10-06",
+        "day": 6,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "6 October: no spending"
+      },
+      {
+        "key": "2026-10-07",
+        "day": 7,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "7 October: no spending"
+      },
+      {
+        "key": "2026-10-08",
+        "day": 8,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "8 October: no spending"
+      },
+      {
+        "key": "2026-10-09",
+        "day": 9,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "9 October: no spending"
+      },
+      {
+        "key": "2026-10-10",
+        "day": 10,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "10 October: no spending"
+      },
+      {
+        "key": "2026-10-11",
+        "day": 11,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "11 October: no spending"
+      },
+      {
+        "key": "2026-10-12",
+        "day": 12,
+        "level": 2,
+        "future": false,
+        "unknown": false,
+        "description": "12 October: €4.00 spent"
+      },
+      {
+        "key": "2026-10-13",
+        "day": 13,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "13 October: no spending"
+      },
+      {
+        "key": "2026-10-14",
+        "day": 14,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "14 October: no spending"
+      },
+      {
+        "key": "2026-10-15",
+        "day": 15,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "15 October: no spending"
+      },
+      {
+        "key": "2026-10-16",
+        "day": 16,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "16 October: no spending"
+      },
+      {
+        "key": "2026-10-17",
+        "day": 17,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "17 October: no spending"
+      },
+      {
+        "key": "2026-10-18",
+        "day": 18,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "18 October: no spending"
+      },
+      {
+        "key": "2026-10-19",
+        "day": 19,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "19 October: no spending"
+      },
+      {
+        "key": "2026-10-20",
+        "day": 20,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "20 October: no spending"
+      },
+      {
+        "key": "2026-10-21",
+        "day": 21,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "21 October: no spending"
+      },
+      {
+        "key": "2026-10-22",
+        "day": 22,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "22 October: future date"
+      },
+      {
+        "key": "2026-10-23",
+        "day": 23,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "23 October: future date"
+      },
+      {
+        "key": "2026-10-24",
+        "day": 24,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "24 October: future date"
+      },
+      {
+        "key": "2026-10-25",
+        "day": 25,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "25 October: future date"
+      },
+      {
+        "key": "2026-10-26",
+        "day": 26,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "26 October: future date"
+      },
+      {
+        "key": "2026-10-27",
+        "day": 27,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "27 October: future date"
+      },
+      {
+        "key": "2026-10-28",
+        "day": 28,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "28 October: future date"
+      },
+      {
+        "key": "2026-10-29",
+        "day": 29,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "29 October: future date"
+      },
+      {
+        "key": "2026-10-30",
+        "day": 30,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "30 October: future date"
+      },
+      {
+        "key": "2026-10-31",
+        "day": 31,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "31 October: future date"
+      }
+    ]
+  },
+  "blocks": {
+    "state": "ready",
+    "own": {
+      "text": "€640",
+      "compact": "€640",
+      "exact": "€640.00"
+    },
+    "owe": {
+      "text": "€900",
+      "compact": "€900",
+      "exact": "€900.00"
+    },
+    "net": {
+      "text": "−€260",
+      "compact": "−€260",
+      "exact": "−€260.00"
+    },
+    "ownFraction": 0.7111111111111111,
+    "oweFraction": 1,
+    "categories": [
+      {
+        "key": "crypto",
+        "name": "Crypto",
+        "value": {
+          "text": "€40",
+          "compact": "€40",
+          "exact": "€40.00"
+        },
+        "fraction": 0.0625,
+        "percent": "6%"
+      },
+      {
+        "key": "stocks",
+        "name": "Stocks",
+        "value": {
+          "text": "€100",
+          "compact": "€100",
+          "exact": "€100.00"
+        },
+        "fraction": 0.15625,
+        "percent": "16%"
+      },
+      {
+        "key": "business",
+        "name": "Business",
+        "value": {
+          "text": "€60",
+          "compact": "€60",
+          "exact": "€60.00"
+        },
+        "fraction": 0.09375,
+        "percent": "9%"
+      },
+      {
+        "key": "property",
+        "name": "Property",
+        "value": {
+          "text": "€120",
+          "compact": "€120",
+          "exact": "€120.00"
+        },
+        "fraction": 0.1875,
+        "percent": "19%"
+      },
+      {
+        "key": "cash",
+        "name": "Cash",
+        "value": {
+          "text": "€200",
+          "compact": "€200",
+          "exact": "€200.00"
+        },
+        "fraction": 0.3125,
+        "percent": "31%"
+      },
+      {
+        "key": "things",
+        "name": "Things",
+        "value": {
+          "text": "€120",
+          "compact": "€120",
+          "exact": "€120.00"
+        },
+        "fraction": 0.1875,
+        "percent": "19%"
+      }
+    ]
+  }
+}

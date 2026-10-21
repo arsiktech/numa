@@ -1,6 +1,7 @@
 import { makeFunctionReference } from 'convex/server';
 
 import type { CloudEarning } from '@/data/earnings';
+import type { PriceSeries } from '@/data/intraday';
 import type { CloudLoanLink } from '@/data/loans';
 import type { DebtEvent } from '@/data/moneyMap';
 
@@ -265,7 +266,7 @@ export const cloud = {
   agents: makeFunctionReference<'query', Record<string, never>, CloudAgent[]>('agentAccess:listMine'),
   disconnectAgent: makeFunctionReference<'mutation', { id: string }, null>('agentAccess:disconnect'),
   agentActivity: makeFunctionReference<'query', { limit?: number }, CloudAgentActivity[]>('agentAccess:recentActivity'),
-  priceSeries: makeFunctionReference<'action', { range: '1D' | '1W' | '1M' | '1Y'; symbols: { symbol: string; kind: 'crypto' | 'stock' }[] }, Record<string, { t: number[]; p: number[] }>>('priceHistory:series'),
+  priceSeries: makeFunctionReference<'action', { range: '1D' | '1W' | '1M' | '1Y'; symbols: { symbol: string; kind: 'crypto' | 'stock' }[] }, Record<string, PriceSeries>>('priceHistory:series'),
   deleteMyAccount: makeFunctionReference<'mutation', Record<string, never>, null>('users:deleteMyAccount'),
   cancelMyDeletion: makeFunctionReference<'mutation', Record<string, never>, { ok: true } | { ok: false; reason: 'already-started' | 'already-deleted' | string }>('users:cancelMyDeletion'),
   exportManifest: makeFunctionReference<'query', ExportScope, ExportManifest>('dataExport:manifest'),
