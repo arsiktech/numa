@@ -1,3 +1,4 @@
+import { isManualFund } from "../../convex/lib/finance";
 import { holdingValue, holdingValueCurrency } from "./analytics";
 import { convertCurrency, UNKNOWN_FX_RATES, type FxRates } from "./fx";
 import { quoteIsCurrent } from "@/services/marketData";
@@ -80,14 +81,14 @@ export function buildBalance(input: BalanceInput): BalanceSummary {
   const now = input.now ?? Date.now();
   const to = (amount: number, from: CurrencyCode) => cents(convertCurrency(amount, from, input.currency, rates));
 
+  const investments: BalanceItem[] = [];
   const cash: BalanceItem[] = [];
   const property: BalanceItem[] = [];
   for (const asset of input.assets) {
     const item: BalanceItem = { id: asset.id, source: "asset", name: asset.name, value: to(asset.balance, asset.currency) };
-    (asset.kind === "cash" ? cash : property).push(item);
+    (asset.kind === "cash" ? cash : isManualFund(asset) ? investments : property).push(item);
   }
 
-  const investments: BalanceItem[] = [];
   const crypto: BalanceItem[] = [];
   let marketsToday = 0;
   let pricedToday = false;

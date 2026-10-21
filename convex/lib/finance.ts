@@ -85,3 +85,8 @@ export function assertBalancedMoney(lines: Array<{ side: FinanceSide; amount: nu
   }
   for (const [currency, net] of totals) if (net !== 0) throw new Error(`Ledger lines are not balanced for ${currency}`);
 }
+
+/** Explicit manual investment metadata only; names, tickers and broker labels prove nothing. */
+export function isManualFund(asset: { kind: string; investmentType?: "fund" | null }): boolean {
+  return asset.kind === "other" && asset.investmentType === "fund";
+}

@@ -9,9 +9,8 @@ import { summarize, type Summary } from '@/domain/summary';
 import type { Attention, Currency } from '@/domain/types';
 import { demoAttention, demoDebts, demoHoldings, demoNow, demoOctober, demoPoints } from './demo';
 import { useCloudData } from './cloud';
-import { denseSeries, type HistoryRange, type PriceSeries, type PricedPiece } from './intraday';
+import { denseSeries, type HistoryRange, type PriceSeries, type PricedPiece, pricedPiecesOf } from './intraday';
 import { itemsFrom } from './items';
-import { positionsOf } from './positions';
 import { seriesFor, spanMs, todayFromMarkets, type Point, type Range } from './series';
 
 /** Everything Home draws, whichever source it came from. */
@@ -82,9 +81,7 @@ export function useCloudHome(range: Range): HomeModel {
   const pieces = useMemo<PricedPiece[]>(() => {
     if (cloudData.status !== 'ready') return [];
     const items = itemsFrom(cloudData.snapshot, cloudData.data, cloudData.now, cloudData.fx);
-    return (['crypto', 'stocks'] as const).flatMap((g) => positionsOf(items, g)
-      .filter((p) => p.valueCents !== null && p.valueCents > 0 && !/^(item|cur|lent|pool):/.test(p.key))
-      .map((p) => ({ symbol: p.key, kind: g === 'crypto' ? 'crypto' as const : 'stock' as const, valueCents: p.valueCents! })));
+    return pricedPiecesOf(items);
   }, [cloudData]);
   const history = usePriceHistory(range, pieces);
   if (cloudData.status !== 'ready') return cloudData;

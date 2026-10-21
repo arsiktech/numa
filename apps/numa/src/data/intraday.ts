@@ -1,3 +1,5 @@
+import type { Item } from './items';
+import { positionsOf } from './positions';
 import type { Point, Range } from './series';
 
 /**
@@ -53,4 +55,12 @@ export function denseSeries(range: HistoryRange, now: number, netCents: number, 
     cents: Math.round(fixed + moving.reduce((sum, { piece, s }) => sum + piece.valueCents * (priceAt(s, t) / s.p.at(-1)!), 0)),
   }));
   return [...points, { t: now, cents: netCents }];
+}
+
+/** The positions Home can ask a price-history provider to move. */
+export function pricedPiecesOf(items: Item[]): PricedPiece[] {
+  const anchored = items.filter((item) => item.freshness.tone !== 'missing');
+  return (['crypto', 'stocks'] as const).flatMap((g) => positionsOf(anchored, g)
+    .filter((p) => p.valueCents !== null && p.valueCents > 0 && !/^(item|cur|lent|pool):/.test(p.key))
+    .map((p) => ({ symbol: p.key, kind: g === 'crypto' ? 'crypto' as const : 'stock' as const, valueCents: p.valueCents! })));
 }

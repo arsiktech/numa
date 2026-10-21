@@ -190,3 +190,28 @@ describe("agent tools", () => {
     ]);
   });
 });
+
+describe("classify_asset", () => {
+  it("sends only classification intent to the exact space, with no bootstrap or full save", async () => {
+    const f = fakeIo();
+    await tool("classify_asset").run(f.io, { id: "fund", space_id: "p2", investment_type: "fund", expected_investment_type: null, request_id: "fund-classify" });
+    expect(f.calls).toEqual([["query", "spaces:listMine", {}], ["mutation", "assets:classify", { id: "fund", portfolioId: "p2", investmentType: "fund", expectedInvestmentType: null, clientMutationId: "scoped:fund-classify" }]]);
+    await tool("classify_asset").run(f.io, { id: "fund", space_id: "p2", investment_type: null, expected_investment_type: "fund" });
+    expect(f.writes()[1][2]).toMatchObject({ investmentType: null, expectedInvestmentType: "fund" });
+    expect(tool("classify_asset").inputSchema.required).toEqual(["id", "space_id", "investment_type", "expected_investment_type"]);
+    expect(toolsFor("read").some((t) => t.name === "classify_asset")).toBe(false);
+  });
+  it("requires explicit space and both valid classifications before any write", async () => {
+    for (const patch of [{ space_id: undefined }, { space_id: "missing" }, { investment_type: undefined }, { expected_investment_type: undefined }, { investment_type: "etf" }, { expected_investment_type: "" }]) {
+      const f = fakeIo();
+      await expect(tool("classify_asset").run(f.io, { id: "fund", space_id: "p1", investment_type: "fund", expected_investment_type: null, ...patch })).rejects.toThrow(AgentInputError);
+      expect(f.writes()).toEqual([]);
+      expect(f.calls.some(([, path]) => path === "mobile:bootstrap")).toBe(false);
+    }
+  });
+  it("retains the native asset metadata through get_records", async () => {
+    const asset = { id: "fund", investmentType: "fund", notes: "Synthetic note", costBasis: null, acquiredAt: null, updatedAt: 123, location: "Synthetic broker · 3.25 units" };
+    const f = fakeIo({ assets: [asset] });
+    expect(await tool("get_records").run(f.io, { space_id: "p1", sections: ["assets"] })).toMatchObject({ assets: [asset] });
+  });
+});

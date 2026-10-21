@@ -121,3 +121,16 @@ describe("balanceScale", () => {
     expect(balanceScale(b)).toEqual({ scale: 1000, ownGap: 600, left: 0, shortfall: 600 });
   });
 });
+
+describe("manual fund compatibility balance", () => {
+  it("keeps manual assets in investments without a ticker, unit price or market return", () => {
+    const fund = { ...asset("synthetic-fund", 234.56, "other"), investmentType: "fund" as const };
+    const b = buildBalance({ assets: [fund], holdings: [], liabilities: [], quotes: {}, currency: "EUR", rates, now: NOW });
+    expect(b.groups).toHaveLength(1);
+    expect(b.groups[0]).toMatchObject({ id: "investments", value: 234.56, items: [{ id: fund.id, source: "asset", value: 234.56 }] });
+    expect(b.groups[0].items[0].unitPrice).toBeUndefined();
+    expect(b.groups[0].items[0].detail).toBeUndefined();
+    expect(b.net).toBe(234.56);
+    expect(b.marketsToday).toBeNull();
+  });
+});

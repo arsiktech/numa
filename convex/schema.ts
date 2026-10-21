@@ -271,6 +271,8 @@ export default defineSchema({
       v.literal("business"),
       v.literal("other")
     ),
+    /** Manual investment classification; only valid for kind other. */
+    investmentType: v.optional(v.literal("fund")),
     balance: v.number(),
     currency: v.union(v.literal("USD"), v.literal("EUR")),
     notes: v.optional(v.string()),
