@@ -1,29 +1,17 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { auth } from "./auth";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { readAISharingState } from "./lib/aiPermission";
 import { requireUser } from "./lib/access";
 import { withMutationReceipt, normalizeClientMutationId } from "./lib/mutationReceipts";
 import { AI_SHARING_DISCLOSURE, AI_SHARING_VERSION } from "./lib/privacyPolicy";
 
 export const status = query({
   args: {},
-  handler: async ctx => {
-    const userId = await auth.getUserId(ctx);
-    const user = userId ? await ctx.db.get(userId) : null;
-    const [profile, choice] = userId && user ? await Promise.all([
-      ctx.db.query("profiles").withIndex("by_user", q => q.eq("userId", userId)).unique(),
-      ctx.db.query("privacyChoices").withIndex("by_user", q => q.eq("userId", userId)).unique(),
-    ]) : [null, null];
-    const deletionPending = profile?.deletionScheduledAt !== undefined || profile?.deletionStartedAt !== undefined;
-    return {
-      userId: user ? userId : null,
-      requiredVersion: AI_SHARING_VERSION,
-      allowed: Boolean(user && !deletionPending && choice?.allowed && choice.version === AI_SHARING_VERSION),
-      decidedAt: choice?.recordedAt ?? null,
-      deletionPending,
-      disclosure: AI_SHARING_DISCLOSURE,
-    };
-  },
+  handler: async ctx => ({
+    ...await readAISharingState(ctx, await getAuthUserId(ctx)),
+    disclosure: AI_SHARING_DISCLOSURE,
+  }),
 });
 
 export const setAISharing = mutation({

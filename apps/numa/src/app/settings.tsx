@@ -7,6 +7,7 @@ import { cloudEnabled } from '@/cloud/CloudProvider';
 import { useSession } from '@/cloud/session';
 import { AccountSection, DataSection, DeletionBanner } from '@/settings/AccountSection';
 import { AgentSection } from '@/settings/AgentSection';
+import { AISharingSection } from '@/settings/AISharingSection';
 import { AlertsSection } from '@/settings/AlertsSection';
 import { Action, Row, Section } from '@/settings/rows';
 import { SpaceSection } from '@/settings/SpaceSection';
@@ -16,6 +17,7 @@ import { useTheme } from '@/theme/theme';
 import { ProBadge } from '@/ui/ProBadge';
 import { ClosePanels, PanelFrame, usePanel } from '@/ui/Panel';
 import { Txt } from '@/ui/Txt';
+import { LegalLinks } from '@/ui/LegalLinks';
 
 /** Appearance, privacy and the account. Device preferences stay on this device. */
 export default function Settings() {
@@ -40,6 +42,7 @@ export default function Settings() {
         {session.kind === 'signedIn' && <DeletionBanner />}
         {session.kind === 'signedIn' && <SpaceSection />}
         {session.kind === 'signedIn' && <AgentSection />}
+        {session.kind === 'signedIn' && <AISharingSection />}
 
         <Section title="APPEARANCE" />
         <Row title="Theme" detail="Auto follows your device.">
@@ -75,6 +78,7 @@ export default function Settings() {
           <ProBadge />
         </View>
         <Txt v="small" c="ink3" style={{ marginTop: 6 }}>Numa Pro {Constants.expoConfig?.version ?? ''}. Numa never moves money. Prices and exchange rates can be delayed.</Txt>
+        <LegalLinks />
       </View>
     </ScrollView>
     </PanelFrame>

@@ -12,6 +12,7 @@ import {
   type AskProposal,
 } from "./lib/askProposals";
 import { rateLimitExpiresAt } from "./lib/privacyRetention";
+import { readAISharingState, type AISharingDeniedReason } from "./lib/aiPermission";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -29,18 +30,23 @@ const WINDOWS = [
 
 export type AskReply =
   | { status: "ok"; text: string; proposals: AskProposal[] }
-  | { status: "unavailable" | "busy" | "limited" | "declined" };
+  | { status: "unavailable" | "busy" | "limited" | "declined"; reason?: AISharingDeniedReason };
 
-/** One request against the person's hourly and daily allowance. Counts only while allowed. */
+type AskAuthorization = { status: "allowed" | "limited" } | { status: "denied"; reason: AISharingDeniedReason };
+
+/** Consent and quota commit together. Withdrawal blocks later authorizations, not an already authorized request. */
 export const takeAskQuota = internalMutation({
   args: { userId: v.id("users"), now: v.number() },
-  handler: async (ctx, { userId, now }): Promise<boolean> => {
+  handler: async (ctx, { userId, now }): Promise<AskAuthorization> => {
+    if (await getAuthUserId(ctx) !== userId) return { status: "denied", reason: "account-unavailable" };
+    const permission = await readAISharingState(ctx, userId);
+    if (!permission.allowed) return { status: "denied", reason: permission.reason ?? "permission-required" };
     const buckets = [];
     for (const w of WINDOWS) {
       const windowStart = Math.floor(now / w.windowMs) * w.windowMs;
       const key = `${w.route}:${userId}:${windowStart}`;
       const bucket = await ctx.db.query("rateLimitBuckets").withIndex("by_key", (q) => q.eq("key", key)).unique();
-      if (bucket && bucket.count >= w.limit) return false;
+      if (bucket && bucket.count >= w.limit) return { status: "limited" };
       buckets.push({ w, windowStart, key, bucket });
     }
     for (const { w, windowStart, key, bucket } of buckets) {
@@ -50,12 +56,14 @@ export const takeAskQuota = internalMutation({
         expiresAt: rateLimitExpiresAt(windowStart, w.windowMs),
       });
     }
-    return true;
+    return { status: "allowed" };
   },
 });
 
 export const reply = action({
   args: {
+    // Older callers fail closed without receiving a new, unknown response status.
+    expectedUserId: v.optional(v.id("users")),
     message: v.string(),
     context: v.string(),
     history: v.array(v.object({ role: v.union(v.literal("user"), v.literal("assistant")), text: v.string() })),
@@ -63,14 +71,16 @@ export const reply = action({
   handler: async (ctx, args): Promise<AskReply> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Sign in to ask Numa" });
+    if (!args.expectedUserId || args.expectedUserId !== userId) return { status: "declined", reason: "account-unavailable" };
     const message = args.message.trim();
     if (!message || message.length > ASK_LIMITS.message || args.context.length > ASK_LIMITS.context || args.history.length > 20) {
       throw new ConvexError({ code: "INVALID_INPUT", message: "That message is too long" });
     }
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return { status: "unavailable" };
-    const allowed: boolean = await ctx.runMutation(internal.ask.takeAskQuota, { userId, now: Date.now() });
-    if (!allowed) return { status: "limited" };
+    const authorization: AskAuthorization = await ctx.runMutation(internal.ask.takeAskQuota, { userId, now: Date.now() });
+    if (authorization.status === "denied") return { status: "declined", reason: authorization.reason };
+    if (authorization.status === "limited") return { status: "limited" };
 
     const model = process.env.NUMA_ASK_MODEL || DEFAULT_MODEL;
     // Server-side fallback re-runs a declined request on the model Anthropic recommends. Haiku has none.

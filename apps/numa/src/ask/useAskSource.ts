@@ -1,4 +1,6 @@
 import { useAction } from 'convex/react';
+import { useAISharing, type AISharingControls } from '@/privacy/useAISharing';
+import { requestPrivateAI } from '@/privacy/requestAI';
 import { useMemo } from 'react';
 
 import { cloud, type AskReply, type AskTurn } from '@/cloud/api';
@@ -16,9 +18,10 @@ export type Saved = { undo: () => Promise<void> };
 export type AskSource =
   | { status: 'loading' }
   | {
-      status: 'ready'; demo: boolean; ctx: AskContext; answers: AnswerData; save: (d: Draft) => Promise<Saved>;
+      status: 'ready'; demo: boolean; contextKey: string; ctx: AskContext; answers: AnswerData; save: (d: Draft) => Promise<Saved>;
       /** Asks Claude what the device couldn't answer. Missing in the demo. */
-      ai?: (message: string, history: AskTurn[]) => Promise<AskReply>;
+      ai?: (message: string, history: AskTurn[], stillCurrent: () => boolean) => Promise<AskReply>;
+      sharing?: AISharingControls;
     };
 
 /** The labelled demo portfolio. Saving here keeps nothing. */
@@ -28,6 +31,7 @@ export function useDemoAskSource(): AskSource {
     return {
       status: 'ready',
       demo: true,
+      contextKey: 'demo',
       ctx: { currency: 'EUR', now: new Date(), categories: [], assets: [], liabilities: [], holdings: [] },
       answers: { summary, available: true, currency: 'EUR', month: demoOctober, flow: summarizeFlow(demoOctober), debts: demoDebts },
       save: async () => ({ undo: async () => {} }),
@@ -40,16 +44,21 @@ export function useCloudAskSource(): AskSource {
   const data = useCloudData();
   const run = useWriter();
   const askReply = useAction(cloud.askReply);
+  const sharing = useAISharing();
   if (data.status !== 'ready') return { status: 'loading' };
   const { snapshot, data: home, summary, fx, portfolioId } = data;
+  const expectedUserId = data.boot.profile.userId;
+  if (sharing.state?.userId && sharing.state.userId !== expectedUserId) return { status: 'loading' };
   const ctx: AskContext = { currency: home.currency, now: new Date(), categories: snapshot.categories, assets: snapshot.assets, liabilities: snapshot.liabilities, holdings: snapshot.holdings };
   const answers: AnswerData = { summary, available: home.unconverted.length === 0, currency: home.currency, month: home.month, flow: summarizeFlow(home.month), debts: home.debts };
   return {
     status: 'ready',
     demo: false,
+    contextKey: `${expectedUserId}:${portfolioId}`,
+    sharing,
     ctx,
     answers,
-    ai: (message, history) => askReply({ message, context: aiContext(ctx, answers, home.history), history }),
+    ai: (message, history, stillCurrent) => requestPrivateAI({ expectedUserId, message, history, stillCurrent, readPermission: sharing.read, buildContext: () => aiContext(ctx, answers, home.history), submit: askReply }),
     save: async (d) => {
       const p = plan(d, portfolioId, fx, Date.now());
       if ('error' in p) throw new Error(p.error);

@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { usePushTaps } from '@/alerts/push';
@@ -34,7 +34,12 @@ function Root() {
   useLiveUpdates();
   const signedOut = session.kind === 'signedOut';
   useEffect(() => { if (signedOut) clearWidget(); }, [signedOut]);
-  useEffect(() => { if (!loading) SplashScreen.hide(); }, [loading]);
+  useEffect(() => {
+    if (!loading) {
+      SplashScreen.hide();
+      if (Platform.OS === 'web') document.getElementById('numa-startup')?.remove();
+    }
+  }, [loading]);
   // Wide screens open details as a panel over the page they came from, which stays visible.
   const wide = useWindowDimensions().width >= WIDE;
   if (loading) return null;
@@ -79,7 +84,7 @@ export default function RootLayout() {
     JetBrainsMono_400Regular, JetBrainsMono_500Medium,
   });
   // A font that fails to load falls back to the system font rather than leaving a blank screen.
-  if (!loaded && !fontError) return null;
+  if (Platform.OS !== 'web' && !loaded && !fontError) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PrefsProvider>

@@ -78,7 +78,9 @@ function passThrough(from: HTMLElement | null): (() => void) | undefined {
     undo.push(() => { node.style.pointerEvents = before; });
     const hidden = [...(el.parentElement?.children ?? [])].filter((s) => s !== node && s.getAttribute('aria-hidden') === 'true');
     if (hidden.length) {
-      for (const s of hidden) { s.removeAttribute('aria-hidden'); undo.push(() => s.setAttribute('aria-hidden', 'true')); }
+      // The navigator owns aria-hidden. Restoring an old 'true' during unmount can hide
+      // the destination after its focus update has already made it visible.
+      for (const s of hidden) s.removeAttribute('aria-hidden');
       break;
     }
     el = el.parentElement;

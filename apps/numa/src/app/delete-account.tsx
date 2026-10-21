@@ -7,6 +7,7 @@ import { View } from 'react-native';
 import { cloud } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
+import { AppleDeletionHelp } from '@/settings/AppleDeletionHelp';
 import { PasswordField } from '@/settings/PasswordField';
 import { Action, Button } from '@/settings/rows';
 import { useExport } from '@/settings/useExport';
@@ -43,7 +44,7 @@ function DeleteAccount() {
       if (me?.deletionScheduledAt) router.replace('/settings');
       else await signOut().catch(() => undefined);
     } catch {
-      setError('Couldn’t reach Numa. Nothing was deleted. Try again.');
+      setError('Couldn’t confirm the deletion request. Check Settings before trying again.');
       setBusy(false);
     }
   }
@@ -54,6 +55,7 @@ function DeleteAccount() {
       <View style={{ marginTop: 16, gap: 12, maxWidth: 520 }}>
         <Txt v="body">This deletes your Numa account and everything in the spaces you own{owned.length ? `: ${owned.join(', ')}` : ''}. Spaces someone else shared with you keep their records.</Txt>
         <Txt v="body" c="ink2">You have 7 days to change your mind. Sign in during that time and choose Keep my account.</Txt>
+        <AppleDeletionHelp />
         <Action label={exp.state.kind === 'running' ? 'Copying…' : 'Download a copy first'} disabled={!exp.ready || exp.state.kind === 'running'} onPress={async () => { await exp.run(); }} />
         {exp.state.kind === 'done' ? <Txt v="small" c="ink2">Saved {exp.state.file}</Txt> : null}
         {exp.state.kind === 'failed' ? <Txt v="small" style={{ color: c.down }}>{exp.state.message}</Txt> : null}

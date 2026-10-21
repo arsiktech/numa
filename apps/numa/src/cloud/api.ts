@@ -130,7 +130,10 @@ export type AskProposal = {
   holdingMode: 'add' | 'set' | null;
 };
 export type AskTurn = { role: 'user' | 'assistant'; text: string };
-export type AskReply = { status: 'ok'; text: string; proposals: AskProposal[] } | { status: 'unavailable' | 'busy' | 'limited' | 'declined' };
+export type AISharingDeniedReason = 'account-unavailable' | 'deletion-pending' | 'permission-required';
+export type AskReply = { status: 'ok'; text: string; proposals: AskProposal[] } | { status: 'unavailable' | 'busy' | 'limited' | 'declined'; reason?: AISharingDeniedReason };
+export type AISharingDisclosure = { title: string; recipients: string; data: string; purpose: string; withdrawal: string; retention: string; alternative: string; links: { label: string; url: string }[] };
+export type AISharingStatus = { userId: string | null; requiredVersion: string; allowed: boolean; granted: boolean; decidedAt: number | null; deletionPending: boolean; deletionStarted: boolean; reason: AISharingDeniedReason | null; disclosure: AISharingDisclosure };
 
 export type CloudGoal = { id: string; scope: 'net_worth' | 'monthly_income' | 'income_category' | 'asset_value' | 'holding_value'; target: number; currency: CloudCurrency; startAt: number; deadline: number | null; label: string | null; categoryId: string | null; assetId: string | null; holdingId: string | null; createdAt: number };
 
@@ -207,6 +210,8 @@ type WithReceipt<T> = T & { clientMutationId: string };
 export type PortalSource = { liabilityId: string | null; assetId: string | null; label: string | null; host: string; status: 'ok' | 'incomplete' | 'failed' | null; message: string | null; checkedAt: number | null; readingAt: number | null };
 
 export const cloud = {
+  aiSharing: makeFunctionReference<'query', Record<string, never>, AISharingStatus>('privacy:status'),
+  setAISharing: makeFunctionReference<'mutation', { expectedUserId: string; allowed: boolean; version: string; clientMutationId: string }, unknown>('privacy:setAISharing'),
   authFlags: makeFunctionReference<'query', Record<string, never>, { passwordReset: boolean; emailVerification: boolean; googleOAuth: boolean; appleOAuth: boolean }>('authConfig:flags'),
   bootstrap: makeFunctionReference<'mutation', Record<string, never>, CloudBootstrap>('mobile:bootstrap'),
   portfolioSnapshot: makeFunctionReference<'query', { portfolioId: string }, CloudSnapshot>('mobile:portfolioSnapshot'),
@@ -254,7 +259,7 @@ export const cloud = {
   unregisterDevice: makeFunctionReference<'mutation', { token: string }, null>('pushAlerts:unregisterDevice'),
   deviceRegistered: makeFunctionReference<'query', { token: string }, boolean>('pushAlerts:deviceRegistered'),
   readSheet: makeFunctionReference<'action', { link: string }, { status: 'ok'; csv: string } | { status: 'ok'; xlsx: string } | { status: 'private' | 'missing' | 'tooBig' | 'failed' | 'badLink' | 'limited' }>('sheetsImport:readSheet'),
-  askReply: makeFunctionReference<'action', { message: string; context: string; history: AskTurn[] }, AskReply>('ask:reply'),
+  askReply: makeFunctionReference<'action', { expectedUserId: string; message: string; context: string; history: AskTurn[] }, AskReply>('ask:reply'),
   changePassword: makeFunctionReference<'action', { currentPassword: string; newPassword: string }, { ok: true }>('authManagement:changePassword'),
   signInMethods: makeFunctionReference<'query', Record<string, never>, { email: string | null; privateRelay: boolean; apple: boolean; google: boolean; password: boolean } | null>('signInMethods:mine'),
   setPassword: makeFunctionReference<'action', { password: string }, { email: string }>('signInMethods:setPassword'),
