@@ -33,6 +33,15 @@ const lastDraft = (page) => page.getByLabel(/^Draft\./).last();
   await page.getByText('Nothing tracked yet').first().waitFor({ timeout: 20000 });
   check('signed up to an empty home', true);
 
+  // Opt in explicitly for this positive fixture. The no-provider-key fallback below must reach
+  // availability handling, not fail earlier at the independently tested consent boundary.
+  const client = new ConvexHttpClient(CONVEX);
+  const r = await client.action('auth:signIn', { provider: 'password', params: { email: EMAIL, password: PASSWORD, flow: 'signIn' } });
+  client.setAuth(r.tokens.token);
+  const sharing = await client.query('privacy:status', {});
+  await client.mutation('privacy:setAISharing', { expectedUserId: sharing.userId, allowed: true, version: sharing.requiredVersion, clientMutationId: `qa.ask-consent:${Date.now()}` });
+  check('the unavailable-provider fixture has explicit current sharing permission', (await client.query('privacy:status', {})).allowed);
+
   await page.getByRole('button', { name: 'Ask or add' }).click();
   await page.getByText('Type what happened').waitFor({ timeout: 10000 });
   await page.screenshot({ path: OUT + '/01-ask-empty-dark-390.png' });
@@ -114,9 +123,6 @@ const lastDraft = (page) => page.getByLabel(/^Draft\./).last();
   await page.screenshot({ path: OUT + '/04-home-after-ask-dark-390.png', fullPage: true });
 
   // Server truth: what was saved, what was undone.
-  const client = new ConvexHttpClient(CONVEX);
-  const r = await client.action('auth:signIn', { provider: 'password', params: { email: EMAIL, password: PASSWORD, flow: 'signIn' } });
-  client.setAuth(r.tokens.token);
   const boot = await client.mutation('mobile:bootstrap', {});
   const snap = await client.query('mobile:portfolioSnapshot', { portfolioId: boot.selectedPortfolioId });
   check('server has exactly the saved records', snap.transactions.length === 2 && snap.liabilities.length === 1 && snap.holdings.length === 1 && snap.holdings[0].symbol === 'VOO' && snap.holdings[0].costBasis === 5000 && snap.assets.find((a) => a.name === 'Cash')?.balance === 12500,
