@@ -2,7 +2,8 @@
 
 Recurring failures and sharp edges. Search the relevant symptom rather than
 reading every entry. Examples describe the environment when diagnosed; confirm
-current source and use the verification/authorization rules in `AGENTS.md`.
+current source and the [verification map](README.md#current-app-and-verification).
+References below to removed instruction files are historical provenance.
 
 ## 2026-09-06 - Asset recovery must tolerate unavailable session storage
 
