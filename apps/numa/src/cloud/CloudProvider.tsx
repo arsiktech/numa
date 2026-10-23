@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 
 import { convexUrl } from './config';
 import { storage } from './storage';
+import { AppleCredentialObserver } from './AppleCredentialObserver';
 
 const client = convexUrl ? new ConvexReactClient(convexUrl, { unsavedChangesWarning: false }) : null;
 
@@ -13,6 +14,7 @@ export function CloudProvider({ children }: { children: ReactNode }) {
   if (!client) return <>{children}</>;
   return (
     <ConvexAuthProvider client={client} storage={Platform.OS === 'web' ? undefined : storage}>
+      <AppleCredentialObserver />
       {children}
     </ConvexAuthProvider>
   );

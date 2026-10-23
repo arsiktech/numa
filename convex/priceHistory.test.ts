@@ -12,7 +12,7 @@ describe("price history", () => {
     expect(gridFor("1Y", NOW).length).toBe(366);
     const day = gridFor("1D", NOW);
     expect(day[1] - day[0]).toBe(600_000);
-    expect(day.at(-1)).toBe(Date.UTC(2026, 9, 18, 14, 30));
+    expect(day[day.length - 1]).toBe(Date.UTC(2026, 9, 18, 14, 30));
   });
 
   it("gives each grid time the last price at or before it", () => {
@@ -39,7 +39,7 @@ describe("price history", () => {
     const chart = (currency: string) => ({ chart: { result: [{ meta: { chartPreviousClose: 100, currency }, timestamp: [t0, t0 + 300], indicators: { quote: [{ close: [101, null] }] } }] } });
     const s = await fetchSeries("TSLA", "stock", "1D", NOW, async () => chart("USD"));
     expect(s?.p[0]).toBe(100);
-    expect(s?.p.at(-1)).toBe(101);
+    expect(s?.p[s.p.length - 1]).toBe(101);
     expect(await fetchSeries("VWCE.DE", "stock", "1D", NOW, async () => chart("EUR"))).toBeNull();
   });
 

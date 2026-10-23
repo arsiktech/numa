@@ -30,7 +30,7 @@ export function BarButtons({ demo, onDemo, compact }: { demo: boolean; onDemo?: 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
       {demo && !compact && (onDemo
-        ? <Pressable onPress={onDemo} accessibilityRole="button" accessibilityLabel="Demo data. Sign in" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>{pill}</Pressable>
+        ? <Pressable onPress={onDemo} accessibilityRole="button" accessibilityLabel="Demo data. Sign in" style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 }}>{pill}<Txt v="small" style={{ fontFamily: 'Manrope_700Bold' }}>Sign in</Txt></Pressable>
         : <View accessibilityLabel="Demo data" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>{pill}</View>)}
       <Pressable onPress={() => set('hideAmounts', !hideAmounts)} accessibilityRole="switch" aria-checked={hideAmounts} accessibilityLabel="Hide amounts" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: hideAmounts ? 0.55 : 1 }}>
         <IconEye color={c.ink} />

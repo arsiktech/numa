@@ -1,3 +1,4 @@
+import { webFont } from '@/theme/webFont';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View, type KeyboardEvent } from 'react-native';
@@ -11,10 +12,13 @@ import { proposalToDraft } from '@/ask/proposal';
 import { useCloudAskSource, useDemoAskSource, type AskSource } from '@/ask/useAskSource';
 import type { AskReply, AskTurn } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
+import { AISharingActions, AISharingPanel } from '@/privacy/AISharingPanel';
 import { useTheme } from '@/theme/theme';
 import { useMoney } from '@/ui/money';
 import { PanelFrame } from '@/ui/Panel';
 import { Txt } from '@/ui/Txt';
+
+type ConsentDecision = { question: string; status: 'open' | 'approving' | 'closed' };
 
 type Message =
   | { id: number; role: 'you'; text: string }
@@ -25,7 +29,7 @@ export default function AskScreen() {
   const session = useSession();
   return session.kind === 'signedIn' ? <CloudAsk /> : <DemoAsk />;
 }
-function CloudAsk() { return <AskView source={useCloudAskSource()} />; }
+function CloudAsk() { const source = useCloudAskSource(); return <AskView key={source.status === 'ready' ? source.contextKey : 'loading'} source={source} />; }
 function DemoAsk() { return <AskView source={useDemoAskSource()} />; }
 
 const FAILED: Record<Exclude<AskReply['status'], 'ok'>, string> = {
@@ -86,6 +90,24 @@ function AskView({ source }: { source: AskSource }) {
   };
   const { height: keyboard, sync: syncKeyboard } = useKeyboardHeight();
   const [text, setText] = useState('');
+  const [consentDecision, setConsentDecision] = useState<ConsentDecision | null>(null);
+  const consentQuestion = consentDecision?.question ?? null;
+  const currentConsent = useRef<ConsentDecision | null>(null);
+  const [consentBusy, setConsentBusy] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
+  const sendLocked = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => {
+    alive.current = false;
+    if (currentConsent.current) currentConsent.current.status = 'closed';
+    currentConsent.current = null;
+  }; }, []);
+  useEffect(() => {
+    if (consentQuestion === null) return;
+    Keyboard.dismiss();
+    const frame = requestAnimationFrame(() => scroll.current?.scrollTo({ y: 0, animated: false }));
+    return () => cancelAnimationFrame(frame);
+  }, [consentQuestion]);
   const [messages, setMessages] = useState<Message[]>([]);
   const nextId = useRef(1);
   const scroll = useRef<ScrollView>(null);
@@ -97,36 +119,84 @@ function AskView({ source }: { source: AskSource }) {
 
   const toEnd = () => setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 60);
 
+  function sendRemote(value: string) {
+    if (source.status !== 'ready' || !source.ai || sendLocked.current || !alive.current) return;
+    sendLocked.current = true;
+    const history = turns(messages);
+    const you: Message = { id: nextId.current++, role: 'you', text: value };
+    const pendingId = nextId.current++;
+    setText(''); setConsentError(null); toEnd();
+    setMessages(ms => [...ms, you, { id: pendingId, role: 'numa', text: 'Thinking…', pending: true }]);
+    void askClaude(source.ai, value, history, pendingId);
+  }
+
   function send(input = text) {
     const value = input.trim();
-    if (!value || source.status !== 'ready' || thinking) return;
+    if (!value || source.status !== 'ready' || thinking || sendLocked.current || currentConsent.current !== null) return;
     const parsed = parse(value, source.ctx);
-    const you: Message = { id: nextId.current++, role: 'you', text: value };
-    setText('');
-    toEnd();
-    // The device answers what it can. Claude gets only what it can't: open questions, sentences without a clear amount, and several entries at once.
+    // Deterministic entries and local answers need no third-party sharing permission.
     if (source.ai && (parsed.type === 'unknown' || (parsed.type === 'question' && parsed.topic === 'help') || (parsed.type === 'draft' && looksLikeSeveral(value)))) {
-      const history = turns(messages);
-      const pendingId = nextId.current++;
-      setMessages((ms) => [...ms, you, { id: pendingId, role: 'numa', text: 'Thinking…', pending: true }]);
-      void askClaude(source.ai, value, history, pendingId);
-      return;
+      const permission = source.sharing?.state;
+      if (!permission) { setConsentError('Loading your AI sharing choice. Try again in a moment.'); return; }
+      if (!permission.userId || permission.deletionPending) {
+        setConsentError(permission.deletionPending ? (permission.deletionStarted ? 'Account deletion has started. New entries and AI replies are unavailable.' : 'AI replies are paused while account deletion is pending. Manual entries still work.') : 'Your account is unavailable. Sign in again before asking AI.'); return;
+      }
+      if (!permission.allowed) {
+        const decision: ConsentDecision = { question: value, status: 'open' };
+        currentConsent.current = decision;
+        setText(value); setConsentError(null); setConsentDecision(decision); return;
+      }
+      sendRemote(value); return;
     }
+    const you: Message = { id: nextId.current++, role: 'you', text: value };
+    setText(''); setConsentError(null); toEnd();
     const reply: Message = parsed.type === 'draft'
       ? { id: nextId.current++, role: 'draft', draft: parsed.draft, status: 'draft', error: null }
       : { id: nextId.current++, role: 'numa', text: parsed.type === 'question' ? answer(parsed.topic, source.answers) : `I couldn’t find an amount in that. Try “${EXAMPLES[0]}” or ask “${EXAMPLES[5]}”` };
-    setMessages((ms) => [...ms, you, reply]);
+    setMessages(ms => [...ms, you, reply]);
+  }
+
+  function cancelConsent(decision: ConsentDecision | null) {
+    if (!alive.current || !decision || currentConsent.current !== decision || decision.status !== 'open') return;
+    // First action wins synchronously, including callbacks queued before the next render.
+    decision.status = 'closed'; currentConsent.current = null;
+    setConsentDecision(null); setConsentError(null);
+  }
+
+  async function allowAndSend(decision: ConsentDecision | null) {
+    if (!alive.current || !decision || currentConsent.current !== decision || decision.status !== 'open' || source.status !== 'ready' || !source.sharing) return;
+    decision.status = 'approving'; setConsentBusy(true); setConsentError(null);
+    try {
+      await source.sharing.change(true);
+      if (!alive.current || currentConsent.current !== decision || decision.status !== 'approving') return;
+      decision.status = 'closed'; currentConsent.current = null;
+      setConsentDecision(null); setConsentBusy(false);
+      sendRemote(decision.question);
+    } catch {
+      if (alive.current && currentConsent.current === decision && decision.status === 'approving') {
+        decision.status = 'open';
+        setConsentError('Couldn’t confirm your sharing choice. Your question wasn’t sent. Try again or choose Not now.');
+      }
+    } finally {
+      if (alive.current && currentConsent.current === decision) setConsentBusy(false);
+    }
   }
 
   async function askClaude(ai: NonNullable<Extract<AskSource, { status: 'ready' }>['ai']>, value: string, history: AskTurn[], pendingId: number) {
     let reply: AskReply;
-    try { reply = await ai(value, history); }
+    try { reply = await ai(value, history, () => alive.current); }
     catch { reply = { status: 'unavailable' }; }
+    sendLocked.current = false;
+    if (!alive.current) return;
     const ctx = source.status === 'ready' ? source.ctx : null;
     const drafts: Message[] = reply.status === 'ok' && ctx
       ? reply.proposals.flatMap((p) => { const d = proposalToDraft(p, ctx); return d ? [{ id: nextId.current++, role: 'draft' as const, draft: d, status: 'draft' as const, error: null }] : []; })
       : [];
-    const said = reply.status === 'ok' ? reply.text || (drafts.length ? 'Here’s a draft. Check it and press Save.' : FAILED.unavailable) : FAILED[reply.status];
+    const permissionFailure = reply.status === 'declined' && reply.reason
+      ? reply.reason === 'permission-required' ? 'AI sharing is off or needs a new choice. Review it in Settings, or send your question again to choose.'
+        : reply.reason === 'deletion-pending' ? 'AI replies are paused while account deletion is pending.' : 'Your account changed or is unavailable. Open Ask again before continuing.'
+      : null;
+    const said = reply.status === 'ok' ? reply.text || (drafts.length ? 'Here’s a draft. Check it and press Save.' : FAILED.unavailable) : permissionFailure ?? FAILED[reply.status];
     setMessages((ms) => [...ms.map((m) => (m.id === pendingId ? { id: pendingId, role: 'numa' as const, text: said } : m)), ...drafts]);
     toEnd();
   }
@@ -164,10 +234,11 @@ function AskView({ source }: { source: AskSource }) {
         </View>
 
         <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, gap: 12 }} keyboardShouldPersistTaps="handled">
+          {consentQuestion !== null && source.status === 'ready' && source.sharing?.state ? <AISharingPanel showActions={false} disclosure={source.sharing.state.disclosure} allowLabel="Allow and send" busy={consentBusy} error={consentError} onAllow={() => { void allowAndSend(consentDecision); }} onCancel={() => cancelConsent(consentDecision)} /> : <>
           {messages.length === 0 && (
             <View style={{ gap: 14 }}>
               <Txt v="body" c="ink2">Type what happened or ask about your money. Numa drafts it, and nothing is saved until you press Save.{demo ? ' This is the demo: saving keeps nothing.' : ''}</Txt>
-              {source.status === 'ready' && source.ai && <Txt v="small" c="ink3">What your phone can’t answer goes to Claude with a short summary of your numbers. Claude only drafts; you decide what’s saved.</Txt>}
+              {source.status === 'ready' && source.ai && <Txt v="small" c="ink3">Questions that need Claude require your AI sharing permission first. Manual entries and local answers work without it. You still decide what is saved.</Txt>}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {EXAMPLES.map((e) => (
                   <Pressable key={e} onPress={() => send(e)} disabled={!ready} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: c.line2, justifyContent: 'center' }}>
@@ -191,18 +262,26 @@ function AskView({ source }: { source: AskSource }) {
                 onChange={(d) => update(m.id, { draft: d })} onSave={() => save(m)} onDiscard={() => update(m.id, { status: 'discarded' })} onUndo={() => undo(m)} />
             );
           })}
+          </>}
         </ScrollView>
 
-        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: keyboard > 0 ? 8 : insets.bottom + 12, borderTopWidth: 1, borderTopColor: c.line }}>
+        {consentQuestion !== null && <View testID="ai-consent-footer" style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: insets.bottom + 12, borderTopWidth: 1, borderTopColor: c.line, gap: 8 }}>
+          <Txt v="small" c="ink2">Your question hasn’t been sent.</Txt>
+          <AISharingActions allowLabel="Allow and send" busy={consentBusy} error={consentError} onAllow={() => { void allowAndSend(consentDecision); }} onCancel={() => cancelConsent(consentDecision)} />
+        </View>}
+
+        {consentQuestion === null && <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: keyboard > 0 ? 8 : insets.bottom + 12, borderTopWidth: 1, borderTopColor: c.line }}>
+          {consentError ? <Txt v="small" style={{ color: c.down, marginBottom: 8 }} accessibilityRole="alert">{consentError}</Txt> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6, backgroundColor: c.s1, borderWidth: 1, borderColor: c.line2 }}>
             <TextInput value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus onFocus={syncKeyboard} placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
               placeholderTextColor={c.ink3} accessibilityLabel="Ask or add anything" submitBehavior="submit" testID="ask-input"
-              style={{ flex: 1, color: c.ink, fontFamily: 'Manrope_500Medium', fontSize: 16, minHeight: 44, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
-            <Pressable onPress={() => send()} disabled={!text.trim() || !ready} accessibilityRole="button" accessibilityLabel="Send" testID="ask-send" style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink, opacity: text.trim() && ready ? 1 : 0.35 }}>
-              <Svg width={18} height={18} viewBox="0 0 24 24"><Path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" stroke={c.bg} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
+              style={{ flex: 1, color: c.ink, fontFamily: Platform.OS === 'web' ? webFont('Manrope_500Medium') : 'Manrope_500Medium', fontSize: 16, minHeight: 44, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
+            <Pressable onPress={() => send()} disabled={!text.trim() || !ready || thinking || consentBusy} accessibilityRole="button" accessibilityLabel="Send" testID="ask-send" style={{ minWidth: 78, minHeight: 44, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 22, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink, opacity: text.trim() && ready ? 1 : 0.35 }}>
+              <Txt v="small" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Send</Txt>
+              <Svg width={16} height={16} viewBox="0 0 24 24"><Path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" stroke={c.bg} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
             </Pressable>
           </View>
-        </View>
+        </View>}
       </View>
     </View>
     </PanelFrame>

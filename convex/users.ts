@@ -1,9 +1,12 @@
+import { makeFunctionReference } from "convex/server";
+import { sha256Hex } from "./lib/appleIdentity";
 import { v } from "convex/values";
 import { internalMutation, mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { requireUser } from "./lib/access";
+import { beginAppleDeletion, guardAppleSubject } from "./appleLifecycle";
 
 /** Grace window between requesting deletion and the cascade actually running. */
 const DELETION_GRACE_MS = 7 * 24 * 3600 * 1000;
@@ -183,6 +186,7 @@ export const executeScheduledDeletion = internalMutation({
       // This marker and the first destructive chunk commit in the same Convex
       // transaction. A concurrent cancel therefore either wins before any
       // deletion, or sees this marker and fails closed after deletion starts.
+      await beginAppleDeletion(ctx, args.userId);
       await ctx.db.patch(profile._id, { deletionStartedAt: Date.now() });
     }
     const done = await deleteUserCascade(ctx, args.userId, {
@@ -214,6 +218,7 @@ async function ensureDeletionProfile(ctx: MutationCtx, userId: Id<"users">) {
 async function eraseNow(ctx: MutationCtx, userId: Id<"users">) {
   const profile = await ensureDeletionProfile(ctx, userId);
   const now = Date.now();
+  if (profile.deletionStartedAt === undefined) await beginAppleDeletion(ctx, userId);
   await ctx.db.patch(profile._id, {
     deletionScheduledAt: profile.deletionScheduledAt ?? now,
     deletionStartedAt: profile.deletionStartedAt ?? now
@@ -437,6 +442,7 @@ async function deleteUserCascade(
       return false;
     }
     if (await deletionPageSize(ctx, budget) < 1) return false;
+    if (account.provider === "apple-native" || account.provider === "apple") await guardAppleSubject(ctx, account.providerAccountId);
     await ctx.db.delete(account._id);
     budget.remaining -= 1;
   }
@@ -642,3 +648,28 @@ async function deleteMoneyPodCascade(
   budget.remaining -= 1;
   return true;
 }
+
+/** Only the verified Apple notification action can invoke this internal entry. */
+export const deleteForAppleRevocation = internalMutation({
+  args: { subject: v.string(), audience: v.string(), at: v.number(), eventId: v.string() },
+  handler: async (ctx, event) => {
+    const receiptHash = await sha256Hex(`apple-notification:${event.eventId}`);
+    const old = await ctx.db.query("appleDeletionGuards").withIndex("by_subject", q => q.eq("subjectHash", receiptHash)).unique();
+    if (old && old.expiresAt > Date.now()) return;
+    const expiresAt = Date.now() + 86400000;
+    const id = old?._id ?? await ctx.db.insert("appleDeletionGuards", { subjectHash: receiptHash, expiresAt });
+    if (old) await ctx.db.patch(id, { expiresAt });
+    await ctx.scheduler.runAt(expiresAt, makeFunctionReference<"mutation", { id: Id<"appleDeletionGuards"> }>("appleLifecycle:cleanupGuard"), { id });
+    const subjectHash = await sha256Hex(event.subject);
+    for (const provider of ["apple-native", "apple"]) {
+      const account = await ctx.db.query("authAccounts").withIndex("providerAndAccountId", q => q.eq("provider", provider).eq("providerAccountId", event.subject)).unique();
+      if (!account || account._creationTime > event.at || !await ctx.db.get(account.userId)) continue;
+      const tokens = await ctx.db.query("appleCredentials").withIndex("by_user", q => q.eq("userId", account.userId)).take(3);
+      // A delayed notification cannot delete an account reauthorized after its event.
+      if (tokens.some(row => row.subjectHash === subjectHash && row.updatedAt > event.at)) continue;
+      // Apple already revoked these tokens; erase them without another provider request.
+      for (const row of tokens) await ctx.db.delete(row._id);
+      await eraseNow(ctx, account.userId);
+    }
+  }
+});

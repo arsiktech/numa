@@ -40,6 +40,7 @@ export function privacyFixture() {
         return descending ? values.reverse() : values;
       };
       const query = {
+        async *[Symbol.asyncIterator]() { yield* readRows(await matching()); },
         withIndex: (_name: string, callback?: any) => {
           const builder = {
             eq: (key: string, value: unknown) => { predicates.push(row => row[key] === value); return builder; },

@@ -11,7 +11,7 @@ const { check, finish } = checker();
   await signUp(page, APP, EMAIL);
   const { snap } = await client(EMAIL);
 
-  await page.getByRole('link', { name: 'Keep your numbers in a spreadsheet? Import it ›' }).click();
+  await page.getByRole('link', { name: 'Or import a spreadsheet ›' }).click();
   await page.getByRole('heading', { name: 'Import' }).waitFor({ timeout: 10000 });
   const start = await page.locator('body').innerText();
   check('Import starts with three clear ways in and what Numa can read', ['Choose a file', 'Paste a Google Sheets link', 'Paste cells', 'What Numa can read', 'Wealth log', 'Bank or card export'].every((t) => start.includes(t)));

@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { activePodMembership } from "./lib/invitationAuthority";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { ensureUser, requireUser, type AnyCtx } from "./lib/access";
@@ -61,8 +62,8 @@ async function listPodsForUser(ctx: AnyCtx, userId: Id<"users">) {
       .collect();
 
     const roles = new Map<string, PodRole>();
-    for (const membership of memberships) roles.set(String(membership.podId), membership.role as PodRole);
-    for (const membership of invitedMemberships) {
+    for (const membership of memberships.filter(activePodMembership)) roles.set(String(membership.podId), membership.role as PodRole);
+    for (const membership of invitedMemberships.filter(m => !m.linkedUserId && activePodMembership(m) && !memberships.some(d => d.podId === m.podId))) {
       if (!roles.has(String(membership.podId))) {
         roles.set(String(membership.podId), membership.role as PodRole);
       }
@@ -117,7 +118,7 @@ export const createPod = mutation({
       });
       await ctx.db.insert("podMembers", {
         podId,
-        displayName: friendlyDisplayName(await userEmail(ctx, userId), profile.displayName),
+        displayName: friendlyDisplayName((await userEmail(ctx, userId)) ?? "", profile.displayName),
         linkedUserId: userId,
         groupId: householdGroupId,
         role: "owner",

@@ -212,8 +212,9 @@ export function parse(input: string, ctx: AskContext): Parsed {
       : /\b(car|bike|motorbike|scooter|boat|van)\b/.test(t) ? 'vehicle'
       : /\b(watch|art|gold|silver|jewel\w*|painting|collection)\b/.test(t) ? 'collectible'
       : /\b(worth|valued?|value)\b/.test(t) ? 'other' : 'cash';
-    const named = tidy(words.replace(/\b(i|have|has|my|the|a|is|are|now|balance|worth|valued|value|at|in|of|today|currently|got)\b/g, ' '));
-    const name = cap(named) || (assetKind === 'cash' ? 'Cash' : 'Asset');
+    // Match command words without discarding the person's spelling of their account name.
+    const named = tidy(without(rest, money.match).replace(/\b(i|have|has|my|the|a|is|are|now|balance|worth|valued|value|at|in|of|today|currently|got)\b/gi, ' '));
+    const name = (named === named.toLowerCase() ? cap(named) : named) || (assetKind === 'cash' ? 'Cash' : 'Asset');
     const existing = ctx.assets.find((a) => sameName(a.name, name)) ?? null;
     return {
       type: 'draft',

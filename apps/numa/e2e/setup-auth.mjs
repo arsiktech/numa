@@ -2,6 +2,7 @@
 // key pair each run and never prints it. Never run this against a shared or
 // production deployment: it only targets the deployment in the repo's .env.local.
 import { execFileSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -21,9 +22,16 @@ const { exportJWK, exportPKCS8, generateKeyPair } = createRequire(path.join(root
 const keys = await generateKeyPair('RS256', { extractable: true });
 const privateKey = (await exportPKCS8(keys.privateKey)).trimEnd().replace(/\n/g, ' ');
 const jwks = JSON.stringify({ keys: [{ use: 'sig', ...(await exportJWK(keys.publicKey)) }] });
+// The web Apple journey requires positive exchange readiness. These fresh dummy keys
+// configure only the anonymous backend; unsigned popup tokens still fail validation.
+const appleKeys = await generateKeyPair('ES256', { extractable: true });
+const applePrivateKey = await exportPKCS8(appleKeys.privateKey);
+const appleEncryptionKey = randomBytes(32).toString('base64');
 const site = process.env.E2E_APP_URL || 'http://localhost:5196';
 // Journeys seed their own market prices, so the throwaway backend never fetches live ones.
-for (const [name, value] of [['JWT_PRIVATE_KEY', privateKey], ['JWKS', jwks], ['SITE_URL', site], ['NUMA_QUOTES_OFFLINE', '1']]) {
+for (const [name, value] of [['JWT_PRIVATE_KEY', privateKey], ['JWKS', jwks], ['SITE_URL', site], ['NUMA_QUOTES_OFFLINE', '1'],
+  ['APPLE_TEAM_ID', 'DUMMYTEAM1'], ['APPLE_KEY_ID', 'DUMMYKEY01'],
+  ['APPLE_PRIVATE_KEY', applePrivateKey], ['APPLE_TOKEN_ENCRYPTION_KEY', appleEncryptionKey]]) {
   execFileSync('npx', ['convex', 'env', 'set', name, '--', value], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'] });
 }
 console.log('Local Convex Auth keys set.');

@@ -33,6 +33,11 @@ const lastDraft = (page) => page.getByLabel(/^Draft\./).last();
   await page.getByText('Nothing tracked yet').first().waitFor({ timeout: 20000 });
   check('signed up to an empty home', true);
 
+  // Read server truth without opting in. The consent UI below owns the explicit grant.
+  const client = new ConvexHttpClient(CONVEX);
+  const r = await client.action('auth:signIn', { provider: 'password', params: { email: EMAIL, password: PASSWORD, flow: 'signIn' } });
+  client.setAuth(r.tokens.token);
+
   await page.getByRole('button', { name: 'Ask or add' }).click();
   await page.getByText('Type what happened').waitFor({ timeout: 10000 });
   await page.screenshot({ path: OUT + '/01-ask-empty-dark-390.png' });
@@ -87,9 +92,19 @@ const lastDraft = (page) => page.getByLabel(/^Draft\./).last();
   await card.getByRole('button', { name: 'Discard' }).click();
   check('discard saves nothing', (await card.innerText()).includes('DISCARDED'));
 
-  // Without a Claude key on the backend, what the device can't read gets a plain reply and adding still works.
+  // Unknown input stays unsent until the person explicitly allows AI sharing.
   await ask(page, 'blah');
-  await page.getByText('I can’t reach Numa’s assistant right now').waitFor({ timeout: 15000 }).catch(() => {});
+  await page.getByText('Allow AI replies?', { exact: true }).waitFor({ timeout: 10000 });
+  check('unknown input asks permission instead of silently sending',
+    (await page.locator('body').innerText()).includes('Your question hasn’t been sent.')
+    && await page.getByLabel('Ask or add anything').count() === 0);
+  await page.getByRole('button', { name: 'Not now', exact: true }).click();
+  check('declining restores the unsent question', await page.getByLabel('Ask or add anything').inputValue() === 'blah');
+  await ask(page, 'blah');
+  await page.getByRole('button', { name: 'Allow and send', exact: true }).click();
+  // No provider key is configured for this journey. Permission does not imply availability.
+  await page.getByText('I can’t reach Numa’s assistant right now', { exact: false }).waitFor({ timeout: 15000 });
+  check('the unavailable-provider fixture has explicit current sharing permission', (await client.query('privacy:status', {})).allowed);
   check('no amount, no assistant: a plain reply', (await page.locator('body').innerText()).includes('I can’t reach Numa’s assistant right now'));
 
   // Quotes for VOO so the holding is valued like on the server.
@@ -114,9 +129,6 @@ const lastDraft = (page) => page.getByLabel(/^Draft\./).last();
   await page.screenshot({ path: OUT + '/04-home-after-ask-dark-390.png', fullPage: true });
 
   // Server truth: what was saved, what was undone.
-  const client = new ConvexHttpClient(CONVEX);
-  const r = await client.action('auth:signIn', { provider: 'password', params: { email: EMAIL, password: PASSWORD, flow: 'signIn' } });
-  client.setAuth(r.tokens.token);
   const boot = await client.mutation('mobile:bootstrap', {});
   const snap = await client.query('mobile:portfolioSnapshot', { portfolioId: boot.selectedPortfolioId });
   check('server has exactly the saved records', snap.transactions.length === 2 && snap.liabilities.length === 1 && snap.holdings.length === 1 && snap.holdings[0].symbol === 'VOO' && snap.holdings[0].costBasis === 5000 && snap.assets.find((a) => a.name === 'Cash')?.balance === 12500,

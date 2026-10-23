@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 
-import { readSpreadsheet, type SheetTab } from './spreadsheet';
+import type { SheetTab } from './spreadsheet';
 
 const TYPES = [
   'text/csv', 'text/comma-separated-values', 'text/tab-separated-values', 'text/plain',
@@ -15,5 +15,7 @@ export async function pickSpreadsheet(): Promise<{ file: string; tabs: SheetTab[
   if (picked.canceled || !picked.assets?.[0]) return null;
   const asset = picked.assets[0];
   const bytes = asset.file ? new Uint8Array(await asset.file.arrayBuffer()) : await new File(asset.uri).bytes();
+  // Spreadsheet parsing is needed only after a file is chosen, not at sign-in.
+  const { readSpreadsheet } = await import('./spreadsheet');
   return { file: asset.name, tabs: readSpreadsheet(asset.name, bytes) };
 }

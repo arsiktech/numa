@@ -1,4 +1,4 @@
-import { useAuthActions } from '@convex-dev/auth/react';
+import { usePhoneSignOut } from '@/alerts/signOut';
 import { useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -83,7 +83,7 @@ function SignInMethods() {
 
 export function AccountSection() {
   const me = useQuery(cloud.me, {});
-  const { signOut } = useAuthActions();
+  const signOut = usePhoneSignOut();
   const [busy, setBusy] = useState(false);
   return (
     <>

@@ -1,4 +1,5 @@
 import { v, ConvexError } from "convex/values";
+import { activePodMembership, verifiedInvitationEmail } from "./lib/invitationAuthority";
 import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireUser } from "./lib/access";
@@ -44,7 +45,7 @@ export const listMine = query({
   handler: async (ctx) => {
     const userId = await requireUser(ctx);
     const user = await ctx.db.get(userId);
-    const email = (user as { email?: string } | null)?.email?.trim().toLowerCase();
+    const email = verifiedInvitationEmail(user);
     const memberships = await ctx.db
       .query("podMembers")
       .withIndex("by_user", (q) => q.eq("linkedUserId", userId))
@@ -60,8 +61,8 @@ export const listMine = query({
       .withIndex("by_owner", (q) => q.eq("ownerUserId", userId))
       .collect();
     const byId = new Map<string, Id<"moneyPods">>();
-    for (const membership of memberships) byId.set(String(membership.podId), membership.podId);
-    for (const membership of invitedMemberships) byId.set(String(membership.podId), membership.podId);
+    for (const membership of memberships.filter(activePodMembership)) byId.set(String(membership.podId), membership.podId);
+    for (const membership of invitedMemberships.filter(m => !m.linkedUserId && activePodMembership(m) && !memberships.some(d => d.podId === m.podId))) byId.set(String(membership.podId), membership.podId);
     for (const pod of owned) byId.set(String(pod._id), pod._id);
     const pods = await Promise.all([...byId.values()].map((id) => ctx.db.get(id)));
     return pods.filter((p): p is NonNullable<typeof p> => p !== null);

@@ -11,7 +11,7 @@ const MAX_AGE_SECONDS = 10 * 60;
 const CLOCK_SKEW_SECONDS = 60;
 
 export type AppleJwk = { kty: string; kid: string; alg?: string; n: string; e: string; use?: string };
-export type AppleIdentity = { sub: string; email: string | null; emailVerified: boolean; privateEmail: boolean };
+export type AppleIdentity = { sub: string; email: string | null; emailVerified: boolean; privateEmail: boolean; audience: string; issuedAt: number };
 
 const decoder = new TextDecoder();
 
@@ -40,16 +40,15 @@ export async function sha256Hex(text: string): Promise<string> {
 /** Apple sends booleans as booleans or as the strings "true" and "false". */
 const truthy = (value: unknown) => value === true || value === "true";
 
-export async function verifyAppleIdentityToken(
-  token: string,
-  opts: { audience: string | string[]; nonce: string; keys: AppleJwk[]; now: number },
-): Promise<AppleIdentity> {
+/** Signature-only primitive. Callers must enforce their own issuer/audience/claim rules. */
+export async function verifyAppleSignedClaims(token: string, keys: AppleJwk[]): Promise<Record<string, unknown>> {
+  if (!token || token.length > 16000) throw new Error("bad token");
   const parts = token.split(".");
   if (parts.length !== 3) throw new Error("bad token");
   const [headPart, bodyPart, signaturePart] = parts;
   const head = json(headPart);
   if (head.alg !== "RS256" || typeof head.kid !== "string") throw new Error("bad token");
-  const jwk = opts.keys.find((k) => k.kid === head.kid && k.kty === "RSA");
+  const jwk = keys.find((k) => k.kid === head.kid && k.kty === "RSA");
   if (!jwk) throw new Error("unknown key");
   const key = await crypto.subtle.importKey(
     "jwk",
@@ -62,17 +61,24 @@ export async function verifyAppleIdentityToken(
   const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, base64UrlBytes(signaturePart), signed);
   if (!ok) throw new Error("bad signature");
 
-  const claims = json(bodyPart);
+  return json(bodyPart);
+}
+
+export async function verifyAppleIdentityToken(
+  token: string,
+  opts: { audience: string | string[]; nonce: string; keys: AppleJwk[]; now: number },
+): Promise<AppleIdentity> {
+  const claims = await verifyAppleSignedClaims(token, opts.keys);
   const now = Math.floor(opts.now / 1000);
   const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
   if (claims.iss !== APPLE_ISSUER) throw new Error("wrong issuer");
   const accepted = Array.isArray(opts.audience) ? opts.audience : [opts.audience];
-  if (!audiences.some((a: unknown) => accepted.includes(a as string))) throw new Error("wrong audience");
+  if (audiences.length !== 1 || typeof audiences[0] !== "string" || !accepted.includes(audiences[0])) throw new Error("wrong audience");
   if (typeof claims.exp !== "number" || claims.exp + CLOCK_SKEW_SECONDS < now) throw new Error("expired");
   if (typeof claims.iat !== "number" || claims.iat - CLOCK_SKEW_SECONDS > now || now - claims.iat > MAX_AGE_SECONDS) throw new Error("stale");
   if (typeof claims.sub !== "string" || !claims.sub) throw new Error("bad token");
   if (!opts.nonce || claims.nonce !== (await sha256Hex(opts.nonce))) throw new Error("wrong nonce");
 
   const email = typeof claims.email === "string" && claims.email.includes("@") ? claims.email.trim().toLowerCase() : null;
-  return { sub: claims.sub, email, emailVerified: email !== null && truthy(claims.email_verified), privateEmail: truthy(claims.is_private_email) };
+  return { sub: claims.sub, audience: audiences[0], issuedAt: claims.iat * 1000, email, emailVerified: email !== null && truthy(claims.email_verified), privateEmail: truthy(claims.is_private_email) };
 }

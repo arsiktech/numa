@@ -1,8 +1,8 @@
 import { v, ConvexError } from "convex/values";
+import { activePodMembership, verifiedInvitationEmail } from "./invitationAuthority";
 import { mutation, query } from "../_generated/server";
 import { requireUser } from "./access";
 import { displayNameFor, requirePodOwner } from "./podAccess";
-import { normalizeEmail } from "./inputGuards";
 
 /* ---------------------------------------------------------------------------
  * Shareable invite codes
@@ -136,7 +136,7 @@ const joinPodByCode = mutation({
       throw new ConvexError({ code: "INVITE_INVALID", message: "This pot no longer exists" });
     }
     const user = await ctx.db.get(userId);
-    const email = normalizeEmail((user as { email?: string } | null)?.email ?? "");
+    const email = verifiedInvitationEmail(user) ?? "";
     const members = await ctx.db
       .query("podMembers")
       .withIndex("by_pod", (q) => q.eq("podId", invite.podId))
@@ -144,10 +144,10 @@ const joinPodByCode = mutation({
     const mine = members.find(
       (member) =>
         (member.linkedUserId && String(member.linkedUserId) === String(userId)) ||
-        (email.length > 0 && member.invitedEmail === email)
+        (!member.linkedUserId && email.length > 0 && member.invitedEmail === email)
     );
     if (mine) {
-      if (mine.active === false) {
+      if (!activePodMembership(mine)) {
         await ctx.db.patch(mine._id, {
           active: true,
           removedAt: undefined,
@@ -159,7 +159,7 @@ const joinPodByCode = mutation({
       return {
         podId: invite.podId,
         memberId: mine._id,
-        alreadyMember: mine.active !== false
+        alreadyMember: activePodMembership(mine)
       };
     }
     const displayName = await displayNameFor(ctx, userId);

@@ -40,13 +40,16 @@ export async function appleSignInAvailable(): Promise<boolean> {
  * Sign in with Apple through the system sheet on iPhone, or Apple's popup on the web. A one-time nonce is hashed into Apple's token
  * and the raw value goes to the server, which checks that the two match.
  */
-export async function continueWithApple(signIn: SignIn): Promise<OAuthOutcome> {
+export async function continueWithApple(signIn: SignIn, signal?: AbortSignal, onExchange?: () => void): Promise<OAuthOutcome> {
+  if (signal?.aborted) return 'cancelled';
   const nonce = `${Crypto.randomUUID()}${Crypto.randomUUID()}`;
   const hashed = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, nonce);
   if (Platform.OS === 'web') {
-    const web = await appleWebSignIn(hashed);
-    if (web === 'cancelled') return 'cancelled';
-    const done = await signIn('apple-native', { identityToken: web.identityToken, nonce, ...(web.name ? { name: web.name } : {}) });
+    const web = await appleWebSignIn(hashed, signal);
+    if (web === 'cancelled' || signal?.aborted) return 'cancelled';
+    // Convex installs the session inside signIn; cancellation must stop BEFORE this boundary.
+    onExchange?.();
+    const done = await signIn('apple-native', { identityToken: web.identityToken, authorizationCode: web.authorizationCode, redirectURI: web.redirectURI, nonce, ...(web.name ? { name: web.name } : {}) });
     return done.signingIn ? 'signedIn' : 'cancelled';
   }
   let credential: AppleAuthentication.AppleAuthenticationCredential;
@@ -60,8 +63,11 @@ export async function continueWithApple(signIn: SignIn): Promise<OAuthOutcome> {
     throw e;
   }
   if (!credential.identityToken) throw new Error('No identity token');
+  if (!credential.authorizationCode) throw new Error('No authorization code');
+  if (signal?.aborted) return 'cancelled';
+  onExchange?.();
   // Apple shares the name only the first time; it is never in the token itself.
   const name = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' ');
-  const done = await signIn('apple-native', { identityToken: credential.identityToken, nonce, ...(name ? { name } : {}) });
+  const done = await signIn('apple-native', { identityToken: credential.identityToken, authorizationCode: credential.authorizationCode, nonce, ...(name ? { name } : {}) });
   return done.signingIn ? 'signedIn' : 'cancelled';
 }

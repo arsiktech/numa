@@ -31,6 +31,10 @@ export const snapshotLine = v.object({
 
 export default defineSchema({
   ...authTables,
+  // Optional server-only provenance. Other SDK fields/indexes stay unchanged.
+  authSessions: defineTable({
+    userId: v.id("users"), expirationTime: v.number(), appleSubject: v.optional(v.string()),
+  }).index("userId", ["userId"]),
   // Preserve the SDK signature index while enabling owner-session erasure.
   authVerifiers: authTables.authVerifiers.index("by_session", ["sessionId"]),
   profileAvatars: defineTable({
@@ -39,6 +43,18 @@ export default defineSchema({
   privacyChoices: defineTable({
     userId: v.id("users"), allowed: v.boolean(), version: v.string(), recordedAt: v.number()
   }).index("by_user", ["userId"]),
+  // Active credentials are account-owned. Deletion detaches bounded revocation jobs.
+  appleCredentials: defineTable({
+    userId: v.optional(v.id("users")), subjectHash: v.optional(v.string()),
+    audience: v.optional(v.string()),
+    envelope: v.optional(v.object({ iv: v.string(), ciphertext: v.string() })),
+    state: v.union(v.literal("active"), v.literal("pending"), v.literal("done"), v.literal("expired")),
+    attempts: v.number(), leaseUntil: v.optional(v.number()),
+    expiresAt: v.optional(v.number()), updatedAt: v.number()
+  }).index("by_user", ["userId"]).index("by_user_audience", ["userId", "audience"]),
+  // SHA256 only, no subject/email. Expire at the identity freshness boundary.
+  appleDeletionGuards: defineTable({ subjectHash: v.string(), expiresAt: v.number() })
+    .index("by_subject", ["subjectHash"]),
   // additive per-user profile attached by userId
   profiles: defineTable({
     userId: v.id("users"),
@@ -741,6 +757,7 @@ export default defineSchema({
   // Expo push tokens for the rebuilt phone app. One row per device; the time zone sets quiet hours.
   expoPushTokens: defineTable({
     userId: v.id("users"),
+    sessionId: v.optional(v.id("authSessions")),
     token: v.string(),
     platform: v.union(v.literal("ios"), v.literal("android")),
     timeZone: v.string(),
