@@ -93,6 +93,16 @@ describe("pod withdrawal revokes caller authority, not history", () => {
     expect(await f.call(joinPodByCode, { code: "synthetic-code" })).toMatchObject({ memberId: member._id });
     await expect(f.call(getBundle, { podId })).resolves.toBeDefined();
   });
+  it('a removal timestamp alone also blocks access and is cleared only by an explicit valid rejoin', async () => {
+    const { f, podId, member } = await podFixture();
+    f.rows.get(member._id).removedAt = 1;
+    f.signIn('user');
+    for (const read of [getBundle, podSnapshot]) await expect(f.call(read, { podId })).rejects.toThrow(/member/i);
+    f.seed('podInvites', 'code', { podId, codeHash: await sha256Hex('synthetic-code'), expiresAt: Date.now() + 60_000, revoked: false });
+    expect(await f.call(joinPodByCode, { code: 'synthetic-code' })).toMatchObject({ memberId: member._id, alreadyMember: false });
+    expect(f.rows.get(member._id).removedAt).toBeUndefined();
+    await expect(f.call(getBundle, { podId })).resolves.toBeDefined();
+  });
   it("never uses a verified email fallback to claim another linked identity", async () => {
     const { f, podId, member } = await podFixture();
     f.seed("users", "other", { email: invitation.email, emailVerificationTime: 1 }); f.signIn("other");

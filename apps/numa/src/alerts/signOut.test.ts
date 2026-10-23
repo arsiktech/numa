@@ -16,7 +16,7 @@ describe('phone sign-out', () => {
     });
     expect(steps).toEqual(['unregister', 'forget', 'signOut']);
   });
-  it('does not wait forever for a disconnected mutation queue', async () => {
+  it('continues to SDK logout after a disconnected unregister queue times out', async () => {
     jest.useFakeTimers();
     try {
       const signOut = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
@@ -26,7 +26,7 @@ describe('phone sign-out', () => {
       expect(signOut).toHaveBeenCalledTimes(1);
     } finally { jest.useRealTimers(); }
   });
-  it('still clears local auth if remote cleanup fails; server sends contain no private preview', async () => {
+  it('still invokes SDK logout if remote cleanup fails', async () => {
     const signOut = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
     const forget = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
     await signOutWithPushCleanup({ saved: async () => 'synthetic-token', unregister: async () => { throw Error('offline'); }, forget, signOut });

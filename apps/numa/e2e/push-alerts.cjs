@@ -41,5 +41,13 @@ const run = (fn, args) => JSON.parse(execFileSync('npx', ['convex', 'run', fn, J
 
   await c.mutation('pushAlerts:unregisterDevice', { token: TOKEN });
   check('turning alerts off removes the phone', await c.query('pushAlerts:deviceRegistered', { token: TOKEN }) === false);
+  await c.mutation('pushAlerts:registerDevice', { token: TOKEN, platform: 'ios', timeZone: 'UTC' });
+  check('the active session is a push target', run('pushAlerts:targets', {}).some(t => t.userId === userId && t.tokens.includes(TOKEN)));
+  await c.action('auth:signOut', {});
+  check('SDK logout invalidates the old push binding without another alerts toggle', !run('pushAlerts:targets', {}).some(t => t.tokens.includes(TOKEN)));
+  const next = new ConvexHttpClient(CONVEX);
+  const nextLogin = await next.action('auth:signIn', { provider: 'password', params: { email: `other-${EMAIL}`, password: PASSWORD, flow: 'signUp' } });
+  next.setAuth(nextLogin.tokens.token);
+  check('another account does not inherit this phone grant', await next.query('pushAlerts:deviceRegistered', { token: TOKEN }) === false);
   process.exit(finish() ? 1 : 0);
 })().catch((e) => { console.error('JOURNEY CRASH', e); process.exit(2); });

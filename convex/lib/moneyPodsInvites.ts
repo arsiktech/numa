@@ -1,5 +1,5 @@
 import { v, ConvexError } from "convex/values";
-import { verifiedInvitationEmail } from "./invitationAuthority";
+import { activePodMembership, verifiedInvitationEmail } from "./invitationAuthority";
 import { mutation, query } from "../_generated/server";
 import { requireUser } from "./access";
 import { displayNameFor, requirePodOwner } from "./podAccess";
@@ -147,7 +147,7 @@ const joinPodByCode = mutation({
         (!member.linkedUserId && email.length > 0 && member.invitedEmail === email)
     );
     if (mine) {
-      if (mine.active === false) {
+      if (!activePodMembership(mine)) {
         await ctx.db.patch(mine._id, {
           active: true,
           removedAt: undefined,
@@ -159,7 +159,7 @@ const joinPodByCode = mutation({
       return {
         podId: invite.podId,
         memberId: mine._id,
-        alreadyMember: mine.active !== false
+        alreadyMember: activePodMembership(mine)
       };
     }
     const displayName = await displayNameFor(ctx, userId);

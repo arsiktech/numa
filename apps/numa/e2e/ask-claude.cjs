@@ -55,6 +55,14 @@ async function ask(page, text) {
     watchErrors(page, errors);
     await signUp(page, APP, EMAIL);
     const { c, portfolioId, snap } = await client(EMAIL);
+    let permissionRequired = false;
+    try {
+      await c.action('ask:reply', { message: 'Synthetic pre-consent question', context: 'Synthetic context', history: [] });
+    } catch (e) { permissionRequired = /AI_SHARING_REQUIRED/.test(String(e)); }
+    check('the direct action requires durable permission before any provider request', permissionRequired && requests.length === 0);
+    const sharing = await c.query('privacy:status', {});
+    // This positive-control fixture explicitly opts in. Opening Ask or sending a question is not consent.
+    await c.mutation('privacy:setAISharing', { expectedUserId: sharing.userId, allowed: true, version: sharing.requiredVersion, clientMutationId: `qa.consent:${Date.now()}` });
     await c.mutation('mobile:upsertAsset', { portfolioId, name: 'Main account', kind: 'cash', balance: 4321, currency: 'EUR', clientMutationId: `qa.asset:${Date.now()}` });
 
     await page.getByRole('button', { name: 'Ask or add' }).click();
@@ -99,6 +107,14 @@ async function ask(page, text) {
     check('a declined request gets a plain reply', (await page.locator('body').innerText()).includes('I can’t help with that one.'));
     await ask(page, 'overload please');
     check('an overloaded provider says try again', (await page.locator('body').innerText()).includes('The assistant is busy.'));
+
+    // Withdrawal blocks new requests, including direct calls that bypass the screen.
+    await c.mutation('privacy:setAISharing', { expectedUserId: sharing.userId, allowed: false, version: sharing.requiredVersion, clientMutationId: `qa.withdraw:${Date.now()}` });
+    const sentBeforeWithdrawal = requests.length;
+    let withdrawn = false;
+    try { await c.action('ask:reply', { message: 'Synthetic post-withdrawal question', context: 'Synthetic context', history: [] }); }
+    catch (e) { withdrawn = /AI_SHARING_REQUIRED/.test(String(e)); }
+    check('completed withdrawal prevents a new provider request', withdrawn && requests.length === sentBeforeWithdrawal);
 
     // Demo never calls Claude.
     const before = requests.length;

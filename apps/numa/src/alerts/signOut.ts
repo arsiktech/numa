@@ -24,7 +24,7 @@ export async function signOutWithPushCleanup({ saved, unregister, forget, signOu
       } finally { clearTimeout(timer); }
     }
   } catch {
-    // Offline sign-out must remain possible. Session checks and generic server payloads fail safe.
+    // Do not delay the SDK logout for failed cleanup. Generic server payloads protect queued sends.
   } finally {
     try { await forget(); } finally { await signOut(); }
   }
