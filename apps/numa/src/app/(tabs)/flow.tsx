@@ -15,7 +15,7 @@ import { monthCashback, rowDetails } from '@/flow/card';
 import { SpendCalendar } from '@/flow/SpendCalendar';
 import { availableMonths, monthFlow, monthName, monthOf, sameMonth, transactionsIn, type MonthKey } from '@/flow/month';
 import { mrr, recurringRows, type RecurringRow } from '@/flow/recurring';
-import { Sankey } from '@/flow/Sankey';
+import { Sankey } from '@/flow/FlowSankey';
 import { layoutSankey } from '@/flow/sankey';
 import { useTheme } from '@/theme/theme';
 import { CurrencyScope, useMoney } from '@/ui/money';
