@@ -4,7 +4,7 @@ beforeEach(() => vi.stubGlobal("crypto", webcrypto));
 afterEach(() => vi.unstubAllGlobals());
 import { privacyFixture } from "../src/test/privacyFixture";
 import { inviteByEmail, redeemInvitesForMe, listPendingInvitesFor } from "./memberships";
-import { create, getBundle, removeMember, leaveMoneyPod, removeExpense, addExpense, listMine, joinPodByCode } from "./moneyPods";
+import { create, addMember, getBundle, removeMember, leaveMoneyPod, removeExpense, addExpense, listMine, joinPodByCode } from "./moneyPods";
 import { podSnapshot, deleteExpense, listPods, me } from "./mobile";
 import { sha256Hex } from "./lib/appleIdentity";
 
@@ -30,6 +30,12 @@ describe("verified email invitation authority", () => {
     expect(await f.call(listPendingInvitesFor)).toHaveLength(1);
     expect(await f.call(redeemInvitesForMe)).toBe(1);
     expect(f.all("memberships")).toHaveLength(2);
+  });
+  it('still skips a self-invite by an unverified owner without inventing a financial participant', async () => {
+    const f = portfolioFixture(); delete f.rows.get('owner').emailVerificationTime; f.signIn('owner');
+    const { id: podId } = await f.call(create, { name: 'Private pod', currency: 'EUR', members: [{ email: 'owner@example.com', displayName: 'Owner', role: 'editor' }] });
+    expect(f.all('podMembers').filter(m => m.podId === podId)).toHaveLength(1);
+    await expect(f.call(addMember, { podId, email: 'owner@example.com', displayName: 'Owner', role: 'editor' })).rejects.toThrow(/already/i);
   });
   it("still grants an unambiguous verified recipient immediately", async () => {
     const f = portfolioFixture(true); f.signIn("owner");

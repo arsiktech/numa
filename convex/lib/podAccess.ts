@@ -102,7 +102,11 @@ export async function userIdForEmail(ctx: AnyCtx, email: string) {
     .query("users")
     .withIndex("email", (q) => q.eq("email", email))
     .unique();
-  return verifiedInvitationEmail(matched) ? matched!._id : undefined;
+  if (!matched) return undefined;
+  if (verifiedInvitationEmail(matched)) return matched._id;
+  // The existing authenticated owner is already identified by user id, not this address.
+  // Preserve self-invite/duplicate rejection without granting a different unverified user access.
+  return matched._id === await requireUser(ctx) ? matched._id : undefined;
 }
 
 export async function assertNoDuplicatePodEmail(
