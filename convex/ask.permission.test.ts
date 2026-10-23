@@ -3,6 +3,7 @@ import { getFunctionName } from "convex/server";
 import { privacyFixture } from "../src/test/privacyFixture";
 import { AI_SHARING_VERSION } from "./lib/privacyPolicy";
 import { reply, takeAskQuota } from "./ask";
+import { status } from "./privacy";
 
 const provider = vi.hoisted(() => ({ send: vi.fn(), constructed: vi.fn() }));
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -30,7 +31,10 @@ async function fixture() {
       quotaCalls++; beforeQuota?.();
       return f.call(takeAskQuota, args);
     },
-    runQuery: async () => { throw new Error("Unexpected action query: permission belongs in the quota transaction"); },
+    runQuery: async (ref: any) => {
+      expect(getFunctionName(ref)).toBe("privacy:status");
+      return f.call(status);
+    },
   };
   return {
     ...f,

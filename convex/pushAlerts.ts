@@ -1,4 +1,4 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -26,13 +26,18 @@ export const registerDevice = mutation({
   args: { token: v.string(), platform: v.union(v.literal("ios"), v.literal("android")), timeZone: v.string() },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
+    const sessionId = await getAuthSessionId(ctx);
+    const session = sessionId ? await ctx.db.get(sessionId) : null;
+    if (!session || session.userId !== userId || session.expirationTime <= Date.now()) {
+      throw new ConvexError({ code: "UNAUTHENTICATED", message: "Sign in again to enable alerts for this session" });
+    }
     if (!EXPO_TOKEN.test(args.token)) throw new ConvexError({ code: "INVALID_PUSH_TOKEN", message: "That isn’t a push token" });
     const timeZone = args.timeZone.slice(0, 64);
     const now = Date.now();
     const existing = await ctx.db.query("expoPushTokens").withIndex("by_token", (q) => q.eq("token", args.token)).unique();
     // A phone that changes hands follows its latest signed-in person.
     if (existing) {
-      await ctx.db.patch(existing._id, { userId, platform: args.platform, timeZone, updatedAt: now });
+      await ctx.db.patch(existing._id, { userId, sessionId: session._id, platform: args.platform, timeZone, updatedAt: now });
       return null;
     }
     const mine = await ctx.db.query("expoPushTokens").withIndex("by_user", (q) => q.eq("userId", userId)).take(MAX_DEVICES + 1);
@@ -40,7 +45,7 @@ export const registerDevice = mutation({
       const oldest = mine.sort((a, b) => a.updatedAt - b.updatedAt)[0];
       await ctx.db.delete(oldest._id);
     }
-    await ctx.db.insert("expoPushTokens", { userId, token: args.token, platform: args.platform, timeZone, createdAt: now, updatedAt: now });
+    await ctx.db.insert("expoPushTokens", { userId, sessionId: session._id, token: args.token, platform: args.platform, timeZone, createdAt: now, updatedAt: now });
     return null;
   },
 });
@@ -61,7 +66,9 @@ export const deviceRegistered = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return false;
     const row = await ctx.db.query("expoPushTokens").withIndex("by_token", (q) => q.eq("token", token)).unique();
-    return row?.userId === userId;
+    const sessionId = await getAuthSessionId(ctx);
+    const session = sessionId ? await ctx.db.get(sessionId) : null;
+    return Boolean(row?.userId === userId && row.sessionId === sessionId && session?.userId === userId && session.expirationTime > Date.now());
   },
 });
 
@@ -72,6 +79,9 @@ export const targets = internalQuery({
   handler: async (ctx): Promise<Target[]> => {
     const byUser = new Map<Id<"users">, Target>();
     for await (const row of ctx.db.query("expoPushTokens")) {
+      // Old unbound tokens fail closed. Re-enabling alerts binds them to the current session.
+      const session = row.sessionId ? await ctx.db.get(row.sessionId) : null;
+      if (!session || session.userId !== row.userId || session.expirationTime <= Date.now()) continue;
       const t = byUser.get(row.userId) ?? { userId: row.userId, tokens: [], timeZone: row.timeZone };
       t.tokens.push(row.token);
       byUser.set(row.userId, t);
@@ -139,7 +149,8 @@ export const sendDue = internalAction({
       const p: { alerts: Alert[]; sentKeys: string[]; sentToday: number; hour: number } = await ctx.runQuery(internal.pushAlerts.plan, { userId: target.userId, timeZone: target.timeZone, now });
       const send = pickToSend(p.alerts, new Set(p.sentKeys), p.sentToday, p.hour);
       if (!send.length) continue;
-      const messages = send.flatMap((a) => target.tokens.map((to) => ({ to, title: a.title, body: a.body, sound: "default", data: { url: a.url } })));
+      // A logout can race an already planned send. Never put private account data on a lock screen.
+      const messages = send.flatMap(() => target.tokens.map((to) => ({ to, title: "Numa Pro", body: "Open Numa Pro to review your alerts.", sound: "default", data: { url: "/" } })));
       const dead = new Set<string>();
       try {
         const response = await fetch("https://exp.host/--/api/v2/push/send", {

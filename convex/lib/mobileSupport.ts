@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { requireUser, type AnyCtx } from "./access";
-import { cleanRequired, friendlyDisplayName, normalizeEmail } from "./inputGuards";
+import { cleanRequired, friendlyDisplayName } from "./inputGuards";
 import { computeSettlementBalances, minimizeTransfers, type SettlementExpense, type SettlementPayment } from "./settlementMath";
 import { seedStarterCategories } from "./starterCategories";
 
@@ -164,9 +164,11 @@ export async function assertGoalRefs(
   }
 }
 
+import { activePodMembership, verifiedInvitationEmail } from "./invitationAuthority";
+
 export async function userEmail(ctx: AnyCtx, userId: Id<"users">) {
   const user = await ctx.db.get(userId);
-  return normalizeEmail((user as { email?: string } | null)?.email);
+  return verifiedInvitationEmail(user);
 }
 
 export async function profileFor(ctx: AnyCtx, userId: Id<"users">) {
@@ -265,7 +267,12 @@ export async function claimInvitedPodRows(ctx: MutationCtx, userId: Id<"users">)
     .withIndex("by_email", (q) => q.eq("invitedEmail", email))
     .collect();
   for (const member of invited) {
-    if (!member.linkedUserId) {
+    if (!member.linkedUserId && activePodMembership(member)) {
+      // A code-based login grant, including a withdrawn one, takes precedence over an older email row.
+      const direct = await ctx.db.query("podMembers")
+        .withIndex("by_user", q => q.eq("linkedUserId", userId))
+        .filter(q => q.eq(q.field("podId"), member.podId)).first();
+      if (direct) continue;
       await ctx.db.patch(member._id, { linkedUserId: userId });
     }
   }
@@ -279,6 +286,7 @@ export async function podAccess(ctx: AnyCtx, podId: Id<"moneyPods">) {
     .withIndex("by_user", (q) => q.eq("linkedUserId", userId))
     .filter((q) => q.eq(q.field("podId"), podId))
     .unique();
+  if (direct && !activePodMembership(direct)) throw new ConvexError({ code: "FORBIDDEN", message: "Not a member of this money pod" });
   if (direct) return { userId, member: direct, role: direct.role as PodRole };
   if (email) {
     const invited = await ctx.db
@@ -286,7 +294,7 @@ export async function podAccess(ctx: AnyCtx, podId: Id<"moneyPods">) {
       .withIndex("by_email", (q) => q.eq("invitedEmail", email))
       .filter((q) => q.eq(q.field("podId"), podId))
       .unique();
-    if (invited) return { userId, member: invited, role: invited.role as PodRole };
+    if (invited && !invited.linkedUserId && activePodMembership(invited)) return { userId, member: invited, role: invited.role as PodRole };
   }
   const pod = await ctx.db.get(podId);
   if (pod?.ownerUserId === userId) {
@@ -295,7 +303,7 @@ export async function podAccess(ctx: AnyCtx, podId: Id<"moneyPods">) {
       .withIndex("by_pod", (q) => q.eq("podId", podId))
       .filter((q) => q.eq(q.field("linkedUserId"), userId))
       .unique();
-    if (ownerMember) return { userId, member: ownerMember, role: ownerMember.role as PodRole };
+    if (ownerMember && activePodMembership(ownerMember)) return { userId, member: ownerMember, role: ownerMember.role as PodRole };
   }
   throw new ConvexError({ code: "FORBIDDEN", message: "Not a member of this money pod" });
 }

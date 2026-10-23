@@ -58,6 +58,7 @@ import type * as lib_finance from "../lib/finance.js";
 import type * as lib_financeValidators from "../lib/financeValidators.js";
 import type * as lib_googleSheets from "../lib/googleSheets.js";
 import type * as lib_inputGuards from "../lib/inputGuards.js";
+import type * as lib_invitationAuthority from "../lib/invitationAuthority.js";
 import type * as lib_keccak from "../lib/keccak.js";
 import type * as lib_loanLinks from "../lib/loanLinks.js";
 import type * as lib_marketQuoteProviders from "../lib/marketQuoteProviders.js";
@@ -170,6 +171,7 @@ declare const fullApi: ApiFromModules<{
   "lib/financeValidators": typeof lib_financeValidators;
   "lib/googleSheets": typeof lib_googleSheets;
   "lib/inputGuards": typeof lib_inputGuards;
+  "lib/invitationAuthority": typeof lib_invitationAuthority;
   "lib/keccak": typeof lib_keccak;
   "lib/loanLinks": typeof lib_loanLinks;
   "lib/marketQuoteProviders": typeof lib_marketQuoteProviders;

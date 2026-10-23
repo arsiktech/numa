@@ -3,6 +3,8 @@ import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireMember, requireOwner, requireUser } from "./lib/access";
 
+import { verifiedInvitationEmail } from "./lib/invitationAuthority";
+
 const roleValidator = v.union(v.literal("editor"), v.literal("viewer"));
 const inviteRoleValidator = v.union(v.literal("editor"), v.literal("viewer"));
 
@@ -46,8 +48,8 @@ export const inviteByEmail = mutation({
       .query("users")
       .withIndex("email", (q) => q.eq("email", email))
       .unique();
-    const matchedUserId: Id<"users"> | null = matchedUser
-      ? (matchedUser._id as Id<"users">)
+    const matchedUserId: Id<"users"> | null = verifiedInvitationEmail(matchedUser)
+      ? (matchedUser!._id as Id<"users">)
       : null;
 
     if (matchedUserId) {
@@ -161,7 +163,7 @@ export const redeemInvitesForMe = mutation({
   handler: async (ctx) => {
     const userId = await requireUser(ctx);
     const user = await ctx.db.get(userId);
-    const rawEmail = (user as { email?: string } | null)?.email;
+    const rawEmail = verifiedInvitationEmail(user);
     if (!rawEmail) return 0;
     const email = rawEmail.toLowerCase();
 
@@ -204,7 +206,7 @@ export const listPendingInvitesFor = query({
   handler: async (ctx) => {
     const userId = await requireUser(ctx);
     const user = await ctx.db.get(userId);
-    const rawEmail = (user as { email?: string } | null)?.email;
+    const rawEmail = verifiedInvitationEmail(user);
     if (!rawEmail) return [];
     const email = rawEmail.toLowerCase();
     const invites = await ctx.db

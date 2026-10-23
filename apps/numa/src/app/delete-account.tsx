@@ -1,4 +1,4 @@
-import { useAuthActions } from '@convex-dev/auth/react';
+import { usePhoneSignOut } from '@/alerts/signOut';
 import { useConvex, useMutation } from 'convex/react';
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
@@ -25,7 +25,7 @@ function DeleteAccount() {
   const { c } = useTheme();
   const convex = useConvex();
   const remove = useMutation(cloud.deleteMyAccount);
-  const { signOut } = useAuthActions();
+  const signOut = usePhoneSignOut();
   const data = useCloudData();
   const exp = useExport();
   const [typed, setTyped] = useState('');

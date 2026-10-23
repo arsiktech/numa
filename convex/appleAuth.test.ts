@@ -262,6 +262,31 @@ it('does not rebind an in-flight email-only sign-in to a different verified owne
   expect(f.all('appleCredentials').every(row => row.userId === undefined && row.state === 'pending')).toBe(true);
 });
 
+it.each([
+  ['com.arsiktech.numa', 'apple-native', true],
+  ['com.arsiktech.numa.web', 'apple-native', true],
+  ['com.arsiktech.numa', 'apple', true],
+  ['com.arsiktech.numa.web', 'apple', true],
+  ['com.arsiktech.numa', 'apple-native', false],
+  ['com.arsiktech.numa.web', 'apple-native', false],
+  ['com.arsiktech.numa', 'apple', false],
+  ['com.arsiktech.numa.web', 'apple', false],
+])('installed-client returning login mints tokens: %s owner=%s configured=%s', async (aud, provider, configured) => {
+  if (!configured) for (const key of ['APPLE_TEAM_ID', 'APPLE_KEY_ID', 'APPLE_PRIVATE_KEY', 'APPLE_TOKEN_ENCRYPTION_KEY']) vi.stubEnv(key, '');
+  await configureDummyTokenIssuance();
+  const f = authFixture();
+  f.seed('authAccounts', 'installed-owner', { userId: 'user', provider, providerAccountId: 'dummy-auth-sub' });
+  const signed = await token({ aud }); const fetcher = providerFetch(signed);
+  const session = await authorize({ identityToken: signed, nonce, name: 'Returning Apple' });
+  expect(session).toMatchObject({ userId: 'user', sessionId: expect.any(String) });
+  const issued = await issueBoundSession(session);
+  expect(issued.tokens).toMatchObject({ token: expect.any(String), refreshToken: expect.any(String) });
+  const claims = JSON.parse(Buffer.from(issued.tokens.token.split('.')[1], 'base64url').toString());
+  expect(claims.sub).toBe(`user|${session.sessionId}`);
+  expect(f.all('users')).toHaveLength(1);
+  expect(fetcher.mock.calls.filter(c => c[0].endsWith('/auth/token'))).toHaveLength(0);
+});
+
 // Old deployed native and web send exactly these fields. Neither sends code;
 // old web also omits redirectURI. All cases use real signed Apple claims and SDK store.
 it.each(['com.arsiktech.numa', 'com.arsiktech.numa.web'])('old payload returns its subject owner with exact SDK session: %s', async aud => {

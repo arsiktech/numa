@@ -57,6 +57,9 @@ async function ask(page, text) {
     const { c, portfolioId, snap } = await client(EMAIL);
     const choiceBefore = await c.query('privacy:status', {});
     check('a fresh account has no AI sharing grant', !choiceBefore.allowed && !choiceBefore.granted);
+    const sharing = choiceBefore;
+    const denied = await c.action('ask:reply', { expectedUserId: sharing.userId, message: 'Synthetic pre-consent question', context: 'Synthetic context', history: [] });
+    check('the direct action requires durable permission before any provider request', denied.status === 'declined' && denied.reason === 'permission-required' && requests.length === 0);
     await c.mutation('mobile:upsertAsset', { portfolioId, name: 'Main account', kind: 'cash', balance: 4321, currency: 'EUR', clientMutationId: `qa.asset:${Date.now()}` });
 
     await page.getByRole('button', { name: 'Ask or add' }).click();
@@ -122,6 +125,12 @@ async function ask(page, text) {
     check('a declined request gets a plain reply', (await page.locator('body').innerText()).includes('I can’t help with that one.'));
     await ask(page, 'overload please');
     check('an overloaded provider says try again', (await page.locator('body').innerText()).includes('The assistant is busy.'));
+
+    // Withdrawal blocks new requests, including direct calls that bypass the screen.
+    await c.mutation('privacy:setAISharing', { expectedUserId: sharing.userId, allowed: false, version: sharing.requiredVersion, clientMutationId: `qa.withdraw:${Date.now()}` });
+    const sentBeforeWithdrawal = requests.length;
+    const withdrawn = await c.action('ask:reply', { expectedUserId: sharing.userId, message: 'Synthetic post-withdrawal question', context: 'Synthetic context', history: [] });
+    check('completed withdrawal prevents a new provider request', withdrawn.status === 'declined' && withdrawn.reason === 'permission-required' && requests.length === sentBeforeWithdrawal);
 
     // Demo never calls Claude.
     const before = requests.length;
