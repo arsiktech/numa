@@ -27,7 +27,8 @@ export async function requirePodMember(ctx: AnyCtx, podId: Id<"moneyPods">) {
     .withIndex("by_user", (q) => q.eq("linkedUserId", userId))
     .filter((q) => q.eq(q.field("podId"), podId))
     .unique();
-  if (direct && activePodMembership(direct)) return { userId, member: direct, role: direct.role };
+  if (direct && !activePodMembership(direct)) throw new ConvexError({ code: "FORBIDDEN", message: "Not a member of this money pod" });
+  if (direct) return { userId, member: direct, role: direct.role };
   if (email) {
     const invited = await ctx.db
       .query("podMembers")

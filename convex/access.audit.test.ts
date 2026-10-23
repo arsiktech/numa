@@ -103,6 +103,30 @@ describe("pod withdrawal revokes caller authority, not history", () => {
     expect(f.rows.get(member._id).removedAt).toBeUndefined();
     await expect(f.call(getBundle, { podId })).resolves.toBeDefined();
   });
+  it('verification after a code join does not create a duplicate login membership', async () => {
+    const f = portfolioFixture(); f.signIn('owner');
+    const { id: podId } = await f.call(create, { name: 'Private pod', currency: 'EUR', members: [{ displayName: 'Recipient', email: invitation.email, role: 'editor' }] });
+    f.seed('podInvites', 'code', { podId, codeHash: await sha256Hex('synthetic-code'), expiresAt: Date.now() + 60_000 });
+    f.signIn('user');
+    await f.call(joinPodByCode, { code: 'synthetic-code' });
+    f.rows.get('user').emailVerificationTime = 1;
+    await f.call(me);
+    expect(f.all('podMembers').filter(m => m.podId === podId && m.linkedUserId === 'user')).toHaveLength(1);
+    await expect(f.call(podSnapshot, { podId })).resolves.toBeDefined();
+  });
+  it('a withdrawn direct member cannot fall back to an older unlinked email invitation after verification', async () => {
+    const f = portfolioFixture(); f.signIn('owner');
+    const { id: podId } = await f.call(create, { name: 'Private pod', currency: 'EUR', members: [{ displayName: 'Recipient', email: invitation.email, role: 'editor' }] });
+    f.seed('podInvites', 'code', { podId, codeHash: await sha256Hex('synthetic-code'), expiresAt: Date.now() + 60_000 });
+    f.signIn('user'); await f.call(joinPodByCode, { code: 'synthetic-code' });
+    await f.call(leaveMoneyPod, { podId });
+    f.rows.get('user').emailVerificationTime = 1;
+    for (const read of [getBundle, podSnapshot]) await expect(f.call(read, { podId })).rejects.toThrow(/member/i);
+    expect(await f.call(listMine)).toEqual([]);
+    expect(await f.call(listPods)).toEqual([]);
+    await f.call(me);
+    for (const read of [getBundle, podSnapshot]) await expect(f.call(read, { podId })).rejects.toThrow(/member/i);
+  });
   it("never uses a verified email fallback to claim another linked identity", async () => {
     const { f, podId, member } = await podFixture();
     f.seed("users", "other", { email: invitation.email, emailVerificationTime: 1 }); f.signIn("other");

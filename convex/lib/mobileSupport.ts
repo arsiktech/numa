@@ -268,6 +268,11 @@ export async function claimInvitedPodRows(ctx: MutationCtx, userId: Id<"users">)
     .collect();
   for (const member of invited) {
     if (!member.linkedUserId && activePodMembership(member)) {
+      // A code-based login grant, including a withdrawn one, takes precedence over an older email row.
+      const direct = await ctx.db.query("podMembers")
+        .withIndex("by_user", q => q.eq("linkedUserId", userId))
+        .filter(q => q.eq(q.field("podId"), member.podId)).first();
+      if (direct) continue;
       await ctx.db.patch(member._id, { linkedUserId: userId });
     }
   }
@@ -281,7 +286,8 @@ export async function podAccess(ctx: AnyCtx, podId: Id<"moneyPods">) {
     .withIndex("by_user", (q) => q.eq("linkedUserId", userId))
     .filter((q) => q.eq(q.field("podId"), podId))
     .unique();
-  if (direct && activePodMembership(direct)) return { userId, member: direct, role: direct.role as PodRole };
+  if (direct && !activePodMembership(direct)) throw new ConvexError({ code: "FORBIDDEN", message: "Not a member of this money pod" });
+  if (direct) return { userId, member: direct, role: direct.role as PodRole };
   if (email) {
     const invited = await ctx.db
       .query("podMembers")

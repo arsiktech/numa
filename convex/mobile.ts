@@ -63,7 +63,7 @@ async function listPodsForUser(ctx: AnyCtx, userId: Id<"users">) {
 
     const roles = new Map<string, PodRole>();
     for (const membership of memberships.filter(activePodMembership)) roles.set(String(membership.podId), membership.role as PodRole);
-    for (const membership of invitedMemberships.filter(m => !m.linkedUserId && activePodMembership(m))) {
+    for (const membership of invitedMemberships.filter(m => !m.linkedUserId && activePodMembership(m) && !memberships.some(d => d.podId === m.podId))) {
       if (!roles.has(String(membership.podId))) {
         roles.set(String(membership.podId), membership.role as PodRole);
       }

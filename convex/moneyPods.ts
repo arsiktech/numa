@@ -62,7 +62,7 @@ export const listMine = query({
       .collect();
     const byId = new Map<string, Id<"moneyPods">>();
     for (const membership of memberships.filter(activePodMembership)) byId.set(String(membership.podId), membership.podId);
-    for (const membership of invitedMemberships.filter(m => !m.linkedUserId && activePodMembership(m))) byId.set(String(membership.podId), membership.podId);
+    for (const membership of invitedMemberships.filter(m => !m.linkedUserId && activePodMembership(m) && !memberships.some(d => d.podId === m.podId))) byId.set(String(membership.podId), membership.podId);
     for (const pod of owned) byId.set(String(pod._id), pod._id);
     const pods = await Promise.all([...byId.values()].map((id) => ctx.db.get(id)));
     return pods.filter((p): p is NonNullable<typeof p> => p !== null);
