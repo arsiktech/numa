@@ -3,6 +3,10 @@
 Durable decision log for Numa Pro. Add entries only when a decision constrains
 future work.
 
+As of 2026-10-23, references below to removed repository instruction files are
+historical provenance, not current entry points. Execution guidance stays private.
+Use [README.md](README.md) for current implementation and verification routing.
+
 ## 2026-09-10 - Autonomous work with proportional verification
 
 Status: accepted. Source: user requested a repo cleanup for GPT-6 Astra to

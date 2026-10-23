@@ -1,5 +1,10 @@
 # Numa Pro public-release plan
 
+> Historical release lane, qualified 2026-10-23. Use the
+> [rebuild release guide](rebuild/RELEASE.md) for the current Expo app.
+> Old candidate branches, owner-unlock items and references to removed instruction
+> files below are dated evidence, not current instructions or delivery status.
+
 **Snapshot:** 2026-07-30
 **Release decision:** HOLD
 **Public product name:** Numa Pro (superseding naming decision 2026-09-08)

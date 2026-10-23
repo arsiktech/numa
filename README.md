@@ -7,10 +7,26 @@ read-only public wallets, and AI drafts grounded in portfolio data. Numa Shared
 is a separate product and release lane; Pro retains its existing shared-pod
 compatibility features.
 
-Web origin: <https://numa-ecru.vercel.app>. Deployment and public-release status
-are recorded separately in the [release plan](docs/NUMA-PRO-PUBLIC-RELEASE.md).
+## Current app and verification
 
-## Run locally
+The current rebuild app is Expo in [`apps/numa/`](apps/numa/README.md), for iOS,
+Android and web. The root `src/` web app and `ios/Numa/` SwiftUI app are legacy
+implementations retained until parity. Their setup below is not the Expo setup.
+
+The [finance contract](docs/FINANCE-CONTRACT.md),
+[Pulse design system](docs/rebuild/DESIGN.md) and
+[rebuild release guide](docs/rebuild/RELEASE.md) define the current contracts.
+Root lint, build and unit tests ignore `apps/`. App changes need the checks in
+[`apps/numa/README.md`](apps/numa/README.md): typecheck, lint, Jest tests and web
+export. [PR CI](.github/workflows/ci.yml) runs those separately and exercises
+[rendered app journeys](apps/numa/e2e/README.md) against an isolated local backend.
+Native demo journeys are a separate [simulator workflow](.github/workflows/ios-sim.yml).
+
+The legacy web origin is <https://numa-ecru.vercel.app>. The older
+[release plan](docs/NUMA-PRO-PUBLIC-RELEASE.md) records its historical lane;
+it is not current rebuild deployment evidence.
+
+## Run the legacy web app locally
 
 Use Node `24.x` (see `package.json`) and the locked dependencies:
 
@@ -26,11 +42,11 @@ use the paired `VITE_CONVEX_SITE_URL`. Keep an existing `.env.local` intact.
 Vite supplies limited dev API fixtures; real serverless API work needs the
 matching API runtime described in [local workflows](docs/agent-memory/workflows.md#local-setup).
 
-## Stack and checks
+## Legacy stack and root checks
 
 - React 19, Vite 8, TypeScript, Tailwind 4; local SVG charts.
 - Convex data and Convex Auth; Vercel functions in `api/`.
-- Native SwiftUI client in `ios/Numa/`, bundle `com.arsiktech.numa`.
+- Legacy SwiftUI client in `ios/Numa/`, bundle `com.arsiktech.numa`.
 
 ```bash
 npm test            # Vitest

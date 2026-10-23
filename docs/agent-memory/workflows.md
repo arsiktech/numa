@@ -32,7 +32,7 @@ API target pairing. A Vite fixture response is not provider evidence.
 | Convex schema or exported API | `npx convex codegen`, Convex type check, relevant tests |
 | Web UI behavior | Relevant Playwright flow plus rendered inspection |
 | Swift/native-only change | Relevant native build/tests and rendered journey; reuse the checked artifact |
-| Release readiness, affected shared-runtime boundaries, or unresolved integration risk | `npm run verify`, as scoped by `AGENTS.md` |
+| Legacy web release readiness, affected shared-runtime boundaries, or unresolved integration risk | `npm run verify`; Expo has [separate checks](../../apps/numa/README.md) |
 | Loading/performance | Affected route's cold/warm timing and runtime errors |
 
 `npm run verify` runs lint, build, initial JS budget, Vitest, Playwright, and

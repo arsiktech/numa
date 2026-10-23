@@ -1,8 +1,9 @@
-# Numa rebuild: design system
+# Pulse design system for the Numa Pro rebuild
 
-Status: phase 2 mockup, 2026-10-11. Source of truth for the build until the
-mockup is approved or changed. The interactive mockup and its design-system
-page are kept outside this repository.
+Current design system for the Expo rebuild in [`apps/numa/`](../../apps/numa/README.md).
+It originated with the phase-2 mockup on 2026-10-11. The interactive mockup and
+its design-system page remain outside this repository; they are historical references,
+not a separate implementation or evidence that a current screen has been verified.
 
 Black or white, quiet by default. Colour carries meaning: green for gains and
 what you kept, red for losses and what is due, amber for attention, and one

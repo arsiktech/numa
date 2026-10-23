@@ -27,4 +27,5 @@ the root README; confirm any suspected issue in current source.
 - [`DECISIONS.md`](../../DECISIONS.md) for constraints that would make a naive refactor unsafe.
 - The relevant Convex mutation and client action boundary for any product write.
 - Focused unit tests under `src/**/*.test.ts(x)` and E2E coverage in [`tests/numa.spec.ts`](../../tests/numa.spec.ts).
-- Follow the current rendered and performance checks in `AGENTS.md` for UI changes.
+- Use the [current verification map](../../README.md#current-app-and-verification)
+  and affected rendered journeys for UI changes.

@@ -87,7 +87,8 @@ flowchart LR
   activity; viewers read.
 - Pod members can update their own card metadata only where the server allows.
 - AI actions are draft-first and audited.
-- Task authorization and release boundaries are defined in `AGENTS.md`.
+- Current release boundaries are in [the rebuild release guide](../rebuild/RELEASE.md).
+  Task authorization and private operating guidance do not live in this public repo.
 
 ## External state
 

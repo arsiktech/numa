@@ -1,15 +1,15 @@
 # Numa Roadmap
 
-> Public-release work moved to
-> [`docs/NUMA-PRO-PUBLIC-RELEASE.md`](docs/NUMA-PRO-PUBLIC-RELEASE.md) on
-> 2026-07-26. This roadmap remains the product backlog; it is not the release
-> gate and its older owner-unlock status must be reverified before use.
+> Historical backlog, qualified 2026-10-23. Live work and progress are tracked
+> privately, not in this file. The [rebuild release guide](docs/rebuild/RELEASE.md)
+> covers the current app; the [older release plan](docs/NUMA-PRO-PUBLIC-RELEASE.md)
+> preserves the previous lane. Reverify old owner-unlock claims before use.
 
 Historical product backlog, written 2026-06-11 at v0.6.0. Items below are ideas
 and dated implementation claims, not an automatic execution order or current
 blocker list. Reconcile a relevant item with source and `DECISIONS.md` before
-starting it. The active user task sets scope; the public-release plan owns
-launch gates. Standalone Numa Shared work belongs in its separate repository.
+starting it. The active task sets scope; current release contracts own launch
+gates. Standalone Numa Shared work belongs in its separate repository.
 
 ## North star & moat thesis
 
@@ -128,7 +128,7 @@ P2s and quick P3s from that sweep were fixed in v0.8.0. Deferred, by theme:
 - Mobile welcome orb clipped at right edge; disabled-CTA contrast; voice
   "Try again" prominence; goal index-based emoji. (nits)
 
-## Phase 3 — The money engine (architecture, from AGENTS.md)
+## Phase 3 — The money engine (historical architecture)
 
 8. **Ledger completion** — every asset/liability/holding/transaction/pod
    movement writes ledger accounts/transactions/lines; net worth & cashflow
