@@ -1,6 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireUser, type AnyCtx } from "./access";
+import { activePodMembership, verifiedInvitationEmail } from "./invitationAuthority";
 
 /**
  * Shared access-control + display helpers for moneyPods functions: argument
@@ -20,20 +21,20 @@ export const splitModeValidator = v.union(
 export async function requirePodMember(ctx: AnyCtx, podId: Id<"moneyPods">) {
   const userId = await requireUser(ctx);
   const user = await ctx.db.get(userId);
-  const email = (user as { email?: string } | null)?.email?.trim().toLowerCase();
+  const email = verifiedInvitationEmail(user);
   const direct = await ctx.db
     .query("podMembers")
     .withIndex("by_user", (q) => q.eq("linkedUserId", userId))
     .filter((q) => q.eq(q.field("podId"), podId))
     .unique();
-  if (direct) return { userId, member: direct, role: direct.role };
+  if (direct && activePodMembership(direct)) return { userId, member: direct, role: direct.role };
   if (email) {
     const invited = await ctx.db
       .query("podMembers")
       .withIndex("by_email", (q) => q.eq("invitedEmail", email))
       .filter((q) => q.eq(q.field("podId"), podId))
       .unique();
-    if (invited) return { userId, member: invited, role: invited.role };
+    if (invited && !invited.linkedUserId && activePodMembership(invited)) return { userId, member: invited, role: invited.role };
   }
   const pod = await ctx.db.get(podId);
   if (pod?.ownerUserId === userId) {
@@ -42,7 +43,7 @@ export async function requirePodMember(ctx: AnyCtx, podId: Id<"moneyPods">) {
       .withIndex("by_pod", (q) => q.eq("podId", podId))
       .filter((q) => q.eq(q.field("linkedUserId"), userId))
       .unique();
-    if (ownerMember) return { userId, member: ownerMember, role: ownerMember.role };
+    if (ownerMember && activePodMembership(ownerMember)) return { userId, member: ownerMember, role: ownerMember.role };
   }
   throw new ConvexError({ code: "FORBIDDEN", message: "Not a member of this money pod" });
 }
@@ -100,7 +101,7 @@ export async function userIdForEmail(ctx: AnyCtx, email: string) {
     .query("users")
     .withIndex("email", (q) => q.eq("email", email))
     .unique();
-  return matched?._id as Id<"users"> | undefined;
+  return verifiedInvitationEmail(matched) ? matched!._id : undefined;
 }
 
 export async function assertNoDuplicatePodEmail(

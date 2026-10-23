@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
+import { AI_SHARING_VERSION } from "./lib/privacyPolicy";
 import { action, internalMutation } from "./_generated/server";
 import {
   ASK_LIMITS,
@@ -66,6 +67,10 @@ export const reply = action({
     const message = args.message.trim();
     if (!message || message.length > ASK_LIMITS.message || args.context.length > ASK_LIMITS.context || args.history.length > 20) {
       throw new ConvexError({ code: "INVALID_INPUT", message: "That message is too long" });
+    }
+    const sharing = await ctx.runQuery(api.privacy.status, {});
+    if (sharing.userId !== userId || !sharing.allowed || sharing.requiredVersion !== AI_SHARING_VERSION) {
+      throw new ConvexError({ code: "AI_SHARING_REQUIRED", message: "Review AI sharing permission before asking Numa" });
     }
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return { status: "unavailable" };

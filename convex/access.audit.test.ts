@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { webcrypto } from "node:crypto";
+beforeEach(() => vi.stubGlobal("crypto", webcrypto));
+afterEach(() => vi.unstubAllGlobals());
 import { privacyFixture } from "../src/test/privacyFixture";
 import { inviteByEmail, redeemInvitesForMe, listPendingInvitesFor } from "./memberships";
 import { create, getBundle, removeMember, leaveMoneyPod, removeExpense, addExpense, listMine, joinPodByCode } from "./moneyPods";
