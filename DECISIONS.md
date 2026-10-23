@@ -12,7 +12,7 @@ Use [README.md](README.md) for current implementation and verification routing.
 Status: accepted. Source: user requested a repo cleanup for GPT-6 Astra to
 finish work faster without unnecessary prompts.
 
-The private operating guide covers execution. Agents choose implementation and
+`AGENTS.md` is the canonical operating guide. Agents choose implementation and
 sequence within the requested outcome, infer routine reversible decisions,
 and reuse authorization already given in the task. Read relevant context on
 demand. Plans, archived handoffs, external-vault notes, and design prompts do
@@ -27,8 +27,8 @@ data-integrity, and product-separation boundaries remain in force.
 
 This supersedes the broad operating loop in the removed `PLAYBOOK.md`, the
 every-feature speed-smoke requirement below, and stale task-owner directions
-in historical handoffs. Public repository instruction-file imports are retired;
-execution guidance is maintained outside this repository.
+in historical handoffs. The root and design-folder `CLAUDE.md` files import
+the same canonical guide.
 
 ## 2026-09-08 - Use Numa Pro everywhere customers see the product
 
