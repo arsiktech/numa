@@ -741,6 +741,7 @@ export default defineSchema({
   // Expo push tokens for the rebuilt phone app. One row per device; the time zone sets quiet hours.
   expoPushTokens: defineTable({
     userId: v.id("users"),
+    sessionId: v.optional(v.id("authSessions")),
     token: v.string(),
     platform: v.union(v.literal("ios"), v.literal("android")),
     timeZone: v.string(),

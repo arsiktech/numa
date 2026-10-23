@@ -1,4 +1,4 @@
-import { useAuthActions } from '@convex-dev/auth/react';
+import { usePhoneSignOut } from '@/alerts/signOut';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -34,6 +34,6 @@ function Failed({ retry }: { retry: () => void }) {
 
 /** Wraps signed-in screens. If the session is gone, sign out cleanly instead of showing a broken screen. */
 export function CloudBoundary({ children }: { children: ReactNode }) {
-  const { signOut } = useAuthActions();
+  const signOut = usePhoneSignOut();
   return <Boundary onAuthGone={() => { void signOut().catch(() => undefined); }} fallback={(retry) => <Failed retry={retry} />}>{children}</Boundary>;
 }

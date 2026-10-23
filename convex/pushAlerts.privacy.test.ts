@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { privacyFixture } from "../src/test/privacyFixture";
 import { registerDevice, unregisterDevice, targets, sendDue, deviceRegistered } from "./pushAlerts";
 import { getFunctionName } from "convex/server";
+import { store } from "./auth";
 
 const token = "ExponentPushToken[synthetic_device]";
 afterEach(() => vi.unstubAllGlobals());
@@ -18,7 +19,9 @@ describe("Expo push session withdrawal", () => {
     expect(f.all("expoPushTokens")[0]).toMatchObject({ userId: "user", sessionId: "session" });
     expect(await f.call(targets)).toEqual([{ userId: "user", tokens: [token], timeZone: "UTC" }]);
     // Convex Auth 0.0.94 deletes the previous session on sign-out/new sign-in.
-    f.rows.delete("session"); f.signIn(null);
+    await f.call(store, { args: { type: "signOut" } });
+    expect(f.rows.has("session")).toBe(false);
+    f.signIn(null);
     expect(await f.call(targets)).toEqual([]);
     f.seed("users", "other", {}); f.signIn("other|other-session");
     expect(await f.call(deviceRegistered, { token })).toBe(false);
