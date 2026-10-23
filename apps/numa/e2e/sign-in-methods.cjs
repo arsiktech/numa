@@ -39,11 +39,19 @@ const { check, finish } = checker();
   // Apple on the web, with Apple's popup replaced by a stand-in that returns a token.
   const web = await (await browser.newContext({ viewport: { width: 1280, height: 860 }, colorScheme: 'light' })).newPage();
   watchErrors(web, errors);
+  // Observe the real client transport, not only the generic error UI.
+  let forwarded = false;
+  const observe = (payload) => {
+    const text = String(payload ?? '');
+    if (text.includes('auth:signIn') && text.includes('apple-native') && text.includes('synthetic-apple-authorization-code') && text.includes("eyJhbGciOiJSUzI1NiIsImtpZCI6Ingifq.e30.c2ln")) forwarded = true;
+  };
+  web.on('request', (request) => { if (request.method() === 'POST') observe(request.postData()); });
+  web.on('websocket', (socket) => socket.on('framesent', (event) => observe(event.payload)));
   await web.addInitScript(() => {
     window.__appleInit = null;
     window.AppleID = { auth: {
       init: (config) => { window.__appleInit = config; },
-      signIn: async () => ({ authorization: { id_token: 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ingifq.e30.c2ln' }, user: { name: { firstName: 'Ada' } } }),
+      signIn: async () => ({ authorization: { id_token: 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ingifq.e30.c2ln', code: 'synthetic-apple-authorization-code' }, user: { name: { firstName: 'Ada' } } }),
     } };
   });
   await web.goto(APP + '/sign-in?appleweb=1');
@@ -54,6 +62,7 @@ const { check, finish } = checker();
   await web.getByText('Couldn’t sign in with Apple. Try again, or use email.').waitFor({ timeout: 20000 });
   const init = await web.evaluate(() => window.__appleInit);
   check('Apple opens as a popup for the web Services ID, with a hashed nonce', init?.clientId === 'com.arsiktech.numa.web' && init?.usePopup === true && /^[0-9a-f]{64}$/.test(init?.nonce ?? ''), JSON.stringify(init));
+  check('the client forwards the authorization code and unsigned token to the real server', forwarded);
   check('the server refuses a token Apple didn’t sign', true);
   const plain = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   await plain.goto(APP + '/sign-in');

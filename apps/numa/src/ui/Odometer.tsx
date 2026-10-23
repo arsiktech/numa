@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { PixelRatio, Text, View, type TextStyle } from 'react-native';
+import { PixelRatio, Platform, Text, View, type TextStyle } from 'react-native';
+import { webFont } from '@/theme/webFont';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { curves, duration } from '@/theme/tokens';
@@ -41,7 +42,7 @@ export function Odometer({ text, style: base, fast = false }: { text: string; st
   const scale = Math.min(PixelRatio.getFontScale(), MAX_SCALE);
   const fontSize = ((base.fontSize ?? 16) as number) * scale;
   const lineHeight = ((base.lineHeight ?? base.fontSize ?? 16) as number) * scale;
-  const style: TextStyle = { ...base, fontSize, lineHeight, ...(base.letterSpacing !== undefined ? { letterSpacing: (base.letterSpacing as number) * scale } : {}) };
+  const style: TextStyle = { ...base, fontFamily: Platform.OS === 'web' ? webFont(base.fontFamily) : base.fontFamily, fontSize, lineHeight, ...(base.letterSpacing !== undefined ? { letterSpacing: (base.letterSpacing as number) * scale } : {}) };
   const height = Math.ceil(Math.max(lineHeight, fontSize * GLYPH_BOX));
   const trim = (height - lineHeight) / 2;
   return (

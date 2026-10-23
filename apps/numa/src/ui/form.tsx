@@ -1,3 +1,4 @@
+import { webFont } from '@/theme/webFont';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 
 import { useTheme } from '@/theme/theme';
@@ -17,7 +18,7 @@ export function Field({ label, value, onChangeText, numeric, kind }: { label: st
       <Txt v="small" c="ink3">{label}</Txt>
       <TextInput value={value} onChangeText={onChangeText} accessibilityLabel={label} keyboardType={numeric ? 'decimal-pad' : kind === 'url' ? 'url' : 'default'} inputMode={numeric ? 'decimal' : kind === 'url' ? 'url' : 'text'}
         secureTextEntry={kind === 'secret'} autoCapitalize={kind ? 'none' : undefined} autoCorrect={kind ? false : undefined}
-        style={{ minHeight: 44, borderRadius: 12, paddingHorizontal: 12, backgroundColor: c.s2, color: c.ink, fontFamily: numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium', fontSize: 15, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
+        style={{ minHeight: 44, borderRadius: 12, paddingHorizontal: 12, backgroundColor: c.s2, color: c.ink, fontFamily: Platform.OS === 'web' ? webFont(numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium') : numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium', fontSize: 15, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
     </View>
   );
 }

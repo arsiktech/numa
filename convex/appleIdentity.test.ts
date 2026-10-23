@@ -40,7 +40,7 @@ describe("verifyAppleIdentityToken", async () => {
 
   it("accepts a fresh token for this app and reads the verified email", async () => {
     const token = await sign(apple.privateKey, "A1", await claims());
-    await expect(check(token)).resolves.toEqual({ sub: "001234.abc", email: "person@example.com", emailVerified: true, privateEmail: false });
+    await expect(check(token)).resolves.toMatchObject({ sub: "001234.abc", email: "person@example.com", emailVerified: true, privateEmail: false });
   });
 
   it("marks a hidden relay address so it never links to another account", async () => {

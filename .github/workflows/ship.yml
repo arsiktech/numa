@@ -13,6 +13,7 @@ name: Ship to phones
 # binary that lacks the native code it needs.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'apps/numa/**'
       - '.github/workflows/ship.yml'
@@ -29,8 +30,8 @@ concurrency:
 
 jobs:
   ship:
-    # Never for pull requests from forks: they have no access to the Expo token.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Drafts are review-only. Forks never receive the Expo token.
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:

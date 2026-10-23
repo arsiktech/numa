@@ -6,7 +6,7 @@ import { cloud } from '@/cloud/api';
 import { useTheme } from '@/theme/theme';
 import { Txt } from '@/ui/Txt';
 import { pickSpreadsheet } from './pickFile';
-import { readSpreadsheet, type SheetTab } from './spreadsheet';
+import type { SheetTab } from './spreadsheet';
 
 type Way = 'file' | 'link' | 'paste';
 export type Loaded = { label: string; tabs: SheetTab[] };
@@ -71,7 +71,7 @@ export function ImportSources({ onLoaded, pasteText, onPaste }: { onLoaded: (loa
       // A link to one tab comes back as CSV; a plain share link as the whole workbook.
       const tabs = 'csv' in reply
         ? [{ name: 'Linked tab', csv: reply.csv }]
-        : readSpreadsheet('sheet.xlsx', Uint8Array.from(atob(reply.xlsx), (ch) => ch.charCodeAt(0)));
+        : (await import('./spreadsheet')).readSpreadsheet('sheet.xlsx', Uint8Array.from(atob(reply.xlsx), (ch) => ch.charCodeAt(0)));
       if (!tabs.length) { setError('That sheet has no rows Numa can read.'); return; }
       onLoaded({ label: 'Google Sheets', tabs });
     } catch {

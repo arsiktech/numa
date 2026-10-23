@@ -110,7 +110,7 @@ export function AppTabs() {
             <Link href="/ask" asChild>
               <Pressable accessibilityRole="link" style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12 }}>
                 <IconAsk color={c.ink3} />
-                <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Ask</Txt>
+                <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Ask or add</Txt>
               </Pressable>
             </Link>
           ) : null}
