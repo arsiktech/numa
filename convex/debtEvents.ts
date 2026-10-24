@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireEditor, requireMember } from "./lib/access";
-import { cleanSplit } from "./lib/loanTerms";
+import { cleanSplit, roundAmount } from "./lib/loanTerms";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 
 const kindValidator = v.union(v.literal("borrowed"), v.literal("repaid"), v.literal("lent"), v.literal("received"), v.literal("note"), v.literal("capitalized"));
@@ -37,6 +37,20 @@ async function recordOf(ctx: MutationCtx, portfolioId: Id<"portfolios">, subject
     return doc && String(doc.portfolioId) === String(portfolioId) ? { table: "assets", doc } : null;
   }
   return null;
+}
+
+/** The unit an event is in must be the one the record is kept in, whether or not it changes the balance. */
+function assertUnit(record: Record, unit: string) {
+  if (record.table === "liabilities") {
+    const d = record.doc;
+    if (d.owedSymbol && d.owedQuantity !== undefined) {
+      if (unit.toUpperCase() !== d.owedSymbol.toUpperCase()) throw bad(`This debt is owed in ${d.owedSymbol}`);
+      return;
+    }
+    if (unit !== d.currency) throw bad(`This debt is in ${d.currency}`);
+    return;
+  }
+  if (unit !== record.doc.currency) throw bad(`This is in ${record.doc.currency}`);
 }
 
 /**
@@ -106,18 +120,24 @@ export const add = mutation({
     if (hasAmount && (!Number.isFinite(args.amount) || !(args.amount! > 0) || args.amount! > 1e12)) throw bad("The amount must be positive");
     const unit = args.unit?.trim();
     if (hasAmount && (!unit || !/^[A-Za-z0-9.]{1,24}$/.test(unit))) throw bad("Say which currency or coin");
+    // The amount is kept to cents (or eight decimals for a coin), so Undo gives back exactly what was taken.
+    const amount = hasAmount ? roundAmount(args.amount!, unit!) : undefined;
+    if (hasAmount && !(amount! > 0)) throw bad("That amount is too small to record");
+    if (hasAmount) assertUnit(record, unit!);
+    // Interest can be added only to a loan whose terms say how it accrues, so there is a rate behind the amount.
+    if (args.kind === "capitalized" && !(record.table === "liabilities" && record.doc.interestTerms === "simple")) throw bad("Interest can only be added to a loan with simple interest terms");
     // A payment can divide into principal, interest and fees. Only the principal part changes what is owed.
     const hasParts = args.principalPart !== undefined || args.interestPart !== undefined || args.feePart !== undefined;
     if (hasParts && !hasAmount) throw bad("A split needs an amount");
     if (hasParts && args.kind !== "repaid" && args.kind !== "received") throw bad("Only a payment can be split into principal, interest and fees");
-    const split = hasAmount ? cleanSplit(args.amount!, unit!, { principalPart: args.principalPart, interestPart: args.interestPart, feePart: args.feePart }) : null;
+    const split = hasAmount ? cleanSplit(amount!, unit!, { principalPart: args.principalPart, interestPart: args.interestPart, feePart: args.feePart }) : null;
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "debtEvents.add", async (): Promise<Id<"debtEvents">> => {
-      const balanceAmount = split ? split.principalPart : args.amount!;
+      const balanceAmount = split ? split.principalPart : amount!;
       if (args.apply && hasAmount && balanceAmount > 0) await applyTo(ctx, record, args.kind, balanceAmount, unit!, 1);
       return await ctx.db.insert("debtEvents", {
         portfolioId: args.portfolioId, subject: args.subject, kind: args.kind, applied: args.apply && hasAmount,
         occurredAt: args.occurredAt, createdAt: Date.now(),
-        ...(hasAmount ? { amount: args.amount, unit } : {}), ...(split ?? {}), ...(note ? { note } : {})
+        ...(hasAmount ? { amount, unit } : {}), ...(split ?? {}), ...(note ? { note } : {})
       });
     }, args.portfolioId);
   }

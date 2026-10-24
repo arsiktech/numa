@@ -336,7 +336,13 @@ const upsertLiability = mutation({
         if (!existing || String(existing.portfolioId) !== String(args.portfolioId)) {
           throw new ConvexError({ code: "NOT_FOUND", message: "Liability not found" });
         }
-        await ctx.db.patch(args.id, patch);
+        // Loan terms are worked out in the debt's own currency, so a debt with them cannot become one owed in a coin.
+        if (owed?.owedSymbol && (existing.interestTerms === "simple" || existing.principal !== undefined)) {
+          throw new ConvexError({ code: "INVALID_INPUT", message: "This debt has loan terms that don’t apply to a debt owed in a coin. Clear its terms first" });
+        }
+        // A fixed loan keeps its repayment date when an update leaves it out, so it never ends up fixed with no date.
+        const keepDate = args.dueDate === undefined && existing.dueKind === "fixed" && existing.dueDate !== undefined;
+        await ctx.db.patch(args.id, keepDate ? { ...patch, dueDate: existing.dueDate } : patch);
         if (owed?.owedSymbol) await refreshQuoteSoon(ctx, owed.owedSymbol);
         return args.id;
       }

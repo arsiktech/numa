@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanSplit, termsPatch, type TermsDoc } from "./loanTerms";
+import { cleanSplit, roundAmount, roundDecimals, termsPatch, type TermsDoc } from "./loanTerms";
 
 const NOW = Date.UTC(2026, 9, 24);
 const DAY = 86_400_000;
@@ -71,5 +71,41 @@ describe("termsPatch", () => {
     expect(() => termsPatch({ interestTerms: "simple", interestRate: 5, principal: 1, startedAt: NOW }, coin, NOW)).toThrow(/coin/);
     expect(() => termsPatch({ principal: 1 }, coin, NOW)).toThrow(/coin/);
     expect(termsPatch({ interestTerms: "manual", dueKind: "flexible" }, coin, NOW)).toMatchObject({ interestTerms: "manual" });
+  });
+});
+
+describe("rounding", () => {
+  it("rounds half up on the digits as written, not by way of binary floating point", () => {
+    expect(roundDecimals(12.345, 2)).toBe(12.35);
+    expect(roundDecimals(1.005, 2)).toBe(1.01);
+    expect(roundDecimals(2.675, 2)).toBe(2.68);
+    expect(roundDecimals(0.005, 2)).toBe(0.01);
+    expect(roundDecimals(0.004, 2)).toBe(0);
+    expect(roundDecimals(100.004, 2)).toBe(100);
+  });
+  it("copes with numbers written with an exponent and with values that are not numbers", () => {
+    expect(roundDecimals(1e-7, 2)).toBe(0);
+    expect(roundDecimals(1.6e-8, 8)).toBe(2e-8);
+    expect(roundDecimals(1e21, 2)).toBe(1e21);
+    expect(Number.isNaN(roundDecimals(NaN, 2))).toBe(true);
+    expect(roundDecimals(Infinity, 2)).toBe(Infinity);
+  });
+  it("keeps cents for a currency and eight decimals for a coin", () => {
+    expect(roundAmount(1.005, "EUR")).toBe(1.01);
+    expect(roundAmount(0.123456785, "BTC")).toBe(0.12345679);
+  });
+});
+
+describe("termsPatch limits", () => {
+  it("refuses a repayment date that is not a real date", () => {
+    for (const bad of [NaN, Infinity, -1]) expect(() => termsPatch({ dueKind: "fixed", dueDate: bad }, loan, NOW)).toThrow(/valid date/);
+  });
+  it("keeps simple interest off mortgages and cards, and allows manual there", () => {
+    const ok = { principal: 1000, startedAt: NOW - DAY, interestTerms: "simple" as const, interestRate: 5 };
+    expect(() => termsPatch(ok, { ...loan, kind: "mortgage" }, NOW)).toThrow(/compound or instalment/);
+    expect(() => termsPatch(ok, { ...loan, kind: "credit_card" }, NOW)).toThrow(/compound or instalment/);
+    expect(termsPatch({ interestTerms: "manual" }, { ...loan, kind: "mortgage" }, NOW)).toEqual({ interestTerms: "manual" });
+    expect(termsPatch(ok, { ...loan, kind: "loan" }, NOW)).toMatchObject({ interestTerms: "simple" });
+    expect(termsPatch(ok, { ...loan, kind: "other" }, NOW)).toMatchObject({ interestTerms: "simple" });
   });
 });

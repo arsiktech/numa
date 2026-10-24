@@ -1,4 +1,4 @@
-import { accrual, addMonths, isOverdue, paidTotals, principalAt, splitProblem, type LoanTerms, type TermEvent } from './loanTerms';
+import { accrual, addMonths, dayOf, isOverdue, paidTotals, parseAmount, principalAt, roundDecimals, splitProblem, type LoanTerms, type TermEvent } from './loanTerms';
 
 const day = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d, 12);
 const terms = (over: Partial<LoanTerms> = {}): LoanTerms => ({ principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'flexible', interestTerms: 'simple', interestRate: 8, dueDate: null, ...over });
@@ -109,5 +109,110 @@ describe('splitProblem', () => {
     expect(splitProblem(1_000, { principal: 900, interest: 200, fees: 0 })).toBe('The parts are 100.00 more than the payment.');
     expect(splitProblem(1_000, { principal: -1, interest: 1_001, fees: 0 })).toBe('Each part must be zero or more.');
     expect(splitProblem(1_000, { principal: NaN, interest: 0, fees: 0 })).toBe('Each part must be zero or more.');
+  });
+});
+
+describe('dates are compared by calendar day, not by the minute', () => {
+  const at = (h: number, m = 0) => Date.UTC(2026, 1, 10, h, m);
+  const loan = terms({ principal: 10_000, interestRate: 12, startedAt: day(2026, 1, 10) });
+  const now = day(2026, 3, 15);
+
+  it('gives the same interest however the time of day of the payment was typed', () => {
+    // 10,000 at 12% from 10 Jan. 5,000 principal paid on 10 Feb. Jan month: 100.00; Feb month starts on the payment day: 50.00.
+    for (const when of [at(0), at(9), at(12), at(17), at(23, 59)]) {
+      const events = [ev({ kind: 'repaid', amount: 5_000, occurredAt: when })];
+      expect(accrual(loan, events, 5_000, now)).toMatchObject({ status: 'ok', months: 2, accrued: 150, reconciles: true });
+    }
+  });
+
+  it('counts a payment made on the start day, however early in the day it was typed', () => {
+    const startNoon = day(2026, 1, 10);
+    const early = [ev({ kind: 'repaid', amount: 1_000, occurredAt: Date.UTC(2026, 0, 10, 3) })];
+    expect(principalAt(loan, early, startNoon)).toBe(9_000);
+    expect(accrual(loan, early, 9_000, now)).toMatchObject({ status: 'ok', reconciles: true });
+  });
+
+  it('still leaves out an event from the day before the start', () => {
+    const before = [ev({ kind: 'repaid', amount: 1_000, occurredAt: Date.UTC(2026, 0, 9, 23, 59) })];
+    expect(principalAt(loan, before, now)).toBe(10_000);
+  });
+
+  it('gives the same answer for dates typed in any way: local noon, UTC noon, the current minute', () => {
+    const typed = [day(2026, 2, 10), Date.UTC(2026, 1, 10, 17), Date.UTC(2026, 1, 10, 9, 41)];
+    const answers = typed.map((when) => accrual(loan, [ev({ kind: 'repaid', amount: 5_000, occurredAt: when })], 5_000, now));
+    expect(new Set(answers.map((a) => JSON.stringify(a))).size).toBe(1);
+  });
+
+  it('turns a moment into its calendar day', () => {
+    expect(dayOf(Date.UTC(2026, 1, 10, 0, 0))).toBe(dayOf(Date.UTC(2026, 1, 10, 23, 59)));
+    expect(dayOf(Date.UTC(2026, 1, 10, 23, 59))).toBe(dayOf(Date.UTC(2026, 1, 9, 23, 59)) + 1);
+  });
+});
+
+describe('principal never goes below zero', () => {
+  it('does not turn an overpayment in the history into negative interest', () => {
+    const loan = terms({ principal: 1_000, interestRate: 12, startedAt: day(2026, 7, 1) });
+    const events = [ev({ kind: 'repaid', amount: 1_400, occurredAt: day(2026, 7, 5) })];
+    expect(principalAt(loan, events, NOW)).toBe(0);
+    // July starts on 1,000 (10.00); August and September start on nothing owed (0.00 each), not on −400.
+    expect(accrual(loan, events, 0, NOW)).toMatchObject({ status: 'ok', accrued: 10, historyPrincipal: 0 });
+  });
+});
+
+describe('rounding is half up on the digits as written', () => {
+  it('rounds 12.345 to 12.35 and 1.005 to 1.01', () => {
+    expect(roundDecimals(12.345, 2)).toBe(12.35);
+    expect(roundDecimals(1.005, 2)).toBe(1.01);
+    expect(roundDecimals(0.004, 2)).toBe(0);
+  });
+  it('rounds one month of interest on 1,518.00 at 1% to 1.27, not 1.26', () => {
+    // 1,518.00 × 1% ÷ 12 = 1.265 exactly.
+    const loan = terms({ principal: 1_518, interestRate: 1, startedAt: day(2026, 9, 1) });
+    expect(accrual(loan, [], 1_518, day(2026, 10, 24))).toMatchObject({ status: 'ok', months: 1, accrued: 1.27 });
+  });
+});
+
+describe('the history and the balance count as the same only when they agree to the cent', () => {
+  it('treats one cent apart as a disagreement, and half a cent as rounding', () => {
+    expect(accrual(terms(), [], 20_000.01, NOW)).toMatchObject({ status: 'ok', reconciles: false });
+    expect(accrual(terms(), [], 19_999.99, NOW)).toMatchObject({ status: 'ok', reconciles: false });
+    expect(accrual(terms(), [], 20_000, NOW)).toMatchObject({ status: 'ok', reconciles: true });
+  });
+});
+
+describe('parseAmount', () => {
+  it('reads thousands separators and decimal commas', () => {
+    expect(parseAmount('5,000')).toBe(5_000);
+    expect(parseAmount('5 000')).toBe(5_000);
+    expect(parseAmount('1,234,567')).toBe(1_234_567);
+    expect(parseAmount('1234,50')).toBe(1_234.5);
+    expect(parseAmount('0,5')).toBe(0.5);
+    expect(parseAmount('12.5')).toBe(12.5);
+    expect(parseAmount('1,234.56')).toBe(1_234.56);
+    expect(parseAmount(' 20000 ')).toBe(20_000);
+  });
+  it('gives NaN for anything that is not a plain amount', () => {
+    for (const bad of ['', 'abc', '1e3', '-5', '5-', '1.2.3', '€5', '12,34,56x']) expect(Number.isNaN(parseAmount(bad))).toBe(true);
+  });
+});
+
+describe('paidTotals by unit', () => {
+  it('leaves out payments in another currency or coin', () => {
+    const events = [
+      ev({ kind: 'repaid', amount: 100, unit: 'EUR', occurredAt: 1 }),
+      ev({ kind: 'repaid', amount: 0.1, unit: 'BTC', occurredAt: 2 }),
+      ev({ kind: 'repaid', amount: 50, unit: null, occurredAt: 3 }),
+    ];
+    expect(paidTotals(events, 'EUR')).toEqual({ total: 150, principal: 150, interest: 0, fees: 0 });
+    expect(paidTotals(events, 'btc')).toEqual({ total: 50.1, principal: 50.1, interest: 0, fees: 0 });
+    expect(paidTotals(events).total).toBe(150.1);
+  });
+});
+
+describe('splitProblem for a coin', () => {
+  it('compares in eight decimals, so a coin split the server would refuse is refused here too', () => {
+    expect(splitProblem(1, { principal: 1, interest: 0.004, fees: 0 }, 8)).toBe('0.00400000 more'.replace('0.00400000 more', 'The parts are 0.00400000 more than the payment.'));
+    expect(splitProblem(0.12345678, { principal: 0.1, interest: 0.02345678, fees: 0 }, 8)).toBeNull();
+    expect(splitProblem(1, { principal: 1, interest: 0.004, fees: 0 })).toBeNull();
   });
 });

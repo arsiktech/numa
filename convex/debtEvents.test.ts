@@ -13,6 +13,7 @@ function fixture() {
   seed("memberships", "m1", { userId: "user", portfolioId: "pf", role: "owner" });
   seed("memberships", "m2", { userId: "viewer", portfolioId: "pf", role: "viewer" });
   seed("liabilities", "l1", { portfolioId: "pf", name: "Stas", balance: 19670, currency: "EUR" });
+  seed("liabilities", "l-simple", { portfolioId: "pf", name: "Loan with terms", balance: 19670, currency: "EUR", principal: 19670, startedAt: Date.UTC(2026, 5, 1), interestTerms: "simple", interestRate: 8, dueKind: "flexible" });
   seed("liabilities", "lbtc", { portfolioId: "pf", name: "Parents", balance: 31000, currency: "USD", owedSymbol: "BTC", owedQuantity: 0.4 });
   seed("assets", "a1", { portfolioId: "pf", name: "Loan to company", balance: 51441.88, currency: "EUR", owedBy: "XCHAINGER" });
   seed("assets", "a2", { portfolioId: "pf", name: "Cash", balance: 100, currency: "EUR" });
@@ -125,7 +126,7 @@ describe("debt history", () => {
     await bad({ principalPart: 1100, interestPart: -100 });
     await bad({ principalPart: 900, interestPart: 100.02 });
     await bad({ kind: "borrowed", principalPart: 1000 });
-    await bad({ kind: "capitalized", interestPart: 1000 });
+    await bad({ kind: "capitalized", subject: "liability:l-simple", interestPart: 1000 });
     await bad({ principalPart: 20000, interestPart: 0, amount: 20000 });
     expect(f.row("l1").balance).toBe(19670);
     expect(f.events()).toHaveLength(0);
@@ -141,12 +142,12 @@ describe("debt history", () => {
 
   it("adds unpaid interest to the principal as one event, and Undo takes it off again", async () => {
     const f = fixture();
-    const r = await f.call(add, { ...base, subject: "liability:l1", kind: "capitalized", amount: 448, unit: "EUR", note: "Interest for September", apply: true, clientMutationId: "cap-1" });
-    await f.call(add, { ...base, subject: "liability:l1", kind: "capitalized", amount: 448, unit: "EUR", note: "Interest for September", apply: true, clientMutationId: "cap-1" });
-    expect(f.row("l1").balance).toBe(20118);
+    const r = await f.call(add, { ...base, subject: "liability:l-simple", kind: "capitalized", amount: 448, unit: "EUR", note: "Interest for September", apply: true, clientMutationId: "cap-1" });
+    await f.call(add, { ...base, subject: "liability:l-simple", kind: "capitalized", amount: 448, unit: "EUR", note: "Interest for September", apply: true, clientMutationId: "cap-1" });
+    expect(f.row("l-simple").balance).toBe(20118);
     expect(f.events()).toHaveLength(1);
     await f.call(remove, { id: r.id });
-    expect(f.row("l1").balance).toBe(19670);
+    expect(f.row("l-simple").balance).toBe(19670);
   });
 
   it("allows interest to be added only to a debt, never to money owed to you", async () => {
@@ -159,5 +160,57 @@ describe("debt history", () => {
     const f = fixture();
     await f.call(add, { ...base, subject: "asset:a1", kind: "received", amount: 1000, unit: "EUR", principalPart: 900, interestPart: 100, apply: true });
     expect(f.row("a1").balance).toBe(50541.88);
+  });
+
+  it("adds interest only to a loan whose terms say how it accrues", async () => {
+    const f = fixture();
+    await expect(f.call(add, { ...base, subject: "liability:l1", kind: "capitalized", amount: 448, unit: "EUR", apply: true })).rejects.toThrow(/simple interest terms/);
+    expect(f.row("l1").balance).toBe(19670);
+    expect(f.events()).toHaveLength(0);
+  });
+
+  it("keeps every amount to cents, so Undo gives back exactly what was taken", async () => {
+    const f = fixture();
+    const r = await f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 12.345, unit: "EUR", apply: true });
+    expect(f.events()[0].amount).toBe(12.35);
+    expect(f.row("l1").balance).toBe(19657.65);
+    await f.call(remove, { id: r.id });
+    expect(f.row("l1").balance).toBe(19670);
+    const half = await f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 0.005, unit: "EUR", apply: true });
+    expect(f.events()[0].amount).toBe(0.01);
+    await f.call(remove, { id: half.id });
+    expect(f.row("l1").balance).toBe(19670);
+  });
+
+  it("refuses an amount that rounds to nothing", async () => {
+    const f = fixture();
+    await expect(f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 0.004, unit: "EUR", apply: true })).rejects.toThrow(/too small/);
+    expect(f.row("l1").balance).toBe(19670);
+  });
+
+  it("keeps added interest and money received exact over repeated add and remove", async () => {
+    const f = fixture();
+    for (let i = 0; i < 5; i++) {
+      const c = await f.call(add, { ...base, subject: "liability:l-simple", kind: "capitalized", amount: 33.335, unit: "EUR", apply: true });
+      await f.call(remove, { id: c.id });
+      const r = await f.call(add, { ...base, subject: "asset:a1", kind: "received", amount: 1.005, unit: "EUR", apply: true });
+      await f.call(remove, { id: r.id });
+    }
+    expect(f.row("l-simple").balance).toBe(19670);
+    expect(f.row("a1").balance).toBe(51441.88);
+  });
+
+  it("rounds the payment before it checks a split, so the parts are compared with what is kept", async () => {
+    const f = fixture();
+    await f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 100.004, unit: "EUR", principalPart: 60, interestPart: 40, apply: true });
+    expect(f.events()[0]).toMatchObject({ amount: 100, principalPart: 60, interestPart: 40, feePart: 0 });
+  });
+
+  it("refuses the wrong unit even when the principal part is zero or the event is history only", async () => {
+    const f = fixture();
+    await expect(f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 50, unit: "BTC", interestPart: 50, apply: true })).rejects.toThrow(/in EUR/);
+    await expect(f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 50, unit: "USD", apply: false })).rejects.toThrow(/in EUR/);
+    await expect(f.call(add, { ...base, subject: "asset:a1", kind: "received", amount: 5, unit: "USD", apply: false })).rejects.toThrow(/in EUR/);
+    expect(f.events()).toHaveLength(0);
   });
 });

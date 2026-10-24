@@ -5,8 +5,13 @@
  *
  * Convention (not confirmed against any signed agreement, so the app shows it): simple interest
  * accrues the yearly rate divided by 12 for each completed month since the start date, on the
- * principal outstanding at the start of that month. Each month is rounded to cents. A part of a
- * month is not accrued until it completes. Month-end dates are kept: 31 Jan plus a month is 28 Feb.
+ * principal outstanding at the start of that month. Each month is rounded half up to cents. A part
+ * of a month is not accrued until it completes. Month-end dates are kept: 31 Jan plus a month is
+ * 28 Feb.
+ *
+ * Dates are compared by calendar day (UTC), never by the minute. A payment on the day a month
+ * starts counts as paid before that month, however its time of day was typed. Anything dated before
+ * the start day is left out.
  */
 
 export type LoanTerms = {
@@ -25,6 +30,8 @@ export type TermEvent = {
   principalPart: number | null;
   interestPart: number | null;
   feePart: number | null;
+  /** The currency or coin the event is in. Null when it is not known. */
+  unit?: string | null;
   occurredAt: number;
 };
 
@@ -49,7 +56,31 @@ export type Accrual =
       reconciles: boolean;
     };
 
-const cents = (n: number) => Math.round(n * 100) / 100;
+/** Rounds half up on the digits as written, so 12.345 is 12.35 and not 12.34 by way of binary floating point. */
+export function roundDecimals(n: number, places: number): number {
+  if (!Number.isFinite(n)) return n;
+  const text = String(n);
+  if (text.includes('e')) {
+    if (Math.abs(n) >= 1) return n;
+    const factor = 10 ** places;
+    return Math.round(n * factor) / factor;
+  }
+  return Number(`${Math.round(Number(`${text}e${places}`))}e-${places}`);
+}
+const cents = (n: number) => roundDecimals(n, 2);
+
+const DAY = 86_400_000;
+/** The calendar day (UTC) of a moment, as a whole number. */
+export const dayOf = (t: number) => Math.floor(t / DAY);
+
+/**
+ * "5,000" and "5 000" are thousands; "0,5" and "1234,50" use a decimal comma. Returns NaN when
+ * the text is not a plain amount.
+ */
+export function parseAmount(text: string): number {
+  const clean = text.trim().replace(/\s/g, '').replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.');
+  return /^\d*\.?\d+$|^\d+\.$/.test(clean) ? Number(clean) : NaN;
+}
 
 /** The date `k` whole months after `t`, keeping the day of the month or the last day of a shorter month. */
 export function addMonths(t: number, k: number): number {
@@ -66,15 +97,19 @@ export function principalPaid(e: TermEvent): number {
   return split ? (e.principalPart ?? 0) : (e.amount ?? 0);
 }
 
-/** Principal outstanding at a moment, from the original amount and the events up to then. */
+/**
+ * Principal outstanding on a day, from the original amount and the events up to the end of that
+ * day. It never goes below zero: an overpayment in the history does not make interest negative.
+ */
 export function principalAt(terms: LoanTerms, events: TermEvent[], at: number): number {
   let p = terms.principal ?? 0;
+  const startDay = dayOf(terms.startedAt ?? 0);
   for (const e of events) {
-    if (e.occurredAt > at || e.occurredAt < (terms.startedAt ?? 0)) continue;
+    if (dayOf(e.occurredAt) > dayOf(at) || dayOf(e.occurredAt) < startDay) continue;
     if (e.kind === 'borrowed' || e.kind === 'capitalized') p += e.amount ?? 0;
     else if (e.kind === 'repaid') p -= principalPaid(e);
   }
-  return cents(p);
+  return Math.max(0, cents(p));
 }
 
 export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, now: number): Accrual {
@@ -92,7 +127,7 @@ export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, 
     months += 1;
   }
   const settled = events
-    .filter((e) => e.occurredAt >= start)
+    .filter((e) => dayOf(e.occurredAt) >= dayOf(start))
     .reduce((t, e) => t + (e.kind === 'repaid' ? (e.interestPart ?? 0) : e.kind === 'capitalized' ? (e.amount ?? 0) : 0), 0);
   const historyPrincipal = principalAt(terms, events, now);
   return {
@@ -103,15 +138,18 @@ export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, 
     months,
     nextAccrualAt: addMonths(start, months + 1),
     historyPrincipal,
-    reconciles: Math.abs(historyPrincipal - balance) < 0.01,
+    // Half a cent: a whole cent apart is a real difference, not rounding.
+    reconciles: Math.abs(historyPrincipal - balance) < 0.005,
   };
 }
 
 /** What has been paid back, by kind. Payments that were not split count wholly as principal. */
-export function paidTotals(events: TermEvent[]): { total: number; principal: number; interest: number; fees: number } {
+export function paidTotals(events: TermEvent[], unit?: string): { total: number; principal: number; interest: number; fees: number } {
   const out = { total: 0, principal: 0, interest: 0, fees: 0 };
   for (const e of events) {
     if (e.kind !== 'repaid' || e.amount === null) continue;
+    // Amounts in another currency or coin are not added to this debt's totals.
+    if (unit !== undefined && e.unit !== undefined && e.unit !== null && e.unit.toUpperCase() !== unit.toUpperCase()) continue;
     out.total += e.amount;
     out.principal += principalPaid(e);
     out.interest += e.interestPart ?? 0;
@@ -123,13 +161,14 @@ export function paidTotals(events: TermEvent[]): { total: number; principal: num
 /** Whether a loan with a fixed repayment date is past it with something still owed. */
 export const isOverdue = (terms: LoanTerms, balance: number, now: number) => terms.dueKind === 'fixed' && terms.dueDate !== null && terms.dueDate < now && balance > 0;
 
-/** A split typed in as text, checked to add up to the payment in cents. */
-export function splitProblem(total: number, parts: { principal: number; interest: number; fees: number }): string | null {
+/** A split typed in as text, checked to add up to the payment: in cents for money, in eight decimals for a coin. */
+export function splitProblem(total: number, parts: { principal: number; interest: number; fees: number }, decimals = 2): string | null {
   const values = [parts.principal, parts.interest, parts.fees];
   if (values.some((v) => !Number.isFinite(v) || v < 0)) return 'Each part must be zero or more.';
-  const sum = Math.round((parts.principal + parts.interest + parts.fees) * 100);
-  const want = Math.round(total * 100);
+  const scale = 10 ** decimals;
+  const sum = Math.round(parts.principal * scale) + Math.round(parts.interest * scale) + Math.round(parts.fees * scale);
+  const want = Math.round(total * scale);
   if (sum === want) return null;
-  const gap = Math.abs(sum - want) / 100;
-  return sum < want ? `${gap.toFixed(2)} of the payment is not placed yet.` : `The parts are ${gap.toFixed(2)} more than the payment.`;
+  const gap = (Math.abs(sum - want) / scale).toFixed(Math.min(decimals, 8));
+  return sum < want ? `${gap} of the payment is not placed yet.` : `The parts are ${gap} more than the payment.`;
 }

@@ -3,21 +3,19 @@ import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
-import { parseDate } from '@/ask/parse';
 import { cloud } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { newMutationId } from '@/data/cloud';
-import { parseBought } from '@/data/editPlan';
 import { historyOf, partyOf, type DebtEvent, type Party, type PartyRecord } from '@/data/moneyMap';
 import { shortDay } from '@/domain/freshness';
-import { accrual, splitProblem } from '@/domain/loanTerms';
-import { hasTerms, inCurrency, LoanTermsCard, LoanTermsForm, termEventOf, termsOf } from '@/loans/LoanTermsCard';
+import { LoanTermsCard, LoanTermsForm } from '@/loans/LoanTermsCard';
+import { PaymentForm, unitText } from '@/loans/PaymentForm';
+import { hasTerms } from '@/loans/termsHelpers';
 import { useLoans } from '@/loans/useLoans';
 import { eventErrorText, useDebtWrites, useMoneyMap, type MoneyMapState } from '@/loans/useMoneyMap';
 import { useTheme } from '@/theme/theme';
 import { Field, Seg, toCents } from '@/ui/form';
 import { CurrencyScope, useMoney } from '@/ui/money';
-import { amountText } from '@/ui/PositionRow';
 import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
@@ -38,7 +36,6 @@ function Cloud({ partyKey }: { partyKey: string }) {
 }
 
 const KIND_WORDS: Record<DebtEvent['kind'], string> = { borrowed: 'Borrowed', repaid: 'Paid back', lent: 'Lent', received: 'Got back', note: 'Note', capitalized: 'Interest added' };
-const unitText = (amount: number, unit: string) => (unit === 'EUR' ? `€${amountText(amount)}` : unit === 'USD' ? `$${amountText(amount)}` : `${amountText(amount)} ${unit}`);
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   const { c } = useTheme();
@@ -183,97 +180,6 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
       )}
       {!person && <Txt v="small" c="ink3" style={{ marginTop: 14 }}>Read from the protocol. Open a loan to see what backs it.</Txt>}
     </Screen>
-  );
-}
-
-type NewEvent = Parameters<ReturnType<typeof useDebtWrites>['add']>[0];
-
-/** A payment, more borrowed or lent, or a note, on one of this party's debts. */
-function PaymentForm({ party, events, now, onSave, onCancel }: { party: Party; events: DebtEvent[]; now: number; onSave: (e: NewEvent) => void; onCancel: () => void }) {
-  const { c } = useTheme();
-  const records = party.records.filter((r) => r.unit);
-  const byYou = party.owed === 'byYou';
-  const [subject, setSubject] = useState(records[0]?.subject ?? '');
-  const [kind, setKind] = useState<DebtEvent['kind']>(byYou ? 'repaid' : 'received');
-  const [amount, setAmount] = useState('');
-  const [when, setWhen] = useState('today');
-  const [note, setNote] = useState('');
-  const [apply, setApply] = useState(true);
-  const [split, setSplit] = useState(false);
-  const [interestText, setInterestText] = useState('');
-  const [feesText, setFeesText] = useState('');
-  const [principalText, setPrincipalText] = useState('');
-  const record = records.find((r) => r.subject === subject);
-  const unit = record?.unit ?? '';
-  // "5,000" and "5 000" are thousands; "0,5" is a decimal comma.
-  const num = (text: string) => Number(text.replace(/\s/g, '').replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.'));
-  const qty = num(amount);
-  // Interest worked out from this debt's terms, offered when adding it to the principal.
-  const interestOwed = (() => {
-    if (!record?.loan) return null;
-    const a = accrual(termsOf(record.loan), events.filter((e) => e.subject === record.subject).map(termEventOf), record.loan.balance, now);
-    return a.status === 'ok' && a.owed > 0 ? a.owed : null;
-  })();
-  const canSplit = (kind === 'repaid' || kind === 'received') && !!unit;
-  const interest = interestText.trim() === '' ? 0 : num(interestText);
-  const fees = feesText.trim() === '' ? 0 : num(feesText);
-  const principal = principalText.trim() === '' ? Math.round((qty - interest - fees) * 1e8) / 1e8 : num(principalText);
-  const splitOn = split && canSplit;
-  const splitIssue = splitOn && Number.isFinite(qty) && qty > 0 ? splitProblem(qty, { principal, interest, fees }) : null;
-  const at = parseBought(when, now) ?? parseDate(when, new Date(now), 'past')?.at ?? null;
-  const isNote = kind === 'note';
-  const ok = !!record && at !== null && (isNote ? note.trim() !== '' : Number.isFinite(qty) && qty > 0) && !splitIssue && !(splitOn && ![principal, interest, fees].every(Number.isFinite));
-  const kinds: [DebtEvent['kind'], string][] = byYou ? [['repaid', 'Paid back'], ['borrowed', 'Borrowed more'], ...(record?.loan && inCurrency(record.loan) ? [['capitalized', 'Interest added'] as [DebtEvent['kind'], string]] : []), ['note', 'Note']] : [['received', 'Got back'], ['lent', 'Lent more'], ['note', 'Note']];
-  return (
-    <View style={{ marginTop: 14, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 12 }}>
-      <Txt v="cardTitle">{byYou ? 'Record a payment' : 'Record money back'}</Txt>
-      {records.length > 1 && <Seg label="Which debt" options={records.map((r) => [r.subject, r.amount] as [string, string])} value={subject} onChange={setSubject} />}
-      <Seg label="What happened" options={kinds} value={kind} onChange={setKind} />
-      {kind === 'capitalized' && <Txt v="small" c="ink3">Unpaid interest becomes part of the amount owed, and counts as interest settled. {interestOwed !== null ? `Interest owed so far: ${unitText(interestOwed, unit)}.` : 'Interest owed is worked out from the loan terms.'}</Txt>}
-      {!isNote && <Field label={kind === 'capitalized' ? `Interest to add in ${unit}` : `${splitOn ? 'Total payment' : 'Amount'} in ${unit}`} numeric value={amount} onChangeText={setAmount} />}
-      {kind === 'capitalized' && interestOwed !== null && amount.trim() === '' && (
-        <Pressable onPress={() => setAmount(String(interestOwed))} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
-          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Use {unitText(interestOwed, unit)}</Txt>
-        </Pressable>
-      )}
-      {canSplit && (
-        <Pressable onPress={() => setSplit((x) => !x)} accessibilityRole="switch" aria-checked={split} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: split ? c.ink : c.ink3, backgroundColor: split ? c.ink : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-            {split && <Txt v="small" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>✓</Txt>}
-          </View>
-          <Txt v="body" style={{ flex: 1 }}>Split into principal, interest and fees</Txt>
-        </Pressable>
-      )}
-      {splitOn && (
-        <View style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            <Field label="Interest" numeric value={interestText} onChangeText={setInterestText} />
-            <Field label="Fees" numeric value={feesText} onChangeText={setFeesText} />
-          </View>
-          <Field label={`Principal (empty: the rest, ${Number.isFinite(principal) ? unitText(Math.max(0, principal), unit) : '—'})`} numeric value={principalText} onChangeText={setPrincipalText} />
-          {splitIssue ? <Txt v="small" c="warn" accessibilityRole="alert">{splitIssue}</Txt> : <Txt v="small" c="ink3">Only the principal lowers what you owe. Interest and fees are kept in the history.</Txt>}
-        </View>
-      )}
-      <Field label="When (like today or 20 Sep)" value={when} onChangeText={setWhen} />
-      {at === null && when.trim() !== '' && <Txt v="small" c="warn">That doesn’t look like a past date.</Txt>}
-      <Field label={isNote ? 'Note' : 'Note (optional, like Paid to Liza via Zen)'} value={note} onChangeText={setNote} />
-      {!isNote && (
-        <Pressable onPress={() => setApply((a) => !a)} accessibilityRole="switch" aria-checked={apply} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: apply ? c.ink : c.ink3, backgroundColor: apply ? c.ink : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-            {apply && <Txt v="small" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>✓</Txt>}
-          </View>
-          <Txt v="body" style={{ flex: 1 }}>{byYou ? 'Change what I owe' : 'Change what I’m owed'}</Txt>
-        </Pressable>
-      )}
-      {!isNote && !apply && <Txt v="small" c="ink3">History only: the amount owed stays as it is, for a payment already counted.</Txt>}
-      <View style={{ flexDirection: 'row', gap: 4 }}>
-        <Pressable onPress={() => ok && at !== null && onSave({ subject, kind, occurredAt: at, apply: !isNote && apply, ...(isNote ? {} : { amount: qty, unit }), ...(splitOn ? { principalPart: principal, interestPart: interest, feePart: fees } : {}), ...(note.trim() ? { note: note.trim() } : {}) })}
-          disabled={!ok} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: ok ? c.ink : c.s2, justifyContent: 'center' }}>
-          <Txt v="body" c={ok ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt>
-        </Pressable>
-        <Pressable onPress={onCancel} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}><Txt v="body" c="ink2">Cancel</Txt></Pressable>
-      </View>
-    </View>
   );
 }
 

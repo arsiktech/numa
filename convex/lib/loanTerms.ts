@@ -12,10 +12,24 @@ const bad = (message: string) => new ConvexError({ code: "INVALID_INPUT", messag
 
 /** Money in a currency keeps cents; a debt owed in a coin keeps eight decimals. */
 export const isCurrency = (unit: string) => unit === "EUR" || unit === "USD";
-const roundTo = (n: number, unit: string) => {
-  const f = isCurrency(unit) ? 100 : 1e8;
-  return Math.round(n * f) / f;
-};
+/**
+ * Rounds half up on the decimal digits as written, so 12.345 is 12.35 and not 12.34 by way of
+ * binary floating point. Very small or very large numbers, written with an exponent, round plainly.
+ */
+export function roundDecimals(n: number, places: number): number {
+  if (!Number.isFinite(n)) return n;
+  const text = String(n);
+  if (text.includes("e")) {
+    // A number this large has no decimals left to round.
+    if (Math.abs(n) >= 1) return n;
+    const factor = 10 ** places;
+    return Math.round(n * factor) / factor;
+  }
+  return Number(`${Math.round(Number(`${text}e${places}`))}e-${places}`);
+}
+/** An amount in its unit: cents for a currency, eight decimals for a coin. */
+export const roundAmount = (n: number, unit: string) => roundDecimals(n, isCurrency(unit) ? 2 : 8);
+const roundTo = roundAmount;
 const tolerance = (unit: string) => (isCurrency(unit) ? 0.005 : 1e-8);
 
 export type Split = { principalPart: number; interestPart: number; feePart: number };
@@ -55,6 +69,7 @@ export type TermsDoc = {
   dueDate?: number;
   currency: string;
   owedSymbol?: string;
+  kind?: string;
 };
 
 type Field = "principal" | "startedAt" | "dueKind" | "interestTerms" | "interestRate" | "dueDate";
@@ -88,7 +103,10 @@ export function termsPatch(input: TermsInput, existing: TermsDoc, now: number): 
     set("interestRate", input.interestRate);
   }
   if (input.dueKind !== undefined) set("dueKind", input.dueKind);
-  if (input.dueDate !== undefined) set("dueDate", input.dueDate);
+  if (input.dueDate !== undefined) {
+    if (input.dueDate !== null && (!Number.isFinite(input.dueDate) || input.dueDate < 0)) throw bad("The repayment date isn’t a valid date");
+    set("dueDate", input.dueDate);
+  }
 
   // Interest-free has no rate; a flexible loan has no repayment date.
   if (next.interestTerms === "none" && next.interestRate !== undefined) set("interestRate", null);
@@ -97,6 +115,8 @@ export function termsPatch(input: TermsInput, existing: TermsDoc, now: number): 
   if (next.dueKind === "fixed" && next.dueDate === undefined) throw bad("A fixed loan needs its repayment date");
   if (next.dueKind === "fixed" && next.startedAt !== undefined && next.dueDate! < next.startedAt) throw bad("The repayment date can’t be before the start date");
   if (next.interestTerms === "simple") {
+    // Cards and mortgages usually charge compound or instalment interest, which Numa does not calculate.
+    if (next.kind === "mortgage" || next.kind === "credit_card") throw bad("Mortgages and cards usually charge compound or instalment interest. Mark its interest as manual");
     if (next.owedSymbol) throw bad("Simple interest isn’t calculated for a debt owed in a coin yet. Mark its terms as manual");
     if (!(next.interestRate! > 0)) throw bad("Simple interest needs a yearly rate above zero");
     if (next.principal === undefined || next.startedAt === undefined) throw bad("Simple interest needs the original amount and the start date");

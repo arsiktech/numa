@@ -1,7 +1,7 @@
 // Loan terms: simple interest worked out from the terms, a payment split into principal, interest and
 // fees, unpaid interest added to the loan, and Undo for both. Net worth must move only by what changes
 // the debt: never by interest that is merely accrued. The real server validators refuse bad input.
-const { APP, CONVEX, PASSWORD, req, outDir, launch, watchErrors, signUp, client, checker, wait } = require('./lib.cjs');
+const { APP, CONVEX, PASSWORD, DAY, req, outDir, launch, watchErrors, signUp, client, checker, wait } = require('./lib.cjs');
 const { ConvexHttpClient } = req('convex/browser');
 
 const OUT = outDir('loan-terms');
@@ -78,12 +78,15 @@ const money = (n) => '€' + n.toLocaleString('en-US', { minimumFractionDigits: 
   await page.getByLabel(/^Principal/).fill('');
   await page.getByLabel(/^When/).fill('today');
   await page.screenshot({ path: OUT + '/02-split-dark-390.png', fullPage: true });
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await page.getByText('Paid back €1,000').waitFor({ timeout: 15000 });
+  // A double tap on Save must record the payment once, not twice.
+  await page.getByRole('button', { name: 'Save', exact: true }).dblclick();
+  await page.getByText('Paid back €1,000').first().waitFor({ timeout: 15000 });
+  await wait(1500);
   body = await page.locator('body').innerText();
   check('the history shows the split', body.includes('Principal €800 · Interest €150 · Fees €50'), body.slice(0, 900).replace(/\n/g, ' | '));
   l = await loan();
-  check('only the principal part lowered the debt', l.balance === 19200);
+  check('a double tap on Save recorded one payment', (await c.query('debtEvents:listForPortfolio', { portfolioId })).filter((e) => e.kind === 'repaid').length === 1);
+  check('only the principal part lowered the debt, once', l.balance === 19200);
   check('net worth moved by exactly the principal paid', (await net()) === netBefore + 800);
 
   // Undo gives back the principal only.
@@ -105,6 +108,20 @@ const money = (n) => '€' + n.toLocaleString('en-US', { minimumFractionDigits: 
   await page.screenshot({ path: OUT + '/03-capitalized-dark-390.png', fullPage: true });
   await page.getByRole('button', { name: /^Remove Interest added/ }).click();
   check('Undo takes the added interest off again', (await until(loan, (x) => x.balance === 20000)).balance === 20000);
+
+  // Interest can be added only to a loan whose terms say how it accrues.
+  await c.mutation('mobile:upsertLiability', { portfolioId, name: 'Card', kind: 'credit_card', balance: 400, currency: 'EUR' });
+  const card = (await snap()).liabilities.find((x) => x.name === 'Card');
+  await refuses('interest cannot be added to a debt without terms', () => c.mutation('debtEvents:add', { portfolioId, subject: `liability:${card.id}`, kind: 'capitalized', amount: 10, unit: 'EUR', occurredAt: now - 3600_000, apply: true }));
+  await refuses('simple interest cannot be set on a card', () => c.mutation('liabilities:setTerms', { id: card.id, principal: 400, startedAt: started, interestTerms: 'simple', interestRate: 20 }));
+  check('the card was left alone', (await snap()).liabilities.find((x) => x.name === 'Card').balance === 400);
+
+  // Amounts are kept to cents on the server, so Undo gives back exactly what was taken.
+  const rounded = await c.mutation('debtEvents:add', { portfolioId, subject: `liability:${id}`, kind: 'repaid', amount: 12.345, unit: 'EUR', occurredAt: now - 3600_000, apply: true });
+  check('an amount is kept to cents', (await c.query('debtEvents:listForPortfolio', { portfolioId })).find((e) => e.id === rounded.id).amount === 12.35 && (await loan()).balance === 19987.65);
+  await c.mutation('debtEvents:remove', { id: rounded.id });
+  check('Undo of a rounded amount gives back exactly what was taken', (await loan()).balance === 20000);
+  await refuses('a unit that is not the loan\'s is refused even for an interest-only payment', () => c.mutation('debtEvents:add', { portfolioId, subject: `liability:${id}`, kind: 'repaid', amount: 50, unit: 'BTC', interestPart: 50, occurredAt: now - 3600_000, apply: true }));
 
   // What the real server refuses for payments.
   const base = { portfolioId, subject: `liability:${id}`, unit: 'EUR', occurredAt: now - 3600_000, apply: true };
@@ -129,6 +146,14 @@ const money = (n) => '€' + n.toLocaleString('en-US', { minimumFractionDigits: 
   await c.mutation('mobile:upsertLiability', { id, portfolioId, name: 'Loan from Sam', kind: 'loan', balance: 20000, currency: 'EUR', counterparty: 'Sam' });
   l = await loan();
   check('an update that leaves the rate out keeps the terms', l.interestRate === 10 && l.interestTerms === 'simple' && l.principal === 20000);
+
+  // A fixed loan keeps its repayment date when an update leaves it out.
+  await c.mutation('mobile:upsertLiability', { portfolioId, name: 'Fixed loan', kind: 'loan', balance: 3000, currency: 'EUR', dueDate: now + 60 * DAY });
+  const fixed = (await snap()).liabilities.find((x) => x.name === 'Fixed loan');
+  await c.mutation('liabilities:setTerms', { id: fixed.id, dueKind: 'fixed' });
+  await c.mutation('mobile:upsertLiability', { id: fixed.id, portfolioId, name: 'Fixed loan', kind: 'loan', balance: 2500, currency: 'EUR' });
+  const keptFixed = (await snap()).liabilities.find((x) => x.name === 'Fixed loan');
+  check('a fixed loan keeps its date when an update leaves it out', keptFixed.dueKind === 'fixed' && keptFixed.dueDate === fixed.dueDate && keptFixed.balance === 2500);
 
   // A viewer or another person cannot set terms: a new account is a different owner.
   const other = new ConvexHttpClient(CONVEX);

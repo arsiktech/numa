@@ -90,6 +90,20 @@ describe('LoanTermsCard', () => {
     expect(text()).not.toContain('399');
   });
 
+  it('shows a debt owed in a coin in that coin, with payments only in that coin', () => {
+    const coinLoan = loan({ owedSymbol: 'BTC', owedQuantity: 0.4, balance: 31_000, currency: 'USD', principal: null, startedAt: null, dueKind: null, interestTerms: 'manual', interestRate: null });
+    const events = [
+      event({ amount: 0.1, unit: 'BTC' }),
+      event({ id: 'other', amount: 50, unit: 'EUR' }),
+    ];
+    render(<LoanTermsCard loan={coinLoan} events={events} now={NOW} onEdit={() => undefined} />);
+    expect(text()).toContain('0.4 BTC');
+    expect(text()).toContain('Paid so far0.1 BTC');
+    expect(text()).not.toContain('$');
+    expect(text()).not.toContain('€50');
+    expect(text()).not.toContain('Original amount');
+  });
+
   it('opens the editor from a button named for what it does', () => {
     const onEdit = jest.fn();
     render(<LoanTermsCard loan={loan()} events={[]} now={NOW} onEdit={onEdit} />);
@@ -127,20 +141,78 @@ describe('LoanTermsForm', () => {
     expect(text()).toContain('A fixed loan needs a repayment date');
   });
 
-  it('saves only what is valid, clears the date of a flexible loan, and tells you', async () => {
+  it('saves only what changed, tells you, and closes', async () => {
     const onDone = jest.fn();
     render(<LoanTermsForm loan={loan()} now={NOW} onDone={onDone} />);
     type('Yearly rate in percent', '9');
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', expect.objectContaining({ principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'flexible', dueDate: null, interestTerms: 'simple', interestRate: 9 }));
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestRate: 9 });
     expect(mockToast).toHaveBeenCalledWith({ text: 'Terms saved' });
     expect(onDone).toHaveBeenCalled();
+  });
+
+  it('sends nothing and says so when nothing was changed, so no saved date is rewritten', async () => {
+    const onDone = jest.fn();
+    render(<LoanTermsForm loan={loan({ startedAt: Date.UTC(2026, 6, 1, 3, 30) })} now={NOW} onDone={onDone} />);
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith({ text: 'Nothing changed' });
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it('keeps a saved rate and repayment date when only the original amount and start date are added', async () => {
+    const legacy = loan({ principal: null, startedAt: null, dueKind: null, interestTerms: null, interestRate: 8, dueDate: day(2026, 11, 1) });
+    render(<LoanTermsForm loan={legacy} now={NOW} onDone={() => undefined} />);
+    expect(text()).toContain('Repay by');
+    type('Original amount in EUR', '20000');
+    type('Started (like 2026-07-01 or Jul 2026)', '2026-07-01');
+    await act(async () => { await save().props.onPress(); });
+    // Neither the rate, the interest kind, the repayment kind nor the date is in what is sent, so none is cleared.
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 20_000, startedAt: day(2026, 7, 1) });
+  });
+
+  it('reads a decimal comma in the original amount, not as thousands', async () => {
+    render(<LoanTermsForm loan={loan({ principal: null, startedAt: null, interestTerms: null, interestRate: null, dueKind: null })} now={NOW} onDone={() => undefined} />);
+    type('Original amount in EUR', '1234,50');
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 1_234.5 });
+    mockSave.mockClear();
+    type('Original amount in EUR', '5,000');
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 5_000 });
+  });
+
+  it('clears a field only when you empty it', async () => {
+    render(<LoanTermsForm loan={loan()} now={NOW} onDone={() => undefined} />);
+    type('Original amount in EUR', '');
+    expect(text()).toContain('Simple interest needs the original amount and the start date');
+    act(() => radio('Interest', 'None').props.onPress());
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: null, interestTerms: 'none', interestRate: null });
+  });
+
+  it('offers no simple interest on a mortgage or a card, and says why', () => {
+    render(<LoanTermsForm loan={loan({ kind: 'mortgage', interestTerms: null, interestRate: null })} now={NOW} onDone={() => undefined} />);
+    expect(radio('Interest', 'Simple')).toBeUndefined();
+    expect(radio('Interest', 'Manual')).toBeDefined();
+    expect(text()).toContain('compound or instalment interest');
+    act(() => tree!.update(<LoanTermsForm loan={loan({ kind: 'credit_card', interestTerms: null, interestRate: null })} now={NOW} onDone={() => undefined} />));
+    expect(radio('Interest', 'Simple')).toBeUndefined();
+  });
+
+  it('sends only the interest kind for a debt owed in a coin', async () => {
+    const coinLoan = loan({ owedSymbol: 'BTC', owedQuantity: 0.4, balance: 31_000, currency: 'USD', principal: null, startedAt: null, interestTerms: null, interestRate: null, dueKind: null });
+    render(<LoanTermsForm loan={coinLoan} now={NOW} onDone={() => undefined} />);
+    act(() => radio('Interest', 'Manual').props.onPress());
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'manual' });
   });
 
   it('shows the server’s reason and stays open when saving fails', async () => {
     mockSave.mockRejectedValueOnce(new Error('nope'));
     const onDone = jest.fn();
     render(<LoanTermsForm loan={loan()} now={NOW} onDone={onDone} />);
+    type('Yearly rate in percent', '9');
     await act(async () => { await save().props.onPress(); });
     expect(mockToast).toHaveBeenCalledWith({ text: 'error: Error: nope' });
     expect(onDone).not.toHaveBeenCalled();

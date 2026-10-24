@@ -15,6 +15,9 @@ function fixture() {
   seed("memberships", "m2", { userId: "viewer", portfolioId: "pf", role: "viewer" });
   seed("liabilities", "l1", { portfolioId: "pf", name: "Loan from a friend", kind: "loan", balance: 20000, currency: "EUR", counterparty: "Friend" });
   seed("liabilities", "lbtc", { portfolioId: "pf", name: "Coin loan", kind: "loan", balance: 31000, currency: "USD", owedSymbol: "BTC", owedQuantity: 0.4 });
+  seed("liabilities", "lmort", { portfolioId: "pf", name: "Mortgage", kind: "mortgage", balance: 90000, currency: "EUR" });
+  seed("liabilities", "lfixed", { portfolioId: "pf", name: "Fixed loan", kind: "loan", balance: 5000, currency: "EUR", dueKind: "fixed", dueDate: Date.now() + 90 * 86_400_000, counterparty: "Sam" });
+  seed("liabilities", "llegacy", { portfolioId: "pf", name: "Old loan", kind: "loan", balance: 3000, currency: "EUR", dueDate: Date.now() + 30 * 86_400_000, interestRate: 8 });
   seed("liabilities", "l-other", { portfolioId: "other", name: "x", kind: "loan", balance: 1, currency: "EUR" });
   const db = {
     normalizeId: (table: string, id: string) => (tables.get(id) === table ? id : null),
@@ -84,5 +87,44 @@ describe("loan terms", () => {
     await f.call(setTerms, { id: "l1", principal: 20000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 8 });
     await f.call(upsertLiability, { id: "l1", portfolioId: "pf", name: "Loan from a friend", kind: "loan", balance: 19000, currency: "EUR", counterparty: "Friend", clientMutationId: "up-1" });
     expect(f.row("l1")).toMatchObject({ balance: 19000, interestRate: 8, interestTerms: "simple", principal: 20000 });
+  });
+
+  it("keeps a fixed loan's repayment date when an update leaves it out, so it never ends up fixed with no date", async () => {
+    const f = fixture();
+    const date = f.row("lfixed").dueDate;
+    await f.call(upsertLiability, { id: "lfixed", portfolioId: "pf", name: "Fixed loan", kind: "loan", balance: 4000, currency: "EUR", counterparty: "Sam" });
+    expect(f.row("lfixed")).toMatchObject({ balance: 4000, dueKind: "fixed", dueDate: date });
+  });
+
+  it("still lets an update change the date of a fixed loan, and treats a legacy debt as before", async () => {
+    const f = fixture();
+    const later = Date.now() + 200 * 86_400_000;
+    await f.call(upsertLiability, { id: "lfixed", portfolioId: "pf", name: "Fixed loan", kind: "loan", balance: 5000, currency: "EUR", dueDate: later });
+    expect(f.row("lfixed").dueDate).toBe(later);
+    await f.call(upsertLiability, { id: "llegacy", portfolioId: "pf", name: "Old loan", kind: "loan", balance: 2900, currency: "EUR" });
+    expect(f.row("llegacy").dueDate).toBeUndefined();
+    expect(f.row("llegacy").interestRate).toBe(8);
+  });
+
+  it("refuses to turn a debt with loan terms into one owed in a coin, and changes nothing", async () => {
+    const f = fixture();
+    await f.call(setTerms, { id: "l1", principal: 20000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 8 });
+    await expect(f.call(upsertLiability, { id: "l1", portfolioId: "pf", name: "Loan from a friend", kind: "loan", balance: 20000, currency: "EUR", owedSymbol: "BTC", owedQuantity: 0.4 })).rejects.toThrow(/owed in a coin/);
+    expect(f.row("l1")).toMatchObject({ balance: 20000, principal: 20000, interestTerms: "simple" });
+    expect(f.row("l1").owedSymbol).toBeUndefined();
+  });
+
+  it("keeps simple interest off a mortgage and says why", async () => {
+    const f = fixture();
+    await expect(f.call(setTerms, { id: "lmort", principal: 90000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 4 })).rejects.toThrow(/compound or instalment/);
+    await f.call(setTerms, { id: "lmort", interestTerms: "manual" });
+    expect(f.row("lmort").interestTerms).toBe("manual");
+  });
+
+  it("refuses a repayment date that is not a real date", async () => {
+    const f = fixture();
+    await expect(f.call(setTerms, { id: "l1", dueKind: "fixed", dueDate: NaN })).rejects.toThrow();
+    await expect(f.call(setTerms, { id: "l1", dueKind: "fixed", dueDate: -5 })).rejects.toThrow();
+    expect(f.row("l1").dueKind).toBeUndefined();
   });
 });
