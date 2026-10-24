@@ -1,6 +1,6 @@
 import type { CloudSnapshot, CloudWallet } from '@/cloud/api';
 import type { Item } from './items';
-import { loanPlaces, loansOf, safetyOf, takenBy, type CloudLoanLink } from './loans';
+import { loanPlaces, loansOf, pledgedBacked, safetyOf, takenBy, type CloudLoanLink, type Loan } from './loans';
 
 const NOW = Date.UTC(2026, 9, 19, 12);
 const fx = { usdPerEur: 1.25, asOf: '2026-10-19' };
@@ -102,5 +102,24 @@ describe('loans', () => {
       { name: 'Ether', symbol: 'ETH', nowCents: 400_000, drop: null, liquidationCents: null },
     ]);
   });
-});
 
+  it('counts the part of each debt backed by collateral, never more than the debt', () => {
+    const [base] = loansOf(snapshot(wallet()), [], [], 'EUR', fx, NOW);
+    const loan = (over: Partial<Loan>): Loan => ({ ...base, ...over });
+    // 3,200 of a 3,200 debt is covered by 8,000 of collateral; another loan has only 1,000 behind 2,000.
+    const loans = [loan({ debtCents: 320_000, collateralCents: 800_000, gaps: 0 }), loan({ debtCents: 200_000, collateralCents: 100_000, gaps: 0 })];
+    expect(pledgedBacked(loans)).toEqual({ cents: 420_000, partial: false });
+  });
+
+  it('says the figure is partial when a loan has no known collateral or a linked place without a value', () => {
+    const [base] = loansOf(snapshot(wallet()), [], [], 'EUR', fx, NOW);
+    const loans = [{ ...base, debtCents: 100_000, collateralCents: null, gaps: 0 }, { ...base, debtCents: 100_000, collateralCents: 50_000, gaps: 1 }];
+    expect(pledgedBacked(loans)).toEqual({ cents: 50_000, partial: true });
+  });
+
+  it('ignores loans without a debt and returns nothing for no loans', () => {
+    const [base] = loansOf(snapshot(wallet()), [], [], 'EUR', fx, NOW);
+    expect(pledgedBacked([{ ...base, debtCents: null, collateralCents: 9_000, gaps: 0 }])).toEqual({ cents: 0, partial: false });
+    expect(pledgedBacked([])).toEqual({ cents: 0, partial: false });
+  });
+});

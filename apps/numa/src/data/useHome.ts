@@ -2,6 +2,7 @@ import { useAction } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { cloud, type CloudCurrency } from '@/cloud/api';
+import { useLoans } from '@/loans/useLoans';
 import { pickAttention, visibleAttention } from '@/domain/attention';
 import { usePrefs } from '@/state/prefs';
 import { summarizeFlow, type FlowSummary } from '@/domain/flow';
@@ -9,6 +10,7 @@ import { summarize, type Summary } from '@/domain/summary';
 import type { Attention, Currency } from '@/domain/types';
 import { demoAttention, demoDebts, demoHoldings, demoNow, demoOctober, demoPoints } from './demo';
 import { useCloudData } from './cloud';
+import { pledgedBacked } from './loans';
 import { denseSeries, type HistoryRange, type PriceSeries, type PricedPiece, pricedPiecesOf } from './intraday';
 import { itemsFrom } from './items';
 import { seriesFor, spanMs, todayFromMarkets, type Point, type Range } from './series';
@@ -24,6 +26,8 @@ export type HomeModel =
       now: number;
       currency: Currency;
       summary: Summary;
+      /** How much of what is owed is backed by collateral; null while loans are still loading, and in no space without any. */
+      pledged: { cents: number; partial: boolean } | null;
       /** False while a record needs an exchange rate we do not have. */
       available: boolean;
       points: Point[];
@@ -45,9 +49,11 @@ export function useDemoHome(range: Range): HomeModel {
     return () => clearInterval(id);
   }, []);
   const netCents = summary.netCents + Math.round(tick);
+  // The demo's pledged coins back its USDC loan; the debt is covered up to their value.
+  const pledgedCents = demoHoldings.filter((x) => x.liquidity.kind === 'pledged').reduce((t, x) => t + (x.valuation.kind === 'missing' ? (x.valuation.lastKnownCents ?? 0) : x.valuation.valueCents), 0);
   const points = useMemo(() => demoPoints(range, summary.netCents), [range, summary.netCents]);
   return {
-    status: 'ready', source: 'demo', now: demoNow.getTime(), currency: 'EUR', summary, available: true,
+    status: 'ready', source: 'demo', now: demoNow.getTime(), currency: 'EUR', summary, pledged: { cents: Math.min(summary.oweCents, pledgedCents), partial: false }, available: true,
     points: [...points.slice(0, -1), { t: demoNow.getTime(), cents: netCents }], hasHistory: true, live: true,
     month: 'October', flow: summarizeFlow(demoOctober), attention: pickAttention(visibleAttention(demoAttention, dismissed, demoNow.getTime())), empty: false,
   };
@@ -76,6 +82,7 @@ function usePriceHistory(range: Range, pieces: PricedPiece[]): Record<string, Pr
 /** The signed-in person's first portfolio, live from Convex. */
 export function useCloudHome(range: Range): HomeModel {
   const cloudData = useCloudData();
+  const loans = useLoans();
   const { dismissed } = usePrefs();
   // Crypto and stocks that move with a market price, merged by symbol across records and wallets.
   const pieces = useMemo<PricedPiece[]>(() => {
@@ -95,7 +102,7 @@ export function useCloudHome(range: Range): HomeModel {
   const today = range === '1D' && !dense ? todayFromMarkets(now, summary.netCents, marketsToday) : null;
   const { points, hasHistory } = dense ? { points: dense, hasHistory: true } : today ?? seriesFor(data.history, now, summary.netCents, range);
   return {
-    status: 'ready', source: 'cloud', now, currency: data.currency, summary, available: data.unconverted.length === 0,
+    status: 'ready', source: 'cloud', now, currency: data.currency, summary, pledged: loans.status === 'ready' ? pledgedBacked(loans.loans) : null, available: data.unconverted.length === 0,
     points, hasHistory, live: priced.length > 0,
     month: data.month.month, flow: summarizeFlow(data.month), attention: pickAttention(visibleAttention(data.attention, dismissed, now)), empty: data.empty,
   };

@@ -21,7 +21,10 @@ export type Summary = {
   ownCents: number;
   oweCents: number;
   netCents: number;
+  /** Cash plus what can be sold within a week, before anything owed. */
   liquidCents: number;
+  /** `liquidCents` minus everything owed. Negative when the debts are bigger; never clamped. */
+  liquidAfterDebtsCents: number;
   cashCents: number;
   categories: CategorySummary[];
   /** Holdings left out of every total because nothing is known about their value. */
@@ -58,11 +61,13 @@ export function summarize(holdings: Holding[], debts: Debt[], now: Date): Summar
     const a = byCat.get(c)!;
     return { category: c, cents: a.cents, liquidCents: a.liquid, cashCents: a.cash, share: ownCents ? a.cents / ownCents : 0, marketCents: a.market, marketLiquidCents: a.marketLiquid, marketCashCents: a.marketCash };
   });
+  const liquidCents = categories.reduce((s, c) => s + c.liquidCents, 0);
   return {
     ownCents,
     oweCents,
     netCents: ownCents - oweCents,
-    liquidCents: categories.reduce((s, c) => s + c.liquidCents, 0),
+    liquidCents,
+    liquidAfterDebtsCents: liquidCents - oweCents,
     cashCents: categories.reduce((s, c) => s + c.cashCents, 0),
     categories,
     unknown,

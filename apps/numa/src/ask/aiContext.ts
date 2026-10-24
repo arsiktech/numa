@@ -17,7 +17,7 @@ export function aiContext(ctx: AskContext, a: AnswerData, history: Point[] = [])
   const lines: string[] = [
     `Today: ${day(ctx.now.getTime())}. Home currency: ${a.currency}.`,
     a.available
-      ? `Net worth ${m(s.netCents)}: owns ${m(s.ownCents)}, owes ${m(s.oweCents)}. Cash ${m(s.cashCents)}. Could have ${m(s.liquidCents)} within a week.`
+      ? `Net worth ${m(s.netCents)}: owns ${m(s.ownCents)}, owes ${m(s.oweCents)}. Cash ${m(s.cashCents)}. Could have ${m(s.liquidCents)} within a week, ${m(s.liquidAfterDebtsCents)} after everything owed.`
       : 'Totals are unavailable right now because an exchange rate is missing.',
   ];
   if (s.unknown.length) lines.push(`Left out of totals because their value is unknown: ${s.unknown.map((h) => h.name).join(', ')}.`);
