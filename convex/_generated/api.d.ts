@@ -61,6 +61,7 @@ import type * as lib_inputGuards from "../lib/inputGuards.js";
 import type * as lib_invitationAuthority from "../lib/invitationAuthority.js";
 import type * as lib_keccak from "../lib/keccak.js";
 import type * as lib_loanLinks from "../lib/loanLinks.js";
+import type * as lib_loanTerms from "../lib/loanTerms.js";
 import type * as lib_marketQuoteProviders from "../lib/marketQuoteProviders.js";
 import type * as lib_mobileDashboard from "../lib/mobileDashboard.js";
 import type * as lib_mobilePortfolio from "../lib/mobilePortfolio.js";
@@ -174,6 +175,7 @@ declare const fullApi: ApiFromModules<{
   "lib/invitationAuthority": typeof lib_invitationAuthority;
   "lib/keccak": typeof lib_keccak;
   "lib/loanLinks": typeof lib_loanLinks;
+  "lib/loanTerms": typeof lib_loanTerms;
   "lib/marketQuoteProviders": typeof lib_marketQuoteProviders;
   "lib/mobileDashboard": typeof lib_mobileDashboard;
   "lib/mobilePortfolio": typeof lib_mobilePortfolio;
