@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { setTerms } from "./liabilities";
+import { setTerms, update } from "./liabilities";
 import { upsertLiability } from "./mobile";
 
 // Bounded synthetic DB: the registered handlers with real auth and receipt helpers.
@@ -45,6 +45,8 @@ function fixture() {
     call: (fn: any, args: object) => fn._handler(ctx, args),
     as: (id: string) => { user = id; },
     row: (id: string) => rows.get(id),
+    notes: () => [...rows].filter(([id]) => tables.get(id) === "debtEvents").map(([, row]) => row),
+    seed,
   };
 }
 
@@ -172,5 +174,73 @@ describe("loan terms", () => {
     await expect(f.call(setTerms, { id: "l1", interestDueDay: 29 })).rejects.toThrow(/1 to 28/);
     await f.call(setTerms, { id: "l1", interestTerms: "none" });
     expect(f.row("l1").interestDueDay).toBeUndefined();
+  });
+
+  it("refuses a repayment date more than 100 years ahead, which no calendar can show", async () => {
+    const f = fixture();
+    await expect(f.call(setTerms, { id: "l1", dueKind: "fixed", dueDate: 9e15 })).rejects.toThrow(/valid date/);
+    await expect(f.call(upsertLiability, { id: "l1", portfolioId: "pf", name: "Loan from a friend", kind: "loan", balance: 20000, currency: "EUR", dueDate: 9e15 })).rejects.toThrow(/valid date/);
+    await expect(f.call(update, { id: "l1", patch: { dueDate: 9e15 } })).rejects.toThrow(/valid date/);
+    expect(f.row("l1").dueDate).toBeUndefined();
+  });
+
+  it("saves the history note in the same write as the terms, once per receipt, in the debt's space", async () => {
+    const f = fixture();
+    await f.call(setTerms, { id: "l1", principal: 20000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 8 });
+    const args = { id: "l1", interestRate: 10, note: { text: "Rate changed from 8% to 10%", occurredAt: NOW }, clientMutationId: "t-note" };
+    await f.call(setTerms, args);
+    await f.call(setTerms, args);
+    expect(f.row("l1").interestRate).toBe(10);
+    expect(f.notes()).toEqual([expect.objectContaining({ portfolioId: "pf", subject: "liability:l1", kind: "note", applied: false, note: "Rate changed from 8% to 10%" })]);
+    // A note that would be refused stops the terms too, so they never go without it.
+    await expect(f.call(setTerms, { id: "l1", interestRate: 12, note: { text: "x".repeat(141), occurredAt: NOW } })).rejects.toThrow(/140/);
+    expect(f.row("l1").interestRate).toBe(10);
+  });
+
+  it("keeps a terms receipt to the debt's own space, so the same id in another space is refused, not replayed", async () => {
+    const f = fixture();
+    f.seed("memberships", "m3", { userId: "user", portfolioId: "other", role: "owner" });
+    await f.call(setTerms, { id: "l1", interestTerms: "manual", clientMutationId: "shared-id" });
+    await expect(f.call(setTerms, { id: "l-other", interestTerms: "manual", clientMutationId: "shared-id" })).rejects.toThrow();
+    expect(f.row("l-other").interestTerms).toBeUndefined();
+  });
+});
+
+describe("other writes keep the loan terms whole", () => {
+  const simple = async (f: ReturnType<typeof fixture>) => f.call(setTerms, { id: "l1", principal: 20000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 8 });
+  const upsert = (over: object) => ({ id: "l1", portfolioId: "pf", name: "Loan from a friend", kind: "loan", balance: 20000, currency: "EUR", ...over });
+
+  it("refuses to make a simple-interest loan a mortgage or a card from Ask or an agent", async () => {
+    const f = fixture();
+    await simple(f);
+    await expect(f.call(upsertLiability, upsert({ kind: "mortgage" }))).rejects.toThrow(/Mark its interest as manual/);
+    await expect(f.call(upsertLiability, upsert({ kind: "credit_card" }))).rejects.toThrow(/Mark its interest as manual/);
+    expect(f.row("l1").kind).toBe("loan");
+  });
+
+  it("refuses the web app's edits that would break the terms: kind, rate or currency", async () => {
+    const f = fixture();
+    await simple(f);
+    await expect(f.call(update, { id: "l1", patch: { kind: "mortgage" } })).rejects.toThrow(/Mark its interest as manual/);
+    await expect(f.call(update, { id: "l1", patch: { interestRate: null } })).rejects.toThrow(/yearly rate above zero/);
+    await expect(f.call(update, { id: "l1", patch: { currency: "USD" } })).rejects.toThrow(/before changing the currency/);
+    expect(f.row("l1")).toMatchObject({ kind: "loan", interestRate: 8, currency: "EUR" });
+    // Edits that keep the terms whole still go through.
+    await f.call(update, { id: "l1", patch: { name: "Loan from Lena", interestRate: 9 } });
+    expect(f.row("l1")).toMatchObject({ name: "Loan from Lena", interestRate: 9 });
+  });
+
+  it("lets the web app clear a fixed loan's date, which makes it no longer fixed", async () => {
+    const f = fixture();
+    await f.call(update, { id: "lfixed", patch: { dueDate: null } });
+    expect(f.row("lfixed").dueDate).toBeUndefined();
+    expect(f.row("lfixed").dueKind).toBeUndefined();
+  });
+
+  it("refuses a currency change from Ask on a debt with an original amount", async () => {
+    const f = fixture();
+    await simple(f);
+    await expect(f.call(upsertLiability, upsert({ currency: "USD" }))).rejects.toThrow(/before changing the currency/);
+    expect(f.row("l1").currency).toBe("EUR");
   });
 });

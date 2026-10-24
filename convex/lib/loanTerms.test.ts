@@ -12,6 +12,10 @@ describe("cleanSplit", () => {
   it("fills the parts left out with zero", () => {
     expect(cleanSplit(1000, "EUR", { principalPart: 900, interestPart: 100 })).toEqual({ principalPart: 900, interestPart: 100, feePart: 0 });
     expect(cleanSplit(10, "EUR", { principalPart: 3.33, interestPart: 3.33, feePart: 3.34 })).toEqual({ principalPart: 3.33, interestPart: 3.33, feePart: 3.34 });
+    // A coin split one unit (1e-8) over or under the payment is a real difference, not float noise.
+    expect(() => cleanSplit(4.9178706, "BTC", { principalPart: 4.91787061 })).toThrow(/add up/);
+    expect(() => cleanSplit(4.91787061, "BTC", { principalPart: 4.9178706 })).toThrow(/add up/);
+    expect(cleanSplit(4.91787061, "BTC", { principalPart: 4.9, interestPart: 0.01787061 })).toEqual({ principalPart: 4.9, interestPart: 0.01787061, feePart: 0 });
   });
   it("refuses parts that do not add up to the payment, including a cent lost to rounding", () => {
     expect(() => cleanSplit(1000, "EUR", { principalPart: 900, interestPart: 99 })).toThrow(/add up/);

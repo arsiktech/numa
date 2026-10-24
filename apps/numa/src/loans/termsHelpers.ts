@@ -39,6 +39,30 @@ function asCalendarDay(local: number): number {
  */
 export const calendarToday = (now: number) => asCalendarDay(now);
 
+/**
+ * What removing a history entry did to the debt, as the server undoes it: only an entry that changed
+ * the balance changes it back, and a split payment gives back its principal part only.
+ */
+export function removedText(e: Pick<DebtEvent, 'kind' | 'applied' | 'amount' | 'principalPart'>): string {
+  const moved = e.applied ? (e.principalPart ?? e.amount ?? 0) : 0;
+  if (!(moved > 0)) return e.applied && e.principalPart === 0 ? 'Removed. It paid no principal, so the debt is unchanged' : 'Removed';
+  if (e.kind === 'repaid' || e.kind === 'received') return e.principalPart != null ? 'Removed, and its principal part is back on the debt' : 'Removed, and the amount is back on the debt';
+  return 'Removed, and the amount is taken off the debt again';
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A calendar day kept as noon UTC, shown as that day wherever the phone is: "20 Sep", with the year
+ * when it is not this year. Read in the phone's own time, noon UTC is the next day east of UTC+12.
+ */
+export function dayText(at: number, now: number): string {
+  const d = new Date(at);
+  if (!Number.isFinite(d.getTime())) return '—';
+  const year = new Date(calendarToday(now)).getUTCFullYear();
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}${d.getUTCFullYear() !== year ? ` ${d.getUTCFullYear()}` : ''}`;
+}
+
 /** A past date typed loosely: "2026-07-01", "Jul 2026", "today", "20 Sep". */
 export function pastDate(text: string, now: number): number | null {
   const named = parseBought(text, now);

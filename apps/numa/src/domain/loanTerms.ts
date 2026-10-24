@@ -85,11 +85,14 @@ const DAY = 86_400_000;
 export const dayOf = (t: number) => Math.floor(t / DAY);
 
 /**
- * "5,000" and "5 000" are thousands; "0,5" and "1234,50" use a decimal comma. Returns NaN when
- * the text is not a plain amount.
+ * "5,000", "1,234,567.89" and "5 000" are thousands; "0,5", "0,125" and "1234,50" use a decimal comma.
+ * A comma is a thousands separator only between groups of three digits after a first group of one to
+ * three that does not start with 0. Returns NaN when the text is not a plain amount.
  */
 export function parseAmount(text: string): number {
-  const clean = text.trim().replace(/\s/g, '').replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.');
+  const compact = text.trim().replace(/\s/g, '');
+  const thousands = /^[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(compact);
+  const clean = thousands ? compact.replace(/,/g, '') : compact.replace(',', '.');
   return /^\d*\.?\d+$|^\d+\.$/.test(clean) ? Number(clean) : NaN;
 }
 
@@ -120,18 +123,27 @@ export function principalPaid(e: TermEvent): number {
 
 /**
  * Principal outstanding on a day, from the original amount and the events up to the end of that
- * day. It never goes below zero: an overpayment in the history does not make interest negative.
+ * day. Events count in date order, and the principal never goes below zero at any step: an
+ * overpayment brings it to zero, and money borrowed later starts from there.
  */
 export function principalAt(terms: LoanTerms, events: TermEvent[], at: number): number {
   let p = terms.principal ?? 0;
   const startDay = dayOf(terms.startedAt ?? 0);
-  for (const e of events) {
-    if (dayOf(e.occurredAt) > dayOf(at) || dayOf(e.occurredAt) < startDay) continue;
+  const inOrder = events.filter((e) => dayOf(e.occurredAt) <= dayOf(at) && dayOf(e.occurredAt) >= startDay).sort((x, y) => x.occurredAt - y.occurredAt);
+  for (const e of inOrder) {
     if (e.kind === 'borrowed' || e.kind === 'capitalized') p += e.amount ?? 0;
-    else if (e.kind === 'repaid') p -= principalPaid(e);
+    else if (e.kind === 'repaid') p = Math.max(0, p - principalPaid(e));
   }
   return Math.max(0, cents(p));
 }
+
+/**
+ * One month's interest before rounding to cents. The product is rounded to nine decimals first, so an
+ * exact half cent such as 178.185 is not read as 178.18499… by way of binary floating point.
+ */
+const monthRaw = (principal: number, rate: number) => roundDecimals((principal * rate) / 1200, 9);
+/** One month's interest, rounded half up to cents. */
+export const monthInterest = (principal: number, rate: number) => cents(monthRaw(principal, rate));
 
 export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, now: number): Accrual {
   if (terms.interestTerms === 'manual') return { status: 'manual' };
@@ -144,7 +156,7 @@ export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, 
   let months = 0;
   const periods: { endAt: number; amount: number }[] = [];
   while (addMonths(start, months + 1) <= now) {
-    periods.push({ endAt: addMonths(start, months + 1), amount: cents((principalAt(terms, events, addMonths(start, months)) * terms.interestRate) / 100 / 12) });
+    periods.push({ endAt: addMonths(start, months + 1), amount: monthInterest(principalAt(terms, events, addMonths(start, months)), terms.interestRate) });
     months += 1;
   }
   const accrued = periods.reduce((t, p) => t + p.amount, 0);
@@ -170,7 +182,7 @@ export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, 
   const runningStart = addMonths(start, months);
   const span = dayOf(nextAccrualAt) - dayOf(runningStart);
   const gone = Math.max(0, dayOf(now) - dayOf(runningStart));
-  const running = span > 0 ? cents(((principalAt(terms, events, runningStart) * terms.interestRate) / 100 / 12) * (gone / span)) : 0;
+  const running = span > 0 ? cents(monthRaw(principalAt(terms, events, runningStart), terms.interestRate) * (gone / span)) : 0;
 
   return {
     status: 'ok',
@@ -186,6 +198,39 @@ export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, 
     // Half a cent: a whole cent apart is a real difference, not rounding.
     reconciles: Math.abs(historyPrincipal - balance) < 0.005,
   };
+}
+
+/** Interest owed on a day from the history up to it, or null when it cannot be worked out. */
+function owedOn(terms: LoanTerms, events: TermEvent[], at: number): number | null {
+  const a = accrual(terms, events.filter((e) => dayOf(e.occurredAt) <= dayOf(at)), 0, at);
+  return a.status === 'ok' ? Math.max(0, a.owed) : null;
+}
+
+/**
+ * Why interest of `amount` cannot be added to the principal on the day `at`, or null when it can.
+ * The server applies the same rule (convex/lib/loanAccrual.ts). It can be no more than was owed on
+ * that day, from the history up to it. Once added, today's total owed must not go below zero:
+ * interest paid after that day was already settled, so it is not added again. A back-dated add raises
+ * the principal for the months after it, and the interest they accrue on it counts today.
+ */
+export function interestAddProblem(terms: LoanTerms, events: TermEvent[], amount: number, at: number, today: number): string | null {
+  const then = owedOn(terms, events, at);
+  const after = accrual(terms, [...events, { kind: 'capitalized', amount, principalPart: null, interestPart: null, feePart: null, occurredAt: at }], 0, today);
+  if (then === null || after.status !== 'ok') return 'There is no unpaid interest to add yet.';
+  if (!(then > 0.005)) return 'There was no unpaid interest to add on that date.';
+  if (amount > then + 0.005) return `That is more than the interest owed on that date, ${then.toFixed(2)}.`;
+  if (after.owed < -0.005) return 'That interest has since been paid or added, so adding it again would count it twice.';
+  return null;
+}
+
+/** The most interest that can be added on the day `at`, so the form can offer it. Zero when there is none. */
+export function interestAddable(terms: LoanTerms, events: TermEvent[], at: number, today: number): number {
+  const then = owedOn(terms, events, at);
+  if (then === null || !(then > 0.005)) return 0;
+  if (interestAddProblem(terms, events, then, at, today) === null) return then;
+  // Interest settled since that day is not added again: today's total owed is the most that is left.
+  const now = owedOn(terms, events, today) ?? 0;
+  return Math.max(0, Math.min(then, now));
 }
 
 /** What has been paid back, by kind. Payments that were not split count wholly as principal. */
@@ -211,8 +256,10 @@ export function splitProblem(total: number, parts: { principal: number; interest
   const values = [parts.principal, parts.interest, parts.fees];
   if (values.some((v) => !Number.isFinite(v) || v < 0)) return 'Each part must be zero or more.';
   const scale = 10 ** decimals;
-  const sum = Math.round(parts.principal * scale) + Math.round(parts.interest * scale) + Math.round(parts.fees * scale);
-  const want = Math.round(total * scale);
+  // Rounded half up as written, the way the server rounds, so 1.005 is 1.01 here too.
+  const units = (n: number) => Math.round(roundDecimals(n, decimals) * scale);
+  const sum = units(parts.principal) + units(parts.interest) + units(parts.fees);
+  const want = units(total);
   if (sum === want) return null;
   const gap = (Math.abs(sum - want) / scale).toFixed(Math.min(decimals, 8));
   return sum < want ? `${gap} of the payment is not placed yet.` : `The parts are ${gap} more than the payment.`;

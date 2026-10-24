@@ -1,6 +1,6 @@
 import { accrual, type TermEvent } from '@/domain/loanTerms';
 
-import { calendarToday } from './termsHelpers';
+import { calendarToday, dayText, removedText } from './termsHelpers';
 import { simulateZone } from './testZone';
 
 const noon = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d, 12);
@@ -44,5 +44,28 @@ describe('a payment dated today', () => {
     simulateZone(2);
     const a = accrual(terms, paidToday, 19_000, clock);
     expect(a.status === 'ok' && a.reconciles).toBe(false);
+  });
+});
+
+describe('dayText', () => {
+  it('shows a stored calendar day as that day, even on a phone more than 12 hours ahead of UTC', () => {
+    simulateZone(13);
+    expect(dayText(noon(2026, 9, 20), Date.UTC(2026, 9, 24, 1))).toBe('20 Sep');
+    expect(dayText(noon(2025, 12, 31), Date.UTC(2026, 9, 24, 1))).toBe('31 Dec 2025');
+  });
+
+  it('shows a dash for a date too far out for a calendar, instead of failing', () => {
+    expect(dayText(9e15, Date.UTC(2026, 9, 24))).toBe('—');
+  });
+});
+
+describe('removedText', () => {
+  it('says what removing an entry did to the debt, as the server undoes it', () => {
+    expect(removedText({ kind: 'repaid', applied: true, amount: 100, principalPart: null })).toBe('Removed, and the amount is back on the debt');
+    expect(removedText({ kind: 'repaid', applied: true, amount: 100, principalPart: 70 })).toBe('Removed, and its principal part is back on the debt');
+    // An interest-only payment changed no principal, so nothing comes back.
+    expect(removedText({ kind: 'repaid', applied: true, amount: 100, principalPart: 0 })).toBe('Removed. It paid no principal, so the debt is unchanged');
+    expect(removedText({ kind: 'capitalized', applied: true, amount: 36, principalPart: null })).toBe('Removed, and the amount is taken off the debt again');
+    expect(removedText({ kind: 'repaid', applied: false, amount: 100, principalPart: null })).toBe('Removed');
   });
 });

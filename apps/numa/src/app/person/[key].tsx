@@ -7,10 +7,9 @@ import { cloud } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { newMutationId } from '@/data/cloud';
 import { historyOf, partyOf, type DebtEvent, type Party, type PartyRecord } from '@/data/moneyMap';
-import { shortDay } from '@/domain/freshness';
 import { LoanTermsCard, LoanTermsForm } from '@/loans/LoanTermsCard';
 import { PaymentForm, unitText } from '@/loans/PaymentForm';
-import { hasTerms } from '@/loans/termsHelpers';
+import { dayText, hasTerms, removedText } from '@/loans/termsHelpers';
 import { useLoans } from '@/loans/useLoans';
 import { eventErrorText, useDebtWrites, useMoneyMap, type MoneyMapState } from '@/loans/useMoneyMap';
 import { useTheme } from '@/theme/theme';
@@ -110,7 +109,7 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
     } catch (e) { toast({ text: eventErrorText(e) }); return false; }
   }
   async function removeEvent(e: DebtEvent) {
-    try { await writes.remove(e.id); toast({ text: e.applied ? 'Removed, and the amount is back on the debt' : 'Removed' }); }
+    try { await writes.remove(e.id); toast({ text: removedText(e) }); }
     catch (err) { toast({ text: eventErrorText(err) }); }
   }
 
@@ -143,13 +142,13 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
             const record = party.records.find((r) => r.subject === e.subject);
             return (
               <View key={e.id} style={{ minHeight: 48, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: i === history.length - 1 ? 0 : 1, borderBottomColor: c.line2 }}>
-                <Txt v="figureSm" c="ink3" style={{ width: 62, fontSize: 12 }}>{shortDay(e.occurredAt, state.now)}</Txt>
+                <Txt v="figureSm" c="ink3" style={{ width: 62, fontSize: 12 }}>{dayText(e.occurredAt, state.now)}</Txt>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Txt v="body">{KIND_WORDS[e.kind]}{e.amount !== null && e.unit ? ` ${unitText(e.amount, e.unit)}` : ''}</Txt>
                   {e.unit && (e.interestPart || e.feePart) ? <Txt v="small" c="ink2" numberOfLines={2}>{`Principal ${unitText(e.principalPart ?? 0, e.unit)} · Interest ${unitText(e.interestPart ?? 0, e.unit)} · Fees ${unitText(e.feePart ?? 0, e.unit)}`}</Txt> : null}
                   {(e.note || party.records.length > 1) && <Txt v="small" c="ink2" numberOfLines={2}>{[e.note, party.records.length > 1 ? record?.name : null].filter(Boolean).join(' · ')}</Txt>}
                 </View>
-                <Pressable onPress={() => removeEvent(e)} accessibilityRole="button" accessibilityLabel={`Remove ${KIND_WORDS[e.kind]} from ${shortDay(e.occurredAt, state.now)}`} hitSlop={6}
+                <Pressable onPress={() => removeEvent(e)} accessibilityRole="button" accessibilityLabel={`Remove ${KIND_WORDS[e.kind]} from ${dayText(e.occurredAt, state.now)}`} hitSlop={6}
                   style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
                   <Txt v="body" c="ink3" style={{ fontSize: 18 }}>×</Txt>
                 </Pressable>

@@ -1,14 +1,14 @@
 import { useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { newMutationId } from '@/data/cloud';
 import type { DebtEvent, Party } from '@/data/moneyMap';
-import { accrual, parseAmount, splitProblem } from '@/domain/loanTerms';
+import { accrual, interestAddable, interestAddProblem, parseAmount, roundDecimals, splitProblem } from '@/domain/loanTerms';
 import { useTheme } from '@/theme/theme';
 import { Field, Seg } from '@/ui/form';
 import { amountText } from '@/ui/PositionRow';
 import { Txt } from '@/ui/Txt';
 import { calendarToday, inCurrency, pastDate, termEventOf, termsOf } from './termsHelpers';
+import { useRequestId } from './useRequestId';
 
 export const unitText = (amount: number, unit: string) => (unit === 'EUR' ? `€${amountText(amount)}` : unit === 'USD' ? `$${amountText(amount)}` : `${amountText(amount)} ${unit}`);
 
@@ -20,15 +20,6 @@ export type NewEvent = {
 };
 
 const WITHIN_HALF_A_CENT = 0.005;
-
-/** One request id for one set of inputs: the same inputs give the same id, and any change gives a new one. */
-function useRequestId(key: string, prefix: string): string {
-  const [held, setHeld] = useState(() => ({ key, id: newMutationId(prefix) }));
-  if (held.key === key) return held.id;
-  const next = { key, id: newMutationId(prefix) };
-  setHeld(next);
-  return next.id;
-}
 
 /** A payment, more borrowed or lent, interest added to the loan, or a note, on one of this party's debts. */
 export function PaymentForm({ party, events, now, onSave, onCancel }: { party: Party; events: DebtEvent[]; now: number; onSave: (e: NewEvent) => Promise<unknown> | void; onCancel: () => void }) {
@@ -54,10 +45,10 @@ export function PaymentForm({ party, events, now, onSave, onCancel }: { party: P
 
   // Interest worked out from this debt's terms. It is only offered to be added to the loan when the
   // history and the saved balance agree, because otherwise the figure cannot be trusted.
-  const interest = (() => {
-    if (!record?.loan || !inCurrency(record.loan)) return null;
-    return accrual(termsOf(record.loan), events.filter((e) => e.subject === record.subject).map(termEventOf), record.loan.balance, calendarToday(now));
-  })();
+  const today = calendarToday(now);
+  const loanTerms = record?.loan && inCurrency(record.loan) ? termsOf(record.loan) : null;
+  const history = record ? events.filter((e) => e.subject === record.subject).map(termEventOf) : [];
+  const interest = loanTerms && record?.loan ? accrual(loanTerms, history, record.loan.balance, today) : null;
   const interestOwed = interest?.status === 'ok' && interest.reconciles && interest.owed > WITHIN_HALF_A_CENT ? interest.owed : null;
   const disagrees = interest?.status === 'ok' && !interest.reconciles;
 
@@ -67,7 +58,9 @@ export function PaymentForm({ party, events, now, onSave, onCancel }: { party: P
   // A kind that stops being offered (another debt picked, or its interest settled) falls back to the first.
   const kind = kinds.some(([k]) => k === kindChoice) ? kindChoice : kinds[0][0];
 
-  const qty = parseAmount(amount);
+  // Kept to cents, or eight decimals for a coin, rounded half up as the server rounds, so what is checked here is what is saved.
+  const typed = parseAmount(amount);
+  const qty = Number.isFinite(typed) ? roundDecimals(typed, isCoin ? 8 : 2) : typed;
   const at = pastDate(when, now);
   const isNote = kind === 'note';
   const canSplit = (kind === 'repaid' || kind === 'received') && !!unit;
@@ -78,7 +71,16 @@ export function PaymentForm({ party, events, now, onSave, onCancel }: { party: P
   const principalPart = principalText.trim() === '' ? rest : parseAmount(principalText);
   const splitIssue = splitOn && Number.isFinite(qty) && qty > 0 ? splitProblem(qty, { principal: principalPart, interest: interestPart, fees: feePart }, isCoin ? 8 : 2) : null;
   const partsReadable = !splitOn || [principalPart, interestPart, feePart].every(Number.isFinite);
-  const tooMuchInterest = kind === 'capitalized' && interestOwed !== null && Number.isFinite(qty) && qty > interestOwed + WITHIN_HALF_A_CENT;
+  // Interest added on an earlier date is checked against what was owed on that date, and against
+  // what is still owed today once it is added, the way the server checks it.
+  const adding = kind === 'capitalized' && interestOwed !== null && loanTerms !== null && at !== null;
+  const dated = at !== null && at !== today;
+  const addable = adding ? interestAddable(loanTerms!, history, at!, today) : null;
+  const addIssue = adding && Number.isFinite(qty) && qty > 0 ? interestAddProblem(loanTerms!, history, qty, at!, today) : null;
+  const tooMuchInterest = addIssue !== null;
+  const addIssueText = addIssue !== null && addable !== null && qty > addable + WITHIN_HALF_A_CENT
+    ? `That is more than the interest ${dated ? 'that can be added on that date' : 'owed so far'}, ${unitText(addable, unit)}.`
+    : addIssue;
   const ok = !!record && at !== null && (isNote ? note.trim() !== '' : Number.isFinite(qty) && qty > 0) && !splitIssue && partsReadable && !tooMuchInterest;
 
   // The same inputs keep the same id, so a second tap counts once; changing anything starts a new one.
@@ -109,14 +111,14 @@ export function PaymentForm({ party, events, now, onSave, onCancel }: { party: P
       {records.length > 1 && <Seg label="Which debt" options={records.map((r) => [r.subject, r.amount] as [string, string])} value={subject} onChange={setSubject} />}
       <Seg label="What happened" options={kinds} value={kind} onChange={setKindChoice} />
       {disagrees && byYou && <Txt v="small" c="warn">The history and the balance of this debt disagree, so interest can’t be added to it yet. Add the missing payments to the history first.</Txt>}
-      {kind === 'capitalized' && <Txt v="small" c="ink3">Unpaid interest becomes part of the amount owed, and counts as interest settled. Interest owed so far: {interestOwed === null ? '—' : unitText(interestOwed, unit)}.</Txt>}
+      {kind === 'capitalized' && <Txt v="small" c="ink3">Unpaid interest becomes part of the amount owed, and counts as interest settled. {dated ? 'Interest that can be added on that date' : 'Interest owed so far'}: {addable === null ? '—' : unitText(addable, unit)}.</Txt>}
       {!isNote && <Field label={amountLabel} numeric value={amount} onChangeText={setAmount} />}
-      {kind === 'capitalized' && interestOwed !== null && amount.trim() === '' && (
-        <Pressable onPress={() => setAmount(String(interestOwed))} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
-          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Use {unitText(interestOwed, unit)}</Txt>
+      {kind === 'capitalized' && addable !== null && addable > WITHIN_HALF_A_CENT && amount.trim() === '' && (
+        <Pressable onPress={() => setAmount(String(addable))} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
+          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Use {unitText(addable, unit)}</Txt>
         </Pressable>
       )}
-      {tooMuchInterest && <Txt v="small" c="warn" accessibilityRole="alert">That is more than the interest owed so far, {unitText(interestOwed ?? 0, unit)}.</Txt>}
+      {addIssueText !== null && <Txt v="small" c="warn" accessibilityRole="alert">{addIssueText}</Txt>}
       {canSplit && (
         <Pressable onPress={() => setSplit((x) => !x)} accessibilityRole="switch" aria-checked={split} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: split ? c.ink : c.ink3, backgroundColor: split ? c.ink : 'transparent', alignItems: 'center', justifyContent: 'center' }}>

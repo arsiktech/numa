@@ -7,14 +7,15 @@ import { LoanTermsCard, LoanTermsForm, hasTerms, laterDate, pastDate } from './L
 import { simulateZone } from './testZone';
 
 let mockHidden = false;
-const mockSave = jest.fn(async () => undefined);
-const mockAdd = jest.fn(async (_e: unknown) => 'event-1');
+const mockSave = jest.fn(async (..._args: unknown[]) => undefined);
+/** The history note saved with the last terms write, if any. */
+const savedNote = () => (mockSave.mock.calls.at(-1)?.[2] as { note?: { text: string } } | undefined)?.note?.text;
 const mockToast = jest.fn();
 jest.mock('@/ui/money', () => ({ useMoney: () => ({ mask: (t: string) => (mockHidden ? t.replace(/[0-9]/g, '•') : t), hidden: mockHidden }) }));
 jest.mock('@/theme/theme', () => ({ useTheme: () => ({ c: { bg: '#000', ink: '#fff', ink2: '#aaa', ink3: '#777', s1: '#111', s2: '#222', line2: '#444', down: '#f55', warn: '#fa0' } }) }));
 jest.mock('@/theme/webFont', () => ({ webFont: (f: string) => f }));
 jest.mock('@/ui/Toast', () => ({ useToast: () => mockToast }));
-jest.mock('./useMoneyMap', () => ({ useTermsWrite: () => mockSave, useDebtWrites: () => ({ add: mockAdd }), eventErrorText: (e: unknown) => `error: ${String(e)}` }));
+jest.mock('./useMoneyMap', () => ({ useTermsWrite: () => mockSave, eventErrorText: (e: unknown) => `error: ${String(e)}` }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -27,7 +28,7 @@ const loan = (over: Partial<CloudLiability> = {}): CloudLiability => ({
 const event = (over: Partial<DebtEvent>): DebtEvent => ({ id: 'e', subject: 'liability:l1', kind: 'repaid', amount: null, unit: 'EUR', applied: true, occurredAt: day(2026, 8, 15), note: null, ...over });
 
 let tree: TestRenderer.ReactTestRenderer | undefined;
-afterEach(() => { jest.restoreAllMocks(); if (tree) act(() => tree?.unmount()); tree = undefined; mockHidden = false; mockSave.mockClear(); mockToast.mockClear(); mockAdd.mockClear(); });
+afterEach(() => { jest.restoreAllMocks(); if (tree) act(() => tree?.unmount()); tree = undefined; mockHidden = false; mockSave.mockClear(); mockToast.mockClear(); });
 type Json = TestRenderer.ReactTestRendererJSON | string;
 const flat = (n: Json | Json[] | null): string => (n === null ? '' : typeof n === 'string' ? n : Array.isArray(n) ? n.map(flat).join('') : (n.children ?? []).map(flat).join(''));
 /** Everything shown, with text split across nodes joined back together. */
@@ -166,7 +167,7 @@ describe('LoanTermsForm', () => {
     await act(async () => { await save().props.onPress(); });
     expect(mockSave).not.toHaveBeenCalled();
     await act(async () => { await confirm().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { interestRate: 9 });
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestRate: 9 }, expect.anything());
     expect(mockToast).toHaveBeenCalledWith({ text: 'Terms saved' });
     expect(onDone).toHaveBeenCalled();
   });
@@ -188,15 +189,15 @@ describe('LoanTermsForm', () => {
     type('Started (like 2026-07-01 or Jul 2026)', '2026-07-01');
     await act(async () => { await save().props.onPress(); });
     // The card reads these kinds, so without them it would say "Interest: Not set" and work out nothing. The date itself is not sent.
-    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'fixed', interestTerms: 'simple', interestRate: 8 });
-    expect(mockAdd).not.toHaveBeenCalled();
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'fixed', interestTerms: 'simple', interestRate: 8 }, expect.anything());
+    expect(savedNote()).toBeUndefined();
   });
 
   it('repairs a loan saved with an original amount and a start date but no interest kind, with nothing else to change', async () => {
     const stuck = loan({ dueKind: null, interestTerms: null, interestRate: 8 });
     render(<LoanTermsForm events={[]} portfolioId="pf" loan={stuck} now={NOW} onDone={() => undefined} />);
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'simple', interestRate: 8 });
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'simple', interestRate: 8 }, expect.anything());
     expect(mockToast).not.toHaveBeenCalledWith({ text: 'Nothing changed' });
   });
 
@@ -204,7 +205,7 @@ describe('LoanTermsForm', () => {
     const legacy = loan({ dueKind: null, interestTerms: 'simple', dueDate: day(2026, 12, 20) });
     render(<LoanTermsForm events={[]} portfolioId="pf" loan={legacy} now={NOW} onDone={() => undefined} />);
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: 'fixed' });
+    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: 'fixed' }, expect.anything());
   });
 
   it('takes the saved repayment date away when Repayment is set to Not set or to Flexible', async () => {
@@ -212,18 +213,18 @@ describe('LoanTermsForm', () => {
     render(<LoanTermsForm events={[]} portfolioId="pf" loan={fixed} now={NOW} onDone={() => undefined} />);
     act(() => radio('Repayment', 'Not set').props.onPress());
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: null, dueDate: null });
+    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: null, dueDate: null }, expect.anything());
     mockSave.mockClear();
     act(() => radio('Repayment', 'Flexible').props.onPress());
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: 'flexible', dueDate: null });
+    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: 'flexible', dueDate: null }, expect.anything());
   });
 
   it('sends no date for Not set on a loan that had none', async () => {
     render(<LoanTermsForm events={[]} portfolioId="pf" loan={loan({ dueKind: 'flexible' })} now={NOW} onDone={() => undefined} />);
     act(() => radio('Repayment', 'Not set').props.onPress());
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: null });
+    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: null }, expect.anything());
   });
 
   it('starts a rate on a mortgage, a card or a coin debt as manual, and saves it', async () => {
@@ -232,24 +233,24 @@ describe('LoanTermsForm', () => {
     expect(text()).not.toContain('Simple interest needs');
     expect(save().props.disabled).toBe(false);
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'manual' });
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'manual' }, expect.anything());
     act(() => tree!.unmount());
     mockSave.mockClear();
     const coin = loan({ owedSymbol: 'BTC', owedQuantity: 0.4, principal: null, startedAt: null, dueKind: null, interestTerms: null, interestRate: 3.5 });
     render(<LoanTermsForm events={[]} portfolioId="pf" loan={coin} now={NOW} onDone={() => undefined} />);
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'manual' });
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'manual' }, expect.anything());
   });
 
   it('reads a decimal comma in the original amount, not as thousands', async () => {
     render(<LoanTermsForm events={[]} portfolioId="pf" loan={loan({ principal: null, startedAt: null, interestTerms: null, interestRate: null, dueKind: null })} now={NOW} onDone={() => undefined} />);
     type('Original amount in EUR', '1234,50');
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 1_234.5 });
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 1_234.5 }, expect.anything());
     mockSave.mockClear();
     type('Original amount in EUR', '5,000');
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 5_000 });
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 5_000 }, expect.anything());
   });
 
   it('clears a field only when you empty it', async () => {
@@ -259,7 +260,7 @@ describe('LoanTermsForm', () => {
     act(() => radio('Interest', 'None').props.onPress());
     await act(async () => { await save().props.onPress(); });
     await act(async () => { await confirm().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { principal: null, interestTerms: 'none', interestRate: null });
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: null, interestTerms: 'none', interestRate: null }, expect.anything());
   });
 
   it('offers no simple interest on a mortgage or a card, and says why', () => {
@@ -276,7 +277,7 @@ describe('LoanTermsForm', () => {
     render(<LoanTermsForm events={[]} portfolioId="pf" loan={coinLoan} now={NOW} onDone={() => undefined} />);
     act(() => radio('Interest', 'Manual').props.onPress());
     await act(async () => { await save().props.onPress(); });
-    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'manual' });
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'manual' }, expect.anything());
   });
 
   it('shows the server’s reason and stays open when saving fails', async () => {
@@ -355,10 +356,16 @@ describe('LoanTermsForm: changes that recalculate past interest', () => {
     expect(mockSave).not.toHaveBeenCalled();
     expect(text()).toContain('accrued so far goes from €399.99 to €500.01');
     await press('Confirm change');
-    expect(mockSave).toHaveBeenCalledWith('l1', { interestRate: 10 });
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ subject: 'liability:l1', kind: 'note', note: 'Rate changed from 8% to 10%', apply: false }));
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestRate: 10 }, expect.anything());
+    expect(savedNote()).toBe('Rate changed from 8% to 10%');
     expect(mockToast).toHaveBeenCalledWith({ text: 'Terms saved' });
     expect(onDone).toHaveBeenCalled();
+  });
+
+  it('opens on a loan whose repayment date is too far out for a calendar, instead of failing', () => {
+    open(loan({ dueKind: 'fixed', dueDate: 9e15 }));
+    expect(text()).toContain('Repay by');
+    expect(field('Repay by (like 2026-12-20)').props.value).toBe('');
   });
 
   it('lets you keep editing, and asks again after any further change', async () => {
@@ -382,7 +389,7 @@ describe('LoanTermsForm: changes that recalculate past interest', () => {
     type('Started (like 2026-07-01 or Jul 2026)', '2026-08-01');
     await press('Save terms');
     await press('Confirm change');
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ note: 'Rate changed from 8% to 10%. Start date changed from 1 Jul to 1 Aug' }));
+    expect(savedNote()).toBe('Rate changed from 8% to 10%. Start date changed from 1 Jul to 1 Aug');
   });
 
   it('says interest will no longer be worked out when you switch it off, and notes that too', async () => {
@@ -391,23 +398,23 @@ describe('LoanTermsForm: changes that recalculate past interest', () => {
     await press('Save terms');
     expect(text()).toContain('Interest will no longer be worked out. So far it was €399.99.');
     await press('Confirm change');
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ note: 'Interest changed from simple to none' }));
+    expect(savedNote()).toBe('Interest changed from simple to none');
   });
 
   it('does not ask, or write a note, for a first-time setup or a change that moves no interest', async () => {
     open(loan({ principal: null, startedAt: null, interestTerms: null, interestRate: null, dueKind: null }));
     type('Original amount in EUR', '5000');
     await press('Save terms');
-    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 5_000 });
-    expect(mockAdd).not.toHaveBeenCalled();
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 5_000 }, expect.anything());
+    expect(savedNote()).toBeUndefined();
   });
 
   it('does not ask for a change to the due day, which moves no figure', async () => {
     open();
     type('Interest due on day (1 to 28, optional)', '10');
     await press('Save terms');
-    expect(mockSave).toHaveBeenCalledWith('l1', { interestDueDay: 10 });
-    expect(mockAdd).not.toHaveBeenCalled();
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestDueDay: 10 }, expect.anything());
+    expect(savedNote()).toBeUndefined();
   });
 
   it('refuses a due day outside 1 to 28 and shows the field only for simple interest', () => {
@@ -419,16 +426,28 @@ describe('LoanTermsForm: changes that recalculate past interest', () => {
     expect(tree!.root.findAll((n) => n.props.accessibilityLabel === 'Interest due on day (1 to 28, optional)')).toHaveLength(0);
   });
 
-  it('keeps the terms saved and says so when only the note could not be added', async () => {
-    mockAdd.mockRejectedValueOnce(new Error('offline'));
-    const onDone = jest.fn();
-    open(loan(), onDone);
+  it('saves the note in the same write as the terms, so a saved change is never missing from the history', async () => {
+    open();
     type('Yearly rate in percent', '10');
     await press('Save terms');
     await press('Confirm change');
-    expect(mockSave).toHaveBeenCalled();
-    expect(mockToast).toHaveBeenCalledWith({ text: 'Terms saved. The note about the change couldn’t be added to the history.' });
-    expect(onDone).toHaveBeenCalled();
+    expect(mockSave).toHaveBeenCalledTimes(1);
+    expect(mockSave.mock.calls[0][2]).toEqual({ clientMutationId: expect.any(String), note: { text: 'Rate changed from 8% to 10%', occurredAt: Date.UTC(2026, 9, 24, 12) } });
+  });
+
+  it('sends one write for a double tap, and the same request id when the same change is tried again', async () => {
+    let finish: () => void = () => undefined;
+    mockSave.mockImplementationOnce(() => new Promise<undefined>((resolve) => { finish = () => resolve(undefined); }));
+    open(loan({ principal: null, startedAt: null, interestTerms: null, interestRate: null, dueKind: null }));
+    type('Original amount in EUR', '5000');
+    await act(async () => { void button('Save terms').props.onPress(); void button('Save terms').props.onPress(); });
+    expect(mockSave).toHaveBeenCalledTimes(1);
+    await act(async () => { finish(); });
+    const first = (mockSave.mock.calls[0][2] as { clientMutationId: string }).clientMutationId;
+    type('Original amount in EUR', '6000');
+    type('Original amount in EUR', '5000');
+    await press('Save terms');
+    expect((mockSave.mock.calls[1][2] as { clientMutationId: string }).clientMutationId).toBe(first);
   });
 
   it('asks again and stays open when the server refuses the change', async () => {
@@ -439,7 +458,6 @@ describe('LoanTermsForm: changes that recalculate past interest', () => {
     await press('Save terms');
     await press('Confirm change');
     expect(mockToast).toHaveBeenCalledWith({ text: 'error: Error: nope' });
-    expect(mockAdd).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
   });
 });

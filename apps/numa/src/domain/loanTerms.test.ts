@@ -1,4 +1,4 @@
-import { accrual, addMonths, dayOf, dueDateFor, isOverdue, paidTotals, parseAmount, principalAt, roundDecimals, splitProblem, type LoanTerms, type TermEvent } from './loanTerms';
+import { accrual, addMonths, dayOf, dueDateFor, isOverdue, monthInterest, paidTotals, parseAmount, principalAt, roundDecimals, splitProblem, type LoanTerms, type TermEvent } from './loanTerms';
 
 const day = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d, 12);
 const terms = (over: Partial<LoanTerms> = {}): LoanTerms => ({ principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'flexible', interestTerms: 'simple', interestRate: 8, dueDate: null, ...over });
@@ -110,6 +110,11 @@ describe('splitProblem', () => {
     expect(splitProblem(1_000, { principal: -1, interest: 1_001, fees: 0 })).toBe('Each part must be zero or more.');
     expect(splitProblem(1_000, { principal: NaN, interest: 0, fees: 0 })).toBe('Each part must be zero or more.');
   });
+
+  it('rounds each part half up as written, as the server does', () => {
+    // 1.005 is stored as 1.01, so a principal of 1.01 is the whole payment.
+    expect(splitProblem(1.005, { principal: 1.01, interest: 0, fees: 0 })).toBeNull();
+  });
 });
 
 describe('dates are compared by calendar day, not by the minute', () => {
@@ -157,6 +162,23 @@ describe('principal never goes below zero', () => {
     // July starts on 1,000 (10.00); August and September start on nothing owed (0.00 each), not on −400.
     expect(accrual(loan, events, 0, NOW)).toMatchObject({ status: 'ok', accrued: 10, historyPrincipal: 0 });
   });
+
+  it('clamps at the overpayment, in date order, so money borrowed later starts from zero', () => {
+    const loan = terms({ principal: 1_200, interestRate: 12, startedAt: day(2026, 1, 1) });
+    // Listed out of order on purpose: the 500 was borrowed after the overpayment.
+    const events = [ev({ kind: 'borrowed', amount: 500, occurredAt: day(2026, 2, 10) }), ev({ kind: 'repaid', amount: 1_400, occurredAt: day(2026, 1, 20) })];
+    expect(principalAt(loan, events, day(2026, 3, 1))).toBe(500);
+  });
+});
+
+describe('monthInterest', () => {
+  it('rounds an exact half cent up, whatever binary floating point makes of the product', () => {
+    expect(monthInterest(23_758, 9)).toBe(178.19);
+    expect(monthInterest(26_925.6, 12.5)).toBe(280.48);
+    // Exactly 5.675 and 2.805, which plain division by 1200 still reads as just under the half.
+    expect(monthInterest(544.8, 12.5)).toBe(5.68);
+    expect(monthInterest(269.28, 12.5)).toBe(2.81);
+  });
 });
 
 describe('rounding is half up on the digits as written', () => {
@@ -187,6 +209,11 @@ describe('parseAmount', () => {
     expect(parseAmount('1,234,567')).toBe(1_234_567);
     expect(parseAmount('1234,50')).toBe(1_234.5);
     expect(parseAmount('0,5')).toBe(0.5);
+    // A thousands group never follows a leading 0, so these are decimal commas, as typed for a coin.
+    expect(parseAmount('0,125')).toBe(0.125);
+    expect(parseAmount('0,001')).toBe(0.001);
+    expect(parseAmount('0,500')).toBe(0.5);
+    expect(parseAmount('1,234,567.89')).toBe(1_234_567.89);
     expect(parseAmount('12.5')).toBe(12.5);
     expect(parseAmount('1,234.56')).toBe(1_234.56);
     expect(parseAmount(' 20000 ')).toBe(20_000);

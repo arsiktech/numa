@@ -5,6 +5,7 @@ import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanParty, cl
 import type { Doc } from "../_generated/dataModel";
 import { majorUnits, minorUnits } from "./finance";
 import { withMutationReceipt } from "./mutationReceipts";
+import { assertTermsAfterPatch, validDueDate } from "./loanTerms";
 import { refreshQuoteSoon } from "./quoteRefresh";
 import { isCryptoSymbol } from "./marketQuoteProviders";
 import { withAiAuditConfirmation } from "./aiAudit";
@@ -311,6 +312,7 @@ const upsertLiability = mutation({
     const { userId } = await requireEditor(ctx, args.portfolioId);
     const owed = owedInKind(args.owedSymbol, args.owedQuantity);
     const party = cleanParty("counterparty", args.counterparty);
+    if (typeof args.dueDate === "number" && !validDueDate(args.dueDate, Date.now())) throw new ConvexError({ code: "INVALID_INPUT", message: "The due date isn’t a valid date" });
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertLiability", async () => {
       // A debt owed in an asset is worth that asset at today's price; without a price yet, the
       // amount the caller sent stands until one arrives.
@@ -345,7 +347,10 @@ const upsertLiability = mutation({
         // cannot lose it. Asking for it to be cleared (null) does clear it, and the loan is no longer fixed.
         const keepDate = args.dueDate === undefined && existing.dueKind === "fixed" && existing.dueDate !== undefined;
         const clearsFixed = args.dueDate === null && existing.dueKind === "fixed";
-        await ctx.db.patch(args.id, keepDate ? { ...patch, dueDate: existing.dueDate } : clearsFixed ? { ...patch, dueKind: undefined } : patch);
+        const final = keepDate ? { ...patch, dueDate: existing.dueDate } : clearsFixed ? { ...patch, dueKind: undefined } : patch;
+        // A kind, currency or rate changed here must still fit the loan terms, as the terms form would require.
+        assertTermsAfterPatch(existing, final);
+        await ctx.db.patch(args.id, final);
         if (owed?.owedSymbol) await refreshQuoteSoon(ctx, owed.owedSymbol);
         return args.id;
       }

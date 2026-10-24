@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import type { CloudLiability } from '@/cloud/api';
 import type { DebtEvent } from '@/data/moneyMap';
-import { shortDay } from '@/domain/freshness';
+
 import { accrual, isOverdue, paidTotals, parseAmount, type LoanTerms } from '@/domain/loanTerms';
 import { formatMoney } from '@/domain/money';
 import { useTheme } from '@/theme/theme';
@@ -12,8 +12,9 @@ import { useMoney } from '@/ui/money';
 import { amountText } from '@/ui/PositionRow';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
-import { calendarToday, hasTerms, inCurrency, laterDate, pastDate, termEventOf, termsOf, unitOf } from './termsHelpers';
-import { eventErrorText, useDebtWrites, useTermsWrite } from './useMoneyMap';
+import { calendarToday, dayText, hasTerms, inCurrency, laterDate, pastDate, termEventOf, termsOf, unitOf } from './termsHelpers';
+import { useRequestId } from './useRequestId';
+import { eventErrorText, useTermsWrite } from './useMoneyMap';
 
 export { hasTerms, inCurrency, laterDate, pastDate, termEventOf, termsOf, unitOf } from './termsHelpers';
 
@@ -56,8 +57,8 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
       <Txt v="cardTitle" accessibilityRole="header" style={{ marginBottom: 4 }}>{loan.name} · terms</Txt>
       {terms.principal !== null && !coin && <Row label="Original amount" value={money(terms.principal)} />}
       <Row label="Still owed (principal)" value={owedNow} />
-      {terms.startedAt !== null && <Row label="Started" value={shortDay(terms.startedAt, now)} />}
-      {terms.dueKind === 'fixed' && terms.dueDate !== null && <Row label="Repay by" value={`${shortDay(terms.dueDate, now)}${overdue ? ' · overdue' : ''}`} tone={overdue ? 'down' : undefined} />}
+      {terms.startedAt !== null && <Row label="Started" value={dayText(terms.startedAt, now)} />}
+      {terms.dueKind === 'fixed' && terms.dueDate !== null && <Row label="Repay by" value={`${dayText(terms.dueDate, now)}${overdue ? ' · overdue' : ''}`} tone={overdue ? 'down' : undefined} />}
       {terms.dueKind === 'flexible' && <Row label="Repay by" value="No fixed date" />}
       <Row label="Interest" value={interest} />
       {a.status === 'ok' && (
@@ -67,8 +68,8 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
           <Row label={a.owed < 0 ? 'Interest paid ahead' : 'Interest owed'} value={money(Math.abs(a.owed))} tone={a.owed > 0 ? 'warn' : undefined} />
           <Row label="Running month so far (estimate)" value={money(a.running)} />
           {a.dueAt !== null
-            ? <Row label={a.overdue ? 'Interest overdue since' : 'Next interest due'} value={shortDay(a.dueAt, now)} tone={a.overdue ? 'down' : undefined} />
-            : <Row label="Next month completes" value={shortDay(a.nextAccrualAt, now)} />}
+            ? <Row label={a.overdue ? 'Interest overdue since' : 'Next interest due'} value={dayText(a.dueAt, now)} tone={a.overdue ? 'down' : undefined} />
+            : <Row label="Next month completes" value={dayText(a.nextAccrualAt, now)} />}
         </>
       )}
       {a.status === 'incomplete' && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>Add {a.missing} to work out interest.</Txt>}
@@ -86,7 +87,8 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
   );
 }
 
-const dateText = (at: number | null) => (at === null ? '' : new Date(at).toISOString().slice(0, 10));
+// A date too far out for a calendar (sent straight to the server, say) shows as empty, not as a crash.
+const dateText = (at: number | null) => (at === null || !Number.isFinite(new Date(at).getTime()) ? '' : new Date(at).toISOString().slice(0, 10));
 type Changes = { principal?: number | null; startedAt?: number | null; dueKind?: 'fixed' | 'flexible' | null; interestTerms?: 'none' | 'simple' | 'manual' | null; interestRate?: number | null; interestDueDay?: number | null; dueDate?: number | null };
 const REPRICES = ['principal', 'startedAt', 'interestRate', 'interestTerms'] as const;
 
@@ -96,11 +98,10 @@ const REPRICES = ['principal', 'startedAt', 'interestRate', 'interestTerms'] as 
  * start date or the original amount of a loan with history recalculates its past interest, so the
  * form shows the difference first, asks you to confirm, and leaves a note in the history.
  */
-export function LoanTermsForm({ loan, events, portfolioId, now, onDone }: { loan: CloudLiability; events: DebtEvent[]; portfolioId: string; now: number; onDone: () => void }) {
+export function LoanTermsForm({ loan, events, now, onDone }: { loan: CloudLiability; events: DebtEvent[]; portfolioId: string; now: number; onDone: () => void }) {
   const { c } = useTheme();
   const toast = useToast();
   const save = useTermsWrite();
-  const writes = useDebtWrites(portfolioId);
   const t = termsOf(loan);
   const coin = !inCurrency(loan);
   const noSimple = loan.kind === 'mortgage' || loan.kind === 'credit_card';
@@ -182,6 +183,9 @@ export function LoanTermsForm({ loan, events, portfolioId, now, onDone }: { loan
     return `This recalculates the interest for months that have already passed: accrued so far goes from ${money(before.accrued)} to ${money(after.accrued)}. Check it against what you have already paid.`;
   })();
   const awaiting = repricing !== null && confirmedKey === changesKey;
+  // A synchronous guard against a double tap, and one request id per set of changes, so a retry counts once.
+  const inFlight = useRef(false);
+  const requestId = useRequestId(changesKey, 'numa.loanTerms');
 
   // A line for the history, so a change to terms that already existed is never silent.
   function noteOf(): string | null {
@@ -190,28 +194,27 @@ export function LoanTermsForm({ loan, events, portfolioId, now, onDone }: { loan
     const stillSimple = changes.interestTerms === undefined || changes.interestTerms === 'simple';
     if (stillSimple && changes.interestRate !== undefined && t.interestRate !== null && changes.interestRate !== t.interestRate) parts.push(`Rate changed from ${percent(t.interestRate)} to ${changes.interestRate === null ? 'none' : percent(changes.interestRate)}`);
     if (changes.principal !== undefined && t.principal !== null && changes.principal !== t.principal) parts.push(`Original amount changed from ${money(t.principal)} to ${changes.principal === null ? 'none' : money(changes.principal)}`);
-    if (changes.startedAt !== undefined && t.startedAt !== null && changes.startedAt !== t.startedAt) parts.push(`Start date changed from ${shortDay(t.startedAt, now)} to ${changes.startedAt === null ? 'none' : shortDay(changes.startedAt, now)}`);
+    if (changes.startedAt !== undefined && t.startedAt !== null && changes.startedAt !== t.startedAt) parts.push(`Start date changed from ${dayText(t.startedAt, now)} to ${changes.startedAt === null ? 'none' : dayText(changes.startedAt, now)}`);
     if (changes.interestTerms !== undefined && t.interestTerms !== null && changes.interestTerms !== t.interestTerms) parts.push(`Interest changed from ${t.interestTerms} to ${changes.interestTerms ?? 'not set'}`);
     const text = parts.join('. ');
     return text ? text.slice(0, 140) : null;
   }
 
   async function submit() {
-    if (problem || busy) return;
+    if (problem || busy || inFlight.current) return;
     if (nothing) { toast({ text: 'Nothing changed' }); onDone(); return; }
     if (repricing !== null && !awaiting) { setConfirmedKey(changesKey); return; }
+    inFlight.current = true;
     setBusy(true);
     try {
-      try { await save(loan.id, changes); }
-      catch (e) { toast({ text: eventErrorText(e) }); return; }
+      // The note goes in the same write as the terms, so the history never misses a change that was saved.
       const note = noteOf();
-      if (note) {
-        try { await writes.add({ subject: `liability:${loan.id}`, kind: 'note', occurredAt: Date.now(), note, apply: false }); }
-        catch { toast({ text: 'Terms saved. The note about the change couldn’t be added to the history.' }); onDone(); return; }
-      }
+      try { await save(loan.id, changes, { clientMutationId: requestId, ...(note ? { note: { text: note, occurredAt: calendarToday(now) } } : {}) }); }
+      catch (e) { toast({ text: eventErrorText(e) }); return; }
       toast({ text: 'Terms saved' });
       onDone();
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }

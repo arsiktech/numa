@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireEditor, requireMember } from "./lib/access";
-import { interestOwed } from "./lib/loanAccrual";
+import { interestAddProblem } from "./lib/loanAccrual";
 import { cleanSplit, roundAmount } from "./lib/loanTerms";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 
@@ -55,21 +55,19 @@ function assertUnit(record: Record, unit: string) {
 }
 
 /**
- * Interest added to the principal can be no more than the interest owed so far, worked out from the
- * terms and this debt's history. Added interest settles the oldest months, so a second add of the
- * same interest, from another phone or another call, finds nothing left and is refused. The
- * server has no time zone to go by, and the app counts the phone's own calendar day, which can be a
- * day and a few hours ahead of the server's clock. So it counts a month that completes within the
- * next two days: the most it can allow beyond what the app showed.
+ * Interest added to the principal can be no more than was owed on its date, worked out from the terms
+ * and this debt's history up to it, and adding it must not leave today's total owed below zero.
+ * Added interest settles the oldest months, so a second add of the same interest, from another phone,
+ * another call or an earlier date, finds nothing left and is refused. The server has no time zone to
+ * go by, and the app counts the phone's own calendar day, which can be a day and a few hours ahead of
+ * the server's clock. So today counts a month that completes within the next two days: the most it can
+ * allow beyond what the app showed.
  */
-async function assertWithinInterestOwed(ctx: MutationCtx, loan: Doc<"liabilities">, portfolioId: Id<"portfolios">, subject: string, amount: number) {
+async function assertWithinInterestOwed(ctx: MutationCtx, loan: Doc<"liabilities">, portfolioId: Id<"portfolios">, subject: string, amount: number, at: number) {
+  if (loan.principal === undefined || loan.startedAt === undefined || !loan.interestRate) throw bad("There is no unpaid interest to add yet");
   const history = await ctx.db.query("debtEvents").withIndex("by_subject", (q) => q.eq("portfolioId", portfolioId).eq("subject", subject)).collect();
-  const worked = loan.principal !== undefined && loan.startedAt !== undefined && loan.interestRate
-    ? interestOwed({ principal: loan.principal, startedAt: loan.startedAt, interestRate: loan.interestRate }, history, Date.now() + 2 * DAY)
-    : null;
-  const owed = worked ? Math.max(0, worked.owed) : 0;
-  if (!(owed > 0.005)) throw bad("There is no unpaid interest to add yet");
-  if (amount > owed + 0.005) throw bad(`That is more than the interest owed so far, ${owed.toFixed(2)} ${loan.currency}`);
+  const problem = interestAddProblem({ principal: loan.principal, startedAt: loan.startedAt, interestRate: loan.interestRate }, history, amount, at, Date.now() + 2 * DAY);
+  if (problem) throw bad(problem.startsWith("That is more") ? `${problem} ${loan.currency}` : problem);
 }
 
 /**
@@ -152,7 +150,7 @@ export const add = mutation({
     const split = hasAmount ? cleanSplit(amount!, unit!, { principalPart: args.principalPart, interestPart: args.interestPart, feePart: args.feePart }) : null;
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "debtEvents.add", async (): Promise<Id<"debtEvents">> => {
       // Checked inside the receipt, so a replay of an add that already went through returns that add and is not refused for having used up the interest.
-      if (args.kind === "capitalized" && record.table === "liabilities") await assertWithinInterestOwed(ctx, record.doc, args.portfolioId, args.subject, amount!);
+      if (args.kind === "capitalized" && record.table === "liabilities") await assertWithinInterestOwed(ctx, record.doc, args.portfolioId, args.subject, amount!, args.occurredAt);
       const balanceAmount = split ? split.principalPart : amount!;
       if (args.apply && hasAmount && balanceAmount > 0) await applyTo(ctx, record, args.kind, balanceAmount, unit!, 1);
       return await ctx.db.insert("debtEvents", {

@@ -261,7 +261,7 @@ export const cloud = {
   loanLinks: makeFunctionReference<'query', { portfolioId: string }, CloudLoanLink[]>('loanLinks:listForPortfolio'),
   debtEvents: makeFunctionReference<'query', { portfolioId: string }, DebtEvent[]>('debtEvents:listForPortfolio'),
   addDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; subject: string; kind: DebtEvent['kind']; amount?: number; unit?: string; principalPart?: number; interestPart?: number; feePart?: number; occurredAt: number; note?: string; apply: boolean }>, Receipt>('debtEvents:add'),
-  setLoanTerms: makeFunctionReference<'mutation', WithReceipt<{ id: string; principal?: number | null; startedAt?: number | null; dueKind?: 'fixed' | 'flexible' | null; interestTerms?: 'none' | 'simple' | 'manual' | null; interestRate?: number | null; interestDueDay?: number | null; dueDate?: number | null }>, Receipt>('liabilities:setTerms'),
+  setLoanTerms: makeFunctionReference<'mutation', WithReceipt<{ id: string; principal?: number | null; startedAt?: number | null; dueKind?: 'fixed' | 'flexible' | null; interestTerms?: 'none' | 'simple' | 'manual' | null; interestRate?: number | null; interestDueDay?: number | null; dueDate?: number | null; note?: { text: string; occurredAt: number } }>, Receipt>('liabilities:setTerms'),
   removeDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt | null>('debtEvents:remove'),
   portalSources: makeFunctionReference<'query', { portfolioId: string }, PortalSource[]>('liabilitySources:listForPortfolio'),
   followPortal: makeFunctionReference<'mutation', { liabilityId: string; url: string; key?: string }, { id: string }>('liabilitySources:connect'),

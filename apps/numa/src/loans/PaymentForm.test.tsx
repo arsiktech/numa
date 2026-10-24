@@ -80,6 +80,17 @@ describe('saving once', () => {
     await pressSave();
     expect(sentBy(onSave, 2).clientMutationId).not.toBe(sentBy(onSave, 0).clientMutationId);
   });
+
+  it('sends the first id again after editing and changing back, so retyping the same payment counts once', async () => {
+    const onSave = jest.fn(async () => false);
+    render(party(liability()), onSave);
+    type('Amount in EUR', '500');
+    await pressSave();
+    type('Amount in EUR', '600');
+    type('Amount in EUR', '500');
+    await pressSave();
+    expect(sentBy(onSave, 1).clientMutationId).toBe(sentBy(onSave, 0).clientMutationId);
+  });
 });
 
 describe('what is sent', () => {
@@ -218,6 +229,43 @@ describe('adding interest to the loan', () => {
     act(() => use.props.onPress());
     await pressSave();
     expect(sentBy(onSave, 0)).toMatchObject({ kind: 'capitalized', amount: 399.99, unit: 'EUR', apply: true });
+  });
+
+  it('rounds what you type to cents before checking it, as the server stores it', () => {
+    render(party(liability()), async () => true);
+    openCapitalize();
+    // 399.995 is stored as 400.00, a cent more than is owed.
+    type('Interest to add in EUR', '399.995');
+    expect(text()).toContain('more than the interest owed so far, €399.99');
+    expect(save().props.disabled).toBe(true);
+  });
+
+  it('caps interest added on an earlier date at what was owed on that date', async () => {
+    const onSave = jest.fn(async () => true);
+    render(party(liability()), onSave);
+    openCapitalize();
+    type(/^When/, '2026-08-20');
+    // Only the month to 1 Aug had completed by 20 Aug.
+    expect(text()).toContain('Interest that can be added on that date: €133.33');
+    type('Interest to add in EUR', '200');
+    expect(text()).toContain('more than the interest that can be added on that date, €133.33');
+    expect(save().props.disabled).toBe(true);
+    type('Interest to add in EUR', '');
+    act(() => tree!.root.findAll((n) => n.props.accessibilityRole === 'button' && textIn(n) === 'Use €133.33')[0].props.onPress());
+    await pressSave();
+    expect(sentBy(onSave, 0)).toMatchObject({ kind: 'capitalized', amount: 133.33, occurredAt: day(2026, 8, 20) });
+  });
+
+  it('does not add back-dated interest again once it has been paid since', () => {
+    // 300 of interest paid on 5 Oct leaves 99.99 owed today, though 266.66 was owed on 20 Sep.
+    const paid = [event({ kind: 'repaid', amount: 300, principalPart: 0, interestPart: 300, feePart: 0, occurredAt: day(2026, 10, 5) })];
+    render(party(liability()), async () => true, paid);
+    openCapitalize();
+    type(/^When/, '2026-09-20');
+    expect(text()).toContain('Interest that can be added on that date: €99.99');
+    type('Interest to add in EUR', '266.66');
+    expect(text()).toContain('more than the interest that can be added on that date, €99.99');
+    expect(save().props.disabled).toBe(true);
   });
 
   it('falls back to a payment when the interest it was set to add is no longer offered', () => {

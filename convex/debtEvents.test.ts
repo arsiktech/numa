@@ -237,7 +237,7 @@ describe("interest added is capped at the interest owed", () => {
     const now = clock("2026-10-24T12:00:00Z");
     const f = fixture();
     await addInterest(f, now, 300, { clientMutationId: "phone-a" });
-    await expect(addInterest(f, now, 300, { clientMutationId: "phone-b" })).rejects.toThrow(/more than the interest owed so far, 224\.52 EUR/);
+    await expect(addInterest(f, now, 300, { clientMutationId: "phone-b" })).rejects.toThrow(/more than the interest owed on that date, 224\.52 EUR/);
     expect(f.row("l-simple").balance).toBe(19970);
     expect(f.events()).toHaveLength(1);
   });
@@ -245,7 +245,7 @@ describe("interest added is capped at the interest owed", () => {
   it("refuses a direct call for far more than the interest owed", async () => {
     const now = clock("2026-10-24T12:00:00Z");
     const f = fixture();
-    await expect(addInterest(f, now, 5000)).rejects.toThrow(/more than the interest owed so far, 524\.52 EUR/);
+    await expect(addInterest(f, now, 5000)).rejects.toThrow(/more than the interest owed on that date, 524\.52 EUR/);
     await expect(addInterest(f, now, 524.53)).rejects.toThrow(/more than the interest owed/);
     expect(f.row("l-simple").balance).toBe(19670);
     expect(f.events()).toHaveLength(0);
@@ -255,15 +255,37 @@ describe("interest added is capped at the interest owed", () => {
     const now = clock("2026-10-24T12:00:00Z");
     const f = fixture();
     await f.call(add, { portfolioId: "pf", occurredAt: now - 86_400_000, subject: "liability:l-simple", kind: "repaid", amount: 100, unit: "EUR", principalPart: 0, interestPart: 100, feePart: 0, apply: true });
-    await expect(addInterest(f, now, 424.53)).rejects.toThrow(/more than the interest owed so far, 424\.52 EUR/);
+    await expect(addInterest(f, now, 424.53)).rejects.toThrow(/more than the interest owed on that date, 424\.52 EUR/);
     await addInterest(f, now, 424.52);
     expect(f.row("l-simple").balance).toBe(20094.52);
+  });
+
+  it("caps back-dated interest at what was owed on its date, and counts what it adds later", async () => {
+    const now = clock("2026-10-24T12:00:00Z");
+    const f = fixture();
+    const aug15 = Date.UTC(2026, 7, 15, 12);
+    // By 15 Aug two months had completed: 2 x 131.13 = 262.26. The four months owed today are not.
+    await expect(addInterest(f, now, 300, { occurredAt: aug15 })).rejects.toThrow(/more than the interest owed on that date, 262\.26 EUR/);
+    await addInterest(f, now, 262.26, { occurredAt: aug15 });
+    // The month from 1 Sep then accrues on 19,932.26: 132.88. Owed today: 3 x 131.13 + 132.88 - 262.26 = 264.01.
+    await expect(addInterest(f, now, 264.02)).rejects.toThrow(/more than the interest owed on that date, 264\.01 EUR/);
+    await addInterest(f, now, 264.01);
+    expect(f.row("l-simple").balance).toBe(20196.27);
+  });
+
+  it("refuses back-dated interest that has since been paid in cash", async () => {
+    const now = clock("2026-10-24T12:00:00Z");
+    const f = fixture();
+    await f.call(add, { portfolioId: "pf", occurredAt: Date.UTC(2026, 9, 10, 12), subject: "liability:l-simple", kind: "repaid", amount: 400, unit: "EUR", principalPart: 0, interestPart: 400, feePart: 0, apply: true });
+    await expect(addInterest(f, now, 262.26, { occurredAt: Date.UTC(2026, 7, 15, 12) })).rejects.toThrow(/since been paid or added/);
+    expect(f.row("l-simple").balance).toBe(19670);
+    expect(f.events()).toHaveLength(1);
   });
 
   it("refuses to add interest before a month has completed", async () => {
     const now = clock("2026-06-20T12:00:00Z");
     const f = fixture();
-    await expect(addInterest(f, now, 10)).rejects.toThrow(/no unpaid interest to add yet/);
+    await expect(addInterest(f, now, 10)).rejects.toThrow(/no unpaid interest to add on that date/);
     expect(f.events()).toHaveLength(0);
   });
 

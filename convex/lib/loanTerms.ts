@@ -8,6 +8,8 @@ import { ConvexError } from "convex/values";
 
 const DAY = 86_400_000;
 const MAX = 1e12;
+/** A repayment date further ahead than this is a typing mistake, and too far out for a calendar to show. */
+const LATEST_DUE = 100 * 365 * DAY;
 const bad = (message: string) => new ConvexError({ code: "INVALID_INPUT", message });
 
 /** Money in a currency keeps cents; a debt owed in a coin keeps eight decimals. */
@@ -30,7 +32,8 @@ export function roundDecimals(n: number, places: number): number {
 /** An amount in its unit: cents for a currency, eight decimals for a coin. */
 export const roundAmount = (n: number, unit: string) => roundDecimals(n, isCurrency(unit) ? 2 : 8);
 const roundTo = roundAmount;
-const tolerance = (unit: string) => (isCurrency(unit) ? 0.005 : 1e-8);
+/** Half of the smallest step of the unit: two amounts closer than this are the same amount. */
+const halfStep = (unit: string) => (isCurrency(unit) ? 0.005 : 5e-9);
 
 export type Split = { principalPart: number; interestPart: number; feePart: number };
 
@@ -48,7 +51,8 @@ export function cleanSplit(amount: number, unit: string, parts: { principalPart?
     return roundTo(value, unit);
   });
   const total = roundTo(principalPart + interestPart + feePart, unit);
-  if (Math.abs(total - amount) > tolerance(unit)) throw bad("Principal, interest and fees must add up to the payment");
+  // Both sides are already rounded to the unit, so one step apart (a cent, or 1e-8 of a coin) is a real difference.
+  if (Math.abs(total - amount) > halfStep(unit)) throw bad("Principal, interest and fees must add up to the payment");
   return { principalPart, interestPart, feePart };
 }
 
@@ -110,7 +114,7 @@ export function termsPatch(input: TermsInput, existing: TermsDoc, now: number): 
   }
   if (input.dueKind !== undefined) set("dueKind", input.dueKind);
   if (input.dueDate !== undefined) {
-    if (input.dueDate !== null && (!Number.isFinite(input.dueDate) || input.dueDate < 0)) throw bad("The repayment date isn’t a valid date");
+    if (input.dueDate !== null && !validDueDate(input.dueDate, now)) throw bad("The repayment date isn’t a valid date");
     set("dueDate", input.dueDate);
   } else if (input.dueKind === null) {
     // "Not set" has no repayment date either, so it never leaves a date behind to show as due or raise an alert.
@@ -126,15 +130,44 @@ export function termsPatch(input: TermsInput, existing: TermsDoc, now: number): 
     set("interestDueDay", null);
   }
 
-  if (next.dueKind === "fixed" && next.dueDate === undefined) throw bad("A fixed loan needs its repayment date");
-  if (next.dueKind === "fixed" && next.startedAt !== undefined && next.dueDate! < next.startedAt) throw bad("The repayment date can’t be before the start date");
+  const problem = termsProblem(next);
+  if (problem) throw bad(problem);
+  return out as TermsPatch;
+}
+
+/** Whether a repayment date is a real date, not before 1970 and not more than 100 years ahead. */
+export const validDueDate = (at: number, now: number) => Number.isFinite(at) && at >= 0 && at <= now + LATEST_DUE;
+
+/**
+ * What is wrong with a debt's terms as they would be saved, or null. Every write that can touch the
+ * terms checks this, so no path (the terms form, the item editor, Ask, an agent or the web app)
+ * leaves a loan whose interest or repayment date cannot be worked out.
+ */
+export function termsProblem(next: TermsDoc): string | null {
+  if (next.dueKind === "fixed" && next.dueDate === undefined) return "A fixed loan needs its repayment date";
+  if (next.dueKind === "fixed" && next.startedAt !== undefined && next.dueDate! < next.startedAt) return "The repayment date can’t be before the start date";
   if (next.interestTerms === "simple") {
     // Cards and mortgages usually charge compound or instalment interest, which Numa does not calculate.
-    if (next.kind === "mortgage" || next.kind === "credit_card") throw bad("Mortgages and cards usually charge compound or instalment interest. Mark its interest as manual");
-    if (next.owedSymbol) throw bad("Simple interest isn’t calculated for a debt owed in a coin yet. Mark its terms as manual");
-    if (!(next.interestRate! > 0)) throw bad("Simple interest needs a yearly rate above zero");
-    if (next.principal === undefined || next.startedAt === undefined) throw bad("Simple interest needs the original amount and the start date");
+    if (next.kind === "mortgage" || next.kind === "credit_card") return "Mortgages and cards usually charge compound or instalment interest. Mark its interest as manual";
+    if (next.owedSymbol) return "Simple interest isn’t calculated for a debt owed in a coin yet. Mark its terms as manual";
+    if (!(next.interestRate! > 0)) return "Simple interest needs a yearly rate above zero";
+    if (next.principal === undefined || next.startedAt === undefined) return "Simple interest needs the original amount and the start date";
   }
-  if (next.owedSymbol && next.principal !== undefined) throw bad("The original amount isn’t kept for a debt owed in a coin yet");
-  return out as TermsPatch;
+  if (next.owedSymbol && next.principal !== undefined) return "The original amount isn’t kept for a debt owed in a coin yet";
+  return null;
+}
+
+/**
+ * Refuses a debt write that would break its loan terms: an update from the item editor, Ask, an agent
+ * or the web app. An original amount is in the debt's currency, so the currency cannot change under it.
+ */
+export function assertTermsAfterPatch(existing: TermsDoc, patch: { [key: string]: unknown }) {
+  const next: { [key: string]: unknown } = { ...existing };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+  }
+  if (existing.principal !== undefined && next.currency !== existing.currency) throw bad("This debt has an original amount in its currency. Clear its loan terms before changing the currency");
+  const problem = termsProblem(next as TermsDoc);
+  if (problem) throw bad(problem);
 }

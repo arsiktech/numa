@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { accrual, type TermEvent } from "../../apps/numa/src/domain/loanTerms";
-import { interestOwed, type AccrualEvent } from "./loanAccrual";
+import { accrual, interestAddable as appAddable, interestAddProblem as appAddProblem, type TermEvent } from "../../apps/numa/src/domain/loanTerms";
+import { interestAddProblem, interestOwed, monthInterest, type AccrualEvent } from "./loanAccrual";
 
 const at = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d, 12);
 
@@ -69,6 +69,63 @@ describe("interestOwed agrees with the app's accrual", () => {
       expect(app.status).toBe("ok");
       if (app.status !== "ok" || server === null) throw new Error("not ok");
       expect(server).toEqual({ accrued: app.accrued, settled: app.settled, owed: app.owed });
+
+      // Whether interest can be added on a generated day: the server refuses exactly what the app refuses.
+      const addAt = startedAt + pick(Math.max(1, Math.floor((now - startedAt) / 86_400_000) + 1)) * 86_400_000;
+      const terms = { principal, startedAt, interestRate, interestTerms: "simple" as const, dueKind: null, dueDate: null };
+      const offered = appAddable(terms, events, addAt, now);
+      const tries = [offered, offered + 0.01, Math.round(rand() * 2 * offered * 100) / 100].filter((x) => x > 0);
+      for (const x of tries) {
+        expect(interestAddProblem({ principal, startedAt, interestRate }, events, x, addAt, now) === null).toBe(appAddProblem(terms, events, x, addAt, now) === null);
+      }
+      // What the app offers is always accepted.
+      if (offered > 0.005) expect(interestAddProblem({ principal, startedAt, interestRate }, events, offered, addAt, now)).toBeNull();
     }
+  });
+});
+
+describe("monthInterest", () => {
+  it("rounds an exact half cent up, whatever binary floating point makes of the product", () => {
+    // 23,758 x 9% / 12 is exactly 178.185, and 26,925.60 x 12.5% / 12 is exactly 280.475.
+    expect(monthInterest(23_758, 9)).toBe(178.19);
+    expect(monthInterest(26_925.6, 12.5)).toBe(280.48);
+    expect(monthInterest(19_670, 8)).toBe(131.13);
+    // Exactly 5.675 and 2.805, which plain division by 1200 still reads as just under the half.
+    expect(monthInterest(544.8, 12.5)).toBe(5.68);
+    expect(monthInterest(269.28, 12.5)).toBe(2.81);
+  });
+});
+
+describe("principal in date order", () => {
+  it("clamps an overpayment at zero when it happens, so money borrowed later starts from zero", () => {
+    const terms = { principal: 1_200, startedAt: at(2026, 1, 1), interestRate: 12 };
+    const events: AccrualEvent[] = [
+      // Listed out of order on purpose: the borrowing came after the overpayment.
+      { kind: "borrowed", amount: 500, occurredAt: at(2026, 2, 10) },
+      { kind: "repaid", amount: 1_400, occurredAt: at(2026, 1, 20) },
+    ];
+    // The month from 1 Mar is charged on 500, not on 1,200 - 1,400 + 500 = 300: 500 x 1% = 5.
+    const march = interestOwed(terms, events, at(2026, 4, 1))!.accrued - interestOwed(terms, events, at(2026, 3, 1))!.accrued;
+    expect(Math.round(march * 100) / 100).toBe(5);
+  });
+});
+
+describe("interestAddProblem", () => {
+  const terms = { principal: 19_670, startedAt: at(2026, 6, 1), interestRate: 8 };
+
+  it("allows what was owed on the entry's date and no more", () => {
+    expect(interestAddProblem(terms, [], 262.26, at(2026, 8, 15), at(2026, 10, 24))).toBeNull();
+    expect(interestAddProblem(terms, [], 262.27, at(2026, 8, 15), at(2026, 10, 24))).toMatch(/more than the interest owed on that date, 262\.26/);
+  });
+
+  it("refuses back-dated interest that was paid after its date", () => {
+    const paid: AccrualEvent[] = [{ kind: "repaid", amount: 400, principalPart: 0, interestPart: 400, feePart: 0, occurredAt: at(2026, 10, 10) }];
+    expect(interestAddProblem(terms, paid, 262.26, at(2026, 8, 15), at(2026, 10, 24))).toMatch(/since been paid or added/);
+    // Today, 124.52 is still owed (524.52 - 400), and adding it on 15 Aug leaves the total at zero or above.
+    expect(interestAddProblem(terms, paid, 124.52, at(2026, 8, 15), at(2026, 10, 24))).toBeNull();
+  });
+
+  it("refuses a date before any month completed", () => {
+    expect(interestAddProblem(terms, [], 10, at(2026, 6, 20), at(2026, 10, 24))).toMatch(/no unpaid interest to add on that date/);
   });
 });
