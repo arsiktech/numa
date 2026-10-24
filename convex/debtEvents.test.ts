@@ -89,4 +89,75 @@ describe("debt history", () => {
     expect(f.row("l1").balance).toBe(19670);
     expect(f.events()).toHaveLength(0);
   });
+
+  it("splits a payment into principal, interest and fees, and only the principal part lowers the debt", async () => {
+    const f = fixture();
+    const r = await f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 1000, unit: "EUR", principalPart: 800, interestPart: 150, feePart: 50, apply: true, clientMutationId: "split-1" });
+    expect(f.row("l1").balance).toBe(18870);
+    expect(await f.call(listForPortfolio, { portfolioId: "pf" })).toEqual([expect.objectContaining({ amount: 1000, principalPart: 800, interestPart: 150, feePart: 50, applied: true })]);
+    // Undo gives back the principal only, not the whole payment.
+    await f.call(remove, { id: r.id });
+    expect(f.row("l1").balance).toBe(19670);
+  });
+
+  it("treats a payment of interest alone as no change to what is owed", async () => {
+    const f = fixture();
+    const r = await f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 200, unit: "EUR", interestPart: 200, apply: true });
+    expect(f.row("l1").balance).toBe(19670);
+    expect(f.events()[0]).toMatchObject({ principalPart: 0, interestPart: 200, feePart: 0 });
+    await f.call(remove, { id: r.id });
+    expect(f.row("l1").balance).toBe(19670);
+  });
+
+  it("keeps a split replay from taking the payment twice", async () => {
+    const f = fixture();
+    const args = { ...base, subject: "liability:l1", kind: "repaid", amount: 1000, unit: "EUR", principalPart: 900, interestPart: 100, apply: true, clientMutationId: "split-replay" };
+    await f.call(add, args);
+    await f.call(add, args);
+    expect(f.row("l1").balance).toBe(18770);
+    expect(f.events()).toHaveLength(1);
+  });
+
+  it("refuses a split that does not add up, a negative part, and a split on anything but a payment", async () => {
+    const f = fixture();
+    const bad = (args: object) => expect(f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 1000, unit: "EUR", apply: true, ...args })).rejects.toThrow();
+    await bad({ principalPart: 800, interestPart: 150 });
+    await bad({ principalPart: 1100, interestPart: -100 });
+    await bad({ principalPart: 900, interestPart: 100.02 });
+    await bad({ kind: "borrowed", principalPart: 1000 });
+    await bad({ kind: "capitalized", interestPart: 1000 });
+    await bad({ principalPart: 20000, interestPart: 0, amount: 20000 });
+    expect(f.row("l1").balance).toBe(19670);
+    expect(f.events()).toHaveLength(0);
+  });
+
+  it("accepts a split in whole cents, and keeps coin parts to eight decimals", async () => {
+    const f = fixture();
+    await f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 10, unit: "EUR", principalPart: 3.33, interestPart: 3.33, feePart: 3.34, apply: true });
+    expect(f.row("l1").balance).toBe(19666.67);
+    await f.call(add, { ...base, subject: "liability:lbtc", kind: "repaid", amount: 0.1, unit: "BTC", principalPart: 0.09, interestPart: 0.01, apply: true });
+    expect(f.row("lbtc").owedQuantity).toBe(0.31);
+  });
+
+  it("adds unpaid interest to the principal as one event, and Undo takes it off again", async () => {
+    const f = fixture();
+    const r = await f.call(add, { ...base, subject: "liability:l1", kind: "capitalized", amount: 448, unit: "EUR", note: "Interest for September", apply: true, clientMutationId: "cap-1" });
+    await f.call(add, { ...base, subject: "liability:l1", kind: "capitalized", amount: 448, unit: "EUR", note: "Interest for September", apply: true, clientMutationId: "cap-1" });
+    expect(f.row("l1").balance).toBe(20118);
+    expect(f.events()).toHaveLength(1);
+    await f.call(remove, { id: r.id });
+    expect(f.row("l1").balance).toBe(19670);
+  });
+
+  it("allows interest to be added only to a debt, never to money owed to you", async () => {
+    const f = fixture();
+    await expect(f.call(add, { ...base, subject: "asset:a1", kind: "capitalized", amount: 10, unit: "EUR", apply: true })).rejects.toThrow(/lent or received/);
+    expect(f.row("a1").balance).toBe(51441.88);
+  });
+
+  it("splits money received on a loan to you the same way", async () => {
+    const f = fixture();
+    await f.call(add, { ...base, subject: "asset:a1", kind: "received", amount: 1000, unit: "EUR", principalPart: 900, interestPart: 100, apply: true });
+    expect(f.row("a1").balance).toBe(50541.88);
+  });
 });

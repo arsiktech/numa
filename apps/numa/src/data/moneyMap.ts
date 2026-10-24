@@ -9,7 +9,12 @@ import { groupNames, type Item, type ItemType } from './items';
  * protocols by protocol. Every number comes from records Home already counts, so the answer at
  * the top is net worth, reached the other way round.
  */
-export type DebtEvent = { id: string; subject: string; kind: 'borrowed' | 'repaid' | 'lent' | 'received' | 'note'; amount: number | null; unit: string | null; applied: boolean; occurredAt: number; note: string | null };
+export type DebtEvent = {
+  id: string; subject: string; kind: 'borrowed' | 'repaid' | 'lent' | 'received' | 'note' | 'capitalized'; amount: number | null; unit: string | null;
+  /** How a payment divided, in `unit`. All null for a payment that was not split, which counts wholly as principal. */
+  principalPart?: number | null; interestPart?: number | null; feePart?: number | null;
+  applied: boolean; occurredAt: number; note: string | null;
+};
 
 export type PartyRecord = {
   /** "liability:<id>", "asset:<id>", or "defi:<walletId>:<positionId>" for a wallet borrowing. */
@@ -22,6 +27,8 @@ export type PartyRecord = {
   unit: string | null;
   open: { pathname: '/item/[type]/[id]'; params: { type: ItemType; id: string } } | { pathname: '/loan/[key]'; params: { key: string } };
   since: number | null;
+  /** The debt record itself, for its loan terms. Only for a recorded debt. */
+  loan?: CloudLiability;
 };
 
 export type Party = { key: string; name: string; kind: 'person' | 'protocol'; owed: 'byYou' | 'toYou'; cents: number | null; unknown: number; records: PartyRecord[]; detail: string };
@@ -77,7 +84,7 @@ export function moneyMap(s: CloudSnapshot, items: Item[], currency: Currency, fx
     const k = partyKey('byYou', who);
     const g = byYou.get(k) ?? { name: who, records: [] };
     const amount = l.owedSymbol && l.owedQuantity != null ? `${grouped(l.owedQuantity)} ${l.owedSymbol}` : moneyText(l.balance, l.currency);
-    g.records.push({ subject: `liability:${l.id}`, name: l.name, amount, cents: item?.valueCents ?? null, unit: l.owedSymbol || l.currency, open: { pathname: '/item/[type]/[id]', params: { type: 'liability', id: l.id } }, since: null });
+    g.records.push({ subject: `liability:${l.id}`, name: l.name, amount, cents: item?.valueCents ?? null, unit: l.owedSymbol || l.currency, open: { pathname: '/item/[type]/[id]', params: { type: 'liability', id: l.id } }, since: null, loan: l });
     byYou.set(k, g);
   }
   // An overdrawn account is money owed to the bank.

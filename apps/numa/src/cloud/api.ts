@@ -45,6 +45,13 @@ export type CloudLiability = {
   kind: 'credit_card' | 'loan' | 'mortgage' | 'other';
   balance: number;
   currency: CloudCurrency;
+  /** The yearly percent for simple interest. Only set with loan terms. */
+  interestRate?: number | null;
+  /** Loan terms. `balance` stays the principal still owed. */
+  principal?: number | null;
+  startedAt?: number | null;
+  dueKind?: 'fixed' | 'flexible' | null;
+  interestTerms?: 'none' | 'simple' | 'manual' | null;
   dueDate: number | null;
   /** Owed in an asset rather than money, like 0.15 BTC; the balance is then its current value in USD. */
   owedSymbol?: string | null;
@@ -251,7 +258,8 @@ export const cloud = {
   removeWallet: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, unknown>('cryptoWallets:remove'),
   loanLinks: makeFunctionReference<'query', { portfolioId: string }, CloudLoanLink[]>('loanLinks:listForPortfolio'),
   debtEvents: makeFunctionReference<'query', { portfolioId: string }, DebtEvent[]>('debtEvents:listForPortfolio'),
-  addDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; subject: string; kind: DebtEvent['kind']; amount?: number; unit?: string; occurredAt: number; note?: string; apply: boolean }>, Receipt>('debtEvents:add'),
+  addDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; subject: string; kind: DebtEvent['kind']; amount?: number; unit?: string; principalPart?: number; interestPart?: number; feePart?: number; occurredAt: number; note?: string; apply: boolean }>, Receipt>('debtEvents:add'),
+  setLoanTerms: makeFunctionReference<'mutation', WithReceipt<{ id: string; principal?: number | null; startedAt?: number | null; dueKind?: 'fixed' | 'flexible' | null; interestTerms?: 'none' | 'simple' | 'manual' | null; interestRate?: number | null; dueDate?: number | null }>, Receipt>('liabilities:setTerms'),
   removeDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt | null>('debtEvents:remove'),
   portalSources: makeFunctionReference<'query', { portfolioId: string }, PortalSource[]>('liabilitySources:listForPortfolio'),
   followPortal: makeFunctionReference<'mutation', { liabilityId: string; url: string; key?: string }, { id: string }>('liabilitySources:connect'),

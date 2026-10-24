@@ -2,9 +2,10 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireEditor, requireMember } from "./lib/access";
+import { cleanSplit } from "./lib/loanTerms";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 
-const kindValidator = v.union(v.literal("borrowed"), v.literal("repaid"), v.literal("lent"), v.literal("received"), v.literal("note"));
+const kindValidator = v.union(v.literal("borrowed"), v.literal("repaid"), v.literal("lent"), v.literal("received"), v.literal("note"), v.literal("capitalized"));
 type Kind = Doc<"debtEvents">["kind"];
 const DAY = 86_400_000;
 const bad = (message: string) => new ConvexError({ code: "INVALID_DEBT_EVENT", message });
@@ -15,7 +16,7 @@ export const listForPortfolio = query({
   handler: async (ctx, args) => {
     await requireMember(ctx, args.portfolioId);
     const rows = await ctx.db.query("debtEvents").withIndex("by_portfolio", (q) => q.eq("portfolioId", args.portfolioId)).collect();
-    return rows.map((r) => ({ id: r._id, subject: r.subject, kind: r.kind, amount: r.amount ?? null, unit: r.unit ?? null, applied: r.applied, occurredAt: r.occurredAt, note: r.note ?? null }));
+    return rows.map((r) => ({ id: r._id, subject: r.subject, kind: r.kind, amount: r.amount ?? null, unit: r.unit ?? null, principalPart: r.principalPart ?? null, interestPart: r.interestPart ?? null, feePart: r.feePart ?? null, applied: r.applied, occurredAt: r.occurredAt, note: r.note ?? null }));
   }
 });
 
@@ -40,10 +41,10 @@ async function recordOf(ctx: MutationCtx, portfolioId: Id<"portfolios">, subject
 
 /**
  * Moves a record's balance by an event: money taken or lent adds, money paid back or received takes
- * away. A debt owed in a coin moves in that coin and keeps its last price for its value.
+ * away, and interest added to the principal adds. A debt owed in a coin moves in that coin and keeps its last price for its value.
  */
 async function applyTo(ctx: MutationCtx, record: Record, kind: Kind, amount: number, unit: string, sign: 1 | -1) {
-  const grows = kind === "borrowed" || kind === "lent";
+  const grows = kind === "borrowed" || kind === "lent" || kind === "capitalized";
   const delta = (grows ? amount : -amount) * sign;
   if (record.table === "liabilities") {
     const d = record.doc;
@@ -81,6 +82,10 @@ export const add = mutation({
     unit: v.optional(v.string()),
     occurredAt: v.number(),
     note: v.optional(v.string()),
+    /** How a payment divides. Left out, the whole amount is principal. When given, the parts add up to the amount. */
+    principalPart: v.optional(v.number()),
+    interestPart: v.optional(v.number()),
+    feePart: v.optional(v.number()),
     apply: v.boolean(),
     clientMutationId: v.optional(v.string())
   },
@@ -90,8 +95,8 @@ export const add = mutation({
     if (!record) throw new ConvexError({ code: "NOT_FOUND", message: "That debt isn't in this space" });
     const owedToYou = record.table === "assets";
     if (owedToYou && !record.doc.owedBy) throw bad("Mark who owes this money first");
-    if (args.kind !== "note" && (owedToYou ? !["lent", "received"].includes(args.kind) : !["borrowed", "repaid"].includes(args.kind))) {
-      throw bad(owedToYou ? "Money owed to you is lent or received" : "A debt is borrowed or repaid");
+    if (args.kind !== "note" && (owedToYou ? !["lent", "received"].includes(args.kind) : !["borrowed", "repaid", "capitalized"].includes(args.kind))) {
+      throw bad(owedToYou ? "Money owed to you is lent or received" : "A debt is borrowed, repaid or has interest added");
     }
     const note = args.note?.trim().replace(/\s+/g, " ") || undefined;
     if (note && note.length > 140) throw bad("Keep the note to 140 characters");
@@ -101,12 +106,18 @@ export const add = mutation({
     if (hasAmount && (!Number.isFinite(args.amount) || !(args.amount! > 0) || args.amount! > 1e12)) throw bad("The amount must be positive");
     const unit = args.unit?.trim();
     if (hasAmount && (!unit || !/^[A-Za-z0-9.]{1,24}$/.test(unit))) throw bad("Say which currency or coin");
+    // A payment can divide into principal, interest and fees. Only the principal part changes what is owed.
+    const hasParts = args.principalPart !== undefined || args.interestPart !== undefined || args.feePart !== undefined;
+    if (hasParts && !hasAmount) throw bad("A split needs an amount");
+    if (hasParts && args.kind !== "repaid" && args.kind !== "received") throw bad("Only a payment can be split into principal, interest and fees");
+    const split = hasAmount ? cleanSplit(args.amount!, unit!, { principalPart: args.principalPart, interestPart: args.interestPart, feePart: args.feePart }) : null;
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "debtEvents.add", async (): Promise<Id<"debtEvents">> => {
-      if (args.apply && hasAmount) await applyTo(ctx, record, args.kind, args.amount!, unit!, 1);
+      const balanceAmount = split ? split.principalPart : args.amount!;
+      if (args.apply && hasAmount && balanceAmount > 0) await applyTo(ctx, record, args.kind, balanceAmount, unit!, 1);
       return await ctx.db.insert("debtEvents", {
         portfolioId: args.portfolioId, subject: args.subject, kind: args.kind, applied: args.apply && hasAmount,
         occurredAt: args.occurredAt, createdAt: Date.now(),
-        ...(hasAmount ? { amount: args.amount, unit } : {}), ...(note ? { note } : {})
+        ...(hasAmount ? { amount: args.amount, unit } : {}), ...(split ?? {}), ...(note ? { note } : {})
       });
     }, args.portfolioId);
   }
@@ -121,7 +132,9 @@ export const remove = mutation({
     const { userId } = await requireEditor(ctx, event.portfolioId);
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "debtEvents.remove", async () => {
       const record = await recordOf(ctx, event.portfolioId, event.subject);
-      if (event.applied && record && event.amount !== undefined && event.unit) await applyTo(ctx, record, event.kind, event.amount, event.unit, -1);
+      // A split payment changed the balance by its principal part only, so only that comes back.
+      const balanceAmount = event.principalPart ?? event.amount;
+      if (event.applied && record && balanceAmount !== undefined && balanceAmount > 0 && event.unit) await applyTo(ctx, record, event.kind, balanceAmount, event.unit, -1);
       await ctx.db.delete(args.id);
       return args.id;
     }, event.portfolioId);

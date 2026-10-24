@@ -323,7 +323,8 @@ const upsertLiability = mutation({
         kind: args.kind,
         balance,
         currency,
-        interestRate: args.interestRate,
+        // Leaving the rate out keeps the one saved with the loan terms, so an update from Ask never wipes it.
+        ...(args.interestRate !== undefined ? { interestRate: args.interestRate } : {}),
         dueDate: args.dueDate,
         notes: args.notes?.trim() || undefined,
         ...(owed ?? {}),
