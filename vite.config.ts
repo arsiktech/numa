@@ -3,7 +3,7 @@ import path from "node:path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
-import { loadEnv, type HtmlTagDescriptor } from "vite";
+import { loadEnv, type HtmlTagDescriptor, type UserConfig } from "vite";
 
 const devFallbackFxRates = {
   EUR: 1,
@@ -250,6 +250,12 @@ function numaPreconnectConvex(env: Record<string, string>) {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   return {
+  // Under Vitest, transforms skip the tsconfig lookup. A root test that imports app code
+  // (convex/lib/loanAccrual.test.ts checks the server's interest maths against the app's) would
+  // otherwise load apps/numa/tsconfig.json, which extends Expo's base config, and the root CI job
+  // has no Expo installed. The settings that matter (JSX, class fields) match the defaults.
+  // Vite's type leaves `tsconfig` out, but passes it through to the oxc transform.
+  ...(process.env.VITEST ? { oxc: { tsconfig: false } as unknown as UserConfig["oxc"] } : {}),
   plugins: [
     numaDevApiFallbacks(),
     numaPreconnectConvex(env),
