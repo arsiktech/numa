@@ -41,6 +41,12 @@ describe('money map', () => {
     expect(partyOf(map, partyKey('byYou', 'STAS'))?.records.map((r) => r.amount)).toEqual(['€19,670', '26,800 USDC']);
   });
 
+  it('carries each recorded debt on its record, so its loan terms can be shown, and nothing for money lent', () => {
+    const stas = partyOf(map, partyKey('byYou', 'STAS'))!;
+    expect(stas.records.map((r) => r.loan?.id)).toEqual(['l1', 'l2']);
+    expect(partyOf(map, partyKey('toYou', 'XCHAINGER'))!.records.every((r) => r.loan === undefined)).toBe(true);
+  });
+
   it('shows money lent out as owed to you, apart from what you own', () => {
     expect(map.owedToYou.map((p) => [p.name, p.cents])).toEqual([['XCHAINGER', 5_000_000], ['Landlord', 240_000]]);
     expect(map.spots.map((s) => s.name)).toEqual(['Things', 'Frame']);

@@ -310,6 +310,23 @@ export default defineSchema({
     owedQuantity: v.optional(v.number()),
     /** Who the debt is owed to: a person, a company or a lender. Debts to one party group together. */
     counterparty: v.optional(v.string()),
+    /**
+     * Loan terms, all optional so a debt without them behaves as before. `balance` stays the
+     * principal still owed; accrued interest is worked out from these terms and is not part of it.
+     * `principal` is the amount first lent, in `currency`; `startedAt` is when it began.
+     */
+    principal: v.optional(v.number()),
+    startedAt: v.optional(v.number()),
+    /** "fixed" has a repayment date in `dueDate`; "flexible" has none and is repaid when it suits. */
+    dueKind: v.optional(v.union(v.literal("fixed"), v.literal("flexible"))),
+    /**
+     * "none" is interest-free. "simple" accrues `interestRate` percent a year, a twelfth each month
+     * on the principal outstanding at the start of that month. "manual" is a term Numa does not
+     * calculate (compounding, amortization); it shows as manual.
+     */
+    interestTerms: v.optional(v.union(v.literal("none"), v.literal("simple"), v.literal("manual"))),
+    /** The day of the month (1 to 28) interest is due by, for simple interest. Accrual does not use it; it only says when to pay. */
+    interestDueDay: v.optional(v.number()),
     updatedAt: v.number()
   }).index("by_portfolio", ["portfolioId"]),
 
@@ -364,10 +381,15 @@ export default defineSchema({
   debtEvents: defineTable({
     portfolioId: v.id("portfolios"),
     subject: v.string(),
-    kind: v.union(v.literal("borrowed"), v.literal("repaid"), v.literal("lent"), v.literal("received"), v.literal("note")),
+    /** "capitalized" is unpaid interest added to the principal: it raises what is owed and settles that interest. */
+    kind: v.union(v.literal("borrowed"), v.literal("repaid"), v.literal("lent"), v.literal("received"), v.literal("note"), v.literal("capitalized")),
     /** In `unit`: the record's currency or the coin it is owed in. */
     amount: v.optional(v.number()),
     unit: v.optional(v.string()),
+    /** How a payment splits, in `unit`. When any is set, the three add up to `amount` and only the principal part changes the balance. */
+    principalPart: v.optional(v.number()),
+    interestPart: v.optional(v.number()),
+    feePart: v.optional(v.number()),
     applied: v.boolean(),
     occurredAt: v.number(),
     note: v.optional(v.string()),

@@ -189,6 +189,13 @@ describe("agent tools", () => {
       ["mobile:upsertLiability", expect.objectContaining({ id: "l1", counterparty: "Stas" })],
     ]);
   });
+
+  it("splits a payment into principal and interest, so only the principal lowers the debt", async () => {
+    const f = fakeIo();
+    await tool("record_debt_event").run(f.io, { debt: "liability:l1", kind: "repaid", amount: 500, unit: "EUR", principal_part: 400, interest_part: 100, date: "2026-09-20", apply: true });
+    expect(f.writes()[0][2]).toMatchObject({ kind: "repaid", amount: 500, principalPart: 400, interestPart: 100 });
+    expect(f.writes()[0][2]).not.toHaveProperty("feePart");
+  });
 });
 
 describe("classify_asset", () => {

@@ -26,7 +26,7 @@ export function Field({ label, value, onChangeText, numeric, kind }: { label: st
 export function Seg<T extends string>({ options, value, onChange, label }: { options: [T, string][]; value: T; onChange: (v: T) => void; label: string }) {
   const { c } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', gap: 2, padding: 3, borderRadius: 999, backgroundColor: c.s2, alignSelf: 'flex-start' }} accessibilityRole="radiogroup" accessibilityLabel={label}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', maxWidth: '100%', gap: 2, padding: 3, borderRadius: 999, backgroundColor: c.s2, alignSelf: 'flex-start' }} accessibilityRole="radiogroup" accessibilityLabel={label}>
       {options.map(([v, l]) => (
         <Pressable key={v} onPress={() => onChange(v)} accessibilityRole="radio" aria-checked={value === v} style={{ minWidth: 56, minHeight: 32, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: value === v ? c.bg : 'transparent' }}>
           <Txt v="small" c={value === v ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{l}</Txt>

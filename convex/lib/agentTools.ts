@@ -94,6 +94,12 @@ function text(args: Json, key: string, required = true): string | undefined {
   return value;
 }
 
+/** The parts of a split payment the agent gave, as debtEvents:add takes them. */
+function splitOf(args: Json): { principalPart?: number; interestPart?: number; feePart?: number } {
+  const parts = { principalPart: amount(args, "principal_part", false), interestPart: amount(args, "interest_part", false), feePart: amount(args, "fee_part", false) };
+  return Object.fromEntries(Object.entries(parts).filter(([, v]) => v !== undefined));
+}
+
 function amount(args: Json, key: string, required = true): number | undefined {
   const value = args[key];
   if (value === undefined || value === null) {
@@ -495,13 +501,16 @@ export const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "record_debt_event", title: "Record what happened to a debt", write: true,
-    description: "Add to a debt's history: money borrowed or repaid on a liability, money lent or received on money owed to the user (an asset with owed_by), or a note. With apply true a payment also changes the debt's balance (or its coin amount); with apply false it is history only, for what is already in the balance. Amounts are in the debt's currency or the coin it is owed in. Confirm with the user first.",
+    description: "Add to a debt's history: money borrowed or repaid on a liability, money lent or received on money owed to the user (an asset with owed_by), or a note. With apply true a payment also changes the debt's balance (or its coin amount); with apply false it is history only, for what is already in the balance. Amounts are in the debt's currency or the coin it is owed in. A payment that was partly interest or fees can be split with principal_part, interest_part and fee_part, which must add up to the amount; only the principal part lowers the debt. Left out, the whole payment is principal. Confirm with the user first.",
     inputSchema: schema({
       space_id: spaceId,
       debt: str("liability:<id> or asset:<id> from get_records."),
       kind: str("What happened.", { enum: ["borrowed", "repaid", "lent", "received", "note"] }),
       amount: num("How much, positive. Leave out for a note.", { exclusiveMinimum: 0 }),
       unit: str("Currency or coin of the amount, like EUR, USD, USDC or BTC."),
+      principal_part: num("For a payment: the part that paid down the principal.", { minimum: 0 }),
+      interest_part: num("For a payment: the part that paid interest.", { minimum: 0 }),
+      fee_part: num("For a payment: the part that paid fees.", { minimum: 0 }),
       date: str("When, like 2026-09-20."),
       note: str("Short note, like Paid to Liza via Zen."),
       apply: { type: "boolean", description: "Also change the debt's balance. Default false." },
@@ -512,6 +521,7 @@ export const AGENT_TOOLS: AgentTool[] = [
       return io.mutation("debtEvents:add", {
         portfolioId: space.id, subject: text(args, "debt"), kind: oneOf(args, "kind", ["borrowed", "repaid", "lent", "received", "note"] as const),
         ...(args.amount !== undefined ? { amount: amount(args, "amount"), unit: text(args, "unit") } : {}),
+        ...splitOf(args),
         occurredAt: date(args, "date"), ...(text(args, "note", false) ? { note: text(args, "note") } : {}), apply: args.apply === true, ...write(io, args),
       });
     },

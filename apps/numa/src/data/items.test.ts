@@ -70,9 +70,19 @@ describe('edit and delete plans', () => {
     expect(p.apply).toEqual({ fn: 'deleteLiability', args: { id: 'l1' } });
     expect(p.undo).toEqual({ fn: 'upsertLiability', args: { portfolioId: 'p1', name: 'Card', kind: 'credit_card', balance: 420, currency: 'EUR', dueDate: 99, counterparty: 'Bank' } });
   });
-  it('clears a due date by leaving it out', () => {
-    const p = editPlan('liability', 'l1', { name: 'Card', kind: 'credit_card', balanceCents: 1, currency: 'EUR', dueDate: 99, counterparty: '' }, { name: 'Card', kind: 'credit_card', balanceCents: 1, currency: 'EUR', dueDate: null, counterparty: '' }, 'p1');
-    expect('dueDate' in p.apply.args).toBe(false);
+  it('clears a due date by sending null, because an update that leaves the date out keeps a fixed loan’s date', () => {
+    const debt = { name: 'Card', kind: 'credit_card' as const, balanceCents: 1, currency: 'EUR' as const, counterparty: '' };
+    const p = editPlan('liability', 'l1', { ...debt, dueDate: 99 }, { ...debt, dueDate: null }, 'p1');
+    expect(p.apply.args).toMatchObject({ dueDate: null });
+    // Undo puts the old date back.
+    expect(p.undo.args).toMatchObject({ dueDate: 99 });
+  });
+  it('leaves the date out when the debt had none, and when the date is only kept', () => {
+    const debt = { name: 'Card', kind: 'credit_card' as const, balanceCents: 1, currency: 'EUR' as const, counterparty: '' };
+    const none = editPlan('liability', 'l1', { ...debt, dueDate: null }, { ...debt, dueDate: null }, 'p1');
+    expect('dueDate' in none.apply.args).toBe(false);
+    const kept = editPlan('liability', 'l1', { ...debt, dueDate: 99 }, { ...debt, dueDate: 99 }, 'p1');
+    expect(kept.apply.args).toMatchObject({ dueDate: 99 });
   });
   it('refuses a holding without a ticker, units or cost', () => {
     expect(fieldProblems('holding', { ...before, symbol: '', quantity: 0, costBasisCents: 0 })).toHaveLength(3);

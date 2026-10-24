@@ -36,11 +36,26 @@ export function useDebtWrites(portfolioId: string | null) {
   const add = useMutation(cloud.addDebtEvent);
   const remove = useMutation(cloud.removeDebtEvent);
   return {
-    add: useCallback(async (e: { subject: string; kind: DebtEvent['kind']; amount?: number; unit?: string; occurredAt: number; note?: string; apply: boolean }) => {
+    add: useCallback(async (e: { subject: string; kind: DebtEvent['kind']; amount?: number; unit?: string; principalPart?: number; interestPart?: number; feePart?: number; occurredAt: number; note?: string; apply: boolean; clientMutationId?: string }) => {
       if (!portfolioId) throw new Error('No space');
-      const r = await add({ portfolioId, ...e, clientMutationId: newMutationId('numa.debtEvent') });
+      const r = await add({ portfolioId, ...e, clientMutationId: e.clientMutationId ?? newMutationId('numa.debtEvent') });
       return r.id;
     }, [add, portfolioId]),
     remove: useCallback(async (id: string) => { await remove({ id, clientMutationId: newMutationId('numa.removeDebtEvent') }); }, [remove]),
   };
+}
+
+/**
+ * Save a debt's loan terms. A field left out keeps what is saved; null clears it. A note about the
+ * change is saved in the same write, and the same request id counts once.
+ */
+export function useTermsWrite() {
+  const set = useMutation(cloud.setLoanTerms);
+  return useCallback(async (
+    id: string,
+    terms: { principal?: number | null; startedAt?: number | null; dueKind?: 'fixed' | 'flexible' | null; interestTerms?: 'none' | 'simple' | 'manual' | null; interestRate?: number | null; interestDueDay?: number | null; dueDate?: number | null },
+    options: { clientMutationId?: string; note?: { text: string; occurredAt: number } } = {},
+  ) => {
+    await set({ id, ...terms, ...(options.note ? { note: options.note } : {}), clientMutationId: options.clientMutationId ?? newMutationId('numa.loanTerms') });
+  }, [set]);
 }

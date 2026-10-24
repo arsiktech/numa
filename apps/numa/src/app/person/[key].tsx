@@ -3,19 +3,18 @@ import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
-import { parseDate } from '@/ask/parse';
 import { cloud } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { newMutationId } from '@/data/cloud';
-import { parseBought } from '@/data/editPlan';
 import { historyOf, partyOf, type DebtEvent, type Party, type PartyRecord } from '@/data/moneyMap';
-import { shortDay } from '@/domain/freshness';
+import { LoanTermsCard, LoanTermsForm } from '@/loans/LoanTermsCard';
+import { PaymentForm, unitText } from '@/loans/PaymentForm';
+import { dayText, hasTerms, removedText } from '@/loans/termsHelpers';
 import { useLoans } from '@/loans/useLoans';
 import { eventErrorText, useDebtWrites, useMoneyMap, type MoneyMapState } from '@/loans/useMoneyMap';
 import { useTheme } from '@/theme/theme';
 import { Field, Seg, toCents } from '@/ui/form';
 import { CurrencyScope, useMoney } from '@/ui/money';
-import { amountText } from '@/ui/PositionRow';
 import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
@@ -35,8 +34,7 @@ function Cloud({ partyKey }: { partyKey: string }) {
   return <CurrencyScope currency={state.currency}><Detail party={party} state={state} /></CurrencyScope>;
 }
 
-const KIND_WORDS: Record<DebtEvent['kind'], string> = { borrowed: 'Borrowed', repaid: 'Paid back', lent: 'Lent', received: 'Got back', note: 'Note' };
-const unitText = (amount: number, unit: string) => (unit === 'EUR' ? `€${amountText(amount)}` : unit === 'USD' ? `$${amountText(amount)}` : `${amountText(amount)} ${unit}`);
+const KIND_WORDS: Record<DebtEvent['kind'], string> = { borrowed: 'Borrowed', repaid: 'Paid back', lent: 'Lent', received: 'Got back', note: 'Note', capitalized: 'Interest added' };
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   const { c } = useTheme();
@@ -97,6 +95,7 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
   const toast = useToast();
   const writes = useDebtWrites(state.portfolioId);
   const [form, setForm] = useState<'payment' | 'debt' | null>(null);
+  const [termsFor, setTermsFor] = useState<string | null>(null);
   const history = historyOf(party, state.events);
   const byYou = party.owed === 'byYou';
   const person = party.kind === 'person';
@@ -110,7 +109,7 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
     } catch (e) { toast({ text: eventErrorText(e) }); return false; }
   }
   async function removeEvent(e: DebtEvent) {
-    try { await writes.remove(e.id); toast({ text: e.applied ? 'Removed, and the amount is back on the debt' : 'Removed' }); }
+    try { await writes.remove(e.id); toast({ text: removedText(e) }); }
     catch (err) { toast({ text: eventErrorText(err) }); }
   }
 
@@ -128,6 +127,14 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
 
       <Sits party={party} />
 
+      {person && byYou && party.records.filter((r) => r.loan).map((r) => (
+        termsFor === r.subject
+          ? <LoanTermsForm key={r.subject} loan={r.loan!} events={state.events.filter((e) => e.subject === r.subject)} portfolioId={state.portfolioId} now={state.now} onDone={() => setTermsFor(null)} />
+          : hasTerms(r.loan!)
+            ? <LoanTermsCard key={r.subject} loan={r.loan!} events={state.events.filter((e) => e.subject === r.subject)} now={state.now} onEdit={() => setTermsFor(r.subject)} />
+            : null
+      ))}
+
       {person && (
         <Card title="History">
           {history.length === 0 && <Txt v="body" c="ink2" style={{ paddingBottom: 6 }}>Nothing recorded yet. Record a payment and it shows here with its date.</Txt>}
@@ -135,12 +142,13 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
             const record = party.records.find((r) => r.subject === e.subject);
             return (
               <View key={e.id} style={{ minHeight: 48, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: i === history.length - 1 ? 0 : 1, borderBottomColor: c.line2 }}>
-                <Txt v="figureSm" c="ink3" style={{ width: 62, fontSize: 12 }}>{shortDay(e.occurredAt, state.now)}</Txt>
+                <Txt v="figureSm" c="ink3" style={{ width: 62, fontSize: 12 }}>{dayText(e.occurredAt, state.now)}</Txt>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Txt v="body">{KIND_WORDS[e.kind]}{e.amount !== null && e.unit ? ` ${unitText(e.amount, e.unit)}` : ''}</Txt>
+                  {e.unit && (e.interestPart || e.feePart) ? <Txt v="small" c="ink2" numberOfLines={2}>{`Principal ${unitText(e.principalPart ?? 0, e.unit)} · Interest ${unitText(e.interestPart ?? 0, e.unit)} · Fees ${unitText(e.feePart ?? 0, e.unit)}`}</Txt> : null}
                   {(e.note || party.records.length > 1) && <Txt v="small" c="ink2" numberOfLines={2}>{[e.note, party.records.length > 1 ? record?.name : null].filter(Boolean).join(' · ')}</Txt>}
                 </View>
-                <Pressable onPress={() => removeEvent(e)} accessibilityRole="button" accessibilityLabel={`Remove ${KIND_WORDS[e.kind]} from ${shortDay(e.occurredAt, state.now)}`} hitSlop={6}
+                <Pressable onPress={() => removeEvent(e)} accessibilityRole="button" accessibilityLabel={`Remove ${KIND_WORDS[e.kind]} from ${dayText(e.occurredAt, state.now)}`} hitSlop={6}
                   style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
                   <Txt v="body" c="ink3" style={{ fontSize: 18 }}>×</Txt>
                 </Pressable>
@@ -150,7 +158,7 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
         </Card>
       )}
 
-      {person && form === 'payment' && <PaymentForm party={party} now={state.now} onCancel={() => setForm(null)} onSave={async (e) => { if (await undoable(() => writes.add(e), 'Saved')) setForm(null); }} />}
+      {person && form === 'payment' && <PaymentForm party={party} events={state.events} now={state.now} onCancel={() => setForm(null)} onSave={async (e) => { if (await undoable(() => writes.add(e), 'Saved')) setForm(null); }} />}
       {person && form === 'debt' && <NewDebtForm party={party} portfolioId={state.portfolioId} currency={state.currency} onDone={() => setForm(null)} />}
       {person && form === null && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 16 }}>
@@ -162,60 +170,15 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
           <Pressable onPress={() => setForm('debt')} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
             <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>{byYou ? 'Add a debt' : 'Add money lent'}</Txt>
           </Pressable>
+          {byYou && party.records.filter((r) => r.loan && !hasTerms(r.loan) && termsFor !== r.subject).map((r) => (
+            <Pressable key={r.subject} onPress={() => setTermsFor(r.subject)} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
+              <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>{party.records.length > 1 ? `Set terms for ${r.name}` : 'Set loan terms'}</Txt>
+            </Pressable>
+          ))}
         </View>
       )}
       {!person && <Txt v="small" c="ink3" style={{ marginTop: 14 }}>Read from the protocol. Open a loan to see what backs it.</Txt>}
     </Screen>
-  );
-}
-
-type NewEvent = Parameters<ReturnType<typeof useDebtWrites>['add']>[0];
-
-/** A payment, more borrowed or lent, or a note, on one of this party's debts. */
-function PaymentForm({ party, now, onSave, onCancel }: { party: Party; now: number; onSave: (e: NewEvent) => void; onCancel: () => void }) {
-  const { c } = useTheme();
-  const records = party.records.filter((r) => r.unit);
-  const byYou = party.owed === 'byYou';
-  const [subject, setSubject] = useState(records[0]?.subject ?? '');
-  const [kind, setKind] = useState<DebtEvent['kind']>(byYou ? 'repaid' : 'received');
-  const [amount, setAmount] = useState('');
-  const [when, setWhen] = useState('today');
-  const [note, setNote] = useState('');
-  const [apply, setApply] = useState(true);
-  const record = records.find((r) => r.subject === subject);
-  const unit = record?.unit ?? '';
-  // "5,000" and "5 000" are thousands; "0,5" is a decimal comma.
-  const qty = Number(amount.replace(/\s/g, '').replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.'));
-  const at = parseBought(when, now) ?? parseDate(when, new Date(now), 'past')?.at ?? null;
-  const isNote = kind === 'note';
-  const ok = !!record && at !== null && (isNote ? note.trim() !== '' : Number.isFinite(qty) && qty > 0);
-  const kinds: [DebtEvent['kind'], string][] = byYou ? [['repaid', 'Paid back'], ['borrowed', 'Borrowed more'], ['note', 'Note']] : [['received', 'Got back'], ['lent', 'Lent more'], ['note', 'Note']];
-  return (
-    <View style={{ marginTop: 14, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 12 }}>
-      <Txt v="cardTitle">{byYou ? 'Record a payment' : 'Record money back'}</Txt>
-      {records.length > 1 && <Seg label="Which debt" options={records.map((r) => [r.subject, r.amount] as [string, string])} value={subject} onChange={setSubject} />}
-      <Seg label="What happened" options={kinds} value={kind} onChange={setKind} />
-      {!isNote && <Field label={`Amount in ${unit}`} numeric value={amount} onChangeText={setAmount} />}
-      <Field label="When (like today or 20 Sep)" value={when} onChangeText={setWhen} />
-      {at === null && when.trim() !== '' && <Txt v="small" c="warn">That doesn’t look like a past date.</Txt>}
-      <Field label={isNote ? 'Note' : 'Note (optional, like Paid to Liza via Zen)'} value={note} onChangeText={setNote} />
-      {!isNote && (
-        <Pressable onPress={() => setApply((a) => !a)} accessibilityRole="switch" aria-checked={apply} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: apply ? c.ink : c.ink3, backgroundColor: apply ? c.ink : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-            {apply && <Txt v="small" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>✓</Txt>}
-          </View>
-          <Txt v="body" style={{ flex: 1 }}>{byYou ? 'Change what I owe' : 'Change what I’m owed'}</Txt>
-        </Pressable>
-      )}
-      {!isNote && !apply && <Txt v="small" c="ink3">History only: the amount owed stays as it is, for a payment already counted.</Txt>}
-      <View style={{ flexDirection: 'row', gap: 4 }}>
-        <Pressable onPress={() => ok && at !== null && onSave({ subject, kind, occurredAt: at, apply: !isNote && apply, ...(isNote ? {} : { amount: qty, unit }), ...(note.trim() ? { note: note.trim() } : {}) })}
-          disabled={!ok} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: ok ? c.ink : c.s2, justifyContent: 'center' }}>
-          <Txt v="body" c={ok ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt>
-        </Pressable>
-        <Pressable onPress={onCancel} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}><Txt v="body" c="ink2">Cancel</Txt></Pressable>
-      </View>
-    </View>
   );
 }
 

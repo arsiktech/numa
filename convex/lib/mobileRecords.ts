@@ -5,6 +5,7 @@ import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanParty, cl
 import type { Doc } from "../_generated/dataModel";
 import { majorUnits, minorUnits } from "./finance";
 import { withMutationReceipt } from "./mutationReceipts";
+import { assertTermsAfterPatch, validDueDate } from "./loanTerms";
 import { refreshQuoteSoon } from "./quoteRefresh";
 import { isCryptoSymbol } from "./marketQuoteProviders";
 import { withAiAuditConfirmation } from "./aiAudit";
@@ -297,7 +298,8 @@ const upsertLiability = mutation({
     balance: v.number(),
     currency: currencyValidator,
     interestRate: v.optional(v.number()),
-    dueDate: v.optional(v.number()),
+    /** Left out keeps the repayment date of a loan with a fixed one; null clears it. */
+    dueDate: v.optional(v.union(v.number(), v.null())),
     notes: v.optional(v.string()),
     /** Owed in an asset, like "BTC". Left out keeps what is saved; an empty string makes it a plain money debt again. */
     owedSymbol: v.optional(v.string()),
@@ -310,6 +312,7 @@ const upsertLiability = mutation({
     const { userId } = await requireEditor(ctx, args.portfolioId);
     const owed = owedInKind(args.owedSymbol, args.owedQuantity);
     const party = cleanParty("counterparty", args.counterparty);
+    if (typeof args.dueDate === "number" && !validDueDate(args.dueDate, Date.now())) throw new ConvexError({ code: "INVALID_INPUT", message: "The due date isn’t a valid date" });
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.upsertLiability", async () => {
       // A debt owed in an asset is worth that asset at today's price; without a price yet, the
       // amount the caller sent stands until one arrives.
@@ -323,8 +326,9 @@ const upsertLiability = mutation({
         kind: args.kind,
         balance,
         currency,
-        interestRate: args.interestRate,
-        dueDate: args.dueDate,
+        // Leaving the rate out keeps the one saved with the loan terms, so an update from Ask never wipes it.
+        ...(args.interestRate !== undefined ? { interestRate: args.interestRate } : {}),
+        dueDate: args.dueDate ?? undefined,
         notes: args.notes?.trim() || undefined,
         ...(owed ?? {}),
         ...party,
@@ -335,7 +339,18 @@ const upsertLiability = mutation({
         if (!existing || String(existing.portfolioId) !== String(args.portfolioId)) {
           throw new ConvexError({ code: "NOT_FOUND", message: "Liability not found" });
         }
-        await ctx.db.patch(args.id, patch);
+        // Loan terms are worked out in the debt's own currency, so a debt with them cannot become one owed in a coin.
+        if (owed?.owedSymbol && (existing.interestTerms === "simple" || existing.principal !== undefined)) {
+          throw new ConvexError({ code: "INVALID_INPUT", message: "This debt has loan terms that don’t apply to a debt owed in a coin. Clear its terms first" });
+        }
+        // A fixed loan keeps its repayment date when an update leaves it out, so Ask and other callers that never mention it
+        // cannot lose it. Asking for it to be cleared (null) does clear it, and the loan is no longer fixed.
+        const keepDate = args.dueDate === undefined && existing.dueKind === "fixed" && existing.dueDate !== undefined;
+        const clearsFixed = args.dueDate === null && existing.dueKind === "fixed";
+        const final = keepDate ? { ...patch, dueDate: existing.dueDate } : clearsFixed ? { ...patch, dueKind: undefined } : patch;
+        // A kind, currency or rate changed here must still fit the loan terms, as the terms form would require.
+        assertTermsAfterPatch(existing, final);
+        await ctx.db.patch(args.id, final);
         if (owed?.owedSymbol) await refreshQuoteSoon(ctx, owed.owedSymbol);
         return args.id;
       }
