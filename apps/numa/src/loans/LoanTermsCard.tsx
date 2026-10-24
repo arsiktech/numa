@@ -12,7 +12,7 @@ import { useMoney } from '@/ui/money';
 import { amountText } from '@/ui/PositionRow';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
-import { hasTerms, inCurrency, laterDate, pastDate, termEventOf, termsOf, unitOf } from './termsHelpers';
+import { calendarToday, hasTerms, inCurrency, laterDate, pastDate, termEventOf, termsOf, unitOf } from './termsHelpers';
 import { eventErrorText, useDebtWrites, useTermsWrite } from './useMoneyMap';
 
 export { hasTerms, inCurrency, laterDate, pastDate, termEventOf, termsOf, unitOf } from './termsHelpers';
@@ -38,10 +38,11 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
   const coin = !inCurrency(loan);
   const unit = unitOf(loan);
   const list = events.map(termEventOf);
-  const a = accrual(terms, list, loan.balance, now);
+  const today = calendarToday(now);
+  const a = accrual(terms, list, loan.balance, today);
   // Totals are only of payments in this debt's own currency or coin.
   const paid = paidTotals(list, unit);
-  const overdue = isOverdue(terms, loan.balance, now);
+  const overdue = isOverdue(terms, loan.balance, today);
   // A debt owed in a coin is shown in that coin, never as currency.
   const money = (n: number) => (coin ? `${amountText(n)} ${unit}` : major(n, loan.currency));
   const owedNow = coin ? `${amountText(loan.owedQuantity ?? 0)} ${unit}` : money(loan.balance);
@@ -101,13 +102,16 @@ export function LoanTermsForm({ loan, events, portfolioId, now, onDone }: { loan
   const save = useTermsWrite();
   const writes = useDebtWrites(portfolioId);
   const t = termsOf(loan);
+  const coin = !inCurrency(loan);
+  const noSimple = loan.kind === 'mortgage' || loan.kind === 'credit_card';
   // A debt that has only a repayment date or a rate from before loan terms existed starts as fixed or simple, with those values filled in.
+  // Numa cannot work out interest on a mortgage, a card or a coin debt, so a rate on one of those starts as manual.
   const initial = {
     principal: t.principal === null ? '' : String(t.principal),
     started: dateText(t.startedAt),
     dueKind: (t.dueKind ?? (t.dueDate !== null ? 'fixed' : 'none')) as 'fixed' | 'flexible' | 'none',
     due: dateText(t.dueDate),
-    interest: (t.interestTerms ?? (t.interestRate ? 'simple' : 'unset')) as 'none' | 'simple' | 'manual' | 'unset',
+    interest: (t.interestTerms ?? (t.interestRate ? (coin || noSimple ? 'manual' : 'simple') : 'unset')) as 'none' | 'simple' | 'manual' | 'unset',
     rate: t.interestRate === null ? '' : String(t.interestRate),
     dueDay: t.interestDueDay ? String(t.interestDueDay) : '',
   };
@@ -120,8 +124,6 @@ export function LoanTermsForm({ loan, events, portfolioId, now, onDone }: { loan
   const [dueDay, setDueDay] = useState(initial.dueDay);
   const [busy, setBusy] = useState(false);
   const [confirmedKey, setConfirmedKey] = useState<string | null>(null);
-  const coin = !inCurrency(loan);
-  const noSimple = loan.kind === 'mortgage' || loan.kind === 'credit_card';
   const money = (n: number) => major(n, loan.currency);
 
   const principalN = principal.trim() === '' ? null : parseAmount(principal);
@@ -142,13 +144,18 @@ export function LoanTermsForm({ loan, events, portfolioId, now, onDone }: { loan
   const changes: Changes = {};
   if (!coin && principal !== initial.principal) changes.principal = principalN;
   if (!coin && started !== initial.started) changes.startedAt = startedAt;
-  if (dueKind !== initial.dueKind || due !== initial.due) {
+  // A loan from before loan terms existed shows as fixed or simple from its date or rate, but saved
+  // nothing of the kind. Saving writes what the form shows, so the card and the form agree.
+  const legacyDue = t.dueKind === null && dueKind === 'fixed';
+  const legacyInterest = t.interestTerms === null && interest !== 'unset';
+  if (dueKind !== initial.dueKind || due !== initial.due || legacyDue) {
     changes.dueKind = dueKind === 'none' ? null : dueKind;
-    if (dueKind === 'fixed') changes.dueDate = dueAt;
-    else if (dueKind === 'flexible') changes.dueDate = null;
+    if (dueKind === 'fixed') { if (due !== initial.due || t.dueDate === null) changes.dueDate = dueAt; }
+    // "Not set" and "Flexible" have no repayment date, so the saved one goes with the choice.
+    else if (t.dueDate !== null) changes.dueDate = null;
   }
-  if (interest !== initial.interest || rate !== initial.rate) {
-    if (interest !== initial.interest) changes.interestTerms = interest === 'unset' ? null : interest;
+  if (interest !== initial.interest || rate !== initial.rate || legacyInterest) {
+    if (interest !== initial.interest || legacyInterest) changes.interestTerms = interest === 'unset' ? null : interest;
     if (interest === 'simple') changes.interestRate = rateN;
     else if (interest === 'none') changes.interestRate = null;
   }
@@ -167,8 +174,8 @@ export function LoanTermsForm({ loan, events, portfolioId, now, onDone }: { loan
       interestTerms: changes.interestTerms !== undefined ? changes.interestTerms : t.interestTerms,
       interestRate: changes.interestRate !== undefined ? changes.interestRate : t.interestRate,
     };
-    const before = accrual(t, list, loan.balance, now);
-    const after = accrual(next, list, loan.balance, now);
+    const before = accrual(t, list, loan.balance, calendarToday(now));
+    const after = accrual(next, list, loan.balance, calendarToday(now));
     if (before.status !== 'ok') return null;
     if (after.status !== 'ok') return `Interest will no longer be worked out. So far it was ${money(before.accrued)}.`;
     if (Math.abs(after.accrued - before.accrued) <= 0.005) return null;

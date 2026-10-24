@@ -55,6 +55,14 @@ describe("termsPatch", () => {
     const saved: TermsDoc = { ...loan, interestTerms: "simple", interestRate: 9, principal: 100, startedAt: NOW - DAY, dueKind: "fixed", dueDate: NOW + 30 * DAY };
     expect(termsPatch({ interestTerms: "none", dueKind: "flexible" }, saved, NOW)).toMatchObject({ interestTerms: "none", interestRate: undefined, dueKind: "flexible", dueDate: undefined });
   });
+  it("clears the repayment date along with the kind when the repayment is set to not set", () => {
+    const saved: TermsDoc = { ...loan, dueKind: "fixed", dueDate: NOW + 30 * DAY };
+    expect(termsPatch({ dueKind: null }, saved, NOW)).toMatchObject({ dueKind: undefined, dueDate: undefined });
+    expect("dueDate" in termsPatch({ dueKind: null }, saved, NOW)).toBe(true);
+    // A date given with the kind is the caller's own, and a patch that never mentions the kind leaves the date.
+    expect(termsPatch({ dueKind: "fixed", dueDate: NOW + 60 * DAY }, saved, NOW)).toMatchObject({ dueKind: "fixed", dueDate: NOW + 60 * DAY });
+    expect("dueDate" in termsPatch({ interestTerms: "none" }, saved, NOW)).toBe(false);
+  });
   it("needs a repayment date for a fixed loan, not before its start", () => {
     expect(() => termsPatch({ dueKind: "fixed" }, loan, NOW)).toThrow(/repayment date/);
     expect(() => termsPatch({ dueKind: "fixed", startedAt: NOW - DAY, dueDate: NOW - 2 * DAY }, loan, NOW)).toThrow(/before the start/);

@@ -297,7 +297,8 @@ const upsertLiability = mutation({
     balance: v.number(),
     currency: currencyValidator,
     interestRate: v.optional(v.number()),
-    dueDate: v.optional(v.number()),
+    /** Left out keeps the repayment date of a loan with a fixed one; null clears it. */
+    dueDate: v.optional(v.union(v.number(), v.null())),
     notes: v.optional(v.string()),
     /** Owed in an asset, like "BTC". Left out keeps what is saved; an empty string makes it a plain money debt again. */
     owedSymbol: v.optional(v.string()),
@@ -325,7 +326,7 @@ const upsertLiability = mutation({
         currency,
         // Leaving the rate out keeps the one saved with the loan terms, so an update from Ask never wipes it.
         ...(args.interestRate !== undefined ? { interestRate: args.interestRate } : {}),
-        dueDate: args.dueDate,
+        dueDate: args.dueDate ?? undefined,
         notes: args.notes?.trim() || undefined,
         ...(owed ?? {}),
         ...party,
@@ -340,9 +341,11 @@ const upsertLiability = mutation({
         if (owed?.owedSymbol && (existing.interestTerms === "simple" || existing.principal !== undefined)) {
           throw new ConvexError({ code: "INVALID_INPUT", message: "This debt has loan terms that don’t apply to a debt owed in a coin. Clear its terms first" });
         }
-        // A fixed loan keeps its repayment date when an update leaves it out, so it never ends up fixed with no date.
+        // A fixed loan keeps its repayment date when an update leaves it out, so Ask and other callers that never mention it
+        // cannot lose it. Asking for it to be cleared (null) does clear it, and the loan is no longer fixed.
         const keepDate = args.dueDate === undefined && existing.dueKind === "fixed" && existing.dueDate !== undefined;
-        await ctx.db.patch(args.id, keepDate ? { ...patch, dueDate: existing.dueDate } : patch);
+        const clearsFixed = args.dueDate === null && existing.dueKind === "fixed";
+        await ctx.db.patch(args.id, keepDate ? { ...patch, dueDate: existing.dueDate } : clearsFixed ? { ...patch, dueKind: undefined } : patch);
         if (owed?.owedSymbol) await refreshQuoteSoon(ctx, owed.owedSymbol);
         return args.id;
       }

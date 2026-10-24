@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { add, listForPortfolio, remove } from "./debtEvents";
 
 // Bounded synthetic DB: the registered handlers with real auth and receipt helpers.
@@ -212,5 +212,69 @@ describe("debt history", () => {
     await expect(f.call(add, { ...base, subject: "liability:l1", kind: "repaid", amount: 50, unit: "USD", apply: false })).rejects.toThrow(/in EUR/);
     await expect(f.call(add, { ...base, subject: "asset:a1", kind: "received", amount: 5, unit: "USD", apply: false })).rejects.toThrow(/in EUR/);
     expect(f.events()).toHaveLength(0);
+  });
+});
+
+// l-simple: 19,670 at 8% a year from 1 Jun 2026, so each completed month adds 131.13.
+describe("interest added is capped at the interest owed", () => {
+  afterEach(() => { vi.useRealTimers(); });
+  const clock = (iso: string) => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date(iso)); return Date.now(); };
+  const addInterest = (f: ReturnType<typeof fixture>, now: number, amount: number, extra: object = {}) =>
+    f.call(add, { portfolioId: "pf", occurredAt: now - 86_400_000, subject: "liability:l-simple", kind: "capitalized", amount, unit: "EUR", apply: true, ...extra });
+
+  it("accepts the interest owed and no more, and the same interest cannot be added twice", async () => {
+    const now = clock("2026-10-24T12:00:00Z");
+    const f = fixture();
+    // Four months have completed: 4 x 131.13 = 524.52.
+    await addInterest(f, now, 524.52, { clientMutationId: "phone-a" });
+    expect(f.row("l-simple").balance).toBe(20194.52);
+    await expect(addInterest(f, now, 524.52, { clientMutationId: "phone-b" })).rejects.toThrow(/no unpaid interest/);
+    expect(f.row("l-simple").balance).toBe(20194.52);
+    expect(f.events()).toHaveLength(1);
+  });
+
+  it("refuses a second add of the amount the first phone showed, once the first has gone through", async () => {
+    const now = clock("2026-10-24T12:00:00Z");
+    const f = fixture();
+    await addInterest(f, now, 300, { clientMutationId: "phone-a" });
+    await expect(addInterest(f, now, 300, { clientMutationId: "phone-b" })).rejects.toThrow(/more than the interest owed so far, 224\.52 EUR/);
+    expect(f.row("l-simple").balance).toBe(19970);
+    expect(f.events()).toHaveLength(1);
+  });
+
+  it("refuses a direct call for far more than the interest owed", async () => {
+    const now = clock("2026-10-24T12:00:00Z");
+    const f = fixture();
+    await expect(addInterest(f, now, 5000)).rejects.toThrow(/more than the interest owed so far, 524\.52 EUR/);
+    await expect(addInterest(f, now, 524.53)).rejects.toThrow(/more than the interest owed/);
+    expect(f.row("l-simple").balance).toBe(19670);
+    expect(f.events()).toHaveLength(0);
+  });
+
+  it("counts interest already paid in cash as settled", async () => {
+    const now = clock("2026-10-24T12:00:00Z");
+    const f = fixture();
+    await f.call(add, { portfolioId: "pf", occurredAt: now - 86_400_000, subject: "liability:l-simple", kind: "repaid", amount: 100, unit: "EUR", principalPart: 0, interestPart: 100, feePart: 0, apply: true });
+    await expect(addInterest(f, now, 424.53)).rejects.toThrow(/more than the interest owed so far, 424\.52 EUR/);
+    await addInterest(f, now, 424.52);
+    expect(f.row("l-simple").balance).toBe(20094.52);
+  });
+
+  it("refuses to add interest before a month has completed", async () => {
+    const now = clock("2026-06-20T12:00:00Z");
+    const f = fixture();
+    await expect(addInterest(f, now, 10)).rejects.toThrow(/no unpaid interest to add yet/);
+    expect(f.events()).toHaveLength(0);
+  });
+
+  it("returns the first result for a replay of an add that already went through, however little interest is left", async () => {
+    const now = clock("2026-10-24T12:00:00Z");
+    const f = fixture();
+    const first = await addInterest(f, now, 524.52, { clientMutationId: "retry-1" });
+    const again = await addInterest(f, now, 524.52, { clientMutationId: "retry-1" });
+    expect(first.replayed).toBe(false);
+    expect(again).toEqual({ ...first, replayed: true });
+    expect(f.events()).toHaveLength(1);
+    expect(f.row("l-simple").balance).toBe(20194.52);
   });
 });

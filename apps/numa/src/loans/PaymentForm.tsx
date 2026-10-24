@@ -8,7 +8,7 @@ import { useTheme } from '@/theme/theme';
 import { Field, Seg } from '@/ui/form';
 import { amountText } from '@/ui/PositionRow';
 import { Txt } from '@/ui/Txt';
-import { inCurrency, pastDate, termEventOf, termsOf } from './termsHelpers';
+import { calendarToday, inCurrency, pastDate, termEventOf, termsOf } from './termsHelpers';
 
 export const unitText = (amount: number, unit: string) => (unit === 'EUR' ? `€${amountText(amount)}` : unit === 'USD' ? `$${amountText(amount)}` : `${amountText(amount)} ${unit}`);
 
@@ -56,7 +56,7 @@ export function PaymentForm({ party, events, now, onSave, onCancel }: { party: P
   // history and the saved balance agree, because otherwise the figure cannot be trusted.
   const interest = (() => {
     if (!record?.loan || !inCurrency(record.loan)) return null;
-    return accrual(termsOf(record.loan), events.filter((e) => e.subject === record.subject).map(termEventOf), record.loan.balance, now);
+    return accrual(termsOf(record.loan), events.filter((e) => e.subject === record.subject).map(termEventOf), record.loan.balance, calendarToday(now));
   })();
   const interestOwed = interest?.status === 'ok' && interest.reconciles && interest.owed > WITHIN_HALF_A_CENT ? interest.owed : null;
   const disagrees = interest?.status === 'ok' && !interest.reconciles;

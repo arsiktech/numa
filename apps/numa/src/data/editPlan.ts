@@ -26,8 +26,10 @@ const remove = { asset: 'deleteAsset', liability: 'deleteLiability', holding: 'd
 /** Save writes the new fields; Undo writes the old ones back to the same record. */
 export function editPlan(type: 'asset' | 'liability' | 'holding', id: string, before: Fields, after: Fields, portfolioId: string, acquiredAt?: number): { apply: Op; undo: Op } {
   const keep = type === 'holding' ? { acquiredAt } : {};
+  // An update that leaves the date out keeps a fixed loan's repayment date, so taking the date off a debt that had one says so with null.
+  const clearsDate = type === 'liability' && (before as DebtFields).dueDate !== null && (after as DebtFields).dueDate === null ? { dueDate: null } : {};
   return {
-    apply: { fn: upsert[type], args: args(type, after, portfolioId, { id, ...keep }) },
+    apply: { fn: upsert[type], args: args(type, after, portfolioId, { id, ...keep, ...clearsDate }) },
     undo: { fn: upsert[type], args: args(type, before, portfolioId, { id, ...keep }) },
   };
 }

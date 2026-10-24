@@ -135,6 +135,11 @@ const money = (n) => '€' + n.toLocaleString('en-US', { minimumFractionDigits: 
   const events = await c.query('debtEvents:listForPortfolio', { portfolioId });
   check('only one event was kept', events.filter((e) => e.kind === 'capitalized').length === 1);
 
+  // The server caps interest added at the interest owed, so no phone or call can add more than that.
+  await refuses('adding far more interest than is owed is refused', () => c.mutation('debtEvents:add', { ...base, kind: 'capitalized', amount: 5000 }));
+  await refuses('adding three times the interest accrued is refused', () => c.mutation('debtEvents:add', { ...base, kind: 'capitalized', amount: Math.round(accrued * 3 * 100) / 100 }));
+  check('the refused adds changed nothing', (await loan()).balance === 20133.33 && (await c.query('debtEvents:listForPortfolio', { portfolioId })).filter((e) => e.kind === 'capitalized').length === 1);
+
   // Editing the terms from the screen.
   // Changing the rate recalculates past months, so the screen shows the difference first and asks.
   await page.getByRole('button', { name: 'Edit terms' }).click();
@@ -178,6 +183,41 @@ const money = (n) => '€' + n.toLocaleString('en-US', { minimumFractionDigits: 
   await c.mutation('mobile:upsertLiability', { id: fixed.id, portfolioId, name: 'Fixed loan', kind: 'loan', balance: 2500, currency: 'EUR' });
   const keptFixed = (await snap()).liabilities.find((x) => x.name === 'Fixed loan');
   check('a fixed loan keeps its date when an update leaves it out', keptFixed.dueKind === 'fixed' && keptFixed.dueDate === fixed.dueDate && keptFixed.balance === 2500);
+
+  // An update that says the date is cleared clears it, and a fixed loan is then no longer fixed.
+  await c.mutation('mobile:upsertLiability', { id: fixed.id, portfolioId, name: 'Fixed loan', kind: 'loan', balance: 2500, currency: 'EUR', dueDate: null });
+  const clearedFixed = (await snap()).liabilities.find((x) => x.name === 'Fixed loan');
+  check('an update that clears the date takes the fixed date and kind away', clearedFixed.dueDate === null && clearedFixed.dueKind === null && clearedFixed.balance === 2500);
+
+  // A loan from before loan terms existed: it has a rate and a date but no terms. The form shows them as
+  // simple interest and a fixed date, and saving writes that, so the card agrees with the form.
+  const lenaDate = now + 60 * DAY;
+  await c.mutation('mobile:upsertLiability', { portfolioId, name: 'Old loan from Lena', kind: 'loan', balance: 3000, currency: 'EUR', counterparty: 'Lena', interestRate: 8, dueDate: lenaDate });
+  const legacy = async () => (await snap()).liabilities.find((x) => x.name === 'Old loan from Lena');
+  check('the old loan has a rate and a date and no terms', (await legacy()).interestRate === 8 && (await legacy()).interestTerms === null && (await legacy()).dueKind === null);
+  await page.goto(APP + '/money-map');
+  await page.getByRole('link', { name: /^Lena, / }).click();
+  await page.getByRole('heading', { name: 'History' }).waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: 'Set loan terms' }).click();
+  await page.getByLabel('Original amount in EUR').fill('3000');
+  await page.getByLabel(/^Started/).fill(new Date(started).toISOString().slice(0, 10));
+  await page.getByRole('button', { name: 'Save terms' }).click();
+  await page.getByText('Terms saved').waitFor({ timeout: 15000 });
+  const lena = await until(legacy, (x) => x.interestTerms === 'simple');
+  check('saving wrote simple interest and a fixed date, kept the rate, and left the date as it was', lena.interestTerms === 'simple' && lena.dueKind === 'fixed' && lena.interestRate === 8 && lena.dueDate === lenaDate && lena.principal === 3000, JSON.stringify(lena));
+  body = await page.locator('body').innerText();
+  check('the card then shows the rate and works the interest out', body.includes('8% a year, simple') && body.includes('Interest accrued') && !body.includes('Not set'), body.slice(0, 900).replace(/\n/g, ' | '));
+  await page.screenshot({ path: OUT + '/06-old-loan-dark-390.png', fullPage: true });
+
+  // Repayment "Not set" takes the date away with it.
+  await page.getByRole('button', { name: 'Edit terms' }).click();
+  await page.getByRole('radiogroup', { name: 'Repayment' }).getByRole('radio', { name: 'Not set' }).click();
+  await page.getByRole('button', { name: 'Save terms' }).click();
+  await page.getByText('Terms saved').waitFor({ timeout: 15000 });
+  const lenaOpen = await until(legacy, (x) => x.dueKind === null);
+  check('setting the repayment to Not set cleared the kind and the date', lenaOpen.dueKind === null && lenaOpen.dueDate === null && lenaOpen.interestTerms === 'simple', JSON.stringify(lenaOpen));
+  body = await page.locator('body').innerText();
+  check('the card no longer shows a repayment date', !body.includes('Repay by'), body.slice(0, 900).replace(/\n/g, ' | '));
 
   // A viewer or another person cannot set terms: a new account is a different owner.
   const other = new ConvexHttpClient(CONVEX);

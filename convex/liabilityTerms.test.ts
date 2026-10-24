@@ -106,6 +106,41 @@ describe("loan terms", () => {
     expect(f.row("llegacy").interestRate).toBe(8);
   });
 
+  it("clears a fixed loan's repayment date, and its fixed kind, when an update says null, and an update that leaves it out still keeps it", async () => {
+    const f = fixture();
+    const date = f.row("lfixed").dueDate;
+    const update = (extra: object) => f.call(upsertLiability, { id: "lfixed", portfolioId: "pf", name: "Fixed loan", kind: "loan", balance: 5000, currency: "EUR", counterparty: "Sam", ...extra });
+    await update({});
+    expect(f.row("lfixed")).toMatchObject({ dueKind: "fixed", dueDate: date });
+    await update({ dueDate: null });
+    expect(f.row("lfixed").dueDate).toBeUndefined();
+    expect(f.row("lfixed").dueKind).toBeUndefined();
+    expect(f.row("lfixed")).toMatchObject({ balance: 5000, counterparty: "Sam" });
+    // With no date and no kind left, a later update that leaves the date out has nothing to keep.
+    await update({ balance: 4900 });
+    expect(f.row("lfixed")).toMatchObject({ balance: 4900 });
+    expect(f.row("lfixed").dueDate).toBeUndefined();
+  });
+
+  it("clears the date of a debt with no loan terms when an update says null, and creates a debt with a null date", async () => {
+    const f = fixture();
+    await f.call(upsertLiability, { id: "llegacy", portfolioId: "pf", name: "Old loan", kind: "loan", balance: 3000, currency: "EUR", dueDate: null });
+    expect(f.row("llegacy").dueDate).toBeUndefined();
+    const created = await f.call(upsertLiability, { portfolioId: "pf", name: "New", kind: "loan", balance: 10, currency: "EUR", dueDate: null });
+    expect(f.row(created.id)).toMatchObject({ name: "New", balance: 10 });
+    expect(f.row(created.id).dueDate).toBeUndefined();
+  });
+
+  it("takes the repayment date away with a repayment kind set to not set, and leaves a date given with it alone", async () => {
+    const f = fixture();
+    await f.call(setTerms, { id: "lfixed", dueKind: null });
+    expect(f.row("lfixed").dueKind).toBeUndefined();
+    expect(f.row("lfixed").dueDate).toBeUndefined();
+    const date = Date.now() + 60 * 86_400_000;
+    await f.call(setTerms, { id: "lfixed", dueKind: "fixed", dueDate: date });
+    expect(f.row("lfixed")).toMatchObject({ dueKind: "fixed", dueDate: date });
+  });
+
   it("refuses to turn a debt with loan terms into one owed in a coin, and changes nothing", async () => {
     const f = fixture();
     await f.call(setTerms, { id: "l1", principal: 20000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 8 });

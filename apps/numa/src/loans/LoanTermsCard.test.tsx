@@ -4,6 +4,7 @@ import TestRenderer, { act } from 'react-test-renderer';
 import type { CloudLiability } from '@/cloud/api';
 import type { DebtEvent } from '@/data/moneyMap';
 import { LoanTermsCard, LoanTermsForm, hasTerms, laterDate, pastDate } from './LoanTermsCard';
+import { simulateZone } from './testZone';
 
 let mockHidden = false;
 const mockSave = jest.fn(async () => undefined);
@@ -26,7 +27,7 @@ const loan = (over: Partial<CloudLiability> = {}): CloudLiability => ({
 const event = (over: Partial<DebtEvent>): DebtEvent => ({ id: 'e', subject: 'liability:l1', kind: 'repaid', amount: null, unit: 'EUR', applied: true, occurredAt: day(2026, 8, 15), note: null, ...over });
 
 let tree: TestRenderer.ReactTestRenderer | undefined;
-afterEach(() => { if (tree) act(() => tree?.unmount()); tree = undefined; mockHidden = false; mockSave.mockClear(); mockToast.mockClear(); mockAdd.mockClear(); });
+afterEach(() => { jest.restoreAllMocks(); if (tree) act(() => tree?.unmount()); tree = undefined; mockHidden = false; mockSave.mockClear(); mockToast.mockClear(); mockAdd.mockClear(); });
 type Json = TestRenderer.ReactTestRendererJSON | string;
 const flat = (n: Json | Json[] | null): string => (n === null ? '' : typeof n === 'string' ? n : Array.isArray(n) ? n.map(flat).join('') : (n.children ?? []).map(flat).join(''));
 /** Everything shown, with text split across nodes joined back together. */
@@ -105,6 +106,21 @@ describe('LoanTermsCard', () => {
     expect(text()).not.toContain('Original amount');
   });
 
+  it('counts a month as complete on the phone’s own anniversary date, even while UTC is still on the day before', () => {
+    // 00:30 on 25 Oct at UTC+2 is 22:30 on 24 Oct in UTC. The loan started on 25 Jul: three months have completed on the phone's calendar.
+    simulateZone(2);
+    render(<LoanTermsCard loan={loan({ startedAt: day(2026, 7, 25) })} events={[]} now={Date.UTC(2026, 9, 24, 22, 30)} onEdit={() => undefined} />);
+    expect(text()).toContain('€399.99');
+    expect(text()).not.toContain('€266.66');
+  });
+
+  it('does not call a fixed loan overdue on its repayment date', () => {
+    simulateZone(0);
+    render(<LoanTermsCard loan={loan({ dueKind: 'fixed', dueDate: day(2026, 10, 24) })} events={[]} now={Date.UTC(2026, 9, 24, 15, 0)} onEdit={() => undefined} />);
+    expect(text()).toContain('Repay by');
+    expect(text()).not.toContain('overdue');
+  });
+
   it('opens the editor from a button named for what it does', () => {
     const onEdit = jest.fn();
     render(<LoanTermsCard loan={loan()} events={[]} now={NOW} onEdit={onEdit} />);
@@ -164,15 +180,65 @@ describe('LoanTermsForm', () => {
     expect(onDone).toHaveBeenCalled();
   });
 
-  it('keeps a saved rate and repayment date when only the original amount and start date are added', async () => {
+  it('saves what the form showed for a loan from before loan terms: simple interest, a fixed date, and the rate, without rewriting the date', async () => {
     const legacy = loan({ principal: null, startedAt: null, dueKind: null, interestTerms: null, interestRate: 8, dueDate: day(2026, 11, 1) });
     render(<LoanTermsForm events={[]} portfolioId="pf" loan={legacy} now={NOW} onDone={() => undefined} />);
     expect(text()).toContain('Repay by');
     type('Original amount in EUR', '20000');
     type('Started (like 2026-07-01 or Jul 2026)', '2026-07-01');
     await act(async () => { await save().props.onPress(); });
-    // Neither the rate, the interest kind, the repayment kind nor the date is in what is sent, so none is cleared.
-    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 20_000, startedAt: day(2026, 7, 1) });
+    // The card reads these kinds, so without them it would say "Interest: Not set" and work out nothing. The date itself is not sent.
+    expect(mockSave).toHaveBeenCalledWith('l1', { principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'fixed', interestTerms: 'simple', interestRate: 8 });
+    expect(mockAdd).not.toHaveBeenCalled();
+  });
+
+  it('repairs a loan saved with an original amount and a start date but no interest kind, with nothing else to change', async () => {
+    const stuck = loan({ dueKind: null, interestTerms: null, interestRate: 8 });
+    render(<LoanTermsForm events={[]} portfolioId="pf" loan={stuck} now={NOW} onDone={() => undefined} />);
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'simple', interestRate: 8 });
+    expect(mockToast).not.toHaveBeenCalledWith({ text: 'Nothing changed' });
+  });
+
+  it('saves a fixed date on a loan that had the date but no kind, and asks nothing because nothing was worked out before', async () => {
+    const legacy = loan({ dueKind: null, interestTerms: 'simple', dueDate: day(2026, 12, 20) });
+    render(<LoanTermsForm events={[]} portfolioId="pf" loan={legacy} now={NOW} onDone={() => undefined} />);
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: 'fixed' });
+  });
+
+  it('takes the saved repayment date away when Repayment is set to Not set or to Flexible', async () => {
+    const fixed = loan({ dueKind: 'fixed', dueDate: day(2026, 12, 20) });
+    render(<LoanTermsForm events={[]} portfolioId="pf" loan={fixed} now={NOW} onDone={() => undefined} />);
+    act(() => radio('Repayment', 'Not set').props.onPress());
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: null, dueDate: null });
+    mockSave.mockClear();
+    act(() => radio('Repayment', 'Flexible').props.onPress());
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: 'flexible', dueDate: null });
+  });
+
+  it('sends no date for Not set on a loan that had none', async () => {
+    render(<LoanTermsForm events={[]} portfolioId="pf" loan={loan({ dueKind: 'flexible' })} now={NOW} onDone={() => undefined} />);
+    act(() => radio('Repayment', 'Not set').props.onPress());
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { dueKind: null });
+  });
+
+  it('starts a rate on a mortgage, a card or a coin debt as manual, and saves it', async () => {
+    const mortgage = loan({ kind: 'mortgage', principal: null, startedAt: null, dueKind: null, interestTerms: null, interestRate: 3.5 });
+    render(<LoanTermsForm events={[]} portfolioId="pf" loan={mortgage} now={NOW} onDone={() => undefined} />);
+    expect(text()).not.toContain('Simple interest needs');
+    expect(save().props.disabled).toBe(false);
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'manual' });
+    act(() => tree!.unmount());
+    mockSave.mockClear();
+    const coin = loan({ owedSymbol: 'BTC', owedQuantity: 0.4, principal: null, startedAt: null, dueKind: null, interestTerms: null, interestRate: 3.5 });
+    render(<LoanTermsForm events={[]} portfolioId="pf" loan={coin} now={NOW} onDone={() => undefined} />);
+    await act(async () => { await save().props.onPress(); });
+    expect(mockSave).toHaveBeenCalledWith('l1', { interestTerms: 'manual' });
   });
 
   it('reads a decimal comma in the original amount, not as thousands', async () => {

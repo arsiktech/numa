@@ -112,6 +112,9 @@ export function termsPatch(input: TermsInput, existing: TermsDoc, now: number): 
   if (input.dueDate !== undefined) {
     if (input.dueDate !== null && (!Number.isFinite(input.dueDate) || input.dueDate < 0)) throw bad("The repayment date isn’t a valid date");
     set("dueDate", input.dueDate);
+  } else if (input.dueKind === null) {
+    // "Not set" has no repayment date either, so it never leaves a date behind to show as due or raise an alert.
+    set("dueDate", null);
   }
 
   // Interest-free has no rate; a flexible loan has no repayment date.

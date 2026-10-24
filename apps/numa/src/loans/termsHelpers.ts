@@ -31,6 +31,14 @@ function asCalendarDay(local: number): number {
   return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12);
 }
 
+/**
+ * Today on the phone's calendar, as the moment a typed "today" is stored: noon UTC of the phone's own
+ * date. Interest and overdue checks compare calendar days, so they take this and not the clock. With
+ * the clock, a payment dated today lies after "now" for the hours when the phone's date is ahead of
+ * UTC's, and the history seems to disagree with the balance.
+ */
+export const calendarToday = (now: number) => asCalendarDay(now);
+
 /** A past date typed loosely: "2026-07-01", "Jul 2026", "today", "20 Sep". */
 export function pastDate(text: string, now: number): number | null {
   const named = parseBought(text, now);

@@ -4,6 +4,7 @@ import TestRenderer, { act } from 'react-test-renderer';
 import type { CloudLiability } from '@/cloud/api';
 import type { DebtEvent, Party } from '@/data/moneyMap';
 import { PaymentForm, type NewEvent } from './PaymentForm';
+import { simulateZone } from './testZone';
 
 let mockCounter = 0;
 jest.mock('@/data/cloud', () => ({ newMutationId: (prefix: string) => `${prefix}:${++mockCounter}` }));
@@ -36,15 +37,15 @@ const event = (over: Partial<DebtEvent>): DebtEvent => ({ id: 'e', subject: 'lia
 const sentBy = (fn: jest.Mock, n: number) => (fn.mock.calls[n] as unknown as [NewEvent])[0];
 
 let tree: TestRenderer.ReactTestRenderer | undefined;
-afterEach(() => { if (tree) act(() => tree?.unmount()); tree = undefined; mockCounter = 0; });
+afterEach(() => { jest.restoreAllMocks(); if (tree) act(() => tree?.unmount()); tree = undefined; mockCounter = 0; });
 
 type Json = TestRenderer.ReactTestRendererJSON | string;
 const flat = (n: Json | Json[] | null): string => (n === null ? '' : typeof n === 'string' ? n : Array.isArray(n) ? n.map(flat).join('') : (n.children ?? []).map(flat).join(''));
 const text = () => flat(tree!.toJSON() as Json | Json[] | null);
 const textIn = (i: TestRenderer.ReactTestInstance): string => i.children.map((c) => (typeof c === 'string' ? c : textIn(c))).join('');
 
-const render = (p: Party, onSave: (e: NewEvent) => Promise<unknown> | void, events: DebtEvent[] = []) => {
-  act(() => { tree = TestRenderer.create(<PaymentForm party={p} events={events} now={NOW} onSave={onSave} onCancel={() => undefined} />); });
+const render = (p: Party, onSave: (e: NewEvent) => Promise<unknown> | void, events: DebtEvent[] = [], now = NOW) => {
+  act(() => { tree = TestRenderer.create(<PaymentForm party={p} events={events} now={now} onSave={onSave} onCancel={() => undefined} />); });
 };
 const field = (label: string | RegExp) => tree!.root.findAll((n) => typeof n.props.onChangeText === 'function' && (typeof label === 'string' ? n.props.accessibilityLabel === label : label.test(String(n.props.accessibilityLabel))))[0];
 const type = (label: string | RegExp, value: string) => act(() => field(label).props.onChangeText(value));
@@ -225,5 +226,27 @@ describe('adding interest to the loan', () => {
     act(() => tree!.update(<PaymentForm party={party(liability({ balance: 18_000 }))} events={[]} now={NOW} onSave={async () => true} onCancel={() => undefined} />));
     expect(text()).toContain('Amount in EUR');
     expect(text()).not.toContain('Interest to add');
+  });
+});
+
+describe('a phone whose date is ahead of UTC', () => {
+  // 00:30 on 25 Oct at UTC+2 is 22:30 on 24 Oct in UTC. A payment typed as "today" is dated the 25th.
+  const clock = Date.UTC(2026, 9, 24, 22, 30);
+  const paidToday = [event({ amount: 1_000, kind: 'repaid', occurredAt: day(2026, 10, 25) })];
+
+  it('still offers Interest added, and does not say the history disagrees, after a payment dated today', () => {
+    simulateZone(2);
+    render(party(liability({ balance: 19_000 })), jest.fn(), paidToday, clock);
+    expect(text()).toContain('Interest added');
+    expect(text()).not.toContain('disagree');
+  });
+
+  it('dates a new payment typed as today on the phone’s own date, and lets it be saved', async () => {
+    simulateZone(2);
+    const onSave = jest.fn(async () => true);
+    render(party(liability()), onSave, [], clock);
+    type('Amount in EUR', '500');
+    await pressSave();
+    expect(sentBy(onSave, 0).occurredAt).toBe(day(2026, 10, 25));
   });
 });
