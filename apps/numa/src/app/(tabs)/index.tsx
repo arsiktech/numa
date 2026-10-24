@@ -17,6 +17,7 @@ import { CompositionBar, type Lens } from '@/ui/CompositionBar';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { EarningsTeaser } from '@/earnings/EarningsTeaser';
 import { MoneyMapTeaser } from '@/loans/MoneyMapTeaser';
+import { LiquidBreakdown } from '@/ui/LiquidBreakdown';
 import { MonthTeaser } from '@/ui/MonthTeaser';
 import { WIDE } from '@/ui/Nav';
 import { usePanelOpen } from '@/ui/Panel';
@@ -34,7 +35,7 @@ const tabs: { lens: Lens; label: string }[] = [
 
 const notes: Record<Lens, string | null> = {
   net: null,
-  liquid: 'Dimmed blocks can’t be sold within a week. Locked shares join when their lock-up ends; pledged coins join when the loan is repaid.',
+  liquid: 'What you could have within a week, minus everything you owe. Dimmed blocks can’t be sold within a week. Locked shares join when their lock-up ends; pledged coins join when the loan is repaid.',
   cash: 'Cash and stablecoins only.',
 };
 
@@ -162,11 +163,12 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
 
   // Demo history scales with the lens. Real history is saved for net worth only, so the
   // chart stays on net worth and the figure shows the lens value today.
-  const lensNow = lens === 'net' ? summary.netCents : lens === 'liquid' ? summary.liquidCents : summary.cashCents;
-  const ratio = model.source === 'demo' && lens !== 'net' && summary.netCents !== 0 ? lensNow / summary.netCents : 1;
+  const lensNow = lens === 'net' ? summary.netCents : lens === 'liquid' ? summary.liquidAfterDebtsCents : summary.cashCents;
+  // Liquid after debts can be negative or tiny, so scaling the demo line by it would flip or flatten the chart: only Cash scales it.
+  const chartFollowsLens = (model.source === 'demo' && lens !== 'liquid') || lens === 'net';
+  const ratio = model.source === 'demo' && lens === 'cash' && summary.netCents !== 0 ? lensNow / summary.netCents : 1;
   const values = points.map((p) => Math.round(p.cents * ratio));
-  values[values.length - 1] = model.source === 'demo' ? (lens === 'net' ? values[values.length - 1] : lensNow) : summary.netCents;
-  const chartFollowsLens = model.source === 'demo' || lens === 'net';
+  values[values.length - 1] = model.source === 'demo' ? (lens === 'cash' ? lensNow : values[values.length - 1]) : summary.netCents;
   const idx = scrub ?? values.length - 1;
   const shown = scrub !== null || chartFollowsLens ? values[idx] : lensNow;
   const diff = values[idx] - values[0];
@@ -258,7 +260,8 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         onOpen={openDay ? (cat) => openDay(dayGroupOf(cat)) : undefined} />
       {notes[lens] ? <Txt v="body" c="ink2" style={{ fontSize: 13.5, marginTop: 10 }}>{notes[lens]}</Txt> : null}
       {summary.unknown.length > 0 && <Txt v="small" c="ink3" style={{ marginTop: 8 }}>{summary.unknown.length} without a value {summary.unknown.length === 1 ? 'is' : 'are'} left out.</Txt>}
-      {lens !== 'net' && !chartFollowsLens && <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{tabs.find((t) => t.lens === lens)!.label} today: {money(lensNow)}. The chart shows net worth.</Txt>}
+      {lens === 'liquid' && <LiquidBreakdown summary={summary} pledged={model.pledged} />}
+      {lens !== 'net' && !chartFollowsLens && <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{tabs.find((t) => t.lens === lens)!.label}{lens === 'liquid' ? ' after debts' : ''} today: {money(lensNow)}. The chart shows net worth.</Txt>}
     </View>
   ) : null;
 
