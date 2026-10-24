@@ -7,6 +7,8 @@ import type { AskSource } from '@/ask/useAskSource';
 
 const renderer = jest.requireActual('react-test-renderer');
 const { act, create } = renderer;
+// The first render loads the whole Ask screen; on a cold CI runner that alone can pass Jest's 5 s default.
+jest.setTimeout(20_000);
 let mockSource: Extract<AskSource, { status: 'ready' }>;
 jest.mock('@/cloud/session', () => ({ useSession: () => ({ kind: 'signedIn' }) }));
 jest.mock('@/ask/useAskSource', () => ({ useCloudAskSource: () => mockSource, useDemoAskSource: () => mockSource }));
