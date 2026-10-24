@@ -220,6 +220,14 @@ type WithReceipt<T> = T & { clientMutationId: string };
 /** A debt kept in step with a company portal; the portal's key never comes back from the server. */
 export type PortalSource = { liabilityId: string | null; assetId: string | null; label: string | null; host: string; status: 'ok' | 'incomplete' | 'failed' | null; message: string | null; checkedAt: number | null; readingAt: number | null };
 
+/** One way into the account. `label` is that method's own address when known. */
+export type CloudSignInMethod = { id: string; kind: 'apple' | 'google' | 'password'; label: string | null; removable: boolean };
+export type CloudSignInMethods = {
+  email: string | null; privateRelay: boolean; apple: boolean; google: boolean; password: boolean;
+  // Older backends send only the booleans above.
+  methods?: CloudSignInMethod[]; canAddGoogle?: boolean;
+};
+
 export const cloud = {
   aiSharing: makeFunctionReference<'query', Record<string, never>, AISharingStatus>('privacy:status'),
   setAISharing: makeFunctionReference<'mutation', { expectedUserId: string; allowed: boolean; version: string; clientMutationId: string }, unknown>('privacy:setAISharing'),
@@ -274,7 +282,9 @@ export const cloud = {
   readSheet: makeFunctionReference<'action', { link: string }, { status: 'ok'; csv: string } | { status: 'ok'; xlsx: string } | { status: 'private' | 'missing' | 'tooBig' | 'failed' | 'badLink' | 'limited' }>('sheetsImport:readSheet'),
   askReply: makeFunctionReference<'action', { expectedUserId: string; message: string; context: string; history: AskTurn[] }, AskReply>('ask:reply'),
   changePassword: makeFunctionReference<'action', { currentPassword: string; newPassword: string }, { ok: true }>('authManagement:changePassword'),
-  signInMethods: makeFunctionReference<'query', Record<string, never>, { email: string | null; privateRelay: boolean; apple: boolean; google: boolean; password: boolean } | null>('signInMethods:mine'),
+  signInMethods: makeFunctionReference<'query', Record<string, never>, CloudSignInMethods | null>('signInMethods:mine'),
+  startGoogleLink: makeFunctionReference<'mutation', { returnTo: string }, { url: string }>('signInMethods:startGoogleLink'),
+  unlinkSignIn: makeFunctionReference<'mutation', { accountId: string }, { ok: true }>('signInMethods:unlink'),
   setPassword: makeFunctionReference<'action', { password: string }, { email: string }>('signInMethods:setPassword'),
   connectAgent: makeFunctionReference<'mutation', { name: string; access: AgentAccess }, { id: string; name: string; access: AgentAccess; endpoint: string; secret: string; link: string }>('agentAccess:connect'),
   agents: makeFunctionReference<'query', Record<string, never>, CloudAgent[]>('agentAccess:listMine'),

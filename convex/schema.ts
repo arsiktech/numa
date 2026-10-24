@@ -37,6 +37,13 @@ export default defineSchema({
   }).index("userId", ["userId"]),
   // Preserve the SDK signature index while enabling owner-session erasure.
   authVerifiers: authTables.authVerifiers.index("by_session", ["sessionId"]),
+  // One short-lived "add Google to this account" attempt. Server-only: secrets are stored
+  // hashed, except the PKCE verifier, which lives at most 10 minutes. See convex/googleLink.ts.
+  signInLinks: defineTable({
+    userId: v.id("users"), sessionId: v.id("authSessions"), provider: v.literal("google"),
+    startHash: v.string(), stateHash: v.optional(v.string()), binderHash: v.optional(v.string()),
+    codeVerifier: v.optional(v.string()), returnTo: v.string(), expiresAt: v.number(),
+  }).index("by_start", ["startHash"]).index("by_state", ["stateHash"]).index("by_user", ["userId"]),
   profileAvatars: defineTable({
     userId: v.id("users"), image: v.bytes(), updatedAt: v.number()
   }).index("by_user", ["userId"]),

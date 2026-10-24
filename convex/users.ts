@@ -383,7 +383,9 @@ async function deleteUserCascade(
         .withIndex("by_user", (q) => q.eq("userId", userId))
         .take(n),
     (n) => ctx.db.query("agentActivity").withIndex("by_user_at", q => q.eq("userId", userId)).take(n),
-    (n) => ctx.db.query("agentConnections").withIndex("by_user", q => q.eq("userId", userId)).take(n)
+    (n) => ctx.db.query("agentConnections").withIndex("by_user", q => q.eq("userId", userId)).take(n),
+    // Unfinished "Add Google" attempts: gone before the sessions they point at.
+    (n) => ctx.db.query("signInLinks").withIndex("by_user", q => q.eq("userId", userId)).take(n)
   ];
   for (const fetchPage of userScopedPages) {
     if (!(await drainPage(ctx, budget, fetchPage))) return false;
