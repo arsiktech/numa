@@ -151,7 +151,7 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
         : <AddButton label={loan.collateral.length ? 'Add more' : 'Add what backs it, if anything'} onPress={() => setPicking('collateral')} disabled={busy} />)}
 
       <Txt v="label" c="ink3" style={{ marginTop: 24 }} accessibilityRole="header">WHERE THE MONEY WENT{loan.deployedCents !== null ? ` · ${money(loan.deployedCents)}` : ''}</Txt>
-      {!loan.deployed.length && <Txt v="body" c="ink2" style={{ marginTop: 8 }}>Not set yet. Pick where the borrowed money went, and Numa shows whether borrowing has paid off. Nothing moves and your net worth stays the same.</Txt>}
+      {!loan.deployed.length && <Txt v="body" c="ink2" style={{ marginTop: 8 }}>Not set yet. Pick where the borrowed money went, and Numa shows whether borrowing has paid off. Nothing moves and your net worth stays the same. If it went into a company or property, it isn’t taken from what you could have within a week.</Txt>}
       {loan.deployed.map((p, i) => <PlaceRow key={p.key} place={p} last={i === loan.deployed.length - 1} onRemove={busy ? undefined : () => unlink(p)} />)}
       {loan.gaps > 0 && <Txt v="small" c="warn" style={{ marginTop: 6 }}>{loan.gaps} {loan.gaps === 1 ? 'place has' : 'places have'} no value now and {loan.gaps === 1 ? 'is' : 'are'} left out, so the result is unknown.</Txt>}
       {picking === 'deployed' ? <Picker loan={loan} role="deployed" state={state} onPick={pick} onClose={() => setPicking(null)} />

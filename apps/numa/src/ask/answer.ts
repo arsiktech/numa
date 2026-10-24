@@ -25,8 +25,11 @@ export function answer(topic: Topic, d: AnswerData): string {
       const base = `You could have ${m(s.liquidCents)} within a week: cash plus anything you can sell quickly.`;
       if (s.oweCents <= 0) return `${base}${left}`;
       const after = s.liquidAfterDebtsCents;
-      const net = after >= 0 ? ` After what you owe, ${m(after)}.` : ` After the ${m(s.oweCents)} you owe, you’d be ${m(-after)} short.`;
-      return `${base}${net}${left}`;
+      const counted = s.oweCents - s.investedCents;
+      const net = after >= 0 ? ` After what you owe, ${m(after)}.` : ` After the ${m(counted)} you owe, you’d be ${m(-after)} short.`;
+      // Money borrowed into a company or property is still owed, but is not taken from what you could have this week.
+      const invested = s.investedCents > 0 ? ` ${m(s.investedCents)} you owe went into things you can’t sell within a week, so it isn’t counted here.` : '';
+      return `${base}${net}${invested}${left}`;
     }
     case 'owe': {
       if (!d.debts.length) return 'You don’t owe anything Numa knows about.';

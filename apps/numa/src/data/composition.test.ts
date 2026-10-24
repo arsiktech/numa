@@ -9,7 +9,7 @@ import { compositionAt } from './composition';
 
 const cat = (category: CategorySummary['category'], cents: number): CategorySummary => ({ category, cents, liquidCents: cents, cashCents: category === 'cash' ? cents : 0, share: 0, marketCents: category === 'stocks' || category === 'crypto' ? cents : 0, marketLiquidCents: category === 'stocks' || category === 'crypto' ? cents : 0, marketCashCents: 0 });
 const current: Summary = {
-  ownCents: 100_000, oweCents: 20_000, netCents: 80_000, liquidCents: 100_000, liquidAfterDebtsCents: 80_000, cashCents: 30_000,
+  ownCents: 100_000, oweCents: 20_000, netCents: 80_000, liquidCents: 100_000, liquidAfterDebtsCents: 80_000, investedCents: 0, cashCents: 30_000,
   categories: [cat('cash', 30_000), cat('crypto', 50_000), cat('property', 20_000)], unknown: [], stale: [],
 } as Summary;
 

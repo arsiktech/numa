@@ -1,5 +1,5 @@
 import { summarizeFlow } from '@/domain/flow';
-import { summarize } from '@/domain/summary';
+import { summarize, withInvested } from '@/domain/summary';
 import { answer, type AnswerData } from './answer';
 
 const now = new Date('2026-10-12T10:00:00Z');
@@ -32,6 +32,22 @@ describe('answer', () => {
     );
     expect(answer('liquid', { ...data, summary: deep, debts: [{ name: 'Loan', balanceCents: 450_000 }] }))
       .toBe('You could have €1,000 within a week: cash plus anything you can sell quickly. After the €4,500 you owe, you’d be €3,500 short.');
+  });
+  it('leaves out money borrowed into things that can’t be sold within a week, and says it is still owed', () => {
+    const deep = summarize(
+      [{ id: 'a', name: 'Bank', category: 'cash', liquidity: { kind: 'cash' }, valuation: { kind: 'manual', valueCents: 100_000, asOf: now.toISOString(), remindAfterDays: 30 } }],
+      [{ id: 'd', name: 'Parents', balanceCents: 450_000 }],
+      now,
+    );
+    // 3,000 of the 4,500 went into the company, so 1,500 counts against the 1,000 of cash.
+    expect(answer('liquid', { ...data, summary: withInvested(deep, 300_000), debts: [{ name: 'Parents', balanceCents: 450_000 }] }))
+      .toBe('You could have €1,000 within a week: cash plus anything you can sell quickly. After the €1,500 you owe, you’d be €500 short. €3,000 you owe went into things you can’t sell within a week, so it isn’t counted here.');
+    // Net worth and what is owed don't change.
+    expect(answer('net', { ...data, summary: withInvested(deep, 300_000) })).toBe('Net worth is −€3,500.00. You own €1,000 and owe €4,500.');
+  });
+  it('never leaves out more than is owed', () => {
+    expect(withInvested(summary, 9_999_999)).toMatchObject({ investedCents: 42_000, liquidAfterDebtsCents: 1_250_000, oweCents: 42_000, netCents: 1_208_000 });
+    expect(withInvested(summary, -5)).toMatchObject({ investedCents: 0, liquidAfterDebtsCents: 1_208_000 });
   });
   it('gives only the one figure when nothing is owed', () => {
     const clear = summarize(

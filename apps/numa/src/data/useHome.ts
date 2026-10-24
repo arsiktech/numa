@@ -2,6 +2,7 @@ import { useAction } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { cloud, type CloudCurrency } from '@/cloud/api';
+import { liquidSummary, useInvested, type Invested } from '@/loans/useInvested';
 import { useLoans } from '@/loans/useLoans';
 import { pickAttention, visibleAttention } from '@/domain/attention';
 import { usePrefs } from '@/state/prefs';
@@ -28,6 +29,8 @@ export type HomeModel =
       summary: Summary;
       /** How much of what is owed is backed by collateral; null while loans are still loading, and in no space without any. */
       pledged: { cents: number; partial: boolean } | null;
+      /** Owed money that went into things that can't be sold within a week; null while loans load, and in the demo. */
+      invested: Invested | null;
       /** False while a record needs an exchange rate we do not have. */
       available: boolean;
       points: Point[];
@@ -53,7 +56,7 @@ export function useDemoHome(range: Range): HomeModel {
   const pledgedCents = demoHoldings.filter((x) => x.liquidity.kind === 'pledged').reduce((t, x) => t + (x.valuation.kind === 'missing' ? (x.valuation.lastKnownCents ?? 0) : x.valuation.valueCents), 0);
   const points = useMemo(() => demoPoints(range, summary.netCents), [range, summary.netCents]);
   return {
-    status: 'ready', source: 'demo', now: demoNow.getTime(), currency: 'EUR', summary, pledged: { cents: Math.min(summary.oweCents, pledgedCents), partial: false }, available: true,
+    status: 'ready', source: 'demo', now: demoNow.getTime(), currency: 'EUR', summary, pledged: { cents: Math.min(summary.oweCents, pledgedCents), partial: false }, invested: null, available: true,
     points: [...points.slice(0, -1), { t: demoNow.getTime(), cents: netCents }], hasHistory: true, live: true,
     month: 'October', flow: summarizeFlow(demoOctober), attention: pickAttention(visibleAttention(demoAttention, dismissed, demoNow.getTime())), empty: false,
   };
@@ -83,6 +86,7 @@ function usePriceHistory(range: Range, pieces: PricedPiece[]): Record<string, Pr
 export function useCloudHome(range: Range): HomeModel {
   const cloudData = useCloudData();
   const loans = useLoans();
+  const invested = useInvested();
   const { dismissed } = usePrefs();
   // Crypto and stocks that move with a market price, merged by symbol across records and wallets.
   const pieces = useMemo<PricedPiece[]>(() => {
@@ -92,7 +96,9 @@ export function useCloudHome(range: Range): HomeModel {
   }, [cloudData]);
   const history = usePriceHistory(range, pieces);
   if (cloudData.status !== 'ready') return cloudData;
-  const { data, summary, now } = cloudData;
+  const { data, now } = cloudData;
+  // Money borrowed into a company or property is still owed, but is not taken from Liquid after debts.
+  const summary = liquidSummary(cloudData.summary, invested);
   const priced = data.holdings.filter((h) => h.valuation.kind === 'synced');
   const marketsToday = priced.length ? priced.reduce((sum, h) => sum + (h.changeTodayCents ?? 0), 0) : null;
   // A year of saved points beats a year drawn from today's holdings; day, week and month always use prices.
@@ -102,7 +108,7 @@ export function useCloudHome(range: Range): HomeModel {
   const today = range === '1D' && !dense ? todayFromMarkets(now, summary.netCents, marketsToday) : null;
   const { points, hasHistory } = dense ? { points: dense, hasHistory: true } : today ?? seriesFor(data.history, now, summary.netCents, range);
   return {
-    status: 'ready', source: 'cloud', now, currency: data.currency, summary, pledged: loans.status === 'ready' ? pledgedBacked(loans.loans) : null, available: data.unconverted.length === 0,
+    status: 'ready', source: 'cloud', now, currency: data.currency, summary, pledged: loans.status === 'ready' ? pledgedBacked(loans.loans) : null, invested, available: data.unconverted.length === 0,
     points, hasHistory, live: priced.length > 0,
     month: data.month.month, flow: summarizeFlow(data.month), attention: pickAttention(visibleAttention(data.attention, dismissed, now)), empty: data.empty,
   };
