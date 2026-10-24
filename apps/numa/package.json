@@ -59,7 +59,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test": "node --test scripts/tooling-dependencies.test.cjs && jest",
     "export:web": "expo export --platform web"
   },
   "private": true,
@@ -70,6 +70,7 @@
     ]
   },
   "overrides": {
+    "zod": "4.6.7",
     "xcode": {
       "uuid": "11.1.1"
     },
