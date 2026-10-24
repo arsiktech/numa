@@ -99,17 +99,17 @@ function SignInMethods() {
   }, []);
 
   // Then tidy the address so a reload doesn't repeat the message.
+  // Only the web returns this way. Edit the address directly, after the router has synced it:
+  // router.setParams re-writes the URL later and would put the parameter back.
   useEffect(() => {
-    if (!params.googleLink) return;
-    router.setParams({ googleLink: undefined });
-    // Settings can open as a side panel over another route, where setParams doesn't reach the address bar.
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    if (Platform.OS !== 'web' || !params.googleLink) return;
+    const tidy = setTimeout(() => {
       const url = new URL(window.location.href);
-      if (url.searchParams.has('googleLink')) {
-        url.searchParams.delete('googleLink');
-        window.history.replaceState(window.history.state, '', url.toString());
-      }
-    }
+      if (!url.searchParams.has('googleLink')) return;
+      url.searchParams.delete('googleLink');
+      window.history.replaceState(window.history.state, '', url.toString());
+    }, 300);
+    return () => clearTimeout(tidy);
   }, [params.googleLink]);
 
   if (!methods) return null;
