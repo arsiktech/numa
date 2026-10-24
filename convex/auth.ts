@@ -67,11 +67,14 @@ if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
     Google({
       // Slim the profile to what we actually use; everything else is just bloat
       // we'd be storing in the `users` table.
-      profile(profile: { sub: string; email: string; name?: string; picture?: string }) {
+      profile(profile: { sub: string; email: string; name?: string; picture?: string; email_verified?: boolean }) {
         return {
           id: profile.sub,
           email: profile.email,
-          name: profile.name ?? profile.email
+          name: profile.name ?? profile.email,
+          // Google says whether it checked the address. The SDK also stores a verified one on the
+          // sign-in method, which Settings shows as that method's label.
+          ...(typeof profile.email_verified === "boolean" ? { emailVerified: profile.email_verified } : {})
         };
       }
     })
@@ -277,11 +280,16 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           });
           return linkedVerifiedUserId;
         }
+        // One account can hold several sign-in methods with different addresses (an Apple ID and
+        // a linked Google account, say). Signing in through one of them must not swap the
+        // account's email or name for that provider's, so only fill what is still missing.
+        const current = await ctx.db.get(args.existingUserId);
+        const keptEmail = normalizeEmail(current?.email);
         await ctx.db.patch(args.existingUserId, {
-          ...(email ? { email } : null),
-          ...(name ? { name } : null),
-          ...(image ? { image } : null),
-          ...(emailVerified && email ? { emailVerificationTime: Date.now() } : null)
+          ...(email && !keptEmail ? { email } : null),
+          ...(name && !current?.name ? { name } : null),
+          ...(image && !current?.image ? { image } : null),
+          ...(emailVerified && email && (keptEmail ?? email) === email && !current?.emailVerificationTime ? { emailVerificationTime: Date.now() } : null)
         });
         return args.existingUserId;
       }
