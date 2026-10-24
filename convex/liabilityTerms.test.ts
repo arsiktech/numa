@@ -127,4 +127,15 @@ describe("loan terms", () => {
     await expect(f.call(setTerms, { id: "l1", dueKind: "fixed", dueDate: -5 })).rejects.toThrow();
     expect(f.row("l1").dueKind).toBeUndefined();
   });
+
+  it("saves a due day with simple interest, keeps it through an update from Ask, and refuses a bad day", async () => {
+    const f = fixture();
+    await f.call(setTerms, { id: "l1", principal: 20000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 8, interestDueDay: 10 });
+    expect(f.row("l1").interestDueDay).toBe(10);
+    await f.call(upsertLiability, { id: "l1", portfolioId: "pf", name: "Loan from a friend", kind: "loan", balance: 19000, currency: "EUR", counterparty: "Friend" });
+    expect(f.row("l1")).toMatchObject({ balance: 19000, interestDueDay: 10 });
+    await expect(f.call(setTerms, { id: "l1", interestDueDay: 29 })).rejects.toThrow(/1 to 28/);
+    await f.call(setTerms, { id: "l1", interestTerms: "none" });
+    expect(f.row("l1").interestDueDay).toBeUndefined();
+  });
 });

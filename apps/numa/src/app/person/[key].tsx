@@ -130,7 +130,7 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
 
       {person && byYou && party.records.filter((r) => r.loan).map((r) => (
         termsFor === r.subject
-          ? <LoanTermsForm key={r.subject} loan={r.loan!} now={state.now} onDone={() => setTermsFor(null)} />
+          ? <LoanTermsForm key={r.subject} loan={r.loan!} events={state.events.filter((e) => e.subject === r.subject)} portfolioId={state.portfolioId} now={state.now} onDone={() => setTermsFor(null)} />
           : hasTerms(r.loan!)
             ? <LoanTermsCard key={r.subject} loan={r.loan!} events={state.events.filter((e) => e.subject === r.subject)} now={state.now} onEdit={() => setTermsFor(r.subject)} />
             : null

@@ -22,6 +22,8 @@ export type LoanTerms = {
   /** Percent a year. */
   interestRate: number | null;
   dueDate: number | null;
+  /** The day of the month (1 to 28) the interest is due by. It says when to pay, and changes no figure. */
+  interestDueDay?: number | null;
 };
 
 export type TermEvent = {
@@ -50,6 +52,15 @@ export type Accrual =
       months: number;
       /** When the next month completes and more interest accrues. */
       nextAccrualAt: number;
+      /**
+       * With a due day: when the oldest interest still owed was due, or when the next is due if none is
+       * owed. Null without a due day.
+       */
+      dueAt: number | null;
+      /** True when interest is owed and its due day has passed. */
+      overdue: boolean;
+      /** An estimate of the interest running up this month. It is not owed until the month completes. */
+      running: number;
       /** Principal the history says is outstanding now. */
       historyPrincipal: number;
       /** False when the history and the saved balance disagree, so the figure may be wrong. */
@@ -90,6 +101,16 @@ export function addMonths(t: number, k: number): number {
   return Date.UTC(d.getUTCFullYear(), month, Math.min(d.getUTCDate(), lastDay), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());
 }
 
+/**
+ * The due date for interest that completed on `endAt`: the next time the due day comes round, on or
+ * after that day, at noon UTC. A due day of 10 and a month completing on 16 Sep is due 10 Oct.
+ */
+export function dueDateFor(endAt: number, day: number): number {
+  const d = new Date(endAt);
+  const month = d.getUTCDate() > day ? d.getUTCMonth() + 1 : d.getUTCMonth();
+  return Date.UTC(d.getUTCFullYear(), month, day, 12);
+}
+
 /** How much of a payment lowered the principal: its principal part, or all of it when it was not split. */
 export function principalPaid(e: TermEvent): number {
   if (e.kind !== 'repaid') return 0;
@@ -121,22 +142,46 @@ export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, 
   // A start date that far back is a typing mistake, and would loop for centuries of months.
   if (now - start > 50 * 365 * 86_400_000) return { status: 'incomplete', missing: 'a start date within the last 50 years' };
   let months = 0;
-  let accrued = 0;
+  const periods: { endAt: number; amount: number }[] = [];
   while (addMonths(start, months + 1) <= now) {
-    accrued += cents((principalAt(terms, events, addMonths(start, months)) * terms.interestRate) / 100 / 12);
+    periods.push({ endAt: addMonths(start, months + 1), amount: cents((principalAt(terms, events, addMonths(start, months)) * terms.interestRate) / 100 / 12) });
     months += 1;
   }
+  const accrued = periods.reduce((t, p) => t + p.amount, 0);
   const settled = events
     .filter((e) => dayOf(e.occurredAt) >= dayOf(start))
     .reduce((t, e) => t + (e.kind === 'repaid' ? (e.interestPart ?? 0) : e.kind === 'capitalized' ? (e.amount ?? 0) : 0), 0);
   const historyPrincipal = principalAt(terms, events, now);
+  const nextAccrualAt = addMonths(start, months + 1);
+
+  // What was settled covers the oldest months first. The first month left short is the one now due.
+  let left = settled;
+  let oldestUnpaidEnd: number | null = null;
+  for (const period of periods) {
+    const covered = Math.min(left, period.amount);
+    left = cents(left - covered);
+    if (cents(period.amount - covered) > 0.005) { oldestUnpaidEnd = period.endAt; break; }
+  }
+  const day = terms.interestDueDay ?? null;
+  const dueAt = day === null ? null : dueDateFor(oldestUnpaidEnd ?? nextAccrualAt, day);
+  const overdue = day !== null && oldestUnpaidEnd !== null && dayOf(dueDateFor(oldestUnpaidEnd, day)) < dayOf(now);
+
+  // The running month, from the principal at its start, by the days gone: an estimate, never owed yet.
+  const runningStart = addMonths(start, months);
+  const span = dayOf(nextAccrualAt) - dayOf(runningStart);
+  const gone = Math.max(0, dayOf(now) - dayOf(runningStart));
+  const running = span > 0 ? cents(((principalAt(terms, events, runningStart) * terms.interestRate) / 100 / 12) * (gone / span)) : 0;
+
   return {
     status: 'ok',
     accrued: cents(accrued),
     settled: cents(settled),
     owed: cents(accrued - settled),
     months,
-    nextAccrualAt: addMonths(start, months + 1),
+    nextAccrualAt,
+    dueAt,
+    overdue,
+    running,
     historyPrincipal,
     // Half a cent: a whole cent apart is a real difference, not rounding.
     reconciles: Math.abs(historyPrincipal - balance) < 0.005,

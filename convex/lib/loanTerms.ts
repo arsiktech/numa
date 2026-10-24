@@ -59,6 +59,7 @@ export type TermsInput = {
   interestTerms?: "none" | "simple" | "manual" | null;
   interestRate?: number | null;
   dueDate?: number | null;
+  interestDueDay?: number | null;
 };
 export type TermsDoc = {
   principal?: number;
@@ -67,14 +68,15 @@ export type TermsDoc = {
   interestTerms?: "none" | "simple" | "manual";
   interestRate?: number;
   dueDate?: number;
+  interestDueDay?: number;
   currency: string;
   owedSymbol?: string;
   kind?: string;
 };
 
-type Field = "principal" | "startedAt" | "dueKind" | "interestTerms" | "interestRate" | "dueDate";
+type Field = "principal" | "startedAt" | "dueKind" | "interestTerms" | "interestRate" | "dueDate" | "interestDueDay";
 /** What to patch: a field set to undefined is removed from the document. */
-export type TermsPatch = { principal?: number; startedAt?: number; dueKind?: "fixed" | "flexible"; interestTerms?: "none" | "simple" | "manual"; interestRate?: number; dueDate?: number };
+export type TermsPatch = { principal?: number; startedAt?: number; dueKind?: "fixed" | "flexible"; interestTerms?: "none" | "simple" | "manual"; interestRate?: number; dueDate?: number; interestDueDay?: number };
 
 /**
  * The patch that saves a debt's loan terms, or an error saying what is missing. A field left out
@@ -102,6 +104,10 @@ export function termsPatch(input: TermsInput, existing: TermsDoc, now: number): 
     if (input.interestRate !== null && (!Number.isFinite(input.interestRate) || input.interestRate < 0 || input.interestRate > 100)) throw bad("The yearly rate must be between 0 and 100 percent");
     set("interestRate", input.interestRate);
   }
+  if (input.interestDueDay !== undefined) {
+    if (input.interestDueDay !== null && (!Number.isInteger(input.interestDueDay) || input.interestDueDay < 1 || input.interestDueDay > 28)) throw bad("The due day must be a whole number from 1 to 28");
+    set("interestDueDay", input.interestDueDay);
+  }
   if (input.dueKind !== undefined) set("dueKind", input.dueKind);
   if (input.dueDate !== undefined) {
     if (input.dueDate !== null && (!Number.isFinite(input.dueDate) || input.dueDate < 0)) throw bad("The repayment date isn’t a valid date");
@@ -111,6 +117,11 @@ export function termsPatch(input: TermsInput, existing: TermsDoc, now: number): 
   // Interest-free has no rate; a flexible loan has no repayment date.
   if (next.interestTerms === "none" && next.interestRate !== undefined) set("interestRate", null);
   if (next.dueKind === "flexible" && next.dueDate !== undefined) set("dueDate", null);
+  // A due day belongs to simple interest. Leaving simple interest takes it away; asking for one without it is refused.
+  if (next.interestTerms !== "simple" && next.interestDueDay !== undefined) {
+    if (input.interestDueDay !== undefined && input.interestDueDay !== null) throw bad("A due day needs simple interest");
+    set("interestDueDay", null);
+  }
 
   if (next.dueKind === "fixed" && next.dueDate === undefined) throw bad("A fixed loan needs its repayment date");
   if (next.dueKind === "fixed" && next.startedAt !== undefined && next.dueDate! < next.startedAt) throw bad("The repayment date can’t be before the start date");

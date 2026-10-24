@@ -109,6 +109,7 @@ export function mobileLiability(liability: Doc<"liabilities"> & { owedPriceAt?: 
     startedAt: liability.startedAt ?? null,
     dueKind: liability.dueKind ?? null,
     interestTerms: liability.interestTerms ?? null,
+    interestDueDay: liability.interestDueDay ?? null,
     dueDate: liability.dueDate ?? null,
     notes: liability.notes ?? null,
     owedSymbol: liability.owedSymbol ?? null,

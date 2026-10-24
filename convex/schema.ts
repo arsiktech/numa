@@ -325,6 +325,8 @@ export default defineSchema({
      * calculate (compounding, amortization); it shows as manual.
      */
     interestTerms: v.optional(v.union(v.literal("none"), v.literal("simple"), v.literal("manual"))),
+    /** The day of the month (1 to 28) interest is due by, for simple interest. Accrual does not use it; it only says when to pay. */
+    interestDueDay: v.optional(v.number()),
     updatedAt: v.number()
   }).index("by_portfolio", ["portfolioId"]),
 

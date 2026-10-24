@@ -48,7 +48,7 @@ export function useDebtWrites(portfolioId: string | null) {
 /** Save a debt's loan terms. A field left out keeps what is saved; null clears it. */
 export function useTermsWrite() {
   const set = useMutation(cloud.setLoanTerms);
-  return useCallback(async (id: string, terms: { principal?: number | null; startedAt?: number | null; dueKind?: 'fixed' | 'flexible' | null; interestTerms?: 'none' | 'simple' | 'manual' | null; interestRate?: number | null; dueDate?: number | null }) => {
+  return useCallback(async (id: string, terms: { principal?: number | null; startedAt?: number | null; dueKind?: 'fixed' | 'flexible' | null; interestTerms?: 'none' | 'simple' | 'manual' | null; interestRate?: number | null; interestDueDay?: number | null; dueDate?: number | null }) => {
     await set({ id, ...terms, clientMutationId: newMutationId('numa.loanTerms') });
   }, [set]);
 }

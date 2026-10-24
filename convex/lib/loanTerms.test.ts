@@ -109,3 +109,25 @@ describe("termsPatch limits", () => {
     expect(termsPatch(ok, { ...loan, kind: "other" }, NOW)).toMatchObject({ interestTerms: "simple" });
   });
 });
+
+describe("interest due day", () => {
+  const simple: TermsDoc = { ...loan, principal: 5000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 10 };
+  it("saves a due day from 1 to 28 with simple interest", () => {
+    expect(termsPatch({ interestDueDay: 10 }, simple, NOW)).toEqual({ interestDueDay: 10 });
+    expect(termsPatch({ interestDueDay: 1 }, simple, NOW)).toEqual({ interestDueDay: 1 });
+    expect(termsPatch({ interestDueDay: 28 }, simple, NOW)).toEqual({ interestDueDay: 28 });
+  });
+  it("refuses a day that is not a whole number from 1 to 28", () => {
+    for (const bad of [0, 29, 31, -1, 10.5, NaN, Infinity]) expect(() => termsPatch({ interestDueDay: bad }, simple, NOW)).toThrow(/whole number from 1 to 28/);
+  });
+  it("clears it with null, and takes it away when interest stops being simple", () => {
+    const withDay: TermsDoc = { ...simple, interestDueDay: 10 };
+    expect(termsPatch({ interestDueDay: null }, withDay, NOW)).toEqual({ interestDueDay: undefined });
+    expect(termsPatch({ interestTerms: "none" }, withDay, NOW)).toMatchObject({ interestTerms: "none", interestDueDay: undefined, interestRate: undefined });
+    expect(termsPatch({ interestTerms: "manual" }, withDay, NOW)).toMatchObject({ interestTerms: "manual", interestDueDay: undefined });
+  });
+  it("refuses to set a due day on interest that is not simple", () => {
+    expect(() => termsPatch({ interestTerms: "manual", interestDueDay: 10 }, loan, NOW)).toThrow(/needs simple interest/);
+    expect(() => termsPatch({ interestDueDay: 10 }, loan, NOW)).toThrow(/needs simple interest/);
+  });
+});

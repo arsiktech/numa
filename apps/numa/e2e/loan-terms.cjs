@@ -136,16 +136,40 @@ const money = (n) => '€' + n.toLocaleString('en-US', { minimumFractionDigits: 
   check('only one event was kept', events.filter((e) => e.kind === 'capitalized').length === 1);
 
   // Editing the terms from the screen.
+  // Changing the rate recalculates past months, so the screen shows the difference first and asks.
   await page.getByRole('button', { name: 'Edit terms' }).click();
   await page.getByLabel('Yearly rate in percent').fill('10');
   await page.getByRole('button', { name: 'Save terms' }).click();
+  await page.getByRole('button', { name: 'Confirm change' }).waitFor({ timeout: 15000 });
+  body = await page.locator('body').innerText();
+  check('the screen shows how much past interest changes before saving', /recalculates the interest for months that have already passed: accrued so far goes from €[\d,.]+ to €[\d,.]+/.test(body), body.slice(-900).replace(/\n/g, ' | '));
+  check('nothing is saved until you confirm', (await loan()).interestRate === 8);
+  await page.screenshot({ path: OUT + '/04-confirm-dark-390.png', fullPage: true });
+  await page.getByRole('button', { name: 'Confirm change' }).click();
   await page.getByText('Terms saved').waitFor({ timeout: 15000 });
-  check('the rate saved from the screen', (await loan()).interestRate === 10);
+  check('the rate saved from the screen after confirming', (await until(loan, (x) => x.interestRate === 10)).interestRate === 10);
+  await page.getByText('Rate changed from 8% to 10%').waitFor({ timeout: 15000 });
+  const afterEdit = await c.query('debtEvents:listForPortfolio', { portfolioId });
+  check('the change left a note in the history, with no amount and no change to the balance', afterEdit.some((e) => e.kind === 'note' && e.note === 'Rate changed from 8% to 10%' && e.amount === null && e.applied === false) && (await loan()).balance === 20133.33);
 
   // An update from Ask that does not mention the rate keeps the terms.
   await c.mutation('mobile:upsertLiability', { id, portfolioId, name: 'Loan from Sam', kind: 'loan', balance: 20000, currency: 'EUR', counterparty: 'Sam' });
   l = await loan();
   check('an update that leaves the rate out keeps the terms', l.interestRate === 10 && l.interestTerms === 'simple' && l.principal === 20000);
+
+  // The day interest is due by: it changes when to pay, never a figure.
+  await refuses('a due day of 29 is refused', () => c.mutation('liabilities:setTerms', { id, interestDueDay: 29 }));
+  await c.mutation('liabilities:setTerms', { id, interestDueDay: 10 });
+  check('the due day saved', (await loan()).interestDueDay === 10);
+  await page.reload();
+  await page.getByRole('heading', { name: 'History' }).waitFor({ timeout: 15000 });
+  body = await page.locator('body').innerText();
+  check('the card shows when interest is due, and the running month as an estimate', /Interest overdue since|Next interest due/.test(body) && body.includes('Running month so far (estimate)'), body.slice(0, 900).replace(/\n/g, ' | '));
+  await page.screenshot({ path: OUT + '/05-due-day-dark-390.png', fullPage: true });
+  await c.mutation('liabilities:setTerms', { id, interestTerms: 'manual' });
+  check('leaving simple interest takes the due day away', (await loan()).interestDueDay === null);
+  await refuses('a due day on interest that is not simple is refused', () => c.mutation('liabilities:setTerms', { id, interestDueDay: 10 }));
+  await c.mutation('liabilities:setTerms', { id, interestTerms: 'simple', interestRate: 10 });
 
   // A fixed loan keeps its repayment date when an update leaves it out.
   await c.mutation('mobile:upsertLiability', { portfolioId, name: 'Fixed loan', kind: 'loan', balance: 3000, currency: 'EUR', dueDate: now + 60 * DAY });

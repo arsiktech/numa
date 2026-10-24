@@ -120,6 +120,7 @@ export const setTerms = mutation({
     dueKind: v.optional(v.union(dueKindValidator, v.null())),
     interestTerms: v.optional(v.union(interestTermsValidator, v.null())),
     interestRate: v.optional(clearableNumberValidator),
+    interestDueDay: v.optional(clearableNumberValidator),
     dueDate: v.optional(clearableNumberValidator),
     clientMutationId: v.optional(v.string())
   },

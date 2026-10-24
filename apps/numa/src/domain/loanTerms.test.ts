@@ -1,4 +1,4 @@
-import { accrual, addMonths, dayOf, isOverdue, paidTotals, parseAmount, principalAt, roundDecimals, splitProblem, type LoanTerms, type TermEvent } from './loanTerms';
+import { accrual, addMonths, dayOf, dueDateFor, isOverdue, paidTotals, parseAmount, principalAt, roundDecimals, splitProblem, type LoanTerms, type TermEvent } from './loanTerms';
 
 const day = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d, 12);
 const terms = (over: Partial<LoanTerms> = {}): LoanTerms => ({ principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'flexible', interestTerms: 'simple', interestRate: 8, dueDate: null, ...over });
@@ -214,5 +214,72 @@ describe('splitProblem for a coin', () => {
     expect(splitProblem(1, { principal: 1, interest: 0.004, fees: 0 }, 8)).toBe('0.00400000 more'.replace('0.00400000 more', 'The parts are 0.00400000 more than the payment.'));
     expect(splitProblem(0.12345678, { principal: 0.1, interest: 0.02345678, fees: 0 }, 8)).toBeNull();
     expect(splitProblem(1, { principal: 1, interest: 0.004, fees: 0 })).toBeNull();
+  });
+});
+
+describe('the day interest is due by', () => {
+  const withDay = (over: Partial<LoanTerms> = {}) => terms({ interestDueDay: 10, ...over });
+
+  it('is due on the next occurrence of that day after the month completes', () => {
+    expect(dueDateFor(day(2026, 8, 1), 10)).toBe(day(2026, 8, 10));
+    expect(dueDateFor(day(2026, 8, 10), 10)).toBe(day(2026, 8, 10));
+    expect(dueDateFor(day(2026, 9, 16), 10)).toBe(day(2026, 10, 10));
+    expect(dueDateFor(day(2026, 1, 31), 28)).toBe(day(2026, 2, 28));
+    expect(dueDateFor(day(2026, 12, 20), 10)).toBe(day(2027, 1, 10));
+  });
+
+  it('is overdue when the oldest interest owed passed its due day, and says when it was due', () => {
+    // 1 Jul start, now 24 Oct: months complete on 1 Aug, 1 Sep and 1 Oct, 133.33 each. The oldest, 1 Aug, was due 10 Aug.
+    expect(accrual(withDay(), [], 20_000, NOW)).toMatchObject({ status: 'ok', dueAt: day(2026, 8, 10), overdue: true });
+  });
+
+  it('moves the due date forward as interest is paid, oldest month first', () => {
+    const paid = (amount: number) => [ev({ kind: 'repaid', amount, principalPart: 0, interestPart: amount, feePart: 0, occurredAt: day(2026, 10, 2) })];
+    expect(accrual(withDay(), paid(133.33), 20_000, NOW)).toMatchObject({ dueAt: day(2026, 9, 10), overdue: true });
+    expect(accrual(withDay(), paid(266.66), 20_000, NOW)).toMatchObject({ dueAt: day(2026, 10, 10), overdue: true });
+  });
+
+  it('is not overdue, and shows the next due date, when all completed interest is settled', () => {
+    const all = [ev({ kind: 'repaid', amount: 399.99, principalPart: 0, interestPart: 399.99, feePart: 0, occurredAt: day(2026, 10, 2) })];
+    expect(accrual(withDay(), all, 20_000, NOW)).toMatchObject({ owed: 0, dueAt: day(2026, 11, 10), overdue: false });
+  });
+
+  it('is not overdue before the day has passed', () => {
+    // Started 16 Jun: months complete on the 16th. The 16 Oct one is due 10 Nov, which is still ahead on 24 Oct.
+    const loan = withDay({ startedAt: day(2026, 6, 16) });
+    const paid = [ev({ kind: 'repaid', amount: 399.99, principalPart: 0, interestPart: 399.99, feePart: 0, occurredAt: day(2026, 10, 2) })];
+    expect(accrual(loan, paid, 20_000, NOW)).toMatchObject({ status: 'ok', months: 4, dueAt: day(2026, 11, 10), overdue: false });
+    // With nothing paid, the oldest month completed on 16 Jul and was due 10 Aug.
+    expect(accrual(loan, [], 20_000, NOW)).toMatchObject({ overdue: true, dueAt: day(2026, 8, 10) });
+  });
+
+  it('shows no due date and no overdue flag without a due day, and changes no figure', () => {
+    const without = accrual(terms(), [], 20_000, NOW);
+    const withIt = accrual(withDay(), [], 20_000, NOW);
+    expect(without).toMatchObject({ dueAt: null, overdue: false });
+    if (without.status !== 'ok' || withIt.status !== 'ok') throw new Error('expected both to be worked out');
+    expect([withIt.accrued, withIt.owed, withIt.settled, withIt.months]).toEqual([without.accrued, without.owed, without.settled, without.months]);
+  });
+});
+
+describe('the running month estimate', () => {
+  it('works out the days gone in the running month from the principal at its start, and is not part of what is owed', () => {
+    // From 1 Oct to 24 Oct is 23 of 31 days: 133.33 × 23 ÷ 31 = 98.92.
+    const a = accrual(terms(), [], 20_000, NOW);
+    expect(a).toMatchObject({ status: 'ok', running: 98.92, owed: 399.99 });
+  });
+
+  it('works for a loan that has not completed its first month', () => {
+    // From 10 Oct to 24 Oct is 14 of 31 days: 133.33 × 14 ÷ 31 = 60.22.
+    expect(accrual(terms({ startedAt: day(2026, 10, 10) }), [], 20_000, NOW)).toMatchObject({ status: 'ok', months: 0, owed: 0, running: 60.22 });
+  });
+
+  it('starts from nothing on the day a month completes', () => {
+    expect(accrual(terms({ startedAt: day(2026, 9, 24) }), [], 20_000, NOW)).toMatchObject({ months: 1, running: 0 });
+  });
+
+  it('uses the principal at the start of the running month, not a payment made inside it', () => {
+    const inMonth = [ev({ kind: 'repaid', amount: 10_000, occurredAt: day(2026, 10, 15) })];
+    expect(accrual(terms(), inMonth, 10_000, NOW)).toMatchObject({ running: 98.92 });
   });
 });
