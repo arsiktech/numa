@@ -37,6 +37,9 @@ ios/Numa/build-device/
 ios/Numa/build-mcp/
 ios/Numa/build-release/
 
+# Xcode per-user state (window layout, scheme order); it names the local user
+xcuserdata/
+
 # Big design source PNGs that live in the vault, not in git
 numa_logo_original_files/*.png
 .thumbnail
