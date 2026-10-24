@@ -62,7 +62,7 @@ function http(f: Fixture) {
 }
 
 function googleTokenEndpoint(body: object, ok = true) {
-  const fetch = vi.fn(async (_url: string, _init: RequestInit) => new Response(JSON.stringify(body), { status: ok ? 200 : 400 }));
+  const fetch = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify(body), { status: ok ? 200 : 400 }));
   vi.stubGlobal("fetch", fetch);
   return fetch;
 }
