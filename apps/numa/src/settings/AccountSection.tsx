@@ -3,7 +3,7 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { useMutation, useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 
 import { cloud } from '@/cloud/api';
 import { googleLinkText, linkGoogle, type GoogleLinkResult, needsFreshSignIn, parseGoogleLinkResult, signInMethodErrorText } from '@/cloud/googleLink';
@@ -100,7 +100,16 @@ function SignInMethods() {
 
   // Then tidy the address so a reload doesn't repeat the message.
   useEffect(() => {
-    if (params.googleLink) router.setParams({ googleLink: undefined });
+    if (!params.googleLink) return;
+    router.setParams({ googleLink: undefined });
+    // Settings can open as a side panel over another route, where setParams doesn't reach the address bar.
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('googleLink')) {
+        url.searchParams.delete('googleLink');
+        window.history.replaceState(window.history.state, '', url.toString());
+      }
+    }
   }, [params.googleLink]);
 
   if (!methods) return null;
@@ -192,7 +201,7 @@ function SignInMethods() {
           </View>
         </View>
       )}
-      {note ? <Txt v="small" style={{ marginTop: 10, color: note.tone === 'error' ? c.down : c.ink2 }} accessibilityLiveRegion="polite">{note.text}</Txt> : null}
+      {note ? <Txt v="small" style={{ marginTop: 10, marginBottom: 6, color: note.tone === 'error' ? c.down : c.ink2 }} accessibilityLiveRegion="polite">{note.text}</Txt> : null}
       {methods.password ? (
         <Action label="Change password" detail={methods.email ? `Sign in anywhere with ${methods.email} and your password.` : undefined} onPress={() => router.push('/password')} />
       ) : (
