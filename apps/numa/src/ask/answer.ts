@@ -21,8 +21,13 @@ export function answer(topic: Topic, d: AnswerData): string {
       return `Net worth is ${m(s.netCents, true)}. You own ${m(s.ownCents)} and owe ${m(s.oweCents)}.${left}`;
     case 'cash':
       return `Cash is ${m(s.cashCents)}${s.netCents > 0 ? `, ${Math.round((s.cashCents / Math.max(1, s.ownCents)) * 100)}% of what you own` : ''}.`;
-    case 'liquid':
-      return `You could have ${m(s.liquidCents)} within a week: cash plus anything you can sell quickly.${left}`;
+    case 'liquid': {
+      const base = `You could have ${m(s.liquidCents)} within a week: cash plus anything you can sell quickly.`;
+      if (s.oweCents <= 0) return `${base}${left}`;
+      const after = s.liquidAfterDebtsCents;
+      const net = after >= 0 ? ` After what you owe, ${m(after)}.` : ` After the ${m(s.oweCents)} you owe, you’d be ${m(-after)} short.`;
+      return `${base}${net}${left}`;
+    }
     case 'owe': {
       if (!d.debts.length) return 'You don’t owe anything Numa knows about.';
       const top = [...d.debts].sort((a, b) => b.balanceCents - a.balanceCents)[0];

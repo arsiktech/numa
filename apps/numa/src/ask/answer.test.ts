@@ -21,6 +21,26 @@ describe('answer', () => {
     const coffee = { ...data, month: small, flow: summarizeFlow(small) };
     expect(answer('spent', coffee)).toBe('You’ve spent €4.50 in October so far. The biggest is Dining, €4.50.');
   });
+  it('says what could be cash within a week, before and after what is owed', () => {
+    expect(answer('liquid', data)).toBe('You could have €12,500 within a week: cash plus anything you can sell quickly. After what you owe, €12,080.');
+  });
+  it('says so plainly when debts are bigger than what could be cash within a week', () => {
+    const deep = summarize(
+      [{ id: 'a', name: 'Bank', category: 'cash', liquidity: { kind: 'cash' }, valuation: { kind: 'manual', valueCents: 100_000, asOf: now.toISOString(), remindAfterDays: 30 } }],
+      [{ id: 'd', name: 'Loan', balanceCents: 450_000 }],
+      now,
+    );
+    expect(answer('liquid', { ...data, summary: deep, debts: [{ name: 'Loan', balanceCents: 450_000 }] }))
+      .toBe('You could have €1,000 within a week: cash plus anything you can sell quickly. After the €4,500 you owe, you’d be €3,500 short.');
+  });
+  it('gives only the one figure when nothing is owed', () => {
+    const clear = summarize(
+      [{ id: 'a', name: 'Bank', category: 'cash', liquidity: { kind: 'cash' }, valuation: { kind: 'manual', valueCents: 100_000, asOf: now.toISOString(), remindAfterDays: 30 } }],
+      [],
+      now,
+    );
+    expect(answer('liquid', { ...data, summary: clear, debts: [] })).toBe('You could have €1,000 within a week: cash plus anything you can sell quickly.');
+  });
   it('refuses to state totals without an exchange rate', () => {
     expect(answer('net', { ...data, available: false })).toMatch(/exchange rate/);
   });

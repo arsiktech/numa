@@ -148,6 +148,22 @@ export function takenBy(links: CloudLoanLink[]): Map<string, string> {
   return out;
 }
 
+/**
+ * How much of what is owed is backed by collateral, loan by loan: the smaller of the debt and the
+ * collateral behind it. `partial` is true when some loan has no known collateral or a linked place
+ * without a value, so the figure may be too low. It is never a reason to subtract less from liquid.
+ */
+export function pledgedBacked(loans: Loan[]): { cents: number; partial: boolean } {
+  let cents = 0, partial = false;
+  for (const l of loans) {
+    if (l.debtCents === null || l.debtCents <= 0) continue;
+    if (l.collateralCents === null || l.gaps > 0) partial = true;
+    if (l.collateralCents === null) continue;
+    cents += Math.min(l.debtCents, l.collateralCents);
+  }
+  return { cents, partial };
+}
+
 /** Money itself (dollars, euros and coins pegged to them): it doesn't fall the way a coin does. */
 const isMoney = (symbol: string) => { const u = underlyingOf(symbol); return !!u && (u.family === 'USD' || u.family === 'EUR'); };
 
