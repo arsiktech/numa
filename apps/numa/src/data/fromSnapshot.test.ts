@@ -115,6 +115,17 @@ describe('fromSnapshot', () => {
     expect(home.attention.map((a) => a.id)).toEqual(['due-l1']);
   });
 
+  it('converts a debt in another currency into the space currency before it is deducted from liquid', () => {
+    const assets = [{ id: 'a1', name: 'Bank', kind: 'cash' as const, balance: 1000, currency: 'EUR' as const, updatedAt: now.getTime() }];
+    const liabilities = [{ id: 'l1', name: 'Dollar loan', kind: 'loan' as const, balance: 625, currency: 'USD' as const, dueDate: null, updatedAt: 0 }];
+    const home = fromSnapshot(snapshot({ assets, liabilities }), fx, now);
+    const s = summarize(home.holdings, home.debts, now);
+    // 625 USD at 1.25 USD per EUR is 500 EUR.
+    expect(s.oweCents).toBe(50_000);
+    expect(s.liquidCents).toBe(100_000);
+    expect(s.liquidAfterDebtsCents).toBe(50_000);
+  });
+
   it('leaves records out and marks totals unavailable when a rate is missing', () => {
     const home = fromSnapshot(snapshot({ holdings: [quoted], assets: [{ id: 'a1', name: 'Bank', kind: 'cash', balance: 10, currency: 'EUR', updatedAt: now.getTime() }] }), null, now);
     expect(home.unconverted).toEqual(['Vanguard S&P 500']);

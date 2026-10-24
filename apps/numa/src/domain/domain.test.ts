@@ -47,6 +47,46 @@ describe('summarize', () => {
     expect(s.liquidCents).toBe(9_640_000 + 3_000_000 + 1_675_000);
     expect(s.cashCents).toBe(3_000_000);
   });
+  it('subtracts everything owed from liquid assets, and leaves gross liquid unchanged', () => {
+    expect(s.liquidAfterDebtsCents).toBe(9_640_000 + 3_000_000 + 1_675_000 - 2_000_000);
+    expect(s.liquidAfterDebtsCents).toBe(s.liquidCents - s.oweCents);
+    expect(s.liquidCents).toBe(9_640_000 + 3_000_000 + 1_675_000);
+  });
+  it('equals gross liquid when nothing is owed', () => {
+    const none = summarize(holdings, [], now);
+    expect(none.liquidAfterDebtsCents).toBe(none.liquidCents);
+  });
+  it('counts several debts once each', () => {
+    const many = summarize(holdings, [
+      { id: 'a', name: 'Card', balanceCents: 40_000 },
+      { id: 'b', name: 'Loan', balanceCents: 1_500_000 },
+      { id: 'c', name: 'Friend', balanceCents: 60_000 },
+    ], now);
+    expect(many.oweCents).toBe(1_600_000);
+    expect(many.liquidAfterDebtsCents).toBe(many.liquidCents - 1_600_000);
+  });
+  it('shows a negative result when debts are bigger than liquid assets, never zero', () => {
+    const cash = [h({ id: 'eur', category: 'cash', valuation: { kind: 'synced', valueCents: 100_000, asOf: now.toISOString(), source: 'Bank' }, liquidity: { kind: 'cash' } })];
+    const deep = summarize(cash, [{ id: 'loan', name: 'Loan', balanceCents: 450_000 }], now);
+    expect(deep.liquidCents).toBe(100_000);
+    expect(deep.liquidAfterDebtsCents).toBe(-350_000);
+  });
+  it('does not deduct a debt twice when a wallet already counts its borrowed coins as owned', () => {
+    // A wallet is valued with its borrowed coins added back, and the loan is listed once as a debt.
+    const wallet = [h({ id: 'wallet', category: 'crypto', valuation: { kind: 'synced', valueCents: 1_000_000, asOf: now.toISOString(), source: 'Wallet' }, liquidity: { kind: 'liquid' } })];
+    const one = summarize(wallet, [{ id: 'wallet-loan', name: 'Wallet loan', balanceCents: 400_000 }], now);
+    expect(one.liquidAfterDebtsCents).toBe(600_000);
+    expect(one.netCents).toBe(600_000);
+  });
+  it('still subtracts debts when a holding has no known value, and lists it as unknown', () => {
+    const unknown = [
+      h({ id: 'eur', category: 'cash', valuation: { kind: 'synced', valueCents: 200_000, asOf: now.toISOString(), source: 'Bank' }, liquidity: { kind: 'cash' } }),
+      h({ id: 'art', category: 'things', valuation: { kind: 'missing', lastKnownCents: null, lastKnownAt: null }, liquidity: { kind: 'liquid' } }),
+    ];
+    const r = summarize(unknown, [{ id: 'd', name: 'Card', balanceCents: 50_000 }], now);
+    expect(r.unknown.map((x) => x.id)).toEqual(['art']);
+    expect(r.liquidAfterDebtsCents).toBe(150_000);
+  });
   it('flags last-known prices and overdue manual values as stale', () => {
     expect(s.stale.map((x) => x.id).sort()).toEqual(['flat', 'gold']);
   });
