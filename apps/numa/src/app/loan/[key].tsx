@@ -80,7 +80,7 @@ function Picker({ loan, role, state, onPick, onClose }: { loan: Loan; role: Loan
       {shown.slice(0, 40).map((p) => {
         // Pledged places move between loans; where several loans' money went is shared.
         const other = movesFrom(state.links, loan.key, p.key, role)[0];
-        const shared = other ? [] : role === 'deployed' ? sharedWith(state.links, loan.key, p.key) : [];
+        const shared = other ? [] : role === 'deployed' ? sharedWith(state.links, loan.key, p.key).filter((k) => state.loans.some((l) => l.key === k)) : [];
         const note = other ? `On ${loanName(other)} · tap to move it here` : shared.length ? `Also where ${shared.map(loanName).join(', ')} went` : p.detail;
         return (
           <Pressable key={p.key} onPress={() => onPick(p.key)} accessibilityRole="button" accessibilityLabel={`Link ${p.name}${other ? `, moves it from ${loanName(other)}` : shared.length ? `, shared with ${shared.map(loanName).join(', ')}` : ''}`}

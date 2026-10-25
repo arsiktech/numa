@@ -105,13 +105,18 @@ export function loansOf(s: CloudSnapshot, items: Item[], links: CloudLoanLink[],
   const resolve = (key: string, role: LoanRole) => (byLoan.get(key)?.targets ?? []).filter((t) => t.role === role)
     .map((t) => places.get(t.key) ?? { key: t.key, name: goneName(t.key), detail: null, valueCents: null, open: null, gone: true });
   const loans: Loan[] = [];
+  // A deleted debt or a repaid borrowing can leave its links behind; only loans still here share a place.
+  const live = new Set([
+    ...counted(s).flatMap((w) => (w.snapshot!.defiPositions ?? []).filter((p) => p.debtValueUsd > 0).map((p) => `defi:${w.id}:${p.id}`)),
+    ...s.liabilities.map((l) => `liability:${l.id}`),
+  ]);
 
-  const finish = (base: Omit<Loan, 'collateralCents' | 'deployedCents' | 'gaps' | 'netCents' | 'resultCents' | 'ltv' | 'liquidationLtv' | 'linked' | 'sharedWith'>, trustLtv: boolean): Loan => {
+  const finish =(base: Omit<Loan, 'collateralCents' | 'deployedCents' | 'gaps' | 'netCents' | 'resultCents' | 'ltv' | 'liquidationLtv' | 'linked' | 'sharedWith'>, trustLtv: boolean): Loan => {
     const c = sum(base.collateral), d = sum(base.deployed);
     const debt = base.debtCents;
     // When another loan's money went into the same place, how its value splits between the loans is
     // not known, so this loan's result and stake are not worked out, rather than counting it twice.
-    const sharedWith = [...new Set(base.deployed.flatMap((p) => links.filter((l) => l.loanKey !== base.key && l.targets.some((t) => t.key === p.key && t.role === 'deployed')).map((l) => l.loanKey)))];
+    const sharedWith = [...new Set(base.deployed.flatMap((p) => links.filter((l) => l.loanKey !== base.key && live.has(l.loanKey) && l.targets.some((t) => t.key === p.key && t.role === 'deployed')).map((l) => l.loanKey)))];
     const shared = sharedWith.length > 0;
     const netCents = debt === null || c.gaps || d.gaps || shared ? null : (c.cents ?? 0) + (d.cents ?? 0) - debt;
     const resultCents = debt === null || d.cents === null || d.gaps || shared ? null : d.cents - debt;

@@ -138,6 +138,10 @@ describe('a place two loans went into', () => {
     expect(l1.sharedWith).toEqual(['liability:l2']);
     expect(l1.resultCents).toBeNull();
     expect(l1.netCents).toBeNull();
+    // A deleted loan's links stay behind on the server, but it no longer shares the place.
+    const gone = loansOf(snapshot(wallet(), [sam] as unknown as CloudSnapshot['liabilities']), items, both, 'EUR', fx, NOW).find((l) => l.key === 'liability:l1')!;
+    expect(gone.sharedWith).toEqual([]);
+    expect(gone.resultCents).toBe(800_000 - 400_000);
     // With only one loan linked, its result is worked out as before.
     const one = loansOf(snapshot(wallet(), [sam, lena] as unknown as CloudSnapshot['liabilities']), items, both.slice(0, 1), 'EUR', fx, NOW).find((l) => l.key === 'liability:l1')!;
     expect(one.sharedWith).toEqual([]);
