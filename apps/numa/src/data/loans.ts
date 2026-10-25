@@ -49,6 +49,8 @@ export type Loan = {
   /** When the protocol was read; null for a recorded debt. */
   checkedAt: number | null;
   linked: boolean;
+  /** Other loans whose money went into one of the same places. Then `resultCents` and `netCents` are null. */
+  sharedWith: string[];
 };
 
 const usdCents = (usd: number, currency: Currency, fx: FxRate | null) => convertCents(Math.round(usd * 100), 'USD', currency, fx);
@@ -104,14 +106,18 @@ export function loansOf(s: CloudSnapshot, items: Item[], links: CloudLoanLink[],
     .map((t) => places.get(t.key) ?? { key: t.key, name: goneName(t.key), detail: null, valueCents: null, open: null, gone: true });
   const loans: Loan[] = [];
 
-  const finish = (base: Omit<Loan, 'collateralCents' | 'deployedCents' | 'gaps' | 'netCents' | 'resultCents' | 'ltv' | 'liquidationLtv' | 'linked'>, trustLtv: boolean): Loan => {
+  const finish = (base: Omit<Loan, 'collateralCents' | 'deployedCents' | 'gaps' | 'netCents' | 'resultCents' | 'ltv' | 'liquidationLtv' | 'linked' | 'sharedWith'>, trustLtv: boolean): Loan => {
     const c = sum(base.collateral), d = sum(base.deployed);
     const debt = base.debtCents;
-    const netCents = debt === null || c.gaps || d.gaps ? null : (c.cents ?? 0) + (d.cents ?? 0) - debt;
-    const resultCents = debt === null || d.cents === null || d.gaps ? null : d.cents - debt;
+    // When another loan's money went into the same place, how its value splits between the loans is
+    // not known, so this loan's result and stake are not worked out, rather than counting it twice.
+    const sharedWith = [...new Set(base.deployed.flatMap((p) => links.filter((l) => l.loanKey !== base.key && l.targets.some((t) => t.key === p.key && t.role === 'deployed')).map((l) => l.loanKey)))];
+    const shared = sharedWith.length > 0;
+    const netCents = debt === null || c.gaps || d.gaps || shared ? null : (c.cents ?? 0) + (d.cents ?? 0) - debt;
+    const resultCents = debt === null || d.cents === null || d.gaps || shared ? null : d.cents - debt;
     const ltv = trustLtv && debt !== null && c.cents !== null && c.cents > 0 && !c.gaps ? debt / c.cents : null;
     const liquidationLtv = ltv !== null && base.healthFactor ? ltv * base.healthFactor : null;
-    return { ...base, collateralCents: c.cents, deployedCents: d.cents, gaps: c.gaps + d.gaps, netCents, resultCents, ltv, liquidationLtv, linked: byLoan.has(base.key) };
+    return { ...base, collateralCents: c.cents, deployedCents: d.cents, gaps: c.gaps + d.gaps, netCents, resultCents, ltv, liquidationLtv, linked: byLoan.has(base.key), sharedWith };
   };
 
   for (const w of counted(s)) {
@@ -201,26 +207,42 @@ export function illiquidPlaces(holdings: { id: string; liquidity: { kind: string
  * the figure may be too low.
  */
 export function investedIlliquid(loans: Loan[], illiquid: (key: string) => boolean): { cents: number; partial: boolean } {
-  // Loans and places form groups that share places; each group leaves out at most the smaller of
-  // what its loans owe and what its places are worth.
+  // The most that can be covered when each loan is covered only by the places its own money went
+  // into, up to its debt, and each place covers loans only up to its value: a maximum flow from
+  // loans to places. A handful of loans and places, so a plain augmenting-path search is enough.
   const loansWith = loans.filter((l) => l.debtCents !== null && l.debtCents > 0 && l.deployed.some((p) => illiquid(p.key)));
-  const group = new Map<string, string>();
-  const find = (k: string): string => { const g = group.get(k) ?? k; if (g === k) return k; const root = find(g); group.set(k, root); return root; };
-  for (const l of loansWith) for (const p of l.deployed) if (illiquid(p.key)) group.set(find(`place:${p.key}`), find(`loan:${l.key}`));
-  const owed = new Map<string, number>(), worth = new Map<string, number>(), counted = new Set<string>();
+  const placeIndex = new Map<string, number>();
+  const placeWorth: number[] = [];
   let partial = false;
-  for (const l of loansWith) {
-    const g = find(`loan:${l.key}`);
-    owed.set(g, (owed.get(g) ?? 0) + l.debtCents!);
-    for (const p of l.deployed) {
-      if (!illiquid(p.key) || counted.has(p.key)) continue;
-      counted.add(p.key);
-      if (p.valueCents === null) partial = true;
-      worth.set(g, (worth.get(g) ?? 0) + Math.max(0, p.valueCents ?? 0));
-    }
+  for (const l of loansWith) for (const p of l.deployed) {
+    if (!illiquid(p.key) || placeIndex.has(p.key)) continue;
+    if (p.valueCents === null) partial = true;
+    placeIndex.set(p.key, placeWorth.length);
+    placeWorth.push(Math.max(0, p.valueCents ?? 0));
   }
+  // Nodes: 0 source, 1..L loans, L+1..L+P places, L+P+1 sink.
+  const L = loansWith.length, P = placeWorth.length, sink = L + P + 1;
+  const cap = Array.from({ length: sink + 1 }, () => new Array<number>(sink + 1).fill(0));
+  loansWith.forEach((l, i) => {
+    cap[0][1 + i] = l.debtCents!;
+    for (const p of l.deployed) if (illiquid(p.key)) cap[1 + i][1 + L + placeIndex.get(p.key)!] = Infinity;
+  });
+  placeWorth.forEach((w, j) => { cap[1 + L + j][sink] = w; });
   let cents = 0;
-  for (const [g, o] of owed) cents += Math.min(o, worth.get(g) ?? 0);
+  for (;;) {
+    const from = new Array<number>(sink + 1).fill(-1);
+    from[0] = 0;
+    const queue = [0];
+    while (queue.length && from[sink] === -1) {
+      const u = queue.shift()!;
+      for (let v = 0; v <= sink; v++) if (from[v] === -1 && cap[u][v] > 0) { from[v] = u; queue.push(v); }
+    }
+    if (from[sink] === -1) break;
+    let push = Infinity;
+    for (let v = sink; v !== 0; v = from[v]) push = Math.min(push, cap[from[v]][v]);
+    for (let v = sink; v !== 0; v = from[v]) { cap[from[v]][v] -= push; cap[v][from[v]] += push; }
+    cents += push;
+  }
   return { cents, partial };
 }
 

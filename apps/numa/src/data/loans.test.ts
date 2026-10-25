@@ -124,6 +124,27 @@ describe('loans', () => {
   });
 });
 
+describe('a place two loans went into', () => {
+  it('names the other loan and shows no result or stake for each loan alone', () => {
+    const sam = { ...liability, owedSymbol: undefined, owedQuantity: undefined };
+    const lena = { ...sam, id: 'l2', name: 'Loan from Lena' };
+    const items: Item[] = [holding, { ...debt, detail: null }, { ...debt, id: 'l2', name: 'Loan from Lena', detail: null }];
+    const both: CloudLoanLink[] = [
+      { loanKey: 'liability:l1', targets: [{ key: 'holding:h1', role: 'deployed' }], updatedAt: 0 },
+      { loanKey: 'liability:l2', targets: [{ key: 'holding:h1', role: 'deployed' }], updatedAt: 0 },
+    ];
+    const loans = loansOf(snapshot(wallet(), [sam, lena] as unknown as CloudSnapshot['liabilities']), items, both, 'EUR', fx, NOW);
+    const l1 = loans.find((l) => l.key === 'liability:l1')!;
+    expect(l1.sharedWith).toEqual(['liability:l2']);
+    expect(l1.resultCents).toBeNull();
+    expect(l1.netCents).toBeNull();
+    // With only one loan linked, its result is worked out as before.
+    const one = loansOf(snapshot(wallet(), [sam, lena] as unknown as CloudSnapshot['liabilities']), items, both.slice(0, 1), 'EUR', fx, NOW).find((l) => l.key === 'liability:l1')!;
+    expect(one.sharedWith).toEqual([]);
+    expect(one.resultCents).toBe(800_000 - 400_000);
+  });
+});
+
 describe('which loans a place has to leave', () => {
   const links: CloudLoanLink[] = [
     { loanKey: 'liability:parents', targets: [{ key: 'asset:company', role: 'deployed' }], updatedAt: 0 },
@@ -187,6 +208,19 @@ describe('money a loan put into things that can’t be sold within a week', () =
     // Loans into different places are capped separately: 188,309 of 200,000, and 10,000 of 45,258.
     const flat = place('holding:flat', 1_000_000);
     expect(investedIlliquid([{ ...parents, deployed: [smaller] }, { ...lyudmila, deployed: [flat] }], illiquid)).toEqual({ cents: 19_830_900, partial: false });
+  });
+
+  it('covers a loan only by the places its own money went into', () => {
+    // A owes 1,000 into a company worth 100; B owes 100 into the company and a property worth 10,000.
+    // A can be covered by the company only (100), B by its own 100: 200 in all, never 1,100.
+    const co = place('asset:company', 10_000), flat = place('holding:flat', 1_000_000);
+    const a = { ...loan(100_000, [co]), key: 'liability:a' };
+    const b = { ...loan(10_000, [co, flat]), key: 'liability:b' };
+    expect(investedIlliquid([a, b], illiquid)).toEqual({ cents: 20_000, partial: false });
+    // B takes its cover from the property, leaving the company to A: covered 100 + 100.
+    // With B owing more than the property holds, the company is shared out, never counted twice.
+    const small = place('holding:flat', 5_000);
+    expect(investedIlliquid([a, { ...b, deployed: [co, small] }], illiquid)).toEqual({ cents: 15_000, partial: false });
   });
 
   it('adds loans up, ignores loans with no debt or no places, and says when a place has no value', () => {

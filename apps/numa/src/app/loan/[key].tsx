@@ -139,6 +139,12 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
         </View>
       )}
 
+      {loan.sharedWith.length > 0 && (
+        <Txt v="body" c="ink2" style={{ marginTop: 18 }}>
+          {state.loans.filter((l) => loan.sharedWith.includes(l.key)).map((l) => l.name).join(', ') || 'Another loan'} also went into the same place, so Numa doesn’t split what it’s worth between the loans or show a result for this one alone.
+        </Txt>
+      )}
+
       <View style={{ marginTop: 18 }}>
         {loan.ltv !== null ? (
           <Row label="Loan to value" value={`${pct(loan.ltv)}${loan.liquidationLtv !== null ? ` · sold at ${pct(loan.liquidationLtv)}` : ''}`} tone={loan.liquidationLtv !== null && loan.ltv >= loan.liquidationLtv * 0.85 ? 'down' : undefined} />
