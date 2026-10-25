@@ -6,6 +6,7 @@ import type { CloudCurrency } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { formatMoney, formatPercent } from '@/domain/money';
 import { compositionAt } from '@/data/composition';
+import { homeMovementReport } from '@/data/homeMovers';
 import { dayGroupOf, type DayGroup } from '@/data/day';
 import { pointLabel, rangeWords, ranges, tickLabel, type Range } from '@/data/series';
 import { useCloudHome, useDemoHome, type HomeModel } from '@/data/useHome';
@@ -19,6 +20,7 @@ import { EarningsTeaser } from '@/earnings/EarningsTeaser';
 import { MoneyMapTeaser } from '@/loans/MoneyMapTeaser';
 import { LiquidBreakdown } from '@/ui/LiquidBreakdown';
 import { MonthTeaser } from '@/ui/MonthTeaser';
+import { useMovers } from '@/ui/MoversContext';
 import { WIDE } from '@/ui/Nav';
 import { usePanelOpen } from '@/ui/Panel';
 import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
@@ -141,7 +143,7 @@ function HomeView({ model, range, setRange, canSignIn }: { model: HomeModel; ran
   }
   return (
     <CurrencyScope currency={model.currency}>
-      <Ready model={model} range={range} setRange={setRange} lens={lens} setLens={setLens} shell={shell} wide={wide} />
+      <Ready key={`${model.scope}:${model.currency}`} model={model} range={range} setRange={setRange} lens={lens} setLens={setLens} shell={shell} wide={wide} />
     </CurrencyScope>
   );
 }
@@ -150,6 +152,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   const { c } = useTheme();
   const { width } = useWindowDimensions();
   const { mask, money } = useMoney();
+  const movers = useMovers();
   const { seenTips, seeTip } = usePrefs();
   // A drag previews a date; letting go (or a tap) keeps it, by time, until "Back to today".
   const [preview, setPreview] = useState<number | null>(null);
@@ -166,7 +169,8 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   const lensNow = lens === 'net' ? summary.netCents : lens === 'liquid' ? summary.liquidAfterDebtsCents : summary.cashCents;
   // Liquid after debts can be negative or tiny, so scaling the demo line by it would flip or flatten the chart: only Cash scales it.
   const chartFollowsLens = (model.source === 'demo' && lens !== 'liquid') || lens === 'net';
-  const ratio = model.source === 'demo' && lens === 'cash' && summary.netCents !== 0 ? lensNow / summary.netCents : 1;
+  const rawRatio = model.source === 'demo' && lens === 'cash' && summary.netCents !== 0 ? lensNow / summary.netCents : 1;
+  const ratio = Number.isFinite(rawRatio) ? rawRatio : 1;
   const values = points.map((p) => Math.round(p.cents * ratio));
   values[values.length - 1] = model.source === 'demo' ? (lens === 'cash' ? lensNow : values[values.length - 1]) : summary.netCents;
   const idx = scrub ?? values.length - 1;
@@ -174,6 +178,14 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   const diff = values[idx] - values[0];
   const up = diff >= 0;
   const showChange = chartFollowsLens && model.hasHistory;
+  const openMovers = () => {
+    if (!model.available || !Number.isSafeInteger(diff)) return;
+    movers.open({ currency, report: homeMovementReport({
+      items: model.items, basis: model.movementBasis, headlineCents: diff, from: points[0].t,
+      to: points[idx].t, now: model.now, range, lens, currency, fx: model.fx,
+    }) });
+    router.push('/movers');
+  };
   // The blocks follow the finger too: the last point is today, so it shows the live split.
   const composition = useMemo(() => compositionAt(scrub !== null && idx < points.length - 1 ? points[idx] : null, summary, model.source), [scrub, idx, points, summary, model.source]);
   // A kept date with a saved split opens that date's details; otherwise the blocks open today's items.
@@ -202,11 +214,13 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         {!model.available ? (
           <Txt v="body" c="ink2">Totals need today’s exchange rate.</Txt>
         ) : showChange ? (
-          <>
+          <Pressable onPress={openMovers} accessibilityRole="button" hitSlop={8} accessibilityLabel={mask(`Explain ${money(diff, { cents: true, sign: true })} change${scrub === null ? ` ${rangeWords(range, points[0].t)}` : ' to the selected date'}`)}
+            style={{ minHeight: 44, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
             <Txt v="figure" style={{ fontSize: 15, color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
             {/* A picked date shows above the chart, by the point; here only the change since the start. */}
             {scrub === null && <Txt v="body" c="ink2">{rangeWords(range, points[0].t)}</Txt>}
-          </>
+            <Txt v="body" c="ink3">›</Txt>
+          </Pressable>
         ) : (
           model.empty ? null : <Txt v="body" c="ink2">{lens !== 'net' && !chartFollowsLens ? 'Today' : 'History starts today'}</Txt>
         )}
@@ -256,7 +270,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
     </View> : undefined} />
   ) : model.available ? (
     <View>
-      <CompositionBar {...composition} lens={lens} wide={wide} when={scrub !== null && idx < points.length - 1 ? pointLabel(points[idx].t, range, model.now) : undefined}
+      <CompositionBar {...composition} items={model.items} lens={lens} wide={wide} when={scrub !== null && idx < points.length - 1 ? pointLabel(points[idx].t, range, model.now) : undefined}
         onOpen={openDay ? (cat) => openDay(dayGroupOf(cat)) : undefined} />
       {notes[lens] ? <Txt v="body" c="ink2" style={{ fontSize: 13.5, marginTop: 10 }}>{notes[lens]}</Txt> : null}
       {summary.unknown.length > 0 && <Txt v="small" c="ink3" style={{ marginTop: 8 }}>{summary.unknown.length} without a value {summary.unknown.length === 1 ? 'is' : 'are'} left out.</Txt>}

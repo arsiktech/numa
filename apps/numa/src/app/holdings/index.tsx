@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-n
 
 import { useSession } from '@/cloud/session';
 import { groupNames, groupTotal, type GroupId } from '@/data/items';
-import { debtAssetsOf, familiesOf, FOUR_CLASSES, positionsOf, spotsOf, type Spot } from '@/data/positions';
+import { debtAssetsOf, familiesOf, familyMembersText, FOUR_CLASSES, positionPlacesText, positionsOf, spotDetail, spotsOf, type Spot } from '@/data/positions';
 import { useCloudItems, useDemoItems, type ItemsSource } from '@/data/useItems';
 import { CATEGORY_ORDER } from '@/domain/summary';
 import type { CategoryId } from '@/domain/types';
@@ -57,7 +57,7 @@ function Toggle<T extends string>({ value, options, onChange }: { value: T; opti
 function SpotRow({ spot, share, swatch, last }: { spot: Spot; share: number | null; swatch: string; last?: boolean }) {
   const { c } = useTheme();
   const { money, hidden } = useMoney();
-  const what = spot.assets.length > 4 ? `${spot.assets.slice(0, 4).join(', ')} +${spot.assets.length - 4}` : spot.assets.join(', ');
+  const what = spotDetail(spot);
   const open = spot.items.length === 1 ? () => router.push({ pathname: '/item/[type]/[id]', params: { type: spot.items[0].type, id: spot.items[0].id } }) : undefined;
   return (
     <Pressable onPress={open} disabled={!open} accessibilityRole={open ? 'link' : undefined} accessibilityLabel={`${spot.name}, ${spot.valueCents === null ? 'no value' : hidden ? 'amount hidden' : money(spot.valueCents)}, holds ${what}${open ? '. Open' : ''}`}
@@ -65,7 +65,7 @@ function SpotRow({ spot, share, swatch, last }: { spot: Spot; share: number | nu
       <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: swatch }} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{spot.name}</Txt>
-        <Txt v="small" c="ink2" numberOfLines={1}>{what}{spot.unknown > 0 ? ` · ${spot.unknown} without a value` : ''}</Txt>
+        <Txt v="small" c="ink2" numberOfLines={1}>{what}</Txt>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Txt v="figure" style={{ fontSize: 15 }}>{spot.valueCents === null ? '—' : money(spot.valueCents)}</Txt>
@@ -113,10 +113,10 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
         <View style={{ marginTop: 16, gap: 12 }}>
           <Toggle value={view} onChange={setView} options={[['kind', 'By kind'], ['classes', 'Four asset classes']]} />
           {view === 'kind' ? (
-            <Treemap height={wide ? 260 : 200} tiles={owned.map((x) => ({ id: x.g, label: groupNames[x.g], cents: groupTotal(x.items).cents, color: colorOf(x.g), onPress: () => openGroup(x.g) }))} />
+            <Treemap height={wide ? 260 : 200} tiles={owned.map((x) => ({ id: x.g, label: groupNames[x.g], detail: x.items.slice(0, 3).map((i) => i.name).join(', ') + (x.items.length > 3 ? ` +${x.items.length - 3}` : ''), cents: groupTotal(x.items).cents, color: colorOf(x.g), onPress: () => openGroup(x.g) }))} />
           ) : (
             <>
-              <Treemap height={wide ? 260 : 200} tiles={FOUR_CLASSES.map((k) => ({ id: k.id, label: k.name, cents: owned.filter((x) => k.groups.includes(x.g)).reduce((t, x) => t + groupTotal(x.items).cents, 0), color: CLASS_COLOR[k.id] }))} />
+              <Treemap height={wide ? 260 : 200} tiles={FOUR_CLASSES.map((k) => ({ id: k.id, label: k.name, detail: k.note, cents: owned.filter((x) => k.groups.includes(x.g)).reduce((t, x) => t + groupTotal(x.items).cents, 0), color: CLASS_COLOR[k.id] }))} />
               {FOUR_CLASSES.map((k) => {
                 const cents = owned.filter((x) => k.groups.includes(x.g)).reduce((t, x) => t + groupTotal(x.items).cents, 0);
                 return (
@@ -143,7 +143,7 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
           {(spots.length > 1 || only === 'debts') && <View style={{ marginBottom: 12 }}><Toggle value={lens} onChange={setLens} options={[['asset', only === 'cash' ? 'By currency' : 'By asset'], ['place', 'By place']]} /></View>}
           {lens === 'place' && only === 'debts' ? (
             <>
-              <Treemap height={wide ? 240 : 190} tiles={positions.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: 'down', onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: 'debts', key: p.key } }) }))} />
+              <Treemap height={wide ? 240 : 190} tiles={positions.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, detail: positionPlacesText(p), cents: p.valueCents ?? 0, color: 'down', onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: 'debts', key: p.key } }) }))} />
               {/* Signed in, each debt is a loan with what backs it and where its money went. */}
               {!source.demo ? <LoansSection /> : (
                 <>
@@ -154,13 +154,13 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
             </>
           ) : lens === 'place' && spots.length > 1 ? (
             <>
-              <Treemap height={wide ? 240 : 190} tiles={spots.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: p.items.length === 1 ? () => router.push({ pathname: '/item/[type]/[id]', params: { type: p.items[0].type, id: p.items[0].id } }) : undefined }))} />
+              <Treemap height={wide ? 240 : 190} tiles={spots.filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, detail: spotDetail(p), cents: p.valueCents ?? 0, color: colorOf(only!), onPress: p.items.length === 1 ? () => router.push({ pathname: '/item/[type]/[id]', params: { type: p.items[0].type, id: p.items[0].id } }) : undefined }))} />
               <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">BY PLACE</Txt>
               {spots.map((p, n) => <SpotRow key={p.key} spot={p} share={total && total.cents > 0 && p.valueCents !== null ? p.valueCents / total.cents : null} swatch={swatch(only!)} last={n === spots.length - 1} />)}
             </>
           ) : (
             <>
-              <Treemap height={wide ? 240 : 190} tiles={(families ?? positions).filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, cents: p.valueCents ?? 0, color: colorOf(only!), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: only!, key: p.key } }) }))} />
+              <Treemap height={wide ? 240 : 190} tiles={(families ?? positions).filter((p) => (p.valueCents ?? 0) > 0).map((p) => ({ id: p.key, label: p.name, detail: 'members' in p ? familyMembersText(p) : positionPlacesText(p), cents: p.valueCents ?? 0, color: colorOf(only!), onPress: () => router.push({ pathname: '/position/[group]/[key]', params: { group: only!, key: p.key } }) }))} />
               <Txt v="label" c="ink3" style={{ marginTop: 22 }} accessibilityRole="header">{only === 'cash' ? 'BY CURRENCY' : only === 'debts' ? 'OWED IN' : 'BY ASSET'}</Txt>
               {families
                 ? families.map((f, n) => {

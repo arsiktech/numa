@@ -1,0 +1,304 @@
+{
+  "version": 2,
+  "privacy": "visible",
+  "net": "—",
+  "today": "Some values or exchange rates are unavailable",
+  "up": true,
+  "line": [],
+  "updatedAt": 1792584000000,
+  "syncedAt": 1792584000000,
+  "freshness": {
+    "sourceAsOf": 1792583880000,
+    "quotesAsOf": 1792583880000,
+    "quotes": "partial",
+    "stale": true,
+    "fxAsOf": "2026-10-21"
+  },
+  "netWorth": {
+    "state": "unavailable",
+    "message": "Some values or exchange rates are unavailable"
+  },
+  "moneyMap": {
+    "state": "partial",
+    "toYou": {
+      "text": "€80",
+      "compact": "€80",
+      "exact": "€80.00"
+    },
+    "youOwe": {
+      "text": "€900",
+      "compact": "€900",
+      "exact": "€900.00"
+    },
+    "toFraction": 0.08888888888888889,
+    "oweFraction": 1,
+    "message": "Partial · unvalued records left out"
+  },
+  "spending": {
+    "state": "partial",
+    "month": "October",
+    "monthKey": "2026-10",
+    "validUntil": 1792627200000,
+    "total": {
+      "text": "€36",
+      "compact": "€36",
+      "exact": "€36.00"
+    },
+    "lead": 3,
+    "days": [
+      {
+        "key": "2026-10-01",
+        "day": 1,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "1 October: no spending"
+      },
+      {
+        "key": "2026-10-02",
+        "day": 2,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "2 October: no spending"
+      },
+      {
+        "key": "2026-10-03",
+        "day": 3,
+        "level": 4,
+        "future": false,
+        "unknown": true,
+        "description": "3 October: €32.00 known spending, unconverted spending also present"
+      },
+      {
+        "key": "2026-10-04",
+        "day": 4,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "4 October: no spending"
+      },
+      {
+        "key": "2026-10-05",
+        "day": 5,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "5 October: no spending"
+      },
+      {
+        "key": "2026-10-06",
+        "day": 6,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "6 October: no spending"
+      },
+      {
+        "key": "2026-10-07",
+        "day": 7,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "7 October: no spending"
+      },
+      {
+        "key": "2026-10-08",
+        "day": 8,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "8 October: no spending"
+      },
+      {
+        "key": "2026-10-09",
+        "day": 9,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "9 October: no spending"
+      },
+      {
+        "key": "2026-10-10",
+        "day": 10,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "10 October: no spending"
+      },
+      {
+        "key": "2026-10-11",
+        "day": 11,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "11 October: no spending"
+      },
+      {
+        "key": "2026-10-12",
+        "day": 12,
+        "level": 2,
+        "future": false,
+        "unknown": false,
+        "description": "12 October: €4.00 spent"
+      },
+      {
+        "key": "2026-10-13",
+        "day": 13,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "13 October: no spending"
+      },
+      {
+        "key": "2026-10-14",
+        "day": 14,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "14 October: no spending"
+      },
+      {
+        "key": "2026-10-15",
+        "day": 15,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "15 October: no spending"
+      },
+      {
+        "key": "2026-10-16",
+        "day": 16,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "16 October: no spending"
+      },
+      {
+        "key": "2026-10-17",
+        "day": 17,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "17 October: no spending"
+      },
+      {
+        "key": "2026-10-18",
+        "day": 18,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "18 October: no spending"
+      },
+      {
+        "key": "2026-10-19",
+        "day": 19,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "19 October: no spending"
+      },
+      {
+        "key": "2026-10-20",
+        "day": 20,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "20 October: no spending"
+      },
+      {
+        "key": "2026-10-21",
+        "day": 21,
+        "level": 0,
+        "future": false,
+        "unknown": false,
+        "description": "21 October: no spending"
+      },
+      {
+        "key": "2026-10-22",
+        "day": 22,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "22 October: future date"
+      },
+      {
+        "key": "2026-10-23",
+        "day": 23,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "23 October: future date"
+      },
+      {
+        "key": "2026-10-24",
+        "day": 24,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "24 October: future date"
+      },
+      {
+        "key": "2026-10-25",
+        "day": 25,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "25 October: future date"
+      },
+      {
+        "key": "2026-10-26",
+        "day": 26,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "26 October: future date"
+      },
+      {
+        "key": "2026-10-27",
+        "day": 27,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "27 October: future date"
+      },
+      {
+        "key": "2026-10-28",
+        "day": 28,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "28 October: future date"
+      },
+      {
+        "key": "2026-10-29",
+        "day": 29,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "29 October: future date"
+      },
+      {
+        "key": "2026-10-30",
+        "day": 30,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "30 October: future date"
+      },
+      {
+        "key": "2026-10-31",
+        "day": 31,
+        "level": 0,
+        "future": true,
+        "unknown": false,
+        "description": "31 October: future date"
+      }
+    ],
+    "message": "Partial total · ? needs exchange rates"
+  },
+  "blocks": {
+    "state": "unavailable",
+    "message": "Some values or exchange rates are unavailable"
+  }
+}

@@ -14,7 +14,7 @@ export type ItemsSource =
   | { status: 'ready'; demo: boolean; items: Item[]; currency: Currency; portfolioId: string | null; now: number };
 
 /** The labelled demo portfolio as read-only rows. */
-function demoItems(): Item[] {
+export function demoItems(): Item[] {
   const now = demoNow.getTime();
   const rows: Item[] = demoHoldings.map((h) => ({
     id: h.id, type: 'asset', group: h.category, name: h.name, detail: h.quantity ? `${h.quantity.amount} ${h.quantity.unit}` : null,

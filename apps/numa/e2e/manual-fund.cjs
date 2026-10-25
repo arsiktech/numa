@@ -49,10 +49,10 @@ function check(name, condition) { assert.ok(condition, name); checks.push(name);
       check(`${width}: visible correct group has no horizontal overflow`, !metrics.hidden && metrics.width === width && metrics.scroll <= width);
       if (mobile) check('phone uses actual touch and coarse-pointer emulation', metrics.touch > 0 && metrics.coarse);
       await page.screenshot({ path: `${OUT}/stocks-${width}.png` });
-      // The map and the position row both lead to the original asset position.
-      const fundLink = page.getByRole('link', { name: /^Synthetic mutual fund,.*Open$/ }).first();
-      if (mobile) await fundLink.tap();
-      else await fundLink.click();
+      // The callback-only treemap is a web button; the real position-row link is checked below.
+      const fundTile = page.getByTestId('treemap-lens-surface').getByRole('button', { name: /^Synthetic mutual fund,.*Open$/ }).first();
+      if (mobile) await fundTile.tap();
+      else await fundTile.click();
       await page.getByText('WHERE IT IS', { exact: true }).waitFor();
       check(`${width}: the treemap opens a stable asset position, not a ticker`, decodeURIComponent(new URL(page.url()).pathname).endsWith(`/position/stocks/item:${id}`));
       await page.screenshot({ path: `${OUT}/position-${width}.png` });

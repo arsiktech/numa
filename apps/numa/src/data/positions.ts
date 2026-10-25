@@ -17,6 +17,9 @@ export type Place = { itemId: string; itemType: Item['type']; where: string; det
 
 export type Position = { key: string; group: GroupId; name: string; unit: string | null; quantity: number | null; valueCents: number | null; unknown: number; places: Place[] };
 
+/** Shared by the list subtitle and the treemap's retained detail line. */
+export const positionPlacesText = (p: Position) => p.places.length === 1 ? p.places[0].where : `${p.places.length} places`;
+
 const COINS: Record<string, string> = {
   BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', USDC: 'USD Coin', USDT: 'Tether', DAI: 'Dai', POL: 'Polygon', MATIC: 'Polygon',
   ARB: 'Arbitrum', OP: 'Optimism', LINK: 'Chainlink', UNI: 'Uniswap', AAVE: 'Aave', WBTC: 'Wrapped Bitcoin', CBBTC: 'Coinbase Bitcoin', WETH: 'Wrapped Ether',
@@ -176,6 +179,7 @@ export const underlyingOf = (symbol: string) => UNDERLYING[symbol.toUpperCase()]
 
 /** Assets that are the same thing underneath, with the versions held. One version stays a plain position. */
 export type Family = { key: string; name: string; unit: string | null; quantity: number | null; valueCents: number | null; unknown: number; members: Position[] };
+export const familyMembersText = (f: Family) => f.members.map((m) => m.unit ?? m.name).join(', ');
 export const isFamilyKey = (key: string) => key.startsWith('fam:');
 
 /** Positions grouped by what they really are, biggest first. Amounts add up only when every version is worth one. */
@@ -200,6 +204,12 @@ export function familiesOf(positions: Position[]): Family[] {
 
 /** One place things sit: a wallet, a protocol inside it, an account. What it holds and its value. */
 export type Spot = { key: string; name: string; items: { id: string; type: Item['type'] }[]; assets: string[]; valueCents: number | null; unknown: number };
+
+/** The same asset list in By place rows and tiles, including the unknown-value notice. */
+export function spotDetail(spot: Spot): string {
+  const assets = spot.assets.length > 4 ? `${spot.assets.slice(0, 4).join(', ')} +${spot.assets.length - 4}` : spot.assets.join(', ');
+  return assets + (spot.unknown > 0 ? ` · ${spot.unknown} without a value` : '');
+}
 
 /** The same group seen by where things are instead of what they are, biggest first. */
 export function spotsOf(items: Item[], group: GroupId): Spot[] {

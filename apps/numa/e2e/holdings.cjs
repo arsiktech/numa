@@ -43,7 +43,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
   await page.getByText('What you own').waitFor({ timeout: 20000 });
   await wait(1200);
-  await page.getByRole('link', { name: /^Crypto, .* Open$/ }).click();
+  await page.getByRole('button', { name: /^Crypto, .* Open$/ }).click();
   await page.getByRole('heading', { name: 'Crypto' }).waitFor({ timeout: 10000 });
   const g = await page.locator('body').innerText();
   const btc = Math.round(3000000 / rate);
@@ -182,7 +182,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await dp.goto(APP + '/sign-in');
   await dp.getByText('Explore with demo data').click();
   await dp.getByText('What you own').waitFor({ timeout: 10000 });
-  await dp.getByRole('link', { name: /^Crypto, .* Open$/ }).click();
+  await dp.getByRole('button', { name: /^Crypto, .* Open$/ }).click();
   await dp.getByRole('heading', { name: 'Crypto' }).waitFor({ timeout: 10000 });
   // Bitcoin as one asset across places, then one record under it.
   await dp.getByRole('link', { name: /^Bitcoin, .*3 places\. Open$/ }).click();

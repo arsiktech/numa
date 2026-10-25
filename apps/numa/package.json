@@ -65,6 +65,9 @@
   "private": true,
   "jest": {
     "preset": "jest-expo",
+    "modulePaths": [
+      "<rootDir>/node_modules"
+    ],
     "testMatch": [
       "<rootDir>/src/**/*.test.ts?(x)"
     ]

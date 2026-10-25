@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "privacy": "visible",
+  "updatedAt": 1792584000000,
+  "syncedAt": 1792584000000,
+  "line": [],
+  "net": "—",
+  "today": "Values unavailable",
+  "up": true,
+  "netWorth": {
+    "state": "unavailable",
+    "message": "Some values or exchange rates are unavailable"
+  },
+  "moneyMap": {
+    "state": "unavailable",
+    "message": "Some values or exchange rates are unavailable"
+  },
+  "spending": {
+    "state": "unavailable",
+    "message": "Some values or exchange rates are unavailable"
+  },
+  "blocks": {
+    "state": "unavailable",
+    "message": "Some values or exchange rates are unavailable"
+  }
+}

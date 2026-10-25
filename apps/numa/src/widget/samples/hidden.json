@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "syncedAt": 1792584000000,
+  "updatedAt": 1792584000000,
+  "line": [],
+  "privacy": "hidden",
+  "net": "••••",
+  "today": "",
+  "up": true,
+  "netWorth": {
+    "state": "hidden"
+  },
+  "moneyMap": {
+    "state": "hidden"
+  },
+  "spending": {
+    "state": "hidden"
+  },
+  "blocks": {
+    "state": "hidden"
+  }
+}

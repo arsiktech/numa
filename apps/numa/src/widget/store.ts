@@ -1,4 +1,4 @@
 import type { WidgetPayload } from './payload';
 
-/** Home-screen widgets are iOS only for now. */
-export function writeWidget(_payload: WidgetPayload | null) {}
+/** Native widgets are iOS-only; web and other platforms have no shared widget storage. */
+export function writeWidget(_payload: WidgetPayload | null): boolean { return true; }
