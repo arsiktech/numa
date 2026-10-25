@@ -1,6 +1,6 @@
 import type { CloudSnapshot, CloudWallet } from '@/cloud/api';
 import type { Item } from './items';
-import { loanPlaces, loansOf, pledgedBacked, safetyOf, takenBy, type CloudLoanLink, type Loan } from './loans';
+import { illiquidPlaces, investedIlliquid, loanPlaces, loansOf, pledgedBacked, safetyOf, takenBy, type CloudLoanLink, type Loan } from './loans';
 
 const NOW = Date.UTC(2026, 9, 19, 12);
 const fx = { usdPerEur: 1.25, asOf: '2026-10-19' };
@@ -121,5 +121,43 @@ describe('loans', () => {
     const [base] = loansOf(snapshot(wallet()), [], [], 'EUR', fx, NOW);
     expect(pledgedBacked([{ ...base, debtCents: null, collateralCents: 9_000, gaps: 0 }])).toEqual({ cents: 0, partial: false });
     expect(pledgedBacked([])).toEqual({ cents: 0, partial: false });
+  });
+});
+
+describe('money a loan put into things that can’t be sold within a week', () => {
+  const [base] = loansOf(snapshot(wallet()), [], [], 'EUR', fx, NOW);
+  const place = (key: string, valueCents: number | null) => ({ key, name: key, detail: null, valueCents, open: null });
+  const loan = (debtCents: number | null, deployed: ReturnType<typeof place>[]): Loan => ({ ...base, debtCents, deployed });
+  const illiquid = illiquidPlaces([
+    { id: 'company', liquidity: { kind: 'illiquid' } }, { id: 'flat', liquidity: { kind: 'illiquid' } },
+    { id: 'shares', liquidity: { kind: 'liquid' } }, { id: 'savings', liquidity: { kind: 'cash' } },
+  ]);
+
+  it('knows which places can’t be sold within a week', () => {
+    expect(illiquid('asset:company')).toBe(true);
+    expect(illiquid('holding:flat')).toBe(true);
+    expect(illiquid('holding:shares')).toBe(false);
+    expect(illiquid('asset:savings')).toBe(false);
+    // A coin or a position in a wallet can be sold, and a debt is not a place.
+    expect(illiquid('token:w1:eth')).toBe(false);
+    expect(illiquid('liability:company')).toBe(false);
+  });
+
+  it('leaves out as much of a loan as the company it went into is worth, and no more than the loan', () => {
+    // Parents lent 200,000 into a company worth 234,000: all of it is covered.
+    expect(investedIlliquid([loan(20_000_000, [place('asset:company', 23_400_000)])], illiquid)).toEqual({ cents: 20_000_000, partial: false });
+    // A 300,000 loan into the same company: 66,000 is not covered, so it still counts against liquid.
+    expect(investedIlliquid([loan(30_000_000, [place('asset:company', 23_400_000)])], illiquid)).toEqual({ cents: 23_400_000, partial: false });
+  });
+
+  it('does not count money that went into things that can be sold this week', () => {
+    expect(investedIlliquid([loan(500_000, [place('holding:shares', 900_000), place('token:w1:eth', 900_000)])], illiquid)).toEqual({ cents: 0, partial: false });
+    // A loan split between a company and shares counts only the company's part.
+    expect(investedIlliquid([loan(500_000, [place('asset:company', 200_000), place('holding:shares', 900_000)])], illiquid)).toEqual({ cents: 200_000, partial: false });
+  });
+
+  it('adds loans up, ignores loans with no debt or no places, and says when a place has no value', () => {
+    const loans = [loan(100_000, [place('asset:company', 80_000)]), loan(100_000, [place('holding:flat', null)]), loan(null, [place('asset:company', 80_000)]), loan(100_000, [])];
+    expect(investedIlliquid(loans, illiquid)).toEqual({ cents: 80_000, partial: true });
   });
 });

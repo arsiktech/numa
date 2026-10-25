@@ -7,6 +7,7 @@ import { cloud, type AskReply, type AskTurn } from '@/cloud/api';
 import { summarizeFlow } from '@/domain/flow';
 import { summarize } from '@/domain/summary';
 import { useCloudData } from '@/data/cloud';
+import { liquidSummary, useInvested } from '@/loans/useInvested';
 import { useWriter } from '@/data/writes';
 import { demoDebts, demoHoldings, demoNow, demoOctober } from '@/data/demo';
 import { aiContext } from './aiContext';
@@ -45,8 +46,11 @@ export function useCloudAskSource(): AskSource {
   const run = useWriter();
   const askReply = useAction(cloud.askReply);
   const sharing = useAISharing();
+  const invested = useInvested();
   if (data.status !== 'ready') return { status: 'loading' };
-  const { snapshot, data: home, summary, fx, portfolioId } = data;
+  const { snapshot, data: home, fx, portfolioId } = data;
+  // The same Liquid after debts as Home: money borrowed into a company is owed but not taken from it.
+  const summary = liquidSummary(data.summary, invested);
   const expectedUserId = data.boot.profile.userId;
   if (sharing.state?.userId && sharing.state.userId !== expectedUserId) return { status: 'loading' };
   const ctx: AskContext = { currency: home.currency, now: new Date(), categories: snapshot.categories, assets: snapshot.assets, liabilities: snapshot.liabilities, holdings: snapshot.holdings };

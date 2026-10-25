@@ -23,8 +23,13 @@ export type Summary = {
   netCents: number;
   /** Cash plus what can be sold within a week, before anything owed. */
   liquidCents: number;
-  /** `liquidCents` minus everything owed. Negative when the debts are bigger; never clamped. */
+  /**
+   * `liquidCents` minus what is owed, leaving out `investedCents`. Negative when the debts are
+   * bigger; never clamped.
+   */
   liquidAfterDebtsCents: number;
+  /** Owed money that went into things that can't be sold within a week, up to what they are worth. */
+  investedCents: number;
   cashCents: number;
   categories: CategorySummary[];
   /** Holdings left out of every total because nothing is known about their value. */
@@ -68,9 +73,20 @@ export function summarize(holdings: Holding[], debts: Debt[], now: Date): Summar
     netCents: ownCents - oweCents,
     liquidCents,
     liquidAfterDebtsCents: liquidCents - oweCents,
+    investedCents: 0,
     cashCents: categories.reduce((s, c) => s + c.cashCents, 0),
     categories,
     unknown,
     stale,
   };
+}
+
+/**
+ * The summary with owed money that went into things that can't be sold within a week left out of
+ * Liquid after debts, up to what those things are worth (see `investedIlliquid` in data/loans.ts).
+ * It is still owed: What you owe and net worth don't change.
+ */
+export function withInvested(s: Summary, cents: number): Summary {
+  const investedCents = Math.max(0, Math.min(cents, s.oweCents));
+  return { ...s, investedCents, liquidAfterDebtsCents: s.liquidCents - (s.oweCents - investedCents) };
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 
-import type { Summary } from '@/domain/summary';
+import { withInvested, type Summary } from '@/domain/summary';
 import { LiquidBreakdown } from './LiquidBreakdown';
 
 let mockHidden = false;
@@ -13,7 +13,7 @@ jest.mock('@/theme/theme', () => ({ useTheme: () => ({ c: { ink: '#fff', ink2: '
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const summary = (liquidCents: number, oweCents: number) => ({ liquidCents, oweCents, liquidAfterDebtsCents: liquidCents - oweCents }) as Summary;
+const summary = (liquidCents: number, oweCents: number) => ({ liquidCents, oweCents, liquidAfterDebtsCents: liquidCents - oweCents, investedCents: 0 }) as Summary;
 
 let tree: TestRenderer.ReactTestRenderer | undefined;
 afterEach(() => { if (tree) act(() => tree?.unmount()); tree = undefined; mockHidden = false; });
@@ -66,6 +66,27 @@ test('hides amounts from the spoken label when amounts are hidden', () => {
   act(() => { tree = TestRenderer.create(<LiquidBreakdown summary={summary(1_250_000, 420_000)} pledged={null} />); });
   expect(labelOf(tree!)).toBe('Liquid after debts. Amounts hidden.');
   expect(textOf(tree!)).not.toContain('12,500');
+});
+
+test('leaves out money a loan put into a company, and says it is still owed', () => {
+  // 2,681.10 liquid, 4,854.21 owed, 2,000 of it went into the company.
+  act(() => { tree = TestRenderer.create(<LiquidBreakdown summary={withInvested(summary(268_110, 485_421), 200_000)} pledged={null} invested={{ cents: 200_000, partial: false, linked: true }} />); });
+  const text = textOf(tree!);
+  expect(text).toContain('−€4,854');
+  expect(text).toContain('Went into things you can’t sell this week');
+  expect(text).toContain('€2,000');
+  expect(text).toContain('−€173');
+  expect(text).toContain('It is still owed');
+  expect(text).not.toContain('pick where it went');
+  expect(labelOf(tree!)).toBe('Liquid after debts. Liquid assets €2,681, minus what you owe €4,854, except €2,000 that went into things you can’t sell within a week, leaves −€173.');
+});
+
+test('says how to leave out a loan put into a company when no loan says where its money went', () => {
+  act(() => { tree = TestRenderer.create(<LiquidBreakdown summary={summary(268_110, 485_421)} pledged={null} invested={{ cents: 0, partial: false, linked: false }} />); });
+  expect(textOf(tree!)).toContain('pick where it went on the loan’s page');
+  expect(textOf(tree!)).not.toContain('Went into things');
+  act(() => tree!.update(<LiquidBreakdown summary={summary(268_110, 485_421)} pledged={null} invested={{ cents: 0, partial: false, linked: true }} />));
+  expect(textOf(tree!)).not.toContain('pick where it went');
 });
 
 test('lets text grow with the user’s text size instead of clipping', () => {

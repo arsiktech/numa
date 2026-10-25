@@ -35,7 +35,7 @@ const tabs: { lens: Lens; label: string }[] = [
 
 const notes: Record<Lens, string | null> = {
   net: null,
-  liquid: 'What you could have within a week, minus everything you owe. Dimmed blocks can’t be sold within a week. Locked shares join when their lock-up ends; pledged coins join when the loan is repaid.',
+  liquid: 'What you could have within a week, minus what you owe, except money a loan put into something you can’t sell within a week. Dimmed blocks can’t be sold within a week. Locked shares join when their lock-up ends; pledged coins join when the loan is repaid.',
   cash: 'Cash and stablecoins only.',
 };
 
@@ -260,7 +260,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         onOpen={openDay ? (cat) => openDay(dayGroupOf(cat)) : undefined} />
       {notes[lens] ? <Txt v="body" c="ink2" style={{ fontSize: 13.5, marginTop: 10 }}>{notes[lens]}</Txt> : null}
       {summary.unknown.length > 0 && <Txt v="small" c="ink3" style={{ marginTop: 8 }}>{summary.unknown.length} without a value {summary.unknown.length === 1 ? 'is' : 'are'} left out.</Txt>}
-      {lens === 'liquid' && <LiquidBreakdown summary={summary} pledged={model.pledged} />}
+      {lens === 'liquid' && <LiquidBreakdown summary={summary} pledged={model.pledged} invested={model.invested} />}
       {lens !== 'net' && !chartFollowsLens && <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{tabs.find((t) => t.lens === lens)!.label}{lens === 'liquid' ? ' after debts' : ''} today: {money(lensNow)}. The chart shows net worth.</Txt>}
     </View>
   ) : null;

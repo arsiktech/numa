@@ -164,6 +164,38 @@ export function pledgedBacked(loans: Loan[]): { cents: number; partial: boolean 
   return { cents, partial };
 }
 
+/**
+ * Which linked places can't be sold within a week: a record (a company, property, a car) or a
+ * holding whose liquidity is not liquid or cash. Coins and positions in a wallet can be sold.
+ */
+export function illiquidPlaces(holdings: { id: string; liquidity: { kind: string } }[]): (key: string) => boolean {
+  const ids = new Set(holdings.filter((h) => h.liquidity.kind !== 'liquid' && h.liquidity.kind !== 'cash').map((h) => h.id));
+  return (key) => {
+    const [type, id] = key.split(':');
+    return (type === 'asset' || type === 'holding') && ids.has(id);
+  };
+}
+
+/**
+ * How much of what is owed went into things that can't be sold within a week, loan by loan: the
+ * smaller of the debt and what those places are worth now. Liquid after debts leaves this out, so
+ * money borrowed into a company is still owed but is not taken from what could be cash this week.
+ * Any part of the debt those places don't cover still is. Money that went into coins, shares or
+ * cash doesn't count here: it is already in the liquid figure. `partial` is true when a linked
+ * place has no value, so the figure may be too low.
+ */
+export function investedIlliquid(loans: Loan[], illiquid: (key: string) => boolean): { cents: number; partial: boolean } {
+  let cents = 0, partial = false;
+  for (const l of loans) {
+    if (l.debtCents === null || l.debtCents <= 0) continue;
+    const places = l.deployed.filter((p) => illiquid(p.key));
+    if (!places.length) continue;
+    if (places.some((p) => p.valueCents === null)) partial = true;
+    cents += Math.min(l.debtCents, places.reduce((t, p) => t + Math.max(0, p.valueCents ?? 0), 0));
+  }
+  return { cents, partial };
+}
+
 /** Money itself (dollars, euros and coins pegged to them): it doesn't fall the way a coin does. */
 const isMoney = (symbol: string) => { const u = underlyingOf(symbol); return !!u && (u.family === 'USD' || u.family === 'EUR'); };
 
