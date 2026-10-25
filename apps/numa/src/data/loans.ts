@@ -149,6 +149,21 @@ export function takenBy(links: CloudLoanLink[]): Map<string, string> {
 }
 
 /**
+ * The other loans a place has to leave when it is linked to `loanKey` as `role`. Collateral is
+ * tied to one loan, so a pledged place leaves every other loan, and a place pledged elsewhere
+ * leaves that loan. Several loans can say their money went into the same place, so that alone moves
+ * nothing. Matches `checkLoanLinks` in convex/lib/loanLinks.ts.
+ */
+export function movesFrom(links: CloudLoanLink[], loanKey: string, placeKey: string, role: LoanRole): string[] {
+  return links.filter((l) => l.loanKey !== loanKey && l.targets.some((t) => t.key === placeKey && (role === 'collateral' || t.role === 'collateral'))).map((l) => l.loanKey);
+}
+
+/** The other loans whose money also went into a place. */
+export function sharedWith(links: CloudLoanLink[], loanKey: string, placeKey: string): string[] {
+  return links.filter((l) => l.loanKey !== loanKey && l.targets.some((t) => t.key === placeKey && t.role === 'deployed')).map((l) => l.loanKey);
+}
+
+/**
  * How much of what is owed is backed by collateral, loan by loan: the smaller of the debt and the
  * collateral behind it. `partial` is true when some loan has no known collateral or a linked place
  * without a value, so the figure may be too low. It is never a reason to subtract less from liquid.
@@ -177,22 +192,35 @@ export function illiquidPlaces(holdings: { id: string; liquidity: { kind: string
 }
 
 /**
- * How much of what is owed went into things that can't be sold within a week, loan by loan: the
- * smaller of the debt and what those places are worth now. Liquid after debts leaves this out, so
- * money borrowed into a company is still owed but is not taken from what could be cash this week.
- * Any part of the debt those places don't cover still is. Money that went into coins, shares or
- * cash doesn't count here: it is already in the liquid figure. `partial` is true when a linked
- * place has no value, so the figure may be too low.
+ * How much of what is owed went into things that can't be sold within a week: no more than each
+ * debt, and no more than those places are worth now, counting a place once however many loans went
+ * into it (two people lending into one company). Liquid after debts leaves this out, so money
+ * borrowed into a company is still owed but is not taken from what could be cash this week. Any
+ * part the places don't cover still is. Money that went into coins, shares or cash doesn't count
+ * here: it is already in the liquid figure. `partial` is true when a linked place has no value, so
+ * the figure may be too low.
  */
 export function investedIlliquid(loans: Loan[], illiquid: (key: string) => boolean): { cents: number; partial: boolean } {
-  let cents = 0, partial = false;
-  for (const l of loans) {
-    if (l.debtCents === null || l.debtCents <= 0) continue;
-    const places = l.deployed.filter((p) => illiquid(p.key));
-    if (!places.length) continue;
-    if (places.some((p) => p.valueCents === null)) partial = true;
-    cents += Math.min(l.debtCents, places.reduce((t, p) => t + Math.max(0, p.valueCents ?? 0), 0));
+  // Loans and places form groups that share places; each group leaves out at most the smaller of
+  // what its loans owe and what its places are worth.
+  const loansWith = loans.filter((l) => l.debtCents !== null && l.debtCents > 0 && l.deployed.some((p) => illiquid(p.key)));
+  const group = new Map<string, string>();
+  const find = (k: string): string => { const g = group.get(k) ?? k; if (g === k) return k; const root = find(g); group.set(k, root); return root; };
+  for (const l of loansWith) for (const p of l.deployed) if (illiquid(p.key)) group.set(find(`place:${p.key}`), find(`loan:${l.key}`));
+  const owed = new Map<string, number>(), worth = new Map<string, number>(), counted = new Set<string>();
+  let partial = false;
+  for (const l of loansWith) {
+    const g = find(`loan:${l.key}`);
+    owed.set(g, (owed.get(g) ?? 0) + l.debtCents!);
+    for (const p of l.deployed) {
+      if (!illiquid(p.key) || counted.has(p.key)) continue;
+      counted.add(p.key);
+      if (p.valueCents === null) partial = true;
+      worth.set(g, (worth.get(g) ?? 0) + Math.max(0, p.valueCents ?? 0));
+    }
   }
+  let cents = 0;
+  for (const [g, o] of owed) cents += Math.min(o, worth.get(g) ?? 0);
   return { cents, partial };
 }
 

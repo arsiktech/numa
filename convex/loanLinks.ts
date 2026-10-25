@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id, TableNames } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireEditor, requireMember } from "./lib/access";
-import { checkLoanLinks, parseKey, type ParsedKey } from "./lib/loanLinks";
+import { checkLoanLinks, parseKey, type OtherLinks, type ParsedKey } from "./lib/loanLinks";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 
 const targetValidator = v.object({ key: v.string(), role: v.union(v.literal("deployed"), v.literal("collateral")) });
@@ -41,8 +41,8 @@ export const set = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
     const rows = await ctx.db.query("loanLinks").withIndex("by_portfolio", (q) => q.eq("portfolioId", args.portfolioId)).collect();
-    const others = new Map<string, string>();
-    for (const r of rows) for (const t of r.targets) others.set(t.key, r.loanKey);
+    const others: OtherLinks = new Map();
+    for (const r of rows) for (const t of r.targets) others.set(t.key, [...(others.get(t.key) ?? []), { loanKey: r.loanKey, role: t.role }]);
     const parsed = checkLoanLinks(args.loanKey, args.targets, others);
     // Clearing needs no live loan: a repaid borrowing or a deleted debt can still let its places go.
     if (args.targets.length) await assertOwned(ctx, args.portfolioId, parseKey(args.loanKey)!);
