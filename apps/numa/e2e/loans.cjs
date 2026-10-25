@@ -49,18 +49,22 @@ const save = (walletId, snapshot) => execFileSync('npx', ['convex', 'run', 'wall
   check('the links are saved on the server as typed targets', saved.length === 1 && saved[0].loanKey.startsWith('liability:') && saved[0].targets.map((t) => t.role).join() === 'deployed,collateral');
   check('net worth does not move when places are linked', (await snap()).dashboard.netWorth === before);
 
-  // The same savings can't count for two loans: picking it on the car loan moves it there.
+  // Two loans can say their money went into the same savings; a pledged place still moves.
   await page.goto(APP + '/holdings/debts');
   await page.getByRole('tab', { name: 'By place' }).click({ timeout: 20000 });
   await page.getByRole('link', { name: /^Car loan, .* owed\./ }).click();
   await page.getByRole('button', { name: 'Pick where it went' }).click();
-  const offer = page.getByRole('button', { name: /^Link Studio savings, moves it from Loan from Sam/ });
-  check('a place on another loan is offered as a move, not a second count', await offer.isVisible());
+  check('a place pledged for another loan is offered as a move', await page.getByRole('button', { name: /^Link Watch, moves it from Loan from Sam/ }).isVisible());
+  const offer = page.getByRole('button', { name: /^Link Studio savings, shared with Loan from Sam/ });
+  check('a place another loan’s money went into is offered as shared, not as a move', await offer.isVisible());
   await offer.click();
-  await page.getByText(/^−€14,000\.00$/).first().waitFor({ timeout: 10000 });
+  await page.getByText(/also went into the same place/).waitFor({ timeout: 10000 });
+  body = await page.locator('body').innerText();
+  check('a shared place shows no result or stake for one loan alone', !body.includes('What the money went into is worth') && !body.includes('Your stake in it'), body.slice(0, 900).replace(/\n/g, ' | '));
   saved = await links();
   const sam = saved.find((l) => l.targets.some((t) => t.role === 'collateral'));
-  check('moving clears it on the first loan', saved.length === 2 && sam.targets.length === 1 && saved.filter((l) => l.targets.some((t) => t.key.startsWith('asset:') && t.role === 'deployed')).length === 1);
+  check('sharing keeps it on the first loan too', saved.length === 2 && sam.targets.length === 2 && saved.filter((l) => l.targets.some((t) => t.key.startsWith('asset:') && t.role === 'deployed')).length === 2);
+  check('net worth does not move when a place is shared', (await snap()).dashboard.netWorth === before);
   await page.getByRole('button', { name: 'Unlink Studio savings' }).click();
   await page.getByText('Not set yet.').waitFor({ timeout: 10000 });
   check('unlinking the only place removes the car loan’s links', (await links()).length === 1);

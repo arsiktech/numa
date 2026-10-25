@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkLoanLinks, parseKey } from "./lib/loanLinks";
+import { checkLoanLinks, parseKey, type OtherLinks } from "./lib/loanLinks";
 import { listForPortfolio, set } from "./loanLinks";
 
 // Bounded synthetic DB: the registered handlers with real auth and receipt helpers.
@@ -52,14 +52,22 @@ describe("loan link keys", () => {
     for (const bad of ["", "defi:w1", "holding:a:b", "wallet:w1", "token::x", "asset:../x"]) expect(parseKey(bad)).toBeNull();
   });
 
-  it("keeps one place on one loan, never the loan itself, and collateral only on a recorded debt", () => {
-    const others = new Map([["holding:h1", "liability:l1"]]);
+  it("keeps collateral on one loan, lets loans share where their money went, never the loan itself, and collateral only on a recorded debt", () => {
+    const others: OtherLinks = new Map([["holding:h1", [{ loanKey: "liability:l1", role: "collateral" as const }]], ["asset:co", [{ loanKey: "liability:l2", role: "deployed" as const }]]]);
+    // A pledged place backs one loan only, and is not where another loan's money went.
     expect(() => checkLoanLinks(LOAN, [{ key: "holding:h1", role: "deployed" }], others)).toThrow(/another loan/);
+    // Two people lent into one company: both loans can say so.
+    expect(checkLoanLinks(LOAN, [{ key: "asset:co", role: "deployed" }], others)).toHaveLength(1);
+    // But a place one loan's money went into can't be pledged for another.
+    expect(() => checkLoanLinks("liability:l3", [{ key: "asset:co", role: "collateral" }], others)).toThrow(/another loan/);
+    // A loan may keep its own place.
+    expect(checkLoanLinks("liability:l2", [{ key: "asset:co", role: "deployed" }], others)).toHaveLength(1);
     expect(() => checkLoanLinks(LOAN, [{ key: LOAN, role: "deployed" }], new Map())).toThrow(/itself/);
     expect(() => checkLoanLinks(LOAN, [{ key: "asset:a1", role: "collateral" }], new Map())).toThrow(/protocol/);
     expect(() => checkLoanLinks("holding:h1", [], new Map())).toThrow(/wallet borrowing or a recorded debt/);
     expect(() => checkLoanLinks(LOAN, [{ key: "asset:a1", role: "deployed" }, { key: "asset:a1", role: "deployed" }], new Map())).toThrow(/twice/);
     expect(checkLoanLinks("liability:l1", [{ key: "holding:h1", role: "collateral" }], others)).toHaveLength(1);
+    expect(() => checkLoanLinks("liability:l9", [{ key: "holding:h1", role: "collateral" }], others)).toThrow(/another loan/);
   });
 });
 

@@ -30,12 +30,17 @@ export function parseKey(key: string): ParsedKey | null {
 
 const bad = (message: string) => new ConvexError({ code: "INVALID_LOAN_LINK", message });
 
+/** What other loans already say about each place: which loan, and as what. */
+export type OtherLinks = Map<string, { loanKey: string; role: LoanRole }[]>;
+
 /**
  * Checks the shape of one loan's links. Ownership of the records named is checked by the caller,
- * which can read the database. `others` are the targets other loans already use: one place is
- * tied to one loan, so totals across loans never count it twice.
+ * which can read the database. `others` are the targets other loans already use. Collateral is
+ * tied to one loan: a pledged place can back one loan only, and can't also be where another loan's
+ * money went. Several loans can say their money went into the same place (two people lending into
+ * one company); totals across loans count that place's value once.
  */
-export function checkLoanLinks(loanKey: string, targets: LoanTarget[], others: Map<string, string>): ParsedKey[] {
+export function checkLoanLinks(loanKey: string, targets: LoanTarget[], others: OtherLinks): ParsedKey[] {
   const loan = parseKey(loanKey);
   if (!loan || (loan.kind !== "defi" && loan.kind !== "liability")) throw bad("A loan is a wallet borrowing or a recorded debt");
   if (targets.length > MAX_LOAN_TARGETS) throw bad(`Link at most ${MAX_LOAN_TARGETS} places to one loan`);
@@ -48,8 +53,8 @@ export function checkLoanLinks(loanKey: string, targets: LoanTarget[], others: M
     if (seen.has(t.key)) throw bad("That place is listed twice");
     // A wallet borrowing's collateral is read from the protocol; only a recorded debt takes it by hand.
     if (t.role === "collateral" && loan.kind !== "liability") throw bad("Collateral of a wallet borrowing comes from the protocol");
-    const taken = others.get(t.key);
-    if (taken !== undefined && taken !== loanKey) throw bad("That place is already linked to another loan");
+    const elsewhere = (others.get(t.key) ?? []).filter((o) => o.loanKey !== loanKey);
+    if (elsewhere.length && (t.role === "collateral" || elsewhere.some((o) => o.role === "collateral"))) throw bad("That place is already linked to another loan");
     seen.add(t.key);
     parsed.push(p);
   }

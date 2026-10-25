@@ -49,6 +49,8 @@ export type Loan = {
   /** When the protocol was read; null for a recorded debt. */
   checkedAt: number | null;
   linked: boolean;
+  /** Other loans whose money went into one of the same places. Then `resultCents` and `netCents` are null. */
+  sharedWith: string[];
 };
 
 const usdCents = (usd: number, currency: Currency, fx: FxRate | null) => convertCents(Math.round(usd * 100), 'USD', currency, fx);
@@ -103,15 +105,24 @@ export function loansOf(s: CloudSnapshot, items: Item[], links: CloudLoanLink[],
   const resolve = (key: string, role: LoanRole) => (byLoan.get(key)?.targets ?? []).filter((t) => t.role === role)
     .map((t) => places.get(t.key) ?? { key: t.key, name: goneName(t.key), detail: null, valueCents: null, open: null, gone: true });
   const loans: Loan[] = [];
+  // A deleted debt or a repaid borrowing can leave its links behind; only loans still here share a place.
+  const live = new Set([
+    ...counted(s).flatMap((w) => (w.snapshot!.defiPositions ?? []).filter((p) => p.debtValueUsd > 0).map((p) => `defi:${w.id}:${p.id}`)),
+    ...s.liabilities.map((l) => `liability:${l.id}`),
+  ]);
 
-  const finish = (base: Omit<Loan, 'collateralCents' | 'deployedCents' | 'gaps' | 'netCents' | 'resultCents' | 'ltv' | 'liquidationLtv' | 'linked'>, trustLtv: boolean): Loan => {
+  const finish =(base: Omit<Loan, 'collateralCents' | 'deployedCents' | 'gaps' | 'netCents' | 'resultCents' | 'ltv' | 'liquidationLtv' | 'linked' | 'sharedWith'>, trustLtv: boolean): Loan => {
     const c = sum(base.collateral), d = sum(base.deployed);
     const debt = base.debtCents;
-    const netCents = debt === null || c.gaps || d.gaps ? null : (c.cents ?? 0) + (d.cents ?? 0) - debt;
-    const resultCents = debt === null || d.cents === null || d.gaps ? null : d.cents - debt;
+    // When another loan's money went into the same place, how its value splits between the loans is
+    // not known, so this loan's result and stake are not worked out, rather than counting it twice.
+    const sharedWith = [...new Set(base.deployed.flatMap((p) => links.filter((l) => l.loanKey !== base.key && live.has(l.loanKey) && l.targets.some((t) => t.key === p.key && t.role === 'deployed')).map((l) => l.loanKey)))];
+    const shared = sharedWith.length > 0;
+    const netCents = debt === null || c.gaps || d.gaps || shared ? null : (c.cents ?? 0) + (d.cents ?? 0) - debt;
+    const resultCents = debt === null || d.cents === null || d.gaps || shared ? null : d.cents - debt;
     const ltv = trustLtv && debt !== null && c.cents !== null && c.cents > 0 && !c.gaps ? debt / c.cents : null;
     const liquidationLtv = ltv !== null && base.healthFactor ? ltv * base.healthFactor : null;
-    return { ...base, collateralCents: c.cents, deployedCents: d.cents, gaps: c.gaps + d.gaps, netCents, resultCents, ltv, liquidationLtv, linked: byLoan.has(base.key) };
+    return { ...base, collateralCents: c.cents, deployedCents: d.cents, gaps: c.gaps + d.gaps, netCents, resultCents, ltv, liquidationLtv, linked: byLoan.has(base.key), sharedWith };
   };
 
   for (const w of counted(s)) {
@@ -149,6 +160,21 @@ export function takenBy(links: CloudLoanLink[]): Map<string, string> {
 }
 
 /**
+ * The other loans a place has to leave when it is linked to `loanKey` as `role`. Collateral is
+ * tied to one loan, so a pledged place leaves every other loan, and a place pledged elsewhere
+ * leaves that loan. Several loans can say their money went into the same place, so that alone moves
+ * nothing. Matches `checkLoanLinks` in convex/lib/loanLinks.ts.
+ */
+export function movesFrom(links: CloudLoanLink[], loanKey: string, placeKey: string, role: LoanRole): string[] {
+  return links.filter((l) => l.loanKey !== loanKey && l.targets.some((t) => t.key === placeKey && (role === 'collateral' || t.role === 'collateral'))).map((l) => l.loanKey);
+}
+
+/** The other loans whose money also went into a place. */
+export function sharedWith(links: CloudLoanLink[], loanKey: string, placeKey: string): string[] {
+  return links.filter((l) => l.loanKey !== loanKey && l.targets.some((t) => t.key === placeKey && t.role === 'deployed')).map((l) => l.loanKey);
+}
+
+/**
  * How much of what is owed is backed by collateral, loan by loan: the smaller of the debt and the
  * collateral behind it. `partial` is true when some loan has no known collateral or a linked place
  * without a value, so the figure may be too low. It is never a reason to subtract less from liquid.
@@ -177,21 +203,50 @@ export function illiquidPlaces(holdings: { id: string; liquidity: { kind: string
 }
 
 /**
- * How much of what is owed went into things that can't be sold within a week, loan by loan: the
- * smaller of the debt and what those places are worth now. Liquid after debts leaves this out, so
- * money borrowed into a company is still owed but is not taken from what could be cash this week.
- * Any part of the debt those places don't cover still is. Money that went into coins, shares or
- * cash doesn't count here: it is already in the liquid figure. `partial` is true when a linked
- * place has no value, so the figure may be too low.
+ * How much of what is owed went into things that can't be sold within a week: no more than each
+ * debt, and no more than those places are worth now, counting a place once however many loans went
+ * into it (two people lending into one company). Liquid after debts leaves this out, so money
+ * borrowed into a company is still owed but is not taken from what could be cash this week. Any
+ * part the places don't cover still is. Money that went into coins, shares or cash doesn't count
+ * here: it is already in the liquid figure. `partial` is true when a linked place has no value, so
+ * the figure may be too low.
  */
 export function investedIlliquid(loans: Loan[], illiquid: (key: string) => boolean): { cents: number; partial: boolean } {
-  let cents = 0, partial = false;
-  for (const l of loans) {
-    if (l.debtCents === null || l.debtCents <= 0) continue;
-    const places = l.deployed.filter((p) => illiquid(p.key));
-    if (!places.length) continue;
-    if (places.some((p) => p.valueCents === null)) partial = true;
-    cents += Math.min(l.debtCents, places.reduce((t, p) => t + Math.max(0, p.valueCents ?? 0), 0));
+  // The most that can be covered when each loan is covered only by the places its own money went
+  // into, up to its debt, and each place covers loans only up to its value: a maximum flow from
+  // loans to places. A handful of loans and places, so a plain augmenting-path search is enough.
+  const loansWith = loans.filter((l) => l.debtCents !== null && l.debtCents > 0 && l.deployed.some((p) => illiquid(p.key)));
+  const placeIndex = new Map<string, number>();
+  const placeWorth: number[] = [];
+  let partial = false;
+  for (const l of loansWith) for (const p of l.deployed) {
+    if (!illiquid(p.key) || placeIndex.has(p.key)) continue;
+    if (p.valueCents === null) partial = true;
+    placeIndex.set(p.key, placeWorth.length);
+    placeWorth.push(Math.max(0, p.valueCents ?? 0));
+  }
+  // Nodes: 0 source, 1..L loans, L+1..L+P places, L+P+1 sink.
+  const L = loansWith.length, P = placeWorth.length, sink = L + P + 1;
+  const cap = Array.from({ length: sink + 1 }, () => new Array<number>(sink + 1).fill(0));
+  loansWith.forEach((l, i) => {
+    cap[0][1 + i] = l.debtCents!;
+    for (const p of l.deployed) if (illiquid(p.key)) cap[1 + i][1 + L + placeIndex.get(p.key)!] = Infinity;
+  });
+  placeWorth.forEach((w, j) => { cap[1 + L + j][sink] = w; });
+  let cents = 0;
+  for (;;) {
+    const from = new Array<number>(sink + 1).fill(-1);
+    from[0] = 0;
+    const queue = [0];
+    while (queue.length && from[sink] === -1) {
+      const u = queue.shift()!;
+      for (let v = 0; v <= sink; v++) if (from[v] === -1 && cap[u][v] > 0) { from[v] = u; queue.push(v); }
+    }
+    if (from[sink] === -1) break;
+    let push = Infinity;
+    for (let v = sink; v !== 0; v = from[v]) push = Math.min(push, cap[from[v]][v]);
+    for (let v = sink; v !== 0; v = from[v]) { cap[from[v]][v] -= push; cap[v][from[v]] += push; }
+    cents += push;
   }
   return { cents, partial };
 }

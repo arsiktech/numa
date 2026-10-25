@@ -1,6 +1,6 @@
 import type { CloudSnapshot, CloudWallet } from '@/cloud/api';
 import type { Item } from './items';
-import { illiquidPlaces, investedIlliquid, loanPlaces, loansOf, pledgedBacked, safetyOf, takenBy, type CloudLoanLink, type Loan } from './loans';
+import { illiquidPlaces, investedIlliquid, loanPlaces, loansOf, movesFrom, pledgedBacked, sharedWith, safetyOf, takenBy, type CloudLoanLink, type Loan } from './loans';
 
 const NOW = Date.UTC(2026, 9, 19, 12);
 const fx = { usdPerEur: 1.25, asOf: '2026-10-19' };
@@ -124,6 +124,50 @@ describe('loans', () => {
   });
 });
 
+describe('a place two loans went into', () => {
+  it('names the other loan and shows no result or stake for each loan alone', () => {
+    const sam = { ...liability, owedSymbol: undefined, owedQuantity: undefined };
+    const lena = { ...sam, id: 'l2', name: 'Loan from Lena' };
+    const items: Item[] = [holding, { ...debt, detail: null }, { ...debt, id: 'l2', name: 'Loan from Lena', detail: null }];
+    const both: CloudLoanLink[] = [
+      { loanKey: 'liability:l1', targets: [{ key: 'holding:h1', role: 'deployed' }], updatedAt: 0 },
+      { loanKey: 'liability:l2', targets: [{ key: 'holding:h1', role: 'deployed' }], updatedAt: 0 },
+    ];
+    const loans = loansOf(snapshot(wallet(), [sam, lena] as unknown as CloudSnapshot['liabilities']), items, both, 'EUR', fx, NOW);
+    const l1 = loans.find((l) => l.key === 'liability:l1')!;
+    expect(l1.sharedWith).toEqual(['liability:l2']);
+    expect(l1.resultCents).toBeNull();
+    expect(l1.netCents).toBeNull();
+    // A deleted loan's links stay behind on the server, but it no longer shares the place.
+    const gone = loansOf(snapshot(wallet(), [sam] as unknown as CloudSnapshot['liabilities']), items, both, 'EUR', fx, NOW).find((l) => l.key === 'liability:l1')!;
+    expect(gone.sharedWith).toEqual([]);
+    expect(gone.resultCents).toBe(800_000 - 400_000);
+    // With only one loan linked, its result is worked out as before.
+    const one = loansOf(snapshot(wallet(), [sam, lena] as unknown as CloudSnapshot['liabilities']), items, both.slice(0, 1), 'EUR', fx, NOW).find((l) => l.key === 'liability:l1')!;
+    expect(one.sharedWith).toEqual([]);
+    expect(one.resultCents).toBe(800_000 - 400_000);
+  });
+});
+
+describe('which loans a place has to leave', () => {
+  const links: CloudLoanLink[] = [
+    { loanKey: 'liability:parents', targets: [{ key: 'asset:company', role: 'deployed' }], updatedAt: 0 },
+    { loanKey: 'liability:card', targets: [{ key: 'holding:btc', role: 'collateral' }], updatedAt: 0 },
+  ];
+
+  it('lets two loans say their money went into the same company, and names the other', () => {
+    expect(movesFrom(links, 'liability:lyudmila', 'asset:company', 'deployed')).toEqual([]);
+    expect(sharedWith(links, 'liability:lyudmila', 'asset:company')).toEqual(['liability:parents']);
+    expect(sharedWith(links, 'liability:parents', 'asset:company')).toEqual([]);
+  });
+
+  it('moves a pledged place, and anything pledged, from the other loan', () => {
+    expect(movesFrom(links, 'liability:lyudmila', 'holding:btc', 'deployed')).toEqual(['liability:card']);
+    expect(movesFrom(links, 'liability:lyudmila', 'asset:company', 'collateral')).toEqual(['liability:parents']);
+    expect(movesFrom(links, 'liability:card', 'holding:btc', 'collateral')).toEqual([]);
+  });
+});
+
 describe('money a loan put into things that can’t be sold within a week', () => {
   const [base] = loansOf(snapshot(wallet()), [], [], 'EUR', fx, NOW);
   const place = (key: string, valueCents: number | null) => ({ key, name: key, detail: null, valueCents, open: null });
@@ -154,6 +198,33 @@ describe('money a loan put into things that can’t be sold within a week', () =
     expect(investedIlliquid([loan(500_000, [place('holding:shares', 900_000), place('token:w1:eth', 900_000)])], illiquid)).toEqual({ cents: 0, partial: false });
     // A loan split between a company and shares counts only the company's part.
     expect(investedIlliquid([loan(500_000, [place('asset:company', 200_000), place('holding:shares', 900_000)])], illiquid)).toEqual({ cents: 200_000, partial: false });
+  });
+
+  it('counts a company two loans went into once, up to what it is worth', () => {
+    const co = place('asset:company', 23_400_000);
+    const parents = { ...loan(18_830_900, [co]), key: 'liability:parents' };
+    const lyudmila = { ...loan(4_525_800, [co]), key: 'liability:lyudmila' };
+    // 188,309 + 45,258 = 233,567 went into a company worth 234,000: all of it is left out.
+    expect(investedIlliquid([parents, lyudmila], illiquid)).toEqual({ cents: 23_356_700, partial: false });
+    // Into a company worth 200,000, only 200,000 is left out, not 200,000 for each loan.
+    const smaller = place('asset:company', 20_000_000);
+    expect(investedIlliquid([{ ...parents, deployed: [smaller] }, { ...lyudmila, deployed: [smaller] }], illiquid)).toEqual({ cents: 20_000_000, partial: false });
+    // Loans into different places are capped separately: 188,309 of 200,000, and 10,000 of 45,258.
+    const flat = place('holding:flat', 1_000_000);
+    expect(investedIlliquid([{ ...parents, deployed: [smaller] }, { ...lyudmila, deployed: [flat] }], illiquid)).toEqual({ cents: 19_830_900, partial: false });
+  });
+
+  it('covers a loan only by the places its own money went into', () => {
+    // A owes 1,000 into a company worth 100; B owes 100 into the company and a property worth 10,000.
+    // A can be covered by the company only (100), B by its own 100: 200 in all, never 1,100.
+    const co = place('asset:company', 10_000), flat = place('holding:flat', 1_000_000);
+    const a = { ...loan(100_000, [co]), key: 'liability:a' };
+    const b = { ...loan(10_000, [co, flat]), key: 'liability:b' };
+    expect(investedIlliquid([a, b], illiquid)).toEqual({ cents: 20_000, partial: false });
+    // B takes its cover from the property, leaving the company to A: covered 100 + 100.
+    // With B owing more than the property holds, the company is shared out, never counted twice.
+    const small = place('holding:flat', 5_000);
+    expect(investedIlliquid([a, { ...b, deployed: [co, small] }], illiquid)).toEqual({ cents: 15_000, partial: false });
   });
 
   it('adds loans up, ignores loans with no debt or no places, and says when a place has no value', () => {

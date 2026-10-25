@@ -4,7 +4,7 @@ import { useCallback, useMemo } from 'react';
 
 import { cloud } from '@/cloud/api';
 import { newMutationId, useCloudData } from '@/data/cloud';
-import { loanPlaces, loansOf, takenBy, type CloudLoanLink, type Loan, type LoanPlace, type LoanRole } from '@/data/loans';
+import { loanPlaces, loansOf, movesFrom, takenBy, type CloudLoanLink, type Loan, type LoanPlace, type LoanRole } from '@/data/loans';
 import { useCloudItems } from '@/data/useItems';
 
 export type LoansState =
@@ -38,7 +38,7 @@ export function linkErrorText(e: unknown): string {
   return (data?.code && ERRORS[data.code]) || 'Couldn’t save that. Check your connection and try again.';
 }
 
-/** Save one loan's links. Moving a place from another loan clears it there first. */
+/** Save one loan's links. Pledging a place another loan holds clears it there first. */
 export function useLinkWrites(state: LoansState) {
   const set = useMutation(cloud.setLoanLinks);
   const save = useCallback(async (loanKey: string, targets: CloudLoanLink['targets']) => {
@@ -49,8 +49,8 @@ export function useLinkWrites(state: LoansState) {
   return {
     add: useCallback(async (loanKey: string, key: string, role: LoanRole) => {
       if (state.status !== 'ready') return;
-      const other = state.taken.get(key);
-      if (other && other !== loanKey) await save(other, current(other).filter((t) => t.key !== key));
+      // A pledged place leaves any other loan; several loans can share where their money went.
+      for (const other of movesFrom(state.links, loanKey, key, role)) await save(other, current(other).filter((t) => t.key !== key));
       await save(loanKey, [...current(loanKey).filter((t) => t.key !== key), { key, role }]);
     }, [state, save, current]),
     remove: useCallback(async (loanKey: string, key: string) => {

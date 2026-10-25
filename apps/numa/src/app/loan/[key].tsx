@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
-import { safetyOf, type Loan, type LoanPlace, type LoanRole } from '@/data/loans';
+import { movesFrom, safetyOf, sharedWith, type Loan, type LoanPlace, type LoanRole } from '@/data/loans';
 import { ago } from '@/domain/freshness';
 import { SafetyGauge } from '@/loans/Safety';
 import { linkErrorText, useLinkWrites, useLoans, type LoansState } from '@/loans/useLoans';
@@ -78,13 +78,16 @@ function Picker({ loan, role, state, onPick, onClose }: { loan: Loan; role: Loan
       {all.length > 8 && <Field label="Find a wallet, coin or record" value={q} onChangeText={setQ} />}
       {shown.length === 0 && <Txt v="body" c="ink2">{all.length ? 'Nothing matches.' : 'Nothing else to link yet. Add the account, holding or wallet first.'}</Txt>}
       {shown.slice(0, 40).map((p) => {
-        const other = state.taken.get(p.key);
+        // Pledged places move between loans; where several loans' money went is shared.
+        const other = movesFrom(state.links, loan.key, p.key, role)[0];
+        const shared = other ? [] : role === 'deployed' ? sharedWith(state.links, loan.key, p.key).filter((k) => state.loans.some((l) => l.key === k)) : [];
+        const note = other ? `On ${loanName(other)} · tap to move it here` : shared.length ? `Also where ${shared.map(loanName).join(', ')} went` : p.detail;
         return (
-          <Pressable key={p.key} onPress={() => onPick(p.key)} accessibilityRole="button" accessibilityLabel={`Link ${p.name}${other ? `, moves it from ${loanName(other)}` : ''}`}
+          <Pressable key={p.key} onPress={() => onPick(p.key)} accessibilityRole="button" accessibilityLabel={`Link ${p.name}${other ? `, moves it from ${loanName(other)}` : shared.length ? `, shared with ${shared.map(loanName).join(', ')}` : ''}`}
             style={{ minHeight: 56, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: c.line }}>
             <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
               <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{p.name}</Txt>
-              <Txt v="small" c={other ? 'warn' : 'ink2'} numberOfLines={1}>{other ? `On ${loanName(other)} · tap to move it here` : p.detail}</Txt>
+              <Txt v="small" c={other ? 'warn' : 'ink2'} numberOfLines={1}>{note}</Txt>
             </View>
             <Txt v="figureSm" style={{ fontSize: 14 }}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
             <Txt v="body" c="ink3">+</Txt>
@@ -134,6 +137,12 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
           <Txt v="figure" style={{ fontSize: 22, color: loan.resultCents >= 0 ? c.upInk : c.down }}>{money(loan.resultCents, { cents: true, sign: true })}</Txt>
           <Txt v="body" c="ink2">What the money went into is worth {money(loan.deployedCents, { cents: true })}; you owe {money(loan.debtCents, { cents: true })}. Your net worth already counts both.</Txt>
         </View>
+      )}
+
+      {loan.sharedWith.length > 0 && (
+        <Txt v="body" c="ink2" style={{ marginTop: 18 }}>
+          {state.loans.filter((l) => loan.sharedWith.includes(l.key)).map((l) => l.name).join(', ') || 'Another loan'} also went into the same place, so Numa doesn’t split what it’s worth between the loans or show a result for this one alone.
+        </Txt>
       )}
 
       <View style={{ marginTop: 18 }}>
