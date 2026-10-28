@@ -17,7 +17,7 @@ jest.mock('convex/react', () => ({
 jest.mock('./cloud', () => ({ useCloudData: () => mockData, newMutationId: () => `receipt-${Math.random()}` }));
 let run: ReturnType<typeof useWriter>;
 let tree: any;
-function Harness() { run = useWriter(); return null; }
+function Harness() { const write = useWriter(); React.useLayoutEffect(() => { run = write; }, [write]); return null; }
 const op = (): Op => ({ fn: 'createTransaction', args: { portfolioId: 'space-a', description: 'Synthetic coffee', amount: 4, currency: 'EUR' } });
 beforeEach(() => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
