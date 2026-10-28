@@ -72,6 +72,7 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
             : <Row label="Next month completes" value={dayText(a.nextAccrualAt, now)} />}
         </>
       )}
+      {a.status === 'unsupported-history' && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>Interest cannot be worked out. {a.reason}</Txt>}
       {a.status === 'incomplete' && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>Add {a.missing} to work out interest.</Txt>}
       {a.status === 'ok' && !a.reconciles && (
         <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>The history says {money(a.historyPrincipal)} is outstanding but the balance is {money(loan.balance)}, so the interest may be off. Add the missing payments to the history, or correct the balance.</Txt>
