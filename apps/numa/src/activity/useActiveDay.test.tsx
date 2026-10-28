@@ -27,10 +27,10 @@ afterEach(async () => {
   if (renderer) await act(async () => renderer!.unmount()); renderer = undefined;
   jest.restoreAllMocks(); jest.useRealTimers();
 });
-it('records one connected visible active day, not every minute or foreground event', async () => {
+it('suppresses minute ticks and revalidates on foreground without using the device calendar', async () => {
   await mount();
   await act(async () => { jest.advanceTimersByTime(120_000); foreground?.('active'); });
-  expect(mockRecord.mock.calls).toEqual([[{ expectedUserId: 'user-a' }]]);
+  expect(mockRecord.mock.calls).toEqual([[{ expectedUserId: 'user-a' }], [{ expectedUserId: 'user-a' }]]);
 });
 it('does not send offline, anonymous, background or deleting activity', async () => {
   mockConnected = false; await mount(); expect(mockRecord).not.toHaveBeenCalled();
@@ -41,6 +41,7 @@ it('does not send offline, anonymous, background or deleting activity', async ()
 });
 it('starts a new UTC date while visible and retries after a failed connected request', async () => {
   mockRecord.mockRejectedValueOnce(new Error('disconnected'));
+  mockRecord.mockResolvedValue({ utcDate: '2026-10-28', recheckAfterMs: 60_000 });
   await mount(); expect(mockRecord).toHaveBeenCalledTimes(1);
   await act(async () => jest.advanceTimersByTime(60_000)); expect(mockRecord).toHaveBeenCalledTimes(2);
   jest.setSystemTime(new Date('2026-10-29T00:00:00Z'));
@@ -54,4 +55,18 @@ it('does not let a late old-account response suppress activity for the replaceme
   await act(async () => resolve({ utcDate: '2026-10-29' }));
   expect(mockRecord.mock.calls.map(([args]) => args.expectedUserId)).toEqual(['user-a', 'user-b']);
   await act(async () => jest.advanceTimersByTime(60_000)); expect(mockRecord).toHaveBeenCalledTimes(2);
+});
+
+it('uses server expiry and monotonic time when the device date is a day slow or changes abruptly', async () => {
+  jest.setSystemTime(new Date('2026-10-27T23:59:00Z'));
+  mockRecord.mockResolvedValueOnce({ utcDate: '2026-10-28', recheckAfterMs: 60_000 });
+  await mount();
+  // Device now equals the OLD server day. It is not evidence of the current server day.
+  jest.setSystemTime(new Date('2026-10-28T00:00:00Z'));
+  mockRecord.mockResolvedValue({ utcDate: '2026-10-29', recheckAfterMs: 86_400_000 });
+  await act(async () => jest.advanceTimersByTime(60_000));
+  expect(mockRecord).toHaveBeenCalledTimes(2);
+  jest.setSystemTime(new Date('2020-01-01T00:00:00Z'));
+  await act(async () => jest.advanceTimersByTime(300_000));
+  expect(mockRecord).toHaveBeenCalledTimes(3);
 });

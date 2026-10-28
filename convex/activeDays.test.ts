@@ -10,7 +10,7 @@ describe("authenticated daily activity", () => {
   it("records exactly the account and server UTC date; duplicate opens are idempotent", async () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-28T23:59:59Z"));
     const f = privacyFixture();
-    await f.call(record, { expectedUserId: "user" });
+    expect(await f.call(record, { expectedUserId: "user" })).toEqual({ utcDate: "2026-10-28", recheckAfterMs: 1000 });
     await f.call(record, { expectedUserId: "user" });
     expect(f.all("activeDays")).toHaveLength(1);
     const { _id, _creationTime, ...data } = f.all("activeDays")[0];

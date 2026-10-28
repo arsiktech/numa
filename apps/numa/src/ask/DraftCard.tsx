@@ -85,7 +85,7 @@ export function DraftCard({ draft, status, error, demo, locked = false, onChange
       </Txt>
       {h.lines.map((l, i) => <Txt key={i} v="body" c="ink2" style={{ fontSize: 14, marginTop: 2 }}>{mask(l)}</Txt>)}
       {open && editing && !locked && <Editor draft={draft} onChange={onChange} />}
-      {open && locked && <Txt v="small" c="ink2" style={{ marginTop: 8 }}>A Save was attempted with these details. Retry confirms that same request. Check the saved entry before making changes.</Txt>}
+      {open && locked && <Txt v="small" c="ink2" style={{ marginTop: 8 }}>A Save was attempted with these details. Retry confirms that same request. Removing this local draft does not undo a submitted save. Check your records before making changes.</Txt>}
       {open && problems.length > 0 && <Txt v="small" style={{ color: c.warn, marginTop: 8 }}>{problems[0]}</Txt>}
       {error && <Txt v="small" style={{ color: c.down, marginTop: 8 }} accessibilityRole="alert">{error}</Txt>}
 
@@ -97,9 +97,9 @@ export function DraftCard({ draft, status, error, demo, locked = false, onChange
           {!locked && <Pressable onPress={() => setEditing((e) => !e)} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: 'center' }}>
             <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{editing ? 'Done' : 'Edit'}</Txt>
           </Pressable>}
-          {!locked && <Pressable onPress={onDiscard} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: 'center' }}>
-            <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>Discard</Txt>
-          </Pressable>}
+          <Pressable onPress={onDiscard} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: 'center' }}>
+            <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{locked ? 'Remove draft' : 'Discard'}</Txt>
+          </Pressable>
         </View>
       )}
       {(status === 'saving' || status === 'undoing') && <ActivityIndicator style={{ marginTop: 14, alignSelf: 'flex-start' }} color={c.ink} />}

@@ -12,19 +12,24 @@ export function useActiveDay() {
   const deleting = me?.deletionScheduledAt != null || me?.deletionStartedAt != null;
   useEffect(() => {
     if (!userId || deleting || !isWebSocketConnected) return;
-    let alive = true, busy = false, recordedDay: string | null = null;
-    const visit = () => {
+    let alive = true, busy = false, recheckAt = 0;
+    const visit = (force = false) => {
       const visible = Platform.OS === 'web' ? document.visibilityState !== 'hidden' : AppState.currentState === 'active';
-      const today = new Date().toISOString().slice(0, 10);
-      if (!alive || !visible || busy || recordedDay === today) return;
+      if (!alive || !visible || busy || (!force && performance.now() < recheckAt)) return;
       busy = true;
-      record({ expectedUserId: userId }).then(result => { if (alive) recordedDay = result.utcDate; }, () => { /* retry on the next visible tick, never persist a write */ }).finally(() => { busy = false; });
+      record({ expectedUserId: userId }).then(result => {
+        if (!alive) return;
+        // Server UTC expiry plus a monotonic clock avoids device-calendar skew. Revalidate at least every five minutes.
+        const ttl = Number.isFinite(result.recheckAfterMs) ? result.recheckAfterMs! : 300_000;
+        recheckAt = performance.now() + Math.max(1000, Math.min(ttl, 300_000));
+      }, () => { /* retry on the next visible tick, never persist a write */ }).finally(() => { busy = false; });
     };
     visit();
     const timer = setInterval(visit, 60_000);
-    const foreground = AppState.addEventListener('change', visit);
-    if (Platform.OS === 'web') document.addEventListener('visibilitychange', visit);
-    return () => { alive = false; clearInterval(timer); foreground.remove(); if (Platform.OS === 'web') document.removeEventListener('visibilitychange', visit); };
+    const revalidate = () => visit(true);
+    const foreground = AppState.addEventListener('change', revalidate);
+    if (Platform.OS === 'web') document.addEventListener('visibilitychange', revalidate);
+    return () => { alive = false; clearInterval(timer); foreground.remove(); if (Platform.OS === 'web') document.removeEventListener('visibilitychange', revalidate); };
   }, [userId, deleting, isWebSocketConnected, record]);
 }
 

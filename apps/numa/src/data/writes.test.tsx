@@ -1,5 +1,6 @@
 import React from 'react';
 import { useWriter } from './writes';
+import { NavigationWriterProvider, useNavigationWriter } from './NavigationWriter';
 import type { Op } from '@/ask/plan';
 
 const { act, create } = jest.requireActual('react-test-renderer');
@@ -65,4 +66,23 @@ it('rejects callbacks retained after unmount', async () => {
   await act(async () => { tree.unmount(); }); tree = null;
   await expect(stale(op())).rejects.toThrow(/account|space|changed|available/i);
   expect(mockSubmit).not.toHaveBeenCalled();
+});
+
+it('a root-owned Undo survives detail unmount, while its account and space guards remain live', async () => {
+  let captured!: ReturnType<typeof useNavigationWriter>;
+  function Detail() {
+    const undo = useNavigationWriter();
+    React.useLayoutEffect(() => { captured = undo; }, [undo]);
+    return null;
+  }
+  const show = (visible: boolean) => <NavigationWriterProvider>{visible ? <Detail /> : null}</NavigationWriterProvider>;
+  await act(async () => { tree = create(show(true)); });
+  const rootUndo = captured;
+  await act(async () => { tree.update(show(false)); });
+  await expect(rootUndo(op())).resolves.toBe('record');
+  expect(mockSubmit).toHaveBeenCalledTimes(1);
+  mockData = { ...mockData, portfolioId: 'space-b' };
+  await act(async () => { tree.update(show(false)); });
+  await expect(rootUndo(op())).rejects.toThrow(/account|space|changed/);
+  expect(mockSubmit).toHaveBeenCalledTimes(1);
 });

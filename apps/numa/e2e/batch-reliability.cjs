@@ -13,6 +13,13 @@ const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
   const browser = await launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
   const page = await ctx.newPage();
+  await page.addInitScript(() => {
+    const NativeSocket = window.WebSocket;
+    window.__qaSockets = [];
+    window.WebSocket = class extends NativeSocket {
+      constructor(...args) { super(...args); window.__qaSockets.push(this); }
+    };
+  });
   const errors = []; watchErrors(page, errors);
   try {
     await page.goto(APP + '/sign-in');
@@ -42,6 +49,8 @@ const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
     const noPlaintext = await page.evaluate(text => ![...Object.values(localStorage), ...Object.values(sessionStorage)].some(value => value.includes(text)), composer);
     check('web recovery does not persist the financial composer in browser storage', noPlaintext);
     await ctx.setOffline(true);
+    // Offline emulation does not reliably close existing localhost sockets. Close the real observed transports as well.
+    await page.evaluate(() => window.__qaSockets.forEach(socket => socket.close()));
     await page.getByText(NOTICE, { exact: true }).waitFor({ timeout: 60000 });
     await card.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByText(/Nothing was submitted by this attempt/).waitFor({ timeout: 10000 });
@@ -59,7 +68,7 @@ const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
     await card.getByRole('button', { name: 'Save', exact: true }).dblclick();
     await page.getByText('SAVED', { exact: true }).waitFor({ timeout: 15000 });
     const saved = (await snap()).transactions;
-    check('an explicit duplicate-tap retry saves exactly one correct expense', saved.length === before.transactions.length + 1 && saved.filter(t => t.amount === 4.5 && t.kind === 'expense').length === 1);
+    check('an explicit duplicate-tap retry saves exactly one correct expense', saved.length === before.transactions.length + 1 && saved.filter(t => t.amountMinor === Math.round(4.5 * 100) && t.kind === 'expense').length === 1);
     await page.getByLabel('Ask or add anything').fill('');
     for (const width of [390, 1024, 1440]) {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
@@ -71,7 +80,19 @@ const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
     await page.getByRole('button', { name: 'Ask or add', exact: true }).click();
     await page.getByLabel('Ask or add anything').waitFor();
     check('a successfully saved draft is not restored as an unsaved card', await page.getByLabel(/^Draft\./).count() === 0);
-    const relevant = errors.filter(e => !/WebSocket|ERR_INTERNET_DISCONNECTED|Failed to load resource|net::|Download the React DevTools/.test(e));
+    const cash = (await snap()).assets.find(a => a.name === 'Cash');
+    check('the permanent-rejection scenario has a real existing cash target', !!cash);
+    assert.ok(cash);
+    await page.getByLabel('Ask or add anything').fill('cash balance 99');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    card = page.getByLabel(/^Draft\./).last();
+    await card.getByRole('button', { name: 'Save', exact: true }).waitFor();
+    await c.mutation('mobile:deleteAsset', { id: cash.id, clientMutationId: 'synthetic-missing-target' });
+    await card.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByText(/server rejected this attempt/).waitFor({ timeout: 15000 });
+    await card.getByRole('button', { name: 'Remove draft', exact: true }).click();
+    check('an authoritative missing-target rejection can retire locally without another financial write', !(await snap()).assets.some(a => a.id === cash.id) && (await snap()).transactions.length === saved.length);
+    const relevant = errors.filter(e => !/WebSocket|ERR_INTERNET_DISCONNECTED|Failed to load resource|net::|Download the React DevTools/.test(e) && !(/\[CONVEX M\(mobile:upsertAsset\)\]/.test(e) && /NOT_FOUND/.test(e)));
     check('the real browser flow has no unexpected page or console errors', relevant.length === 0, relevant.slice(0, 3).join(' | '));
     fs.writeFileSync(path.join(OUT, 'acceptance.json'), JSON.stringify({ source: process.env.E2E_SOURCE_COMMIT || 'local-candidate', emailFixture: 'disposable example.com', screenshots: [390, 1024, 1440], finished: true }, null, 2));
     const failures = finish();

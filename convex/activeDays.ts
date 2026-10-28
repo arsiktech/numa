@@ -13,7 +13,7 @@ export const record = mutation({
     const day = utcDate(Date.now());
     const existing = await ctx.db.query("activeDays").withIndex("by_user_day", q => q.eq("userId", userId).eq("utcDate", day)).unique();
     if (!existing) await ctx.db.insert("activeDays", { userId, utcDate: day });
-    return { utcDate: day };
+    return { utcDate: day, recheckAfterMs: Date.parse(day + "T00:00:00Z") + 86_400_000 - Date.now() };
   },
 });
 

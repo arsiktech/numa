@@ -19,7 +19,8 @@ export function seriesFor(history: Point[], now: number, liveCents: number, rang
   const inside = history.filter((p) => p.t >= start && p.t < now);
   // A saved value carries to the start of the range only if it is no older than the range
   // itself; otherwise a week-old value would pass for this morning's.
-  const before = history.filter((p) => p.t < start && start - p.t <= spanMs[range]).at(-1);
+  const earlier = history.filter((p) => p.t < start && start - p.t <= spanMs[range]);
+  const before = earlier[earlier.length - 1];
   const points: Point[] = [...(before ? [{ ...before, t: Math.max(start, before.t) }] : []), ...inside, { t: now, cents: liveCents }];
   if (points.length >= 2) return { points, hasHistory: true };
   return { points: [{ t: range === 'ALL' ? now - DAY : start, cents: liveCents }, { t: now, cents: liveCents }], hasHistory: false };

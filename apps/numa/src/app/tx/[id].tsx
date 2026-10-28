@@ -7,6 +7,7 @@ import type { CloudTransaction } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
 import { useWriter } from '@/data/writes';
+import { useNavigationWriter } from '@/data/NavigationWriter';
 import { shortDay } from '@/domain/freshness';
 import { formatMoney } from '@/domain/money';
 import { cashbackShare, formatAmount, noteRepeatsCard, rateText, whenOf } from '@/flow/card';
@@ -37,6 +38,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
   const { c } = useTheme();
   const { mask } = useMoney();
   const run = useWriter();
+  const navigationWrite = useNavigationWriter();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -58,7 +60,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
       const p = txEditPlan(tx, { ...form, occurredAt: keepTime ? tx.occurredAt : parsedDay!.at });
       await run(p.apply);
       setEditing(false);
-      toast({ text: `${form.description.trim()} saved`, action: { label: 'Undo', onPress: async () => { try { await run(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
+      toast({ text: `${form.description.trim()} saved`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch { setError('Couldn’t save. Check the details and try again.'); } finally { setBusy(false); }
   }
 
@@ -66,9 +68,9 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
     setBusy(true); setError(null);
     try {
       const p = txDeletePlan(tx, portfolioId);
-      await run(p.apply);
+      await navigationWrite(p.apply);
       router.back();
-      toast({ text: `${tx.description} deleted`, action: { label: 'Undo', onPress: async () => { try { await run(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
+      toast({ text: `${tx.description} deleted`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch { setBusy(false); setConfirming(false); setError('Couldn’t delete. Try again.'); }
   }
 

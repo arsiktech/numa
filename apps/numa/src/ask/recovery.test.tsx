@@ -1,4 +1,5 @@
 import React from 'react';
+import { ConvexError } from 'convex/values';
 import { TextInput } from 'react-native';
 import AskScreen from '@/app/ask';
 import { DraftCard } from './DraftCard';
@@ -100,4 +101,20 @@ it('does not restore discarded or confirmed saved cards as unsaved drafts', asyn
   await reopen(); expect(tree.root.findAllByType(DraftCard)).toHaveLength(0);
   await draft(); await act(async () => { await tree.root.findByType(DraftCard).props.onSave(); });
   await reopen(); expect(tree.root.findAllByType(DraftCard)).toHaveLength(0);
+});
+
+it.each(['NOT_FOUND', 'ambiguous'])('can retire a recovered %s attempt locally without a new mutation or identity', async reason => {
+  mockSource.prepareSave = jest.fn(() => ({ contextKey: mockSource.contextKey, clientMutationId: 'retired-receipt', apply: { fn: 'upsertAsset', args: { portfolioId: 'space-a', id: 'missing-asset', balance: 100 } }, undo: { fn: 'deleteAsset', args: { id: '__created__' } } }));
+  (mockSource.save as jest.Mock).mockRejectedValueOnce(reason === 'NOT_FOUND' ? new ConvexError({ code: 'NOT_FOUND' }) : new Error(reason));
+  await mount(); await draft();
+  await act(async () => { await tree.root.findByType(DraftCard).props.onSave(); });
+  if (reason === 'NOT_FOUND') expect(tree.root.findByType(DraftCard).props.error).toContain('server rejected this attempt');
+  await reopen();
+  expect(tree.root.findByType(DraftCard).props.locked).toBe(true);
+  await act(async () => { tree.root.findByType(DraftCard).props.onDiscard(); });
+  expect(tree.root.findByType(DraftCard).props.status).toBe('discarded');
+  await reopen();
+  expect(tree.root.findAllByType(DraftCard)).toHaveLength(0);
+  expect(mockSource.save).toHaveBeenCalledTimes(1);
+  expect(mockSource.prepareSave).toHaveBeenCalledTimes(1);
 });

@@ -1,5 +1,6 @@
 import { webFont } from '@/theme/webFont';
 import { router } from 'expo-router';
+import { ConvexError } from 'convex/values';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Dimensions, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View, type KeyboardEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -255,7 +256,8 @@ function AskView({ source }: { source: AskSource }) {
       update(m.id, { status: 'saved', undo: saved.undo });
     } catch (e) {
       if (!alive.current) return;
-      const message = e instanceof WriteRefusedError || (e instanceof Error && /exchange rate|price you paid|secure.*recovery|too large/.test(e.message)) ? e.message : !durable ? `${RECOVERY_ERROR_MESSAGE} This attempt was not submitted.` : 'Save wasn’t confirmed. Retry checks the same entry. It may already have saved in this space.';
+      const missing = e instanceof ConvexError && typeof e.data === 'object' && e.data !== null && 'code' in e.data && e.data.code === 'NOT_FOUND';
+      const message = missing ? 'This entry no longer exists. The server rejected this attempt. Remove the local draft and check your records before starting again.' : e instanceof WriteRefusedError || (e instanceof Error && /exchange rate|price you paid|secure.*recovery|too large/.test(e.message)) ? e.message : !durable ? `${RECOVERY_ERROR_MESSAGE} This attempt was not submitted.` : 'Save wasn’t confirmed. Retry checks the same entry. It may already have saved in this space.';
       // A new intent that never passed secure persistence never reached transport and may still be edited.
       if (!durable && !previousIntent) attempted.current.delete(m.id);
       update(m.id, { status: 'draft', error: message, ...(!durable && !previousIntent ? { intent: undefined } : {}) });
@@ -264,7 +266,10 @@ function AskView({ source }: { source: AskSource }) {
 
   function changeDraft(m: Extract<Message, { role: 'draft' }>, draft?: Draft) {
     const latest = messagesRef.current.find(row => row.id === m.id);
-    if (!alive.current || operations.current.has(m.id) || attempted.current.has(m.id) || latest?.role !== 'draft' || latest.status !== 'draft' || latest.intent || latest.draft !== m.draft) return;
+    if (!alive.current || operations.current.has(m.id) || latest?.role !== 'draft' || latest.status !== 'draft' || latest.draft !== m.draft || latest.intent !== m.intent) return;
+    if (draft && (attempted.current.has(m.id) || latest.intent)) return;
+    // Retiring local recovery never cancels or reverses an already submitted request.
+    if (!draft) attempted.current.delete(m.id);
     update(m.id, draft ? { draft } : { status: 'discarded' });
   }
 

@@ -27,3 +27,12 @@ describe("active-day retention, four completed UTC weeks", () => {
     expect(report.weeks.every(w => w.activeUsers === 0)).toBe(true);
   });
 });
+
+it("meets the ten-person gate only with verified people present in three separate completed weeks", () => {
+  const ids = Array.from({ length: 10 }, (_, i) => `outside-${i}`);
+  const rows = ids.flatMap(userId => ["2026-10-05", "2026-10-12", "2026-10-19"].map(utcDate => ({ userId, utcDate })));
+  const yes = activeDayReport(rows, "2026-10-28", ids);
+  expect(yes.retainedOutsideHousehold).toBe(10); expect(yes.gateMet).toBe(true);
+  const no = activeDayReport(rows.filter(row => row.userId !== ids[0] || row.utcDate !== "2026-10-19"), "2026-10-28", ids);
+  expect(no.retainedOutsideHousehold).toBe(9); expect(no.gateMet).toBe(false);
+});
