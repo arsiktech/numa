@@ -1,5 +1,5 @@
 import { useConvex, useConvexAuth, useConvexConnectionState, useMutation, useQuery } from 'convex/react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import { cloud } from '@/cloud/api';
 import type { Op, WriteName } from '@/ask/plan';
@@ -18,7 +18,7 @@ export function useWriter(): (op: Op, clientMutationId?: string) => Promise<stri
   // A distinct token also invalidates old closures after switching away and back.
   const scope = useMemo(() => ({ key, intents: createWriteIntents(newMutationId) }), [key]);
   const current = useRef<typeof scope | null>(scope);
-  useEffect(() => { current.current = scope; return () => { current.current = null; }; }, [scope]);
+  useLayoutEffect(() => { current.current = scope; return () => { current.current = null; }; }, [scope]);
   const { intents } = scope;
   const portfolioId = data.status === 'ready' ? data.portfolioId : null;
   const check = useCallback((op: Op) => {

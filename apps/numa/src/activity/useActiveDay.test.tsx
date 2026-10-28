@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { create, type ReactTestRenderer } from 'react-test-renderer';
-import { AppState } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { ActiveDayTracker } from './useActiveDay';
 
 let mockMe: { id: string; deletionScheduledAt: number | null; deletionStartedAt: number | null } | null;
@@ -8,11 +8,11 @@ let mockConnected = true;
 const mockRecord = jest.fn();
 jest.mock('convex/react', () => ({
   useQuery: () => mockMe,
-  useConnectionState: () => ({ isWebSocketConnected: mockConnected }),
+  useConvexConnectionState: () => ({ isWebSocketConnected: mockConnected }),
   useMutation: () => mockRecord,
 }));
 let renderer: ReactTestRenderer | undefined;
-let foreground: ((state: string) => void) | undefined;
+let foreground: ((state: AppStateStatus) => void) | undefined;
 async function mount() { await act(async () => { renderer = create(<ActiveDayTracker />); }); }
 async function refresh() { await act(async () => { renderer!.update(<ActiveDayTracker />); }); }
 beforeAll(() => { (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });

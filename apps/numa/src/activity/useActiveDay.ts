@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useConnectionState } from 'convex/react';
+import { useMutation, useQuery, useConvexConnectionState } from 'convex/react';
 import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 import { cloud } from '@/cloud/api';
@@ -7,7 +7,7 @@ import { cloud } from '@/cloud/api';
 export function useActiveDay() {
   const me = useQuery(cloud.me, {});
   const record = useMutation(cloud.recordActiveDay);
-  const { isWebSocketConnected } = useConnectionState();
+  const { isWebSocketConnected } = useConvexConnectionState();
   const userId = me?.id ?? null;
   const deleting = me?.deletionScheduledAt != null || me?.deletionStartedAt != null;
   useEffect(() => {

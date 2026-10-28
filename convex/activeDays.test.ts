@@ -33,6 +33,7 @@ describe("authenticated daily activity", () => {
     f.seed("portfolios", "space", { ownerId: "user", name: "Synthetic space", defaultCurrency: "EUR" });
     f.seed("memberships", "member", { userId: "user", portfolioId: "space", role: "owner" });
     f.seed("memberships", "fellow", { userId: "other", portfolioId: "space", role: "editor" });
+    f.seed("users", "other", { email: "other@example.com" });
     f.seed("activeDays", "mine", { userId: "user", utcDate: "2026-10-28" });
     f.seed("activeDays", "theirs", { userId: "other", utcDate: "2026-10-28" });
     const args = { expectedUserId: "user", portfolioId: "space", requestId: "synthetic", section: "activeDays", cursor: null, limit: 1 };
