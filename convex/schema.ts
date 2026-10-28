@@ -47,6 +47,9 @@ export default defineSchema({
   profileAvatars: defineTable({
     userId: v.id("users"), image: v.bytes(), updatedAt: v.number()
   }).index("by_user", ["userId"]),
+  activeDays: defineTable({
+    userId: v.id("users"), utcDate: v.string(),
+  }).index("by_user", ["userId"]).index("by_user_day", ["userId", "utcDate"]).index("by_day", ["utcDate"]),
   privacyChoices: defineTable({
     userId: v.id("users"), allowed: v.boolean(), version: v.string(), recordedAt: v.number()
   }).index("by_user", ["userId"]),

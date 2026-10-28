@@ -5,7 +5,7 @@ import { requireMember } from "./lib/access";
 export const SPACE_EXPORT_SECTIONS = [
   "portfolio", "membership", "categories", "transactions", "assets", "liabilities",
   "holdings", "holdingEvents", "cryptoWallets", "loanLinks", "debtEvents", "wealthSnapshots", "settlements",
-  "goals", "recurring", "ledgerAccounts", "ledgerTransactions", "ledgerLines", "aiActionDrafts", "cashTransfers",
+  "goals", "recurring", "ledgerAccounts", "ledgerTransactions", "ledgerLines", "aiActionDrafts", "cashTransfers", "activeDays",
 ] as const;
 const sectionValidator = v.union(...SPACE_EXPORT_SECTIONS.map(section => v.literal(section)));
 const scopeArgs = { expectedUserId: v.id("users"), portfolioId: v.id("portfolios"), requestId: v.string() };
@@ -26,7 +26,7 @@ export const manifest = query({
       name: portfolio.name, currency: portfolio.defaultCurrency, startedAt: Date.now(),
       sections: [...SPACE_EXPORT_SECTIONS],
       consistency: "Live paginated copy, not a point-in-time accounting close. Avoid editing this space during export. Each page records its read time; concurrent edits/deletions can change the copy.",
-      interpretation: "Amounts retain their original currency and source precision. Dates are Unix milliseconds. Transfer correction/deletion tombstones are included. Source IDs, classification, reversals and AI provenance are preserved where recorded. Non-JSON Convex values use lossless $bytes, $integer and $float tags. Missing fields remain unknown, not zero. Ledger, operational records and snapshots are alternative representations; do not sum them together.",
+      interpretation: "The activeDays section contains only your account-level UTC active dates, not the activity of other space members. Amounts retain their original currency and source precision. Dates are Unix milliseconds. Transfer correction/deletion tombstones are included. Source IDs, classification, reversals and AI provenance are preserved where recorded. Non-JSON Convex values use lossless $bytes, $integer and $float tags. Missing fields remain unknown, not zero. Ledger, operational records and snapshots are alternative representations; do not sum them together.",
       exclusions: [
         "Other spaces and /pod records are not included in this single-space export.",
         "Other users' private profiles, AI drafts and credentials are excluded. Authorized shared financial records retain participant IDs for reconciliation.",
@@ -73,6 +73,7 @@ export const page = query({
         case "ledgerAccounts": return ctx.db.query("ledgerAccounts").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "ledgerTransactions": return ctx.db.query("ledgerTransactions").withIndex("by_portfolio_export", q => q.eq("portfolioId", id)).paginate(options);
         case "ledgerLines": return ctx.db.query("ledgerLines").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
+        case "activeDays": return ctx.db.query("activeDays").withIndex("by_user", q => q.eq("userId", userId)).paginate(options);
         case "aiActionDrafts": return ctx.db.query("aiActionDrafts").withIndex("by_user_portfolio", q => q.eq("userId", userId).eq("portfolioId", id)).paginate(options);
       }
     };
