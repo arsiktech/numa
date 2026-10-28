@@ -41,11 +41,12 @@ it('joins duplicate taps and reuses the receipt after an ambiguous failure', asy
   mockSubmit.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
   await mount(); const intent = op();
   const first = run(intent); const duplicate = run(intent);
-  const firstResult = expect(first).rejects.toThrow('ambiguous');
-  const duplicateResult = expect(duplicate).rejects.toThrow('ambiguous');
-  await act(async () => { fail(new Error('ambiguous')); });
-  await firstResult; await duplicateResult;
+  const firstResult = first.catch(error => error);
+  const duplicateResult = duplicate.catch(error => error);
+  await act(async () => { await Promise.resolve(); fail(new Error('ambiguous')); });
   expect(mockSubmit).toHaveBeenCalledTimes(1);
+  expect(await firstResult).toMatchObject({ message: 'ambiguous' });
+  expect(await duplicateResult).toMatchObject({ message: 'ambiguous' });
   const receipt = mockSubmit.mock.calls[0][0].clientMutationId;
   await run(intent);
   expect(mockSubmit.mock.calls[1][0].clientMutationId).toBe(receipt);

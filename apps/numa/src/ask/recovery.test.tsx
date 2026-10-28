@@ -3,6 +3,7 @@ import { TextInput } from 'react-native';
 import AskScreen from '@/app/ask';
 import { DraftCard } from './DraftCard';
 import type { AskSource } from './useAskSource';
+import { offlineWriteError } from '@/data/writeIntent';
 
 const { act, create } = jest.requireActual('react-test-renderer');
 jest.setTimeout(20_000);
@@ -58,17 +59,40 @@ it('claims Save synchronously so duplicate callbacks cannot submit twice', async
   await act(async () => { finish({ undo: async () => {} }); });
   expect(tree.root.findByType(DraftCard).props.status).toBe('saved');
 });
-it('ignores old save callbacks and late completion after switching space', async () => {
+it.each(['recovery-user:space-new', 'different-user:space-a'])('ignores old save callbacks and late completion after switching to %s', async contextKey => {
   let finish!: (v: any) => void; const submit = mockSource.save as jest.Mock;
   submit.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   await mount(); await draft(); const stale = tree.root.findByType(DraftCard).props.onSave;
   await act(async () => { void stale(); });
-  mockSource = { ...mockSource, contextKey: 'recovery-user:space-new' };
+  mockSource = { ...mockSource, contextKey };
   await act(async () => tree.update(<AskScreen />));
   await act(async () => { void stale(); finish({ undo: async () => {} }); });
   expect(submit).toHaveBeenCalledTimes(1);
   expect(tree.root.findAllByType(DraftCard)).toHaveLength(0);
   expect(tree.root.findByType(TextInput).props.value).toBe('');
+});
+it('refuses an offline confirmation without submitting or making the draft uneditable', async () => {
+  mockSource.checkSave = () => { throw offlineWriteError(); };
+  await mount(); await draft();
+  await act(async () => { await tree.root.findByType(DraftCard).props.onSave(); });
+  expect(mockSource.save).not.toHaveBeenCalled();
+  expect(tree.root.findByType(DraftCard).props.error).toMatch(/offline.*nothing was submitted/i);
+  expect(tree.root.findByType(DraftCard).props.locked).toBe(false);
+});
+it('recovers and retries exactly the frozen plan/receipt after an ambiguous failure', async () => {
+  mockSource.prepareSave = jest.fn(() => ({ contextKey: mockSource.contextKey, clientMutationId: 'persisted-receipt', apply: { fn: 'upsertAsset', args: { portfolioId: 'space-a', balance: 100 } }, undo: { fn: 'deleteAsset', args: { id: '__created__' } } }));
+  (mockSource.save as jest.Mock).mockRejectedValueOnce(new Error('ambiguous'));
+  await mount(); await draft(); const stale = tree.root.findByType(DraftCard).props;
+  await act(async () => { await stale.onSave(); });
+  const firstIntent = (mockSource.save as jest.Mock).mock.calls[0][1];
+  expect(tree.root.findByType(DraftCard).props.locked).toBe(true);
+  await act(async () => { stale.onChange({ ...stale.draft, amountCents: 1 }); stale.onDiscard(); });
+  expect(tree.root.findByType(DraftCard).props.draft.amountCents).toBe(10000);
+  await reopen();
+  expect(mockSource.save).toHaveBeenCalledTimes(1);
+  await act(async () => { await tree.root.findByType(DraftCard).props.onSave(); });
+  expect((mockSource.save as jest.Mock).mock.calls[1][1]).toEqual(firstIntent);
+  expect(mockSource.prepareSave).toHaveBeenCalledTimes(1);
 });
 it('does not restore discarded or confirmed saved cards as unsaved drafts', async () => {
   await mount(); await draft();
