@@ -1,0 +1,67 @@
+import React from 'react';
+import { useWriter } from './writes';
+import type { Op } from '@/ask/plan';
+
+const { act, create } = jest.requireActual('react-test-renderer');
+let mockConnected = true;
+let mockData: any;
+let mockUser = 'user-a';
+const mockSubmit = jest.fn();
+jest.mock('convex/react', () => ({
+  useMutation: () => mockSubmit,
+  useConvexConnectionState: () => ({ isWebSocketConnected: mockConnected }),
+  useConvex: () => ({ connectionState: () => ({ isWebSocketConnected: mockConnected }) }),
+  useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
+  useQuery: () => ({ userId: mockUser, deletionStarted: false }),
+}));
+jest.mock('./cloud', () => ({ useCloudData: () => mockData, newMutationId: () => `receipt-${Math.random()}` }));
+let run: ReturnType<typeof useWriter>;
+let tree: any;
+function Harness() { run = useWriter(); return null; }
+const op = (): Op => ({ fn: 'createTransaction', args: { portfolioId: 'space-a', description: 'Synthetic coffee', amount: 4, currency: 'EUR' } });
+beforeEach(() => {
+  (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+  mockConnected = true; mockUser = 'user-a';
+  mockData = { status: 'ready', portfolioId: 'space-a', boot: { profile: { userId: 'user-a' } } };
+  mockSubmit.mockReset().mockResolvedValue({ id: 'record' });
+});
+afterEach(async () => { if (tree) await act(async () => tree.unmount()); tree = null; });
+async function mount() { await act(async () => { tree = create(<Harness />); }); }
+
+it('refuses a confirmed write immediately when disconnected, without enqueueing transport', async () => {
+  await mount(); mockConnected = false;
+  await expect(run(op())).rejects.toThrow(/offline|connection/i);
+  expect(mockSubmit).not.toHaveBeenCalled();
+  mockConnected = true;
+  await expect(run(op())).resolves.toBe('record');
+  expect(mockSubmit).toHaveBeenCalledTimes(1);
+});
+it('joins duplicate taps and reuses the receipt after an ambiguous failure', async () => {
+  let fail!: (e: Error) => void;
+  mockSubmit.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+  await mount(); const intent = op();
+  const first = run(intent); const duplicate = run(intent);
+  const firstResult = expect(first).rejects.toThrow('ambiguous');
+  const duplicateResult = expect(duplicate).rejects.toThrow('ambiguous');
+  await act(async () => { fail(new Error('ambiguous')); });
+  await firstResult; await duplicateResult;
+  expect(mockSubmit).toHaveBeenCalledTimes(1);
+  const receipt = mockSubmit.mock.calls[0][0].clientMutationId;
+  await run(intent);
+  expect(mockSubmit.mock.calls[1][0].clientMutationId).toBe(receipt);
+});
+it.each(['account', 'space', 'loading'])('rejects a stale %s closure before transport submission', async change => {
+  await mount(); const stale = run;
+  if (change === 'account') { mockUser = 'user-b'; mockData = { ...mockData, boot: { profile: { userId: 'user-b' } } }; }
+  if (change === 'space') mockData = { ...mockData, portfolioId: 'space-b' };
+  if (change === 'loading') mockData = { status: 'loading' };
+  await act(async () => { tree.update(<Harness />); });
+  await expect(stale(op())).rejects.toThrow(/account|space|changed|available/i);
+  expect(mockSubmit).not.toHaveBeenCalled();
+});
+it('rejects callbacks retained after unmount', async () => {
+  await mount(); const stale = run;
+  await act(async () => { tree.unmount(); }); tree = null;
+  await expect(stale(op())).rejects.toThrow(/account|space|changed|available/i);
+  expect(mockSubmit).not.toHaveBeenCalled();
+});
