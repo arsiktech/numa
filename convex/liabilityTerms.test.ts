@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { setTerms, update } from "./liabilities";
-import { upsertLiability } from "./mobile";
+import { deleteLiability, upsertLiability } from "./mobile";
+import { debtFields, deletePlan, editPlan } from "../apps/numa/src/data/editPlan";
+import type { CloudLiability } from "../apps/numa/src/cloud/api";
 
 // Bounded synthetic DB: the registered handlers with real auth and receipt helpers.
 function fixture() {
@@ -29,6 +31,7 @@ function fixture() {
       for (const [k, v] of Object.entries(patch)) { if (v === undefined) delete next[k]; else next[k] = v; }
       rows.set(id, next);
     },
+    delete: async (id: string) => { rows.delete(id); tables.delete(id); },
     query: (table: string) => {
       const predicates: Array<(row: any) => boolean> = [];
       const collect = async () => [...rows].filter(([id, row]) => tables.get(id) === table && predicates.every((p) => p(row))).map(([, row]) => ({ ...row }));
@@ -54,6 +57,35 @@ const DAY = 86_400_000;
 const NOW = Date.now();
 
 describe("loan terms", () => {
+  const snapshot = (f: ReturnType<typeof fixture>, id: string): CloudLiability => ({ ...f.row(id), id, dueDate: f.row(id).dueDate ?? null });
+
+  it("executes a clear-date edit and Undo through the registered upsert, restoring the fixed kind", async () => {
+    const f = fixture();
+    const before = debtFields(snapshot(f, "lfixed"));
+    const plan = editPlan("liability", "lfixed", before, { ...before, dueDate: null }, "pf");
+    await f.call(upsertLiability, plan.apply.args);
+    expect(f.row("lfixed").dueKind).toBeUndefined();
+    await f.call(upsertLiability, plan.undo.args);
+    expect(f.row("lfixed")).toMatchObject({ dueKind: "fixed", dueDate: before.dueDate });
+  });
+
+  it("executes delete and Undo with the full saved terms, retaining history on its original subject", async () => {
+    const f = fixture();
+    const saved = { principal: 20_000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 8, interestDueDay: 10, dueKind: "fixed", dueDate: NOW + 90 * DAY };
+    await f.call(setTerms, { id: "l1", ...saved });
+    f.seed("debtEvents", "old-event", { portfolioId: "pf", subject: "liability:l1", kind: "note", note: "Synthetic retained history", occurredAt: NOW, applied: false });
+    const plan = deletePlan("liability", "l1", debtFields(snapshot(f, "l1")), "pf");
+    await f.call(deleteLiability, plan.apply.args);
+    const restored = await f.call(upsertLiability, plan.undo.args);
+    expect(f.row(restored.id)).toMatchObject({ ...saved, balance: 20_000, currency: "EUR", counterparty: "Friend" });
+    expect(restored.id).not.toBe("l1");
+    expect(f.row("old-event")).toMatchObject({ subject: "liability:l1", note: "Synthetic retained history" });
+  });
+
+  it("validates restored terms on the create path rather than admitting malformed simple loans", async () => {
+    const f = fixture();
+    await expect(f.call(upsertLiability, { portfolioId: "pf", name: "Invalid restore", kind: "loan", balance: 100, currency: "EUR", interestTerms: "simple", interestRate: 8 })).rejects.toThrow(/original amount/);
+  });
   it("saves terms without touching the balance, once per receipt", async () => {
     const f = fixture();
     const args = { id: "l1", principal: 20000, startedAt: NOW - 90 * DAY, interestTerms: "simple", interestRate: 8, dueKind: "flexible", clientMutationId: "t-1" };

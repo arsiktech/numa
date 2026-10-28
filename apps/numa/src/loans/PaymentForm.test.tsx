@@ -193,6 +193,15 @@ describe('what is sent', () => {
 });
 
 describe('adding interest to the loan', () => {
+  it.each(['USD', 'BTC', null])('does not offer capitalization for unsupported %s history even when raw numbers reconcile', (unit) => {
+    render(party(liability()), jest.fn());
+    expect(radio('What happened', 'Interest added')).toBeDefined();
+    const history = [event({ amount: 100, unit })];
+    act(() => tree!.update(<PaymentForm party={party(liability({ balance: 19_900 }))} events={history} now={NOW} onSave={jest.fn()} onCancel={() => undefined} />));
+    expect(radio('What happened', 'Interest added')).toBeUndefined();
+    expect(text()).toContain('Interest cannot be worked out');
+    expect(text()).not.toContain('Interest owed so far: €0');
+  });
   const openCapitalize = () => act(() => radio('What happened', 'Interest added').props.onPress());
 
   it('is offered only when the terms say how interest accrues, the history agrees with the balance, and some is owed', () => {
