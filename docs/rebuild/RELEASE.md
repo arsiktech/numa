@@ -90,6 +90,10 @@ Until both exist, builds still run and the upload stays a manual step. The workf
 
 `.github/workflows/ios-sim.yml` caches the compiled simulator app by native fingerprint. When only app code changed, it swaps in a fresh Hermes bundle instead of rebuilding in Xcode. Runs on `main` keep that cache warm.
 
+Pull requests run the complete demo tour once in dark mode at the standard text size. Pushes to `main` and manual runs retain the dark, light and largest-accessibility-text tours. The tour still checks Home scrolling, Flow, Plan, Ask and keyboard reopening; only the extra display modes move out of the PR run. Screenshots from every executed mode remain in the `ios-simulator-screens` artifact, including failed runs.
+
+Before a phone release, run `gh workflow run ios-sim.yml --ref <release-branch-or-tag>` and require a successful full tour whose run head SHA matches the exact release commit. A green PR smoke check is not full visual acceptance. This workflow does not block `ship.yml` automatically; when enabling automatic shipping, wire the full check into the release gate first. Screen-changing PRs still need targeted largest-text evidence for the changed screen.
+
 ### Bundle ID (owner decision, 2026-10-12)
 
 The rebuild ships as `com.arsiktech.numa`, the existing Numa Pro identity on iOS and Android. A TestFlight build of the rebuild replaces the SwiftUI app for testers.
