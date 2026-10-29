@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
@@ -121,6 +121,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
   const cloud = useCloudData();
   const run = useWriter();
   const navigationWrite = useNavigationWriter();
+  const navigation = useNavigation();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -155,7 +156,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
     try {
       const p = deletePlan(item.type, item.id, fieldsOf(item), portfolioId, acquiredAt);
       await navigationWrite(p.apply);
-      router.back();
+      if (navigation.isFocused()) router.back();
       toast({ text: `${item.name} deleted`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch {
       setBusy(false);

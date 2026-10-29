@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
@@ -39,6 +39,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
   const { mask } = useMoney();
   const run = useWriter();
   const navigationWrite = useNavigationWriter();
+  const navigation = useNavigation();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -69,7 +70,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
     try {
       const p = txDeletePlan(tx, portfolioId);
       await navigationWrite(p.apply);
-      router.back();
+      if (navigation.isFocused()) router.back();
       toast({ text: `${tx.description} deleted`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch { setBusy(false); setConfirming(false); setError('Couldn’t delete. Try again.'); }
   }
