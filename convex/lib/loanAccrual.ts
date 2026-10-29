@@ -14,15 +14,25 @@ const DAY = 86_400_000;
 const cents = (n: number) => roundDecimals(n, 2);
 const dayOf = (t: number) => Math.floor(t / DAY);
 
-export type AccrualTerms = { principal: number; startedAt: number; interestRate: number };
+export type AccrualTerms = { principal: number; startedAt: number; interestRate: number; unit?: string | null };
 export type AccrualEvent = {
   kind: "borrowed" | "repaid" | "lent" | "received" | "note" | "capitalized";
   amount?: number | null;
   principalPart?: number | null;
   interestPart?: number | null;
   feePart?: number | null;
+  unit?: string | null;
   occurredAt: number;
 };
+
+/** Keep this admission rule aligned with the app. Never silently convert or relabel legacy history. */
+function historyUnitProblem(terms: AccrualTerms, events: AccrualEvent[], at: number): string | null {
+  const unsupported = events.some((e) =>
+    (e.kind === "borrowed" || e.kind === "repaid" || e.kind === "capitalized") &&
+    dayOf(e.occurredAt) >= dayOf(terms.startedAt) && dayOf(e.occurredAt) <= dayOf(at) &&
+    (!terms.unit || !e.unit || e.unit.toUpperCase() !== terms.unit.toUpperCase()));
+  return unsupported ? "The loan history contains amounts in another or unknown unit. Check the history units before calculating interest." : null;
+}
 
 /** The date `k` whole months after `t`, keeping the day of the month or the last day of a shorter month. */
 function addMonths(t: number, k: number): number {
@@ -65,13 +75,13 @@ export const monthInterest = (principal: number, rate: number) => cents(roundDec
  * date is more than 50 years back, which is a typing mistake and not a loan.
  */
 export function interestOwed(terms: AccrualTerms, events: AccrualEvent[], now: number): { accrued: number; settled: number; owed: number } | null {
-  if (now - terms.startedAt > 50 * 365 * DAY) return null;
+  if (now - terms.startedAt > 50 * 365 * DAY || historyUnitProblem(terms, events, now)) return null;
   let accrued = 0;
   for (let months = 0; addMonths(terms.startedAt, months + 1) <= now; months += 1) {
     accrued += monthInterest(principalAt(terms, events, addMonths(terms.startedAt, months)), terms.interestRate);
   }
   const settled = events
-    .filter((e) => dayOf(e.occurredAt) >= dayOf(terms.startedAt))
+    .filter((e) => dayOf(e.occurredAt) >= dayOf(terms.startedAt) && dayOf(e.occurredAt) <= dayOf(now))
     .reduce((t, e) => t + (e.kind === "repaid" ? (e.interestPart ?? 0) : e.kind === "capitalized" ? (e.amount ?? 0) : 0), 0);
   return { accrued: cents(accrued), settled: cents(settled), owed: cents(accrued - settled) };
 }
@@ -84,8 +94,10 @@ export function interestOwed(terms: AccrualTerms, events: AccrualEvent[], now: n
  * those months accrue on it is counted in today's total.
  */
 export function interestAddProblem(terms: AccrualTerms, events: AccrualEvent[], amount: number, at: number, now: number): string | null {
+  const unitProblem = historyUnitProblem(terms, events, now);
+  if (unitProblem) return unitProblem;
   const then = interestOwed(terms, events.filter((e) => dayOf(e.occurredAt) <= dayOf(at)), at);
-  const after = interestOwed(terms, [...events, { kind: "capitalized", amount, occurredAt: at }], now);
+  const after = interestOwed(terms, [...events, { kind: "capitalized", amount, unit: terms.unit, occurredAt: at }], now);
   if (!then || !after) return "There is no unpaid interest to add yet";
   const owedThen = Math.max(0, then.owed);
   if (!(owedThen > 0.005)) return "There was no unpaid interest to add on that date";

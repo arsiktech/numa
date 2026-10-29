@@ -40,6 +40,7 @@ function fixture() {
     call: (fn: any, args: object) => fn._handler(ctx, args),
     as: (id: string) => { user = id; },
     row: (id: string) => rows.get(id),
+    seed,
     events: () => [...rows].filter(([id]) => tables.get(id) === "debtEvents").map(([, r]) => r),
   };
 }
@@ -221,6 +222,15 @@ describe("interest added is capped at the interest owed", () => {
   const clock = (iso: string) => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date(iso)); return Date.now(); };
   const addInterest = (f: ReturnType<typeof fixture>, now: number, amount: number, extra: object = {}) =>
     f.call(add, { portfolioId: "pf", occurredAt: now - 86_400_000, subject: "liability:l-simple", kind: "capitalized", amount, unit: "EUR", apply: true, ...extra });
+
+  it.each(["USD", "BTC", undefined])("rejects capitalization against legacy %s history without saving any event or changing principal", async (unit) => {
+    const now = clock("2026-10-24T12:00:00Z");
+    const f = fixture();
+    f.seed("debtEvents", "legacy", { portfolioId: "pf", subject: "liability:l-simple", kind: "repaid", amount: 1, ...(unit ? { unit } : {}), applied: false, occurredAt: Date.UTC(2026, 6, 5) });
+    await expect(addInterest(f, now, 10)).rejects.toThrow(/history.*unit|unit.*history/i);
+    expect(f.row("l-simple").balance).toBe(19670);
+    expect(f.events()).toHaveLength(1);
+  });
 
   it("accepts the interest owed and no more, and the same interest cannot be added twice", async () => {
     const now = clock("2026-10-24T12:00:00Z");

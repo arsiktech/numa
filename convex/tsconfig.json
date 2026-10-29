@@ -11,7 +11,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node"]
+    "types": ["node"],
+    "paths": { "@/*": ["../apps/numa/src/*"] }
   },
   "include": ["./**/*"],
   "exclude": ["./_generated"]

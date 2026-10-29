@@ -31,7 +31,7 @@ describe('calendarToday', () => {
 describe('a payment dated today', () => {
   // A phone at UTC+2 at 00:30 on 25 October. UTC has not reached the 25th, but a typed "today" is the 25th.
   const clock = Date.UTC(2026, 9, 24, 22, 30);
-  const terms = { principal: 20_000, startedAt: noon(2026, 7, 1), dueKind: null, interestTerms: 'simple' as const, interestRate: 8, dueDate: null };
+  const terms = { unit: 'EUR', principal: 20_000, startedAt: noon(2026, 7, 1), dueKind: null, interestTerms: 'simple' as const, interestRate: 8, dueDate: null };
   const paidToday: TermEvent[] = [{ kind: 'repaid', amount: 1_000, principalPart: null, interestPart: null, feePart: null, unit: 'EUR', occurredAt: noon(2026, 10, 25) }];
 
   it('counts in the history when today is the phone’s date, so the history agrees with the balance', () => {

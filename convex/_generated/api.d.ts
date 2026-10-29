@@ -11,6 +11,7 @@
 import type * as NumaPassword from "../NumaPassword.js";
 import type * as ResendOTPPasswordReset from "../ResendOTPPasswordReset.js";
 import type * as ResendOTPVerify from "../ResendOTPVerify.js";
+import type * as activeDays from "../activeDays.js";
 import type * as agentAccess from "../agentAccess.js";
 import type * as agentMcp from "../agentMcp.js";
 import type * as aiActions from "../aiActions.js";
@@ -38,6 +39,7 @@ import type * as ledger from "../ledger.js";
 import type * as liabilities from "../liabilities.js";
 import type * as liabilitySources from "../liabilitySources.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_activeDays from "../lib/activeDays.js";
 import type * as lib_agentTools from "../lib/agentTools.js";
 import type * as lib_aiAudit from "../lib/aiAudit.js";
 import type * as lib_aiPermission from "../lib/aiPermission.js";
@@ -128,6 +130,7 @@ declare const fullApi: ApiFromModules<{
   NumaPassword: typeof NumaPassword;
   ResendOTPPasswordReset: typeof ResendOTPPasswordReset;
   ResendOTPVerify: typeof ResendOTPVerify;
+  activeDays: typeof activeDays;
   agentAccess: typeof agentAccess;
   agentMcp: typeof agentMcp;
   aiActions: typeof aiActions;
@@ -155,6 +158,7 @@ declare const fullApi: ApiFromModules<{
   liabilities: typeof liabilities;
   liabilitySources: typeof liabilitySources;
   "lib/access": typeof lib_access;
+  "lib/activeDays": typeof lib_activeDays;
   "lib/agentTools": typeof lib_agentTools;
   "lib/aiAudit": typeof lib_aiAudit;
   "lib/aiPermission": typeof lib_aiPermission;

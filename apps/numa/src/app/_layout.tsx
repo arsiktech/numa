@@ -8,6 +8,8 @@ import { Platform, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { usePushTaps } from '@/alerts/push';
+import { ActiveDayTracker } from '@/activity/useActiveDay';
+import { NavigationWriterProvider } from '@/data/NavigationWriter';
 import { CloudBoundary } from '@/cloud/CloudBoundary';
 import { CloudProvider } from '@/cloud/CloudProvider';
 import { useSession } from '@/cloud/session';
@@ -75,7 +77,7 @@ function Root() {
   return (
     <>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
-      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><CloudDataProvider><CloudMoversProvider>{stack}<OfflineNotice /><WidgetSync /></CloudMoversProvider></CloudDataProvider></CloudBoundary> : <MoversProvider scope={session.kind} evidence={session.kind}>{stack}</MoversProvider>}</ToastProvider>
+      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><ActiveDayTracker /><CloudDataProvider><NavigationWriterProvider><CloudMoversProvider>{stack}<OfflineNotice /><WidgetSync /></CloudMoversProvider></NavigationWriterProvider></CloudDataProvider></CloudBoundary> : <MoversProvider scope={session.kind} evidence={session.kind}>{stack}</MoversProvider>}</ToastProvider>
     </>
   );
 }

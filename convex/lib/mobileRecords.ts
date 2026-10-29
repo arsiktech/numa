@@ -5,7 +5,7 @@ import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanParty, cl
 import type { Doc } from "../_generated/dataModel";
 import { majorUnits, minorUnits } from "./finance";
 import { withMutationReceipt } from "./mutationReceipts";
-import { assertTermsAfterPatch, validDueDate } from "./loanTerms";
+import { assertTermsAfterPatch, termsPatch, validDueDate } from "./loanTerms";
 import { refreshQuoteSoon } from "./quoteRefresh";
 import { isCryptoSymbol } from "./marketQuoteProviders";
 import { withAiAuditConfirmation } from "./aiAudit";
@@ -297,7 +297,12 @@ const upsertLiability = mutation({
     kind: liabilityKindValidator,
     balance: v.number(),
     currency: currencyValidator,
-    interestRate: v.optional(v.number()),
+    principal: v.optional(v.union(v.number(), v.null())),
+    startedAt: v.optional(v.union(v.number(), v.null())),
+    dueKind: v.optional(v.union(v.literal("fixed"), v.literal("flexible"), v.null())),
+    interestTerms: v.optional(v.union(v.literal("none"), v.literal("simple"), v.literal("manual"), v.null())),
+    interestRate: v.optional(v.union(v.number(), v.null())),
+    interestDueDay: v.optional(v.union(v.number(), v.null())),
     /** Left out keeps the repayment date of a loan with a fixed one; null clears it. */
     dueDate: v.optional(v.union(v.number(), v.null())),
     notes: v.optional(v.string()),
@@ -326,8 +331,6 @@ const upsertLiability = mutation({
         kind: args.kind,
         balance,
         currency,
-        // Leaving the rate out keeps the one saved with the loan terms, so an update from Ask never wipes it.
-        ...(args.interestRate !== undefined ? { interestRate: args.interestRate } : {}),
         dueDate: args.dueDate ?? undefined,
         notes: args.notes?.trim() || undefined,
         ...(owed ?? {}),
@@ -346,17 +349,30 @@ const upsertLiability = mutation({
         // A fixed loan keeps its repayment date when an update leaves it out, so Ask and other callers that never mention it
         // cannot lose it. Asking for it to be cleared (null) does clear it, and the loan is no longer fixed.
         const keepDate = args.dueDate === undefined && existing.dueKind === "fixed" && existing.dueDate !== undefined;
-        const clearsFixed = args.dueDate === null && existing.dueKind === "fixed";
-        const final = keepDate ? { ...patch, dueDate: existing.dueDate } : clearsFixed ? { ...patch, dueKind: undefined } : patch;
+        const clearsFixed = args.dueDate === null && args.dueKind === undefined && existing.dueKind === "fixed";
+        const base = keepDate ? { ...patch, dueDate: existing.dueDate } : patch;
+        const terms = termsPatch({
+          principal: args.principal, startedAt: args.startedAt, interestTerms: args.interestTerms,
+          interestRate: args.interestRate, interestDueDay: args.interestDueDay,
+          dueKind: clearsFixed ? null : args.dueKind, dueDate: args.dueDate,
+        }, { ...existing, ...base }, Date.now());
+        const final = { ...base, ...terms };
         // A kind, currency or rate changed here must still fit the loan terms, as the terms form would require.
         assertTermsAfterPatch(existing, final);
         await ctx.db.patch(args.id, final);
         if (owed?.owedSymbol) await refreshQuoteSoon(ctx, owed.owedSymbol);
         return args.id;
       }
+      // Delete Undo recreates saved terms in this same receipt-bound write. Use the terms form's validation.
+      const terms = termsPatch({
+        principal: args.principal, startedAt: args.startedAt, interestTerms: args.interestTerms,
+        interestRate: args.interestRate, interestDueDay: args.interestDueDay,
+        dueKind: args.dueKind, dueDate: args.dueDate,
+      }, { ...patch }, Date.now());
       const id = await ctx.db.insert("liabilities", {
         portfolioId: args.portfolioId,
-        ...patch
+        ...patch,
+        ...terms
       });
       if (owed?.owedSymbol) await refreshQuoteSoon(ctx, owed.owedSymbol);
       return id;

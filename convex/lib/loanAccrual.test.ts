@@ -2,10 +2,37 @@ import { describe, expect, it } from "vitest";
 import { accrual, interestAddable as appAddable, interestAddProblem as appAddProblem, type TermEvent } from "../../apps/numa/src/domain/loanTerms";
 import { interestAddProblem, interestOwed, monthInterest, type AccrualEvent } from "./loanAccrual";
 
+const supportedTerms = { principal: 1_000, startedAt: Date.UTC(2026, 0, 1), interestRate: 12, unit: "EUR" };
+const appTerms = { ...supportedTerms, dueKind: null, dueDate: null, interestTerms: "simple" as const };
+const cutoff = Date.UTC(2026, 3, 2);
+
+describe("unsupported legacy history units", () => {
+  it.each(["borrowed", "repaid", "capitalized"] as const)("refuses %s in another currency, a coin, or an unknown unit in both engines", (kind) => {
+    for (const unit of ["USD", "BTC", null, undefined]) {
+      const history: TermEvent[] = [{ kind, amount: 100, principalPart: null, interestPart: null, feePart: null, unit, occurredAt: Date.UTC(2026, 1, 2) }];
+      expect(accrual(appTerms, history, 900, cutoff)).toMatchObject({ status: "unsupported-history", reconciles: false });
+      expect(interestOwed(supportedTerms, history, cutoff)).toBeNull();
+      expect(interestAddProblem(supportedTerms, history, 1, cutoff, cutoff)).not.toBeNull();
+      expect(appAddProblem(appTerms, history, 1, cutoff, cutoff)).not.toBeNull();
+      expect(appAddable(appTerms, history, cutoff, cutoff)).toBeNull();
+    }
+  });
+
+  it("accepts case-insensitive matching units and ignores foreign notes and events outside the accrual period", () => {
+    const event = { kind: "repaid" as const, amount: 100, principalPart: null, interestPart: null, feePart: null, unit: "eur", occurredAt: Date.UTC(2026, 1, 2) };
+    const history: TermEvent[] = [event, { ...event, kind: "note", unit: null }, { ...event, unit: "USD", occurredAt: Date.UTC(2025, 11, 31) }, { ...event, unit: "BTC", occurredAt: Date.UTC(2027, 0, 1) }];
+    const app = accrual(appTerms, history, 900, cutoff);
+    expect(app).toMatchObject({ status: "ok", reconciles: true });
+    if (app.status !== "ok") throw new Error("expected supported history");
+    expect(interestOwed(supportedTerms, history, cutoff)).toEqual({ accrued: app.accrued, settled: app.settled, owed: app.owed });
+    expect(interestAddProblem(supportedTerms, history, 1, cutoff, cutoff)).toBeNull();
+  });
+});
+
 const at = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d, 12);
 
 describe("interestOwed", () => {
-  const terms = { principal: 19_670, startedAt: at(2026, 6, 1), interestRate: 8 };
+  const terms = { unit: "EUR", principal: 19_670, startedAt: at(2026, 6, 1), interestRate: 8 };
 
   it("accrues the yearly rate over 12 for each completed month, and nothing for a part of a month", () => {
     expect(interestOwed(terms, [], at(2026, 6, 30))).toEqual({ accrued: 0, settled: 0, owed: 0 });
@@ -15,8 +42,8 @@ describe("interestOwed", () => {
 
   it("counts interest paid in cash and interest added to the principal as settled", () => {
     const events: AccrualEvent[] = [
-      { kind: "repaid", amount: 100, principalPart: 70, interestPart: 30, feePart: 0, occurredAt: at(2026, 8, 5) },
-      { kind: "capitalized", amount: 50, occurredAt: at(2026, 9, 5) },
+      { kind: "repaid", unit: "EUR", amount: 100, principalPart: 70, interestPart: 30, feePart: 0, occurredAt: at(2026, 8, 5) },
+      { kind: "capitalized", unit: "EUR", amount: 50, occurredAt: at(2026, 9, 5) },
     ];
     const r = interestOwed(terms, events, at(2026, 10, 24))!;
     expect(r.settled).toBe(80);
@@ -26,7 +53,7 @@ describe("interestOwed", () => {
   it("charges the next month on principal that grew by added interest", () => {
     // The month that starts on 1 Aug is charged on what was owed that day, including interest added on 2 Jul.
     const plain = interestOwed(terms, [], at(2026, 9, 1))!;
-    const grown = interestOwed(terms, [{ kind: "capitalized", amount: 131.13, occurredAt: at(2026, 7, 2) }], at(2026, 9, 1))!;
+    const grown = interestOwed(terms, [{ kind: "capitalized", unit: "EUR", amount: 131.13, occurredAt: at(2026, 7, 2) }], at(2026, 9, 1))!;
     expect(grown.accrued).toBeGreaterThan(plain.accrued);
     expect(grown.owed).toBe(Math.round((grown.accrued - 131.13) * 100) / 100);
   });
@@ -64,22 +91,23 @@ describe("interestOwed agrees with the app's accrual", () => {
           events.push({ kind, amount, principalPart: null, interestPart: null, feePart: null, unit: "EUR", occurredAt });
         }
       }
-      const app = accrual({ principal, startedAt, interestRate, interestTerms: "simple", dueKind: null, dueDate: null }, events, 0, now);
-      const server = interestOwed({ principal, startedAt, interestRate }, events, now);
+      const app = accrual({ unit: "EUR", principal, startedAt, interestRate, interestTerms: "simple", dueKind: null, dueDate: null }, events, 0, now);
+      const server = interestOwed({ unit: "EUR", principal, startedAt, interestRate }, events, now);
       expect(app.status).toBe("ok");
       if (app.status !== "ok" || server === null) throw new Error("not ok");
       expect(server).toEqual({ accrued: app.accrued, settled: app.settled, owed: app.owed });
 
       // Whether interest can be added on a generated day: the server refuses exactly what the app refuses.
       const addAt = startedAt + pick(Math.max(1, Math.floor((now - startedAt) / 86_400_000) + 1)) * 86_400_000;
-      const terms = { principal, startedAt, interestRate, interestTerms: "simple" as const, dueKind: null, dueDate: null };
+      const terms = { unit: "EUR", principal, startedAt, interestRate, interestTerms: "simple" as const, dueKind: null, dueDate: null };
       const offered = appAddable(terms, events, addAt, now);
+      if (offered === null) throw new Error("expected supported history to have a known addable amount");
       const tries = [offered, offered + 0.01, Math.round(rand() * 2 * offered * 100) / 100].filter((x) => x > 0);
       for (const x of tries) {
-        expect(interestAddProblem({ principal, startedAt, interestRate }, events, x, addAt, now) === null).toBe(appAddProblem(terms, events, x, addAt, now) === null);
+        expect(interestAddProblem({ unit: "EUR", principal, startedAt, interestRate }, events, x, addAt, now) === null).toBe(appAddProblem(terms, events, x, addAt, now) === null);
       }
       // What the app offers is always accepted.
-      if (offered > 0.005) expect(interestAddProblem({ principal, startedAt, interestRate }, events, offered, addAt, now)).toBeNull();
+      if (offered > 0.005) expect(interestAddProblem({ unit: "EUR", principal, startedAt, interestRate }, events, offered, addAt, now)).toBeNull();
     }
   });
 });
@@ -98,11 +126,11 @@ describe("monthInterest", () => {
 
 describe("principal in date order", () => {
   it("clamps an overpayment at zero when it happens, so money borrowed later starts from zero", () => {
-    const terms = { principal: 1_200, startedAt: at(2026, 1, 1), interestRate: 12 };
+    const terms = { unit: "EUR", principal: 1_200, startedAt: at(2026, 1, 1), interestRate: 12 };
     const events: AccrualEvent[] = [
       // Listed out of order on purpose: the borrowing came after the overpayment.
-      { kind: "borrowed", amount: 500, occurredAt: at(2026, 2, 10) },
-      { kind: "repaid", amount: 1_400, occurredAt: at(2026, 1, 20) },
+      { kind: "borrowed", unit: "EUR", amount: 500, occurredAt: at(2026, 2, 10) },
+      { kind: "repaid", unit: "EUR", amount: 1_400, occurredAt: at(2026, 1, 20) },
     ];
     // The month from 1 Mar is charged on 500, not on 1,200 - 1,400 + 500 = 300: 500 x 1% = 5.
     const march = interestOwed(terms, events, at(2026, 4, 1))!.accrued - interestOwed(terms, events, at(2026, 3, 1))!.accrued;
@@ -111,7 +139,7 @@ describe("principal in date order", () => {
 });
 
 describe("interestAddProblem", () => {
-  const terms = { principal: 19_670, startedAt: at(2026, 6, 1), interestRate: 8 };
+  const terms = { unit: "EUR", principal: 19_670, startedAt: at(2026, 6, 1), interestRate: 8 };
 
   it("allows what was owed on the entry's date and no more", () => {
     expect(interestAddProblem(terms, [], 262.26, at(2026, 8, 15), at(2026, 10, 24))).toBeNull();
@@ -119,7 +147,7 @@ describe("interestAddProblem", () => {
   });
 
   it("refuses back-dated interest that was paid after its date", () => {
-    const paid: AccrualEvent[] = [{ kind: "repaid", amount: 400, principalPart: 0, interestPart: 400, feePart: 0, occurredAt: at(2026, 10, 10) }];
+    const paid: AccrualEvent[] = [{ kind: "repaid", unit: "EUR", amount: 400, principalPart: 0, interestPart: 400, feePart: 0, occurredAt: at(2026, 10, 10) }];
     expect(interestAddProblem(terms, paid, 262.26, at(2026, 8, 15), at(2026, 10, 24))).toMatch(/since been paid or added/);
     // Today, 124.52 is still owed (524.52 - 400), and adding it on 15 Aug leaves the total at zero or above.
     expect(interestAddProblem(terms, paid, 124.52, at(2026, 8, 15), at(2026, 10, 24))).toBeNull();

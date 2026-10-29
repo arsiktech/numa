@@ -3,7 +3,7 @@ const { launch, watchErrors, signUp, checker, APP, outDir } = require('./lib.cjs
 const OUT = outDir('offline');
 const EMAIL = `qa-offline-${Date.now()}@example.com`;
 const { check, finish } = checker();
-const NOTICE = 'Offline. Figures may be out of date until you reconnect.';
+const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
 
 (async () => {
   const browser = await launch();

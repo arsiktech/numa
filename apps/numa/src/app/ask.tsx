@@ -1,12 +1,16 @@
 import { webFont } from '@/theme/webFont';
 import { router } from 'expo-router';
+import { ConvexError } from 'convex/values';
 import { useEffect, useRef, useState } from 'react';
-import { Dimensions, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View, type KeyboardEvent } from 'react-native';
+import { AppState, Dimensions, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View, type KeyboardEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { answer, EXAMPLES } from '@/ask/answer';
 import { DraftCard, type DraftStatus } from '@/ask/DraftCard';
+import { askDraftRecovery, RECOVERY_ERROR_MESSAGE, type AskRecovery } from '@/ask/draftRecovery';
+import type { DraftSaveIntent } from '@/ask/draftSave';
+import { WriteRefusedError } from '@/data/writeIntent';
 import { looksLikeSeveral, parse, type Draft } from '@/ask/parse';
 import { proposalToDraft } from '@/ask/proposal';
 import { useCloudAskSource, useDemoAskSource, type AskSource } from '@/ask/useAskSource';
@@ -23,7 +27,9 @@ type ConsentDecision = { question: string; status: 'open' | 'approving' | 'close
 type Message =
   | { id: number; role: 'you'; text: string }
   | { id: number; role: 'numa'; text: string; pending?: boolean }
-  | { id: number; role: 'draft'; draft: Draft; status: DraftStatus; error: string | null; undo?: () => Promise<void> };
+  | { id: number; role: 'draft'; draft: Draft; status: DraftStatus; error: string | null; intent?: DraftSaveIntent; undo?: () => Promise<void> };
+
+const recoverySnapshot = (composer: string, ms: Message[]): AskRecovery => ({ text: composer, drafts: ms.flatMap(m => m.role === 'draft' && (m.status === 'draft' || m.status === 'saving') ? [{ id: m.id, draft: m.draft, ...(m.intent ? { intent: m.intent } : {}) }] : []) });
 
 export default function AskScreen() {
   const session = useSession();
@@ -109,10 +115,39 @@ function AskView({ source }: { source: AskSource }) {
     return () => cancelAnimationFrame(frame);
   }, [consentQuestion]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  const operations = useRef(new Set<number>());
+  const attempted = useRef(new Map<number, DraftSaveIntent>());
+  const recoveryScope = source.status === 'ready' && !source.demo ? source.contextKey : null;
+  const [recovered, setRecovered] = useState(recoveryScope === null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const nextId = useRef(1);
   const scroll = useRef<ScrollView>(null);
-  const ready = source.status === 'ready';
+  const ready = source.status === 'ready' && recovered;
   const thinking = messages.some((m) => m.role === 'numa' && m.pending);
+
+  useEffect(() => {
+    if (!recoveryScope) return;
+    let current = true;
+    void askDraftRecovery.read(recoveryScope).then(saved => {
+      if (!current) return;
+      setText(saved.text);
+      setMessages(saved.drafts.map(d => ({ ...d, role: 'draft', status: 'draft', error: d.intent ? 'An earlier Save was not confirmed. Retry checks the same entry; it does not create a second save.' : null })));
+      for (const d of saved.drafts) if (d.intent) attempted.current.set(d.id, d.intent);
+      nextId.current = Math.max(0, ...saved.drafts.map(d => d.id)) + 1;
+      setRecovered(true);
+    }).catch(() => { if (current) { setRecoveryError('Couldn’t read secure draft recovery. Existing recovery was left untouched. Close and reopen Ask to try again.'); } });
+    return () => { current = false; };
+  }, [recoveryScope]);
+  useEffect(() => {
+    if (!recoveryScope || !recovered) return;
+    const value = recoverySnapshot(text, messages);
+    const persist = () => { void askDraftRecovery.write(recoveryScope, value).then(() => { if (alive.current) setRecoveryError(null); }).catch(e => { if (alive.current) setRecoveryError(e instanceof Error ? e.message : RECOVERY_ERROR_MESSAGE); }); };
+    persist();
+    const sub = AppState.addEventListener('change', state => { if (state !== 'active') persist(); });
+    return () => sub.remove();
+  }, [recoveryScope, recovered, text, messages]);
 
   const update = (id: number, patch: Partial<Extract<Message, { role: 'draft' }>>) =>
     setMessages((ms) => ms.map((m) => (m.id === id && m.role === 'draft' ? { ...m, ...patch } : m)));
@@ -132,7 +167,7 @@ function AskView({ source }: { source: AskSource }) {
 
   function send(input = text) {
     const value = input.trim();
-    if (!value || source.status !== 'ready' || thinking || sendLocked.current || currentConsent.current !== null) return;
+    if (!value || !ready || !alive.current || source.status !== 'ready' || thinking || sendLocked.current || currentConsent.current !== null) return;
     const parsed = parse(value, source.ctx);
     // Deterministic entries and local answers need no third-party sharing permission.
     if (source.ai && (parsed.type === 'unknown' || (parsed.type === 'question' && parsed.topic === 'help') || (parsed.type === 'draft' && looksLikeSeveral(value)))) {
@@ -202,22 +237,50 @@ function AskView({ source }: { source: AskSource }) {
   }
 
   async function save(m: Extract<Message, { role: 'draft' }>) {
-    if (source.status !== 'ready') return;
-    update(m.id, { status: 'saving', error: null });
+    const latest = messagesRef.current.find(row => row.id === m.id);
+    if (!ready || !alive.current || source.status !== 'ready' || operations.current.has(m.id) || latest?.role !== 'draft' || latest.status !== 'draft' || latest.draft !== m.draft) return;
+    operations.current.add(m.id);
+    const previousIntent = attempted.current.get(m.id) ?? latest.intent;
+    let durable = false;
     try {
-      const saved = await source.save(m.draft);
+      source.checkSave?.();
+      const intent = previousIntent ?? source.prepareSave?.(latest.draft);
+      if (intent) attempted.current.set(m.id, intent);
+      update(m.id, { status: 'saving', error: null, intent });
+      // An ambiguous submitted save must retain its exact plan/receipt before transport starts.
+      if (recoveryScope) await askDraftRecovery.write(recoveryScope, recoverySnapshot(text, messagesRef.current.map(row => row.id === m.id && row.role === 'draft' ? { ...row, intent, status: 'saving' } : row)));
+      durable = true;
+      if (!alive.current) return;
+      const saved = await source.save(latest.draft, intent);
+      if (!alive.current) return;
       update(m.id, { status: 'saved', undo: saved.undo });
     } catch (e) {
-      const message = e instanceof Error && /exchange rate|price you paid/.test(e.message) ? e.message : 'Couldn’t save that. Check the details and try again.';
-      update(m.id, { status: 'draft', error: message });
-    }
+      if (!alive.current) return;
+      const missing = e instanceof ConvexError && typeof e.data === 'object' && e.data !== null && 'code' in e.data && e.data.code === 'NOT_FOUND';
+      const message = missing ? 'This entry no longer exists. The server rejected this attempt. Remove the local draft and check your records before starting again.' : e instanceof WriteRefusedError || (e instanceof Error && /exchange rate|price you paid|secure.*recovery|too large/.test(e.message)) ? e.message : !durable ? `${RECOVERY_ERROR_MESSAGE} This attempt was not submitted.` : 'Save wasn’t confirmed. Retry checks the same entry. It may already have saved in this space.';
+      // A new intent that never passed secure persistence never reached transport and may still be edited.
+      if (!durable && !previousIntent) attempted.current.delete(m.id);
+      update(m.id, { status: 'draft', error: message, ...(!durable && !previousIntent ? { intent: undefined } : {}) });
+    } finally { operations.current.delete(m.id); }
+  }
+
+  function changeDraft(m: Extract<Message, { role: 'draft' }>, draft?: Draft) {
+    const latest = messagesRef.current.find(row => row.id === m.id);
+    if (!alive.current || operations.current.has(m.id) || latest?.role !== 'draft' || latest.status !== 'draft' || latest.draft !== m.draft || latest.intent !== m.intent) return;
+    if (draft && (attempted.current.has(m.id) || latest.intent)) return;
+    // Retiring local recovery never cancels or reverses an already submitted request.
+    if (!draft) attempted.current.delete(m.id);
+    update(m.id, draft ? { draft } : { status: 'discarded' });
   }
 
   async function undo(m: Extract<Message, { role: 'draft' }>) {
-    if (!m.undo) return;
+    const latest = messagesRef.current.find(row => row.id === m.id);
+    if (!alive.current || !m.undo || operations.current.has(m.id) || latest?.role !== 'draft' || latest.status !== 'saved' || latest.undo !== m.undo) return;
+    operations.current.add(m.id);
     update(m.id, { status: 'undoing', error: null });
-    try { await m.undo(); update(m.id, { status: 'undone' }); }
-    catch { update(m.id, { status: 'saved', error: 'Couldn’t undo. Try again.' }); }
+    try { await m.undo(); if (alive.current) update(m.id, { status: 'undone' }); }
+    catch (e) { if (alive.current) update(m.id, { status: 'saved', error: e instanceof WriteRefusedError ? e.message : 'Undo wasn’t confirmed. Try again to check the same request.' }); }
+    finally { operations.current.delete(m.id); }
   }
 
   const demo = source.status === 'ready' && source.demo;
@@ -258,8 +321,8 @@ function AskView({ source }: { source: AskSource }) {
             }
             if (m.role === 'numa') return <Txt key={m.id} v="body" c={m.pending ? 'ink3' : undefined} style={{ maxWidth: '92%' }} accessibilityLiveRegion="polite">{mask(m.text)}</Txt>;
             return (
-              <DraftCard key={m.id} draft={m.draft} status={m.status} error={m.error} demo={demo}
-                onChange={(d) => update(m.id, { draft: d })} onSave={() => save(m)} onDiscard={() => update(m.id, { status: 'discarded' })} onUndo={() => undo(m)} />
+              <DraftCard key={m.id} draft={m.draft} status={m.status} error={m.error} demo={demo} locked={!!m.intent}
+                onChange={(d) => changeDraft(m, d)} onSave={() => save(m)} onDiscard={() => changeDraft(m)} onUndo={() => undo(m)} />
             );
           })}
           </>}
@@ -271,6 +334,8 @@ function AskView({ source }: { source: AskSource }) {
         </View>}
 
         {consentQuestion === null && <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: keyboard > 0 ? 8 : insets.bottom + 12, borderTopWidth: 1, borderTopColor: c.line }}>
+          {recoveryScope && <Txt v="small" c="ink3" style={{ marginBottom: 8 }}>{Platform.OS === 'web' ? 'Drafts stay in memory while this page is open. Reloading or closing it loses unsaved drafts.' : 'Unsaved drafts are kept securely on this device for this account and space.'}</Txt>}
+          {recoveryError ? <Txt v="small" style={{ color: c.down, marginBottom: 8 }} accessibilityRole="alert">{recoveryError}</Txt> : null}
           {consentError ? <Txt v="small" style={{ color: c.down, marginBottom: 8 }} accessibilityRole="alert">{consentError}</Txt> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6, backgroundColor: c.s1, borderWidth: 1, borderColor: c.line2 }}>
             <TextInput value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus onFocus={syncKeyboard} placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
