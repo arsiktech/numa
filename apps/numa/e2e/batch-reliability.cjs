@@ -11,7 +11,7 @@ const EMAIL = `qa-batch-${Date.now()}@example.com`;
 const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
 (async () => {
   const browser = await launch();
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   await page.addInitScript(() => {
     const NativeSocket = window.WebSocket;
@@ -33,7 +33,7 @@ const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
     await Promise.all(Array.from({ length: 12 }, () => c.mutation('activeDays:record', { expectedUserId: me.id })));
     const activity = await c.query('dataExport:page', { expectedUserId: me.id, portfolioId, requestId: 'synthetic-active-export', section: 'activeDays', cursor: null, limit: 32 });
     const dates = JSON.parse(activity.rowsJSON);
-    check('concurrent opens produce one server UTC day and export only account/date metadata', dates.length === 1 && dates[0].userId === me.id && dates[0].utcDate === new Date().toISOString().slice(0, 10) && Object.keys(dates[0]).sort().join() === '_creationTime,_id,userId,utcDate');
+    check('concurrent opens produce one row per server UTC day and export only account/date metadata', dates.length >= 1 && new Set(dates.map(d => d.utcDate)).size === dates.length && dates.every(d => d.userId === me.id && d.utcDate === new Date(d._creationTime).toISOString().slice(0, 10) && Object.keys(d).sort().join() === '_creationTime,_id,userId,utcDate'));
     let forged = false;
     try { await c.mutation('activeDays:record', { expectedUserId: me.id, utcDate: '1999-01-01' }); } catch { forged = true; }
     check('the server rejects a client-supplied activity date', forged);
