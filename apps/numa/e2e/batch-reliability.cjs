@@ -88,7 +88,7 @@ const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     card = page.getByLabel(/^Draft\./).last();
     await card.getByRole('button', { name: 'Save', exact: true }).waitFor();
-    await c.mutation('mobile:deleteAsset', { id: cash.id, clientMutationId: 'synthetic-missing-target' });
+    await c.mutation('mobile:deleteAsset', { id: cash.id, clientMutationId: `synthetic-missing-target-${cash.id}` });
     await card.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByText(/server rejected this attempt/).waitFor({ timeout: 15000 });
     await page.screenshot({ path: path.join(OUT, 'rejected-390.png'), fullPage: true });
