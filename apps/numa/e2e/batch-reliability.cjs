@@ -76,6 +76,7 @@ const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
       const fits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
       check(`recovered Ask fits the ${width}px viewport`, fits);
     }
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Ask or add', exact: true }).click();
     await page.getByLabel('Ask or add anything').waitFor();
@@ -90,6 +91,7 @@ const NOTICE = 'Offline. Reconnect before saving. Figures may be out of date.';
     await c.mutation('mobile:deleteAsset', { id: cash.id, clientMutationId: 'synthetic-missing-target' });
     await card.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByText(/server rejected this attempt/).waitFor({ timeout: 15000 });
+    await page.screenshot({ path: path.join(OUT, 'rejected-390.png'), fullPage: true });
     await card.getByRole('button', { name: 'Remove draft', exact: true }).click();
     check('an authoritative missing-target rejection can retire locally without another financial write', !(await snap()).assets.some(a => a.id === cash.id) && (await snap()).transactions.length === saved.length);
     const relevant = errors.filter(e => !/WebSocket|ERR_INTERNET_DISCONNECTED|Failed to load resource|net::|Download the React DevTools/.test(e) && !(/\[CONVEX M\(mobile:upsertAsset\)\]/.test(e) && /NOT_FOUND/.test(e)));
