@@ -1,9 +1,9 @@
 name: iOS simulator
 
 # Builds the app for the iOS simulator, walks the demo portfolio with Maestro and
-# keeps a screenshot of each screen in dark, light and the largest accessibility
-# text size. No account, backend or signing is involved: without a Convex URL the
-# app opens straight into the demo.
+# keeps dark-mode screenshots on pull requests. Main and manual runs also check
+# light mode and the largest accessibility text size. No account, backend or signing
+# is involved: without a Convex URL the app opens straight into the demo.
 #
 # The compiled app is cached by its native fingerprint (the same hash that decides
 # whether a change ships over the air or needs a store build). When only app code
@@ -110,8 +110,9 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
-      - name: Walk the app (dark, light, largest text)
+      - name: ${{ github.event_name == 'pull_request' && 'Walk the app (dark smoke)' || 'Walk the app (dark, light, largest text)' }}
         env:
+          FULL_WALK: ${{ github.event_name != 'pull_request' }}
           # The first start on a fresh simulator installs Maestro's XCTest driver, which can
           # take longer than the 2-minute default on hosted runners.
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '300000'
@@ -119,10 +120,13 @@ jobs:
           mkdir -p shots
           FAIL=0
           walk() { maestro --device "$UDID" test -e SHOT="$1" --test-output-dir "shots/$1-run" .maestro/tour.yaml || FAIL=1; }
-          xcrun simctl ui "$UDID" appearance dark;  walk dark
-          xcrun simctl ui "$UDID" appearance light; walk light
-          xcrun simctl ui "$UDID" appearance dark
-          xcrun simctl ui "$UDID" content_size accessibility-extra-extra-extra-large; walk bigtext
+          xcrun simctl ui "$UDID" content_size large
+          xcrun simctl ui "$UDID" appearance dark; walk dark
+          if [ "$FULL_WALK" = "true" ]; then
+            xcrun simctl ui "$UDID" appearance light; walk light
+            xcrun simctl ui "$UDID" appearance dark
+            xcrun simctl ui "$UDID" content_size accessibility-extra-extra-extra-large; walk bigtext
+          fi
           mv ./*.png shots/ 2>/dev/null || true
           ls shots
           exit $FAIL
