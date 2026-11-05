@@ -54,10 +54,15 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           # Chromium and WebKit are the projects in playwright.config.ts.
+          # `timeout` is a separate program, so it must run `npx` directly.
+          # A shell function named install would be ignored and /usr/bin/install would run instead.
           # Each attempt is bounded so a stalled download is retried instead of
           # holding the job until the step timeout.
-          install() { npx playwright install --with-deps chromium webkit; }
-          timeout 180 install || timeout 180 install || timeout 180 install
+          for attempt in 1 2 3; do
+            timeout 180 npx playwright install --with-deps chromium webkit && exit 0
+            echo "Playwright install attempt ${attempt} failed"
+          done
+          exit 1
 
       - name: Lint
         run: npm run lint
