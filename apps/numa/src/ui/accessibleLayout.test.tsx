@@ -5,6 +5,10 @@ import { StyleSheet, View } from 'react-native';
 import AskScreen from '@/app/ask';
 import { CoachTip } from '@/ui/CoachTip';
 
+jest.mock('react-native-gesture-handler', () => {
+  const { Pressable: RNPressable } = jest.requireActual('react-native');
+  return { Pressable: RNPressable };
+});
 jest.mock('expo-router', () => ({ router: { canGoBack: () => false, replace: jest.fn(), back: jest.fn() } }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }) }));
 jest.mock('@/cloud/session', () => ({ useSession: () => ({ kind: 'signedOut' }) }));
@@ -36,6 +40,19 @@ test('the rendered Send control grows with its text instead of clipping accessib
   expect(style.minHeight).toBeGreaterThanOrEqual(44);
   expect(style.paddingVertical).toBeGreaterThanOrEqual(8);
   expect(send.props.accessibilityLabel).toBe('Send');
+});
+
+test('the coach tip dismiss control is above the chart and large enough to tap', () => {
+  const onDismiss = jest.fn();
+  act(() => { tree = TestRenderer.create(<CoachTip title="Drag the line to go back in time" body="Let go to stay on that date, then tap a block to see what was in it." onDismiss={onDismiss} top={85} width={402} availableHeight={190} />); });
+  const container = StyleSheet.flatten(tree!.root.findAllByType(View)[0].props.style);
+  expect(container.zIndex).toBeGreaterThan(0);
+  const dismiss = tree!.root.findByProps({ testID: 'coach-tip-dismiss' });
+  const style = StyleSheet.flatten(dismiss.props.style);
+  expect(style.minHeight).toBeGreaterThanOrEqual(44);
+  expect(style.minWidth).toBeGreaterThanOrEqual(44);
+  act(() => { dismiss.props.onPress(); });
+  expect(onDismiss).toHaveBeenCalledTimes(1);
 });
 
 test('a coach tip keeps its dismissal inside an intrinsically sized touch container', () => {
