@@ -81,7 +81,7 @@ const { check, finish } = checker();
   const w = await (await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'light' })).newPage();
   watchErrors(w, errors);
   await w.goto(APP + '/sign-in');
-  await w.getByText('Explore with demo data').click();
+  await w.getByText('Explore demo').click();
   await w.getByRole('link', { name: 'Plan', exact: true }).click();
   await w.getByText('RUNWAY').waitFor({ timeout: 15000 });
   check('demo Plan renders', (await w.locator('body').innerText()).includes('Net worth €1M'));

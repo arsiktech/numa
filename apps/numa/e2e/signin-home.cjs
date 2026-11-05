@@ -167,12 +167,22 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   check('wrong password shows a plain message', true);
   await page.screenshot({ path: OUT + '/09-wrong-password-dark-390.png' });
 
-  await page.getByText('Explore with demo data').click();
+  await page.getByRole('button', { name: 'Explore demo' }).click();
   await page.getByRole('button', { name: 'Demo data. Sign in' }).waitFor({ timeout: 15000 });
   check('demo path works while signed out', true);
   const settingsBox = await page.getByRole('link', { name: 'Settings' }).boundingBox();
   check('demo header fits a phone screen', !!settingsBox && settingsBox.x + settingsBox.width <= 390, JSON.stringify(settingsBox));
-  await page.screenshot({ path: OUT + '/10-demo-dark-390.png' });
+  const needsYou = ['Mark as paid', 'Estimate', 'Watch 24h', 'Dismiss', 'Use €12,650', 'My own'];
+  const needsOff = [];
+  for (const name of needsYou) needsOff.push(await page.getByRole('button', { name, exact: true }).isDisabled());
+  check('demo Needs you actions are disabled', needsOff.every(Boolean), needsOff.map((on, i) => `${needsYou[i]}=${on}`).join(', '));
+  await page.screenshot({ path: OUT + '/10-demo-dark-390.png', fullPage: true });
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Download a copy' }).waitFor({ timeout: 10000 });
+  check('demo shows export and delete disabled', await page.getByRole('button', { name: 'Download a copy' }).isDisabled()
+    && await page.getByRole('button', { name: 'Delete account' }).isDisabled()
+    && !(await page.getByRole('button', { name: 'Sign in or create an account' }).isDisabled()));
+  await page.screenshot({ path: OUT + '/10b-demo-settings-dark-390.png', fullPage: true });
 
   const wide = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'dark' });
   const w = await wide.newPage();

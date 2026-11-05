@@ -154,7 +154,7 @@ const lastDraft = (page) => page.getByLabel(/^Draft\./).last();
   const d = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
   const dp = await d.newPage();
   await dp.goto(APP + '/sign-in');
-  await dp.getByText('Explore with demo data').click();
+  await dp.getByText('Explore demo').click();
   await dp.getByRole('button', { name: 'Ask or add' }).click();
   await ask(dp, 'coffee 4.50');
   await lastDraft(dp).getByRole('button', { name: 'Save' }).click();

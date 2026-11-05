@@ -11,10 +11,22 @@ import { Txt } from './Txt';
 
 const dot = { due: 'down', watch: 'warn', housekeeping: 'ink3' } as const;
 
-function Card({ item, index, done, onPrimary, onLater, onUndo }: { item: Attention; index: number; done: boolean; onPrimary: () => void; onLater: () => void; onUndo: () => void }) {
+function Card({ item, index, done, readOnly, onPrimary, onLater, onUndo }: { item: Attention; index: number; done: boolean; readOnly: boolean; onPrimary: () => void; onLater: () => void; onUndo: () => void }) {
   const { c } = useTheme();
   const { mask } = useMoney();
   const reduce = useReducedMotion();
+  const action = (label: string, onPress: () => void, filled: boolean) => (
+    <Pressable
+      onPress={readOnly ? undefined : onPress}
+      disabled={readOnly}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: readOnly }}
+      aria-disabled={readOnly}
+      style={{ minHeight: 40, paddingHorizontal: filled ? 16 : 10, borderRadius: filled ? 999 : 0, backgroundColor: filled ? (readOnly ? c.s2 : c.ink) : 'transparent', justifyContent: 'center' }}
+    >
+      <Txt v="body" c={filled ? (readOnly ? 'ink2' : 'bg') : readOnly ? 'ink3' : 'ink'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{label}</Txt>
+    </Pressable>
+  );
   return (
     <Animated.View entering={reduce ? undefined : FadeInDown.delay(300 + index * 90).duration(500)} style={{ padding: 16, borderRadius: 20, backgroundColor: c.s1, opacity: done ? 0.65 : 1, flexDirection: 'row', gap: 10 }}>
       <View style={{ width: 8, height: 8, marginTop: 6, borderRadius: 4, backgroundColor: c[dot[item.urgency]] }} />
@@ -31,12 +43,8 @@ function Card({ item, index, done, onPrimary, onLater, onUndo }: { item: Attenti
           </View>
         ) : (
           <View style={{ marginTop: 12, flexDirection: 'row', gap: 4 }}>
-            <Pressable onPress={onPrimary} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 16, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center' }}>
-              <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{item.primary}</Txt>
-            </Pressable>
-            <Pressable onPress={onLater} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 10, justifyContent: 'center' }}>
-              <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{item.secondary}</Txt>
-            </Pressable>
+            {action(item.primary, onPrimary, true)}
+            {action(item.secondary, onLater, false)}
           </View>
         )}
       </View>
@@ -48,8 +56,9 @@ function Card({ item, index, done, onPrimary, onLater, onUndo }: { item: Attenti
  * At most three things that need the user, most urgent first. "Got it" hides an item until
  * it changes and "Later" brings it back tomorrow; both are remembered on this device and
  * both offer Undo while the card is on screen.
+ * In the demo the words stay and the buttons do not run. The sample cannot finish them.
  */
-export function NeedsYou({ items }: { items: Attention[] }) {
+export function NeedsYou({ items, readOnly = false }: { items: Attention[]; readOnly?: boolean }) {
   const { dismiss } = usePrefs();
   // Cards acted on in this view stay visible in their done state so Undo is reachable,
   // even though the parent has already filtered them out.
@@ -73,7 +82,7 @@ export function NeedsYou({ items }: { items: Attention[] }) {
       {shown.length === 0 && <Txt v="body" c="ink2">Nothing needs you right now.</Txt>}
       <View style={{ gap: 10 }}>
         {shown.map((it, i) => (
-          <Card key={it.id} item={acted[it.id] ? { ...it, doneText: acted[it.id].text } : it} index={i} done={!!acted[it.id]} onPrimary={() => act(it, false)} onLater={() => act(it, true)} onUndo={() => undo(it)} />
+          <Card key={it.id} item={acted[it.id] ? { ...it, doneText: acted[it.id].text } : it} index={i} done={!!acted[it.id]} readOnly={readOnly} onPrimary={() => act(it, false)} onLater={() => act(it, true)} onUndo={() => undo(it)} />
         ))}
       </View>
     </View>

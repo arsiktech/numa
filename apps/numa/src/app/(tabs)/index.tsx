@@ -283,7 +283,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   const teaser = <MonthTeaser month={model.month} flow={model.flow} />;
   const moneyMap = model.source === 'cloud' && !model.empty ? <MoneyMapTeaser /> : null;
   const earnings = model.source === 'cloud' && !model.empty;
-  const needs = <NeedsYou items={model.attention} />;
+  const needs = <NeedsYou items={model.attention} readOnly={model.source === 'demo'} />;
 
   if (wide) {
     return shell(
