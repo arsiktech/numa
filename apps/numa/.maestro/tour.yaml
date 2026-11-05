@@ -22,8 +22,24 @@ appId: com.arsiktech.numa
           centerElement: true
           timeout: 30000
       - takeScreenshot: ${SHOT}-01a-tip-action
+      # The control sits on the chart. On a cold simulator the first tap is often taken by that
+      # gesture, and the same tap then succeeds. A tip that stays up still fails below.
       - tapOn:
           id: "coach-tip-dismiss"
+      - runFlow:
+          when:
+            visible:
+              id: "coach-tip"
+          commands:
+            - tapOn:
+                id: "coach-tip-dismiss"
+      - runFlow:
+          when:
+            visible:
+              id: "coach-tip"
+          commands:
+            - tapOn:
+                id: "coach-tip-dismiss"
       - assertNotVisible:
           id: "coach-tip"
       - assertNotVisible:
