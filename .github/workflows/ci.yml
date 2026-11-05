@@ -11,6 +11,9 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # A healthy run finishes in about five minutes. Without a bound, a stalled
+    # browser download or apt install waits until GitHub's six-hour default.
+    timeout-minutes: 20
     # The public Playwright smoke boots `npm run dev`, and the app renders a
     # "cloud configuration required" screen (not the welcome page) without a
     # Convex URL. VITE_CONVEX_URL is a public client value (it ships in the
@@ -33,8 +36,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Browser binaries only. System libraries are installed below on every run:
+      # a fresh runner does not keep apt packages from the cache.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright.outputs.version }}
+
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        timeout-minutes: 10
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          # Chromium and WebKit are the projects in playwright.config.ts.
+          # `timeout` is a separate program, so it must run `npx` directly.
+          # A shell function named install would be ignored and /usr/bin/install would run instead.
+          # Each attempt is bounded so a stalled download is retried instead of
+          # holding the job until the step timeout.
+          for attempt in 1 2 3; do
+            timeout 180 npx playwright install --with-deps chromium webkit && exit 0
+            echo "Playwright install attempt ${attempt} failed"
+          done
+          exit 1
 
       - name: Lint
         run: npm run lint
