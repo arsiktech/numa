@@ -119,7 +119,7 @@ const { check, finish } = checker();
   const dm = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
   const dp = await dm.newPage();
   await dp.goto(APP + '/sign-in');
-  await dp.getByText('Explore with demo data').click();
+  await dp.getByText('Explore demo').click();
   await dp.getByRole('tab', { name: 'Flow' }).click();
   await dp.getByText('You kept').waitFor({ timeout: 15000 });
   // The bar's Demo pill can render a moment after the page itself.

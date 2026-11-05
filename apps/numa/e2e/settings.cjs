@@ -132,7 +132,7 @@ async function canSignIn(email, password) {
   const d = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   watchErrors(d, errors);
   await d.goto(APP + '/sign-in');
-  await d.getByText('Explore with demo data').click();
+  await d.getByText('Explore demo').click();
   await d.getByRole('button', { name: 'Demo data. Sign in' }).waitFor({ timeout: 15000 });
   await d.goto(APP + '/password');
   await d.getByRole('heading', { name: 'Settings' }).waitFor({ timeout: 15000 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
-import { Platform, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import SignIn from '@/app/sign-in';
 
@@ -85,4 +85,21 @@ test('unsupported Apple host never offers a control even when server configurati
   await render('web');
   expect(webAppleControls()).toHaveLength(0);
   expect(mockPrepare).not.toHaveBeenCalled();
+});
+
+function buttonLabel(node: TestRenderer.ReactTestInstance) {
+  return node.findAllByType(Text).map((text) => String(text.props.children ?? '')).join('');
+}
+
+test('Explore demo is the secondary action under Sign in', async () => {
+  await render('web');
+  const buttons = tree!.root.findAll((node) => node.props.accessibilityRole === 'button');
+  const labels = buttons.map(buttonLabel);
+  const signIn = labels.indexOf('Sign in');
+  const explore = labels.indexOf('Explore demo');
+  expect(signIn).toBeGreaterThanOrEqual(0);
+  expect(explore).toBeGreaterThan(signIn);
+  expect(StyleSheet.flatten(buttons[signIn].props.style).backgroundColor).toBe('#ffffff');
+  expect(StyleSheet.flatten(buttons[explore].props.style).backgroundColor).toBe('#222222');
+  expect(buttons[explore].props.disabled).not.toBe(true);
 });

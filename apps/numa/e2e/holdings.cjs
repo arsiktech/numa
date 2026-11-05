@@ -180,7 +180,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const dm = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
   const dp = await dm.newPage();
   await dp.goto(APP + '/sign-in');
-  await dp.getByText('Explore with demo data').click();
+  await dp.getByText('Explore demo').click();
   await dp.getByText('What you own').waitFor({ timeout: 10000 });
   await dp.getByRole('button', { name: /^Crypto, .* Open$/ }).click();
   await dp.getByRole('heading', { name: 'Crypto' }).waitFor({ timeout: 10000 });

@@ -256,9 +256,6 @@ export default function SignIn() {
 
             {step === 'form' && <>
               <Txt v="small" c="ink2" style={{ marginTop: 12 }}>Free during beta. No card required. We’ll give notice before any paid plan.</Txt>
-              <Pressable disabled={busy} onPress={() => set('demo', true)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', marginTop: 6 }}>
-                <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Explore with demo data</Txt>
-              </Pressable>
               <LegalLinks />
             </>}
             <View style={{ marginTop: 20, gap: 14 }}>
@@ -300,6 +297,11 @@ export default function SignIn() {
               <Pressable onPress={submit} disabled={!canSubmit || busy} accessibilityRole="button" aria-disabled={!canSubmit || busy} aria-busy={busy} style={{ marginTop: 6, minHeight: 52, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink, opacity: canSubmit ? 1 : 0.4 }}>
                 {busy && !quickProvider ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold', fontSize: 16 }}>{step === 'verify' ? 'Confirm' : step === 'resetEmail' ? 'Send code' : step === 'resetCode' ? 'Set password and sign in' : flow === 'signIn' ? 'Sign in' : 'Create account'}</Txt>}
               </Pressable>
+              {step === 'form' && (
+                <Pressable disabled={busy} onPress={() => set('demo', true)} accessibilityRole="button" style={{ minHeight: 52, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.s2, opacity: busy ? 0.5 : 1 }}>
+                  <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', fontSize: 16 }}>Explore demo</Txt>
+                </Pressable>
+              )}
 
               {step !== 'form' && (
                 <Pressable onPress={() => go('form')} accessibilityRole="button" style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>

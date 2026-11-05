@@ -67,8 +67,11 @@ export default function Settings() {
           </>
         ) : (
           <>
+            <Section title="DATA" />
+            <Action label="Download a copy" disabled onPress={() => undefined} />
             <Section title="ACCOUNT" />
             <Row title="Demo data" detail="You’re looking at a made-up portfolio. Nothing here is saved." />
+            <Action label="Delete account" danger disabled onPress={() => undefined} />
             {cloudEnabled && <Action label="Sign in or create an account" onPress={() => set('demo', false)} />}
           </>
         )}
