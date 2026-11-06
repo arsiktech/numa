@@ -129,7 +129,7 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   await page.getByText('APPEARANCE').waitFor();
   await page.getByRole('radio', { name: 'Light' }).click();
   await page.screenshot({ path: OUT + '/07-settings-light-390.png' });
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await page.getByText('What you own').waitFor();
   await page.waitForTimeout(1500);
   await page.screenshot({ path: OUT + '/08-home-light-390.png', fullPage: true });
