@@ -376,6 +376,7 @@ async function deleteUserCascade(
         .take(n),
     (n) => ctx.db.query("profileAvatars").withIndex("by_user", q => q.eq("userId", userId)).take(n),
     (n) => ctx.db.query("privacyChoices").withIndex("by_user", q => q.eq("userId", userId)).take(n),
+    (n) => ctx.db.query("activeDays").withIndex("by_user", q => q.eq("userId", userId)).take(n),
     (n) => ctx.db.query("clientErrors").withIndex("by_user", q => q.eq("userId", userId)).take(n),
     (n) =>
       ctx.db

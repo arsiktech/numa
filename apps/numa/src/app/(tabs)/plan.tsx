@@ -8,6 +8,7 @@ import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
 import { demoDebts, demoHoldings, demoNow, demoOctober } from '@/data/demo';
 import { useWriter } from '@/data/writes';
+import { useNavigationWriter } from '@/data/NavigationWriter';
 import { summarizeFlow } from '@/domain/flow';
 import { shortDay } from '@/domain/freshness';
 import { countedValue, summarize } from '@/domain/summary';
@@ -139,12 +140,12 @@ function Goals({ data }: { data: PlanData }) {
 
 function GoalActions({ data, goal, title }: { data: PlanData; goal: CloudGoal; title: string }) {
   const { c } = useTheme();
-  const run = useWriter();
+  const navigationWrite = useNavigationWriter();
   const toast = useToast();
   return (
     <Pressable onPress={async () => {
       const p = goalDeletePlan(data.portfolioId!, goal);
-      try { await run(p.apply); toast({ text: `${title} deleted`, action: { label: 'Undo', onPress: async () => { try { await run(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } }); }
+      try { await navigationWrite(p.apply); toast({ text: `${title} deleted`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } }); }
       catch { toast({ text: 'Couldn’t delete that goal.' }); }
     }} accessibilityRole="button" style={{ marginTop: 10, minHeight: 40, alignSelf: 'flex-start', justifyContent: 'center' }}>
       <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', color: c.down }}>Delete goal</Txt>
@@ -155,6 +156,7 @@ function GoalActions({ data, goal, title }: { data: PlanData; goal: CloudGoal; t
 function GoalForm({ data, onDone }: { data: PlanData; onDone: () => void }) {
   const { c } = useTheme();
   const run = useWriter();
+  const navigationWrite = useNavigationWriter();
   const toast = useToast();
   const [f, setF] = useState<GoalFields>({ scope: 'net_worth', targetCents: 0, currency: data.currency, deadline: null, label: '' });
   const [amount, setAmount] = useState('');
@@ -180,7 +182,7 @@ function GoalForm({ data, onDone }: { data: PlanData; onDone: () => void }) {
             const id = await run(p.apply);
             onDone();
             const undo = bindUndo(p.undo, id);
-            toast({ text: 'Goal added', action: { label: 'Undo', onPress: async () => { try { await run(undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
+            toast({ text: 'Goal added', action: { label: 'Undo', onPress: async () => { try { await navigationWrite(undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
           } catch { toast({ text: 'Couldn’t add that goal.' }); setBusy(false); }
         }} accessibilityRole="button" aria-disabled={!ok || busy} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: ok ? 1 : 0.4 }}>
           <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Save goal</Txt>
@@ -210,6 +212,7 @@ function LimitRowView({ row, last }: { row: LimitRow; last: boolean }) {
   const { c } = useTheme();
   const { money } = useMoney();
   const run = useWriter();
+  const navigationWrite = useNavigationWriter();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(row.limitCents ? (row.limitCents / 100).toFixed(0) : '');
@@ -217,9 +220,9 @@ function LimitRowView({ row, last }: { row: LimitRow; last: boolean }) {
   const save = async (cents: number | null) => {
     const p = limitPlan(row.category as CloudCategory, cents);
     try {
-      await run(p.apply);
+      await (cents === null ? navigationWrite : run)(p.apply);
       setEditing(false);
-      toast({ text: cents === null ? `${row.category.name} limit removed` : `${row.category.name} limit set`, action: { label: 'Undo', onPress: async () => { try { await run(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
+      toast({ text: cents === null ? `${row.category.name} limit removed` : `${row.category.name} limit set`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch { toast({ text: 'Couldn’t save that limit.' }); }
   };
   return (

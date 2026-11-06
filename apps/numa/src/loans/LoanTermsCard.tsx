@@ -72,13 +72,14 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
             : <Row label="Next month completes" value={dayText(a.nextAccrualAt, now)} />}
         </>
       )}
+      {a.status === 'unsupported-history' && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>Interest cannot be worked out. {a.reason}</Txt>}
       {a.status === 'incomplete' && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>Add {a.missing} to work out interest.</Txt>}
       {a.status === 'ok' && !a.reconciles && (
         <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>The history says {money(a.historyPrincipal)} is outstanding but the balance is {money(loan.balance)}, so the interest may be off. Add the missing payments to the history, or correct the balance.</Txt>
       )}
       {paid.total > 0 && <Row label="Paid so far" value={`${money(paid.total)}${paid.interest > 0 || paid.fees > 0 ? ` (principal ${money(paid.principal)}, interest ${money(paid.interest)}, fees ${money(paid.fees)})` : ''}`} />}
       <Txt v="small" c="ink3" style={{ paddingTop: 4 }}>
-        {terms.interestTerms === 'simple' ? 'Each completed month adds the yearly rate ÷ 12 on what was owed at its start. The running month is an estimate and is not owed until it completes. Interest accrued is not counted in What you owe.' : 'Terms you set here stay with this debt. What you owe above is the principal.'}
+        {terms.interestTerms === 'simple' && a.status !== 'unsupported-history' ? 'Each completed month adds the yearly rate ÷ 12 on what was owed at its start. The running month is an estimate and is not owed until it completes. Interest accrued is not counted in What you owe.' : 'Terms you set here stay with this debt. What you owe above is the principal.'}
       </Txt>
       <Pressable onPress={onEdit} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
         <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>{hasTerms(loan) ? 'Edit terms' : 'Set loan terms'}</Txt>

@@ -5,6 +5,7 @@ import type { DebtEvent } from '@/data/moneyMap';
 import type { LoanTerms, TermEvent } from '@/domain/loanTerms';
 
 export const termsOf = (l: CloudLiability): LoanTerms => ({
+  unit: l.owedSymbol || l.currency,
   principal: l.principal ?? null, startedAt: l.startedAt ?? null, dueKind: l.dueKind ?? null,
   interestTerms: l.interestTerms ?? null, interestRate: l.interestRate ?? null, dueDate: l.dueDate ?? null, interestDueDay: l.interestDueDay ?? null,
 });

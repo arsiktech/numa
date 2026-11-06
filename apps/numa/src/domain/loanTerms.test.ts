@@ -1,8 +1,8 @@
 import { accrual, addMonths, dayOf, dueDateFor, isOverdue, monthInterest, paidTotals, parseAmount, principalAt, roundDecimals, splitProblem, type LoanTerms, type TermEvent } from './loanTerms';
 
 const day = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d, 12);
-const terms = (over: Partial<LoanTerms> = {}): LoanTerms => ({ principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'flexible', interestTerms: 'simple', interestRate: 8, dueDate: null, ...over });
-const ev = (over: Partial<TermEvent> & Pick<TermEvent, 'kind' | 'occurredAt'>): TermEvent => ({ amount: null, principalPart: null, interestPart: null, feePart: null, ...over });
+const terms = (over: Partial<LoanTerms> = {}): LoanTerms => ({ unit: 'EUR', principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'flexible', interestTerms: 'simple', interestRate: 8, dueDate: null, ...over });
+const ev = (over: Partial<TermEvent> & Pick<TermEvent, 'kind' | 'occurredAt'>): TermEvent => ({ unit: 'EUR', amount: null, principalPart: null, interestPart: null, feePart: null, ...over });
 const NOW = day(2026, 10, 24);
 
 describe('addMonths', () => {
@@ -15,6 +15,17 @@ describe('addMonths', () => {
 });
 
 describe('accrual', () => {
+  it.each(['borrowed', 'repaid', 'capitalized'] as const)('does not fabricate principal or interest from a foreign %s event', (kind) => {
+    const loan = { ...terms(), unit: 'EUR' };
+    for (const unit of ['USD', 'BTC', null, undefined]) {
+      const events = [ev({ kind, amount: 100, unit, occurredAt: day(2026, 8, 15) })];
+      expect(principalAt(loan, events, NOW)).toBeNull();
+      const result = accrual(loan, events, kind === 'repaid' ? 19_900 : 20_100, NOW);
+      expect(result).toMatchObject({ status: 'unsupported-history', reconciles: false });
+      expect(result).not.toHaveProperty('owed');
+      expect(result).not.toHaveProperty('accrued');
+    }
+  });
   it('accrues a twelfth of the yearly rate for each completed month, rounded to cents', () => {
     const a = accrual(terms(), [], 20_000, NOW);
     // 1 Jul to 1 Oct is three whole months: 3 × (20,000 × 8% ÷ 12 = 133.33) = 399.99.
@@ -92,6 +103,13 @@ describe('paidTotals', () => {
 });
 
 describe('isOverdue', () => {
+  it('compares calendar days for dates saved at midnight, noon or late in the day', () => {
+    for (const hour of [0, 12, 23]) {
+      const fixed = terms({ dueKind: 'fixed', dueDate: Date.UTC(2026, 9, 24, hour) });
+      for (const nowHour of [0, 12, 23]) expect(isOverdue(fixed, 100, Date.UTC(2026, 9, 24, nowHour))).toBe(false);
+      expect(isOverdue(fixed, 100, Date.UTC(2026, 9, 25))).toBe(true);
+    }
+  });
   it('is overdue only for a fixed loan past its date with something still owed', () => {
     const fixed = terms({ dueKind: 'fixed', dueDate: day(2026, 10, 1) });
     expect(isOverdue(fixed, 100, NOW)).toBe(true);

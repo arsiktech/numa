@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
@@ -10,6 +10,7 @@ import { assetFields, debtFields, deletePlan, editPlan, fieldProblems, holdingFi
 import { groupNames, type Item, type ItemType } from '@/data/items';
 import { useCloudItems, useDemoItems, type ItemsSource } from '@/data/useItems';
 import { useWriter } from '@/data/writes';
+import { useNavigationWriter } from '@/data/NavigationWriter';
 import { shortDay } from '@/domain/freshness';
 import { formatMoney } from '@/domain/money';
 import type { Currency } from '@/domain/types';
@@ -119,6 +120,8 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
   const { c } = useTheme();
   const cloud = useCloudData();
   const run = useWriter();
+  const navigationWrite = useNavigationWriter();
+  const navigation = useNavigation();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -142,7 +145,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
       const p = editPlan(item.type, item.id, fieldsOf(item), after, portfolioId, acquiredAt);
       await run(p.apply);
       setEditing(false);
-      toast({ text: `${item.name} saved`, action: { label: 'Undo', onPress: async () => { try { await run(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
+      toast({ text: `${item.name} saved`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch (e) {
       setError(e instanceof Error && /currency|cash account/i.test(e.message) ? 'This account’s currency can’t change while it has transactions.' : 'Couldn’t save. Check the details and try again.');
     } finally { setBusy(false); }
@@ -152,9 +155,9 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
     setBusy(true); setError(null);
     try {
       const p = deletePlan(item.type, item.id, fieldsOf(item), portfolioId, acquiredAt);
-      await run(p.apply);
-      router.back();
-      toast({ text: `${item.name} deleted`, action: { label: 'Undo', onPress: async () => { try { await run(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
+      await navigationWrite(p.apply);
+      if (navigation.isFocused()) router.back();
+      toast({ text: `${item.name} deleted`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch {
       setBusy(false);
       setConfirming(false);

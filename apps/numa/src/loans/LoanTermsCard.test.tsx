@@ -37,6 +37,20 @@ const textIn = (i: TestRenderer.ReactTestInstance): string => i.children.map((c)
 const render = (el: React.ReactElement) => { act(() => { tree = TestRenderer.create(el); }); };
 
 describe('LoanTermsCard', () => {
+  it.each(['USD', 'BTC', null])('shows unknown interest, not zero or a fabricated accrual, for history in %s', (unit) => {
+    render(<LoanTermsCard loan={loan({ balance: 19_900 })} events={[event({ amount: 100, unit })]} now={NOW} onEdit={() => undefined} />);
+    expect(text()).toContain('Interest cannot be worked out');
+    expect(text()).not.toContain('Interest accrued');
+    expect(text()).not.toContain('Running month so far');
+    expect(text()).not.toContain('Interest owed');
+  });
+
+  it('does not mark a web midnight due date overdue on the same phone calendar day', () => {
+    simulateZone(13);
+    render(<LoanTermsCard loan={loan({ dueKind: 'fixed', dueDate: Date.UTC(2026, 9, 25) })} events={[]} now={Date.UTC(2026, 9, 24, 11, 30)} onEdit={() => undefined} />);
+    expect(text()).toContain('Repay by25 Oct');
+    expect(text()).not.toContain('overdue');
+  });
   it('shows the principal still owed, the terms, and the interest worked out from them', () => {
     render(<LoanTermsCard loan={loan()} events={[]} now={NOW} onEdit={() => undefined} />);
     expect(text()).toContain('Original amount');

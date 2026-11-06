@@ -15,6 +15,8 @@
  */
 
 export type LoanTerms = {
+  /** Currency or coin the original principal and history must be in. */
+  unit?: string | null;
   principal: number | null;
   startedAt: number | null;
   dueKind: 'fixed' | 'flexible' | null;
@@ -41,6 +43,7 @@ export type Accrual =
   | { status: 'none' }
   | { status: 'manual' }
   | { status: 'incomplete'; missing: string }
+  | { status: 'unsupported-history'; reason: string; reconciles: false }
   | {
       status: 'ok';
       /** Interest worked out for the completed months. */
@@ -126,7 +129,23 @@ export function principalPaid(e: TermEvent): number {
  * day. Events count in date order, and the principal never goes below zero at any step: an
  * overpayment brings it to zero, and money borrowed later starts from there.
  */
-export function principalAt(terms: LoanTerms, events: TermEvent[], at: number): number {
+export function principalAt(terms: LoanTerms, events: TermEvent[], at: number): number | null {
+  if (historyUnitProblem(terms, events, at)) return null;
+  return principalFromHistory(terms, events, at);
+}
+
+/** Units are evidence, not a conversion rule. An old unlabelled payment cannot be assumed to be this currency. */
+function historyUnitProblem(terms: LoanTerms, events: TermEvent[], at: number): string | null {
+  const startDay = dayOf(terms.startedAt ?? 0);
+  const unsupported = events.some((e) =>
+    (e.kind === 'borrowed' || e.kind === 'repaid' || e.kind === 'capitalized') &&
+    dayOf(e.occurredAt) >= startDay && dayOf(e.occurredAt) <= dayOf(at) &&
+    (!terms.unit || !e.unit || e.unit.toUpperCase() !== terms.unit.toUpperCase()));
+  return unsupported ? 'The loan history contains amounts in another or unknown unit. Check the history units before calculating interest.' : null;
+}
+
+/** Called only after the relevant history units have been checked. */
+function principalFromHistory(terms: LoanTerms, events: TermEvent[], at: number): number {
   let p = terms.principal ?? 0;
   const startDay = dayOf(terms.startedAt ?? 0);
   const inOrder = events.filter((e) => dayOf(e.occurredAt) <= dayOf(at) && dayOf(e.occurredAt) >= startDay).sort((x, y) => x.occurredAt - y.occurredAt);
@@ -150,20 +169,22 @@ export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, 
   if (terms.interestTerms !== 'simple') return { status: 'none' };
   if (!(terms.interestRate && terms.interestRate > 0)) return { status: 'incomplete', missing: 'a yearly rate' };
   if (terms.principal === null || terms.startedAt === null) return { status: 'incomplete', missing: 'the original amount and the start date' };
+  const unitProblem = historyUnitProblem(terms, events, now);
+  if (unitProblem) return { status: 'unsupported-history', reason: unitProblem, reconciles: false };
   const start = terms.startedAt;
   // A start date that far back is a typing mistake, and would loop for centuries of months.
   if (now - start > 50 * 365 * 86_400_000) return { status: 'incomplete', missing: 'a start date within the last 50 years' };
   let months = 0;
   const periods: { endAt: number; amount: number }[] = [];
   while (addMonths(start, months + 1) <= now) {
-    periods.push({ endAt: addMonths(start, months + 1), amount: monthInterest(principalAt(terms, events, addMonths(start, months)), terms.interestRate) });
+    periods.push({ endAt: addMonths(start, months + 1), amount: monthInterest(principalFromHistory(terms, events, addMonths(start, months)), terms.interestRate) });
     months += 1;
   }
   const accrued = periods.reduce((t, p) => t + p.amount, 0);
   const settled = events
-    .filter((e) => dayOf(e.occurredAt) >= dayOf(start))
+    .filter((e) => dayOf(e.occurredAt) >= dayOf(start) && dayOf(e.occurredAt) <= dayOf(now))
     .reduce((t, e) => t + (e.kind === 'repaid' ? (e.interestPart ?? 0) : e.kind === 'capitalized' ? (e.amount ?? 0) : 0), 0);
-  const historyPrincipal = principalAt(terms, events, now);
+  const historyPrincipal = principalFromHistory(terms, events, now);
   const nextAccrualAt = addMonths(start, months + 1);
 
   // What was settled covers the oldest months first. The first month left short is the one now due.
@@ -182,7 +203,7 @@ export function accrual(terms: LoanTerms, events: TermEvent[], balance: number, 
   const runningStart = addMonths(start, months);
   const span = dayOf(nextAccrualAt) - dayOf(runningStart);
   const gone = Math.max(0, dayOf(now) - dayOf(runningStart));
-  const running = span > 0 ? cents(monthRaw(principalAt(terms, events, runningStart), terms.interestRate) * (gone / span)) : 0;
+  const running = span > 0 ? cents(monthRaw(principalFromHistory(terms, events, runningStart), terms.interestRate) * (gone / span)) : 0;
 
   return {
     status: 'ok',
@@ -214,8 +235,10 @@ function owedOn(terms: LoanTerms, events: TermEvent[], at: number): number | nul
  * the principal for the months after it, and the interest they accrue on it counts today.
  */
 export function interestAddProblem(terms: LoanTerms, events: TermEvent[], amount: number, at: number, today: number): string | null {
+  const unitProblem = historyUnitProblem(terms, events, today);
+  if (unitProblem) return unitProblem;
   const then = owedOn(terms, events, at);
-  const after = accrual(terms, [...events, { kind: 'capitalized', amount, principalPart: null, interestPart: null, feePart: null, occurredAt: at }], 0, today);
+  const after = accrual(terms, [...events, { kind: 'capitalized', amount, principalPart: null, interestPart: null, feePart: null, unit: terms.unit, occurredAt: at }], 0, today);
   if (then === null || after.status !== 'ok') return 'There is no unpaid interest to add yet.';
   if (!(then > 0.005)) return 'There was no unpaid interest to add on that date.';
   if (amount > then + 0.005) return `That is more than the interest owed on that date, ${then.toFixed(2)}.`;
@@ -223,13 +246,16 @@ export function interestAddProblem(terms: LoanTerms, events: TermEvent[], amount
   return null;
 }
 
-/** The most interest that can be added on the day `at`, so the form can offer it. Zero when there is none. */
-export function interestAddable(terms: LoanTerms, events: TermEvent[], at: number, today: number): number {
+/** The most interest that can be added on the day `at`. Null is unknown, zero is a known absence. */
+export function interestAddable(terms: LoanTerms, events: TermEvent[], at: number, today: number): number | null {
+  if (accrual(terms, events, 0, today).status !== 'ok') return null;
   const then = owedOn(terms, events, at);
-  if (then === null || !(then > 0.005)) return 0;
+  if (then === null) return null;
+  if (!(then > 0.005)) return 0;
   if (interestAddProblem(terms, events, then, at, today) === null) return then;
   // Interest settled since that day is not added again: today's total owed is the most that is left.
-  const now = owedOn(terms, events, today) ?? 0;
+  const now = owedOn(terms, events, today);
+  if (now === null) return null;
   return Math.max(0, Math.min(then, now));
 }
 
@@ -249,7 +275,7 @@ export function paidTotals(events: TermEvent[], unit?: string): { total: number;
 }
 
 /** Whether a loan with a fixed repayment date is past it with something still owed. */
-export const isOverdue = (terms: LoanTerms, balance: number, now: number) => terms.dueKind === 'fixed' && terms.dueDate !== null && terms.dueDate < now && balance > 0;
+export const isOverdue = (terms: LoanTerms, balance: number, now: number) => terms.dueKind === 'fixed' && terms.dueDate !== null && dayOf(terms.dueDate) < dayOf(now) && balance > 0;
 
 /** A split typed in as text, checked to add up to the payment: in cents for money, in eight decimals for a coin. */
 export function splitProblem(total: number, parts: { principal: number; interest: number; fees: number }, decimals = 2): string | null {

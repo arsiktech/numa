@@ -66,7 +66,7 @@ function assertUnit(record: Record, unit: string) {
 async function assertWithinInterestOwed(ctx: MutationCtx, loan: Doc<"liabilities">, portfolioId: Id<"portfolios">, subject: string, amount: number, at: number) {
   if (loan.principal === undefined || loan.startedAt === undefined || !loan.interestRate) throw bad("There is no unpaid interest to add yet");
   const history = await ctx.db.query("debtEvents").withIndex("by_subject", (q) => q.eq("portfolioId", portfolioId).eq("subject", subject)).collect();
-  const problem = interestAddProblem({ principal: loan.principal, startedAt: loan.startedAt, interestRate: loan.interestRate }, history, amount, at, Date.now() + 2 * DAY);
+  const problem = interestAddProblem({ principal: loan.principal, startedAt: loan.startedAt, interestRate: loan.interestRate, unit: loan.currency }, history, amount, at, Date.now() + 2 * DAY);
   if (problem) throw bad(problem.startsWith("That is more") ? `${problem} ${loan.currency}` : problem);
 }
 

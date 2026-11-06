@@ -110,6 +110,7 @@ export function PaymentForm({ party, events, now, onSave, onCancel }: { party: P
       <Txt v="cardTitle">{byYou ? 'Record a payment' : 'Record money back'}</Txt>
       {records.length > 1 && <Seg label="Which debt" options={records.map((r) => [r.subject, r.amount] as [string, string])} value={subject} onChange={setSubject} />}
       <Seg label="What happened" options={kinds} value={kind} onChange={setKindChoice} />
+      {interest?.status === 'unsupported-history' && byYou && <Txt v="small" c="warn">Interest cannot be worked out. {interest.reason}</Txt>}
       {disagrees && byYou && <Txt v="small" c="warn">The history and the balance of this debt disagree, so interest can’t be added to it yet. Add the missing payments to the history first.</Txt>}
       {kind === 'capitalized' && <Txt v="small" c="ink3">Unpaid interest becomes part of the amount owed, and counts as interest settled. {dated ? 'Interest that can be added on that date' : 'Interest owed so far'}: {addable === null ? '—' : unitText(addable, unit)}.</Txt>}
       {!isNote && <Field label={amountLabel} numeric value={amount} onChangeText={setAmount} />}

@@ -5,6 +5,7 @@ import { bindUndo, CREATED, plan, type Op } from '@/ask/plan';
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
 import { useWriter } from '@/data/writes';
+import { useNavigationWriter } from '@/data/NavigationWriter';
 import { formatMoney } from '@/domain/money';
 import { parseTable } from '@/sources/csv';
 import { ImportKinds, ImportSources, type Loaded } from '@/sources/ImportSources';
@@ -39,6 +40,7 @@ function Importer() {
   const { c } = useTheme();
   const cloud = useCloudData();
   const run = useWriter();
+  const navigationWrite = useNavigationWriter();
   const toast = useToast();
   const [text, setText] = useState('');
   const [loaded, setLoaded] = useState<(Loaded & { tab: number }) | null>(null);
@@ -155,7 +157,7 @@ function Importer() {
 
   async function undoAll(ops: Op[]) {
     let left = 0;
-    for (const op of [...ops].reverse()) { try { await run(op); } catch { left += 1; } }
+    for (const op of [...ops].reverse()) { try { await navigationWrite(op); } catch { left += 1; } }
     setUndone(true);
     toast({ text: left ? `Undone, except ${left} that changed since` : 'Import undone' });
   }

@@ -60,8 +60,8 @@ function Editor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) => voi
 }
 
 /** A draft Numa read from the person's words. Nothing is saved until they press Save, and Save has Undo. */
-export function DraftCard({ draft, status, error, demo, onChange, onSave, onDiscard, onUndo }: {
-  draft: Draft; status: DraftStatus; error: string | null; demo: boolean;
+export function DraftCard({ draft, status, error, demo, locked = false, onChange, onSave, onDiscard, onUndo }: {
+  draft: Draft; status: DraftStatus; error: string | null; demo: boolean; locked?: boolean;
   onChange: (d: Draft) => void; onSave: () => void; onDiscard: () => void; onUndo: () => void;
 }) {
   const { c } = useTheme();
@@ -84,7 +84,8 @@ export function DraftCard({ draft, status, error, demo, onChange, onSave, onDisc
         {h.cents === null ? '—' : mask(h.sign + formatMoney(h.cents, draft.currency, { cents: true }))}
       </Txt>
       {h.lines.map((l, i) => <Txt key={i} v="body" c="ink2" style={{ fontSize: 14, marginTop: 2 }}>{mask(l)}</Txt>)}
-      {open && editing && <Editor draft={draft} onChange={onChange} />}
+      {open && editing && !locked && <Editor draft={draft} onChange={onChange} />}
+      {open && locked && <Txt v="small" c="ink2" style={{ marginTop: 8 }}>A Save was attempted with these details. Retry confirms that same request. Removing this local draft does not undo a submitted save. Check your records before making changes.</Txt>}
       {open && problems.length > 0 && <Txt v="small" style={{ color: c.warn, marginTop: 8 }}>{problems[0]}</Txt>}
       {error && <Txt v="small" style={{ color: c.down, marginTop: 8 }} accessibilityRole="alert">{error}</Txt>}
 
@@ -93,11 +94,11 @@ export function DraftCard({ draft, status, error, demo, onChange, onSave, onDisc
           <Pressable onPress={onSave} disabled={problems.length > 0} accessibilityRole="button" aria-disabled={problems.length > 0} style={{ minHeight: 40, paddingHorizontal: 18, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: problems.length ? 0.4 : 1 }}>
             <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>Save</Txt>
           </Pressable>
-          <Pressable onPress={() => setEditing((e) => !e)} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: 'center' }}>
+          {!locked && <Pressable onPress={() => setEditing((e) => !e)} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: 'center' }}>
             <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{editing ? 'Done' : 'Edit'}</Txt>
-          </Pressable>
+          </Pressable>}
           <Pressable onPress={onDiscard} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: 'center' }}>
-            <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>Discard</Txt>
+            <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{locked ? 'Remove draft' : 'Discard'}</Txt>
           </Pressable>
         </View>
       )}
