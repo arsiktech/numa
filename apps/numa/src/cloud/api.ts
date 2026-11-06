@@ -230,6 +230,7 @@ export type CloudSignInMethods = {
 };
 
 export const cloud = {
+  sendFeedback: makeFunctionReference<'mutation', { expectedUserId: string; kind: 'idea' | 'problem' | 'other'; message: string; platform: string; appVersion: string; clientMutationId: string }, { id: string }>('feedback:submit'),
   recordActiveDay: makeFunctionReference<'mutation', { expectedUserId: string }, { utcDate: string; recheckAfterMs?: number }>('activeDays:record'),
   aiSharing: makeFunctionReference<'query', Record<string, never>, AISharingStatus>('privacy:status'),
   setAISharing: makeFunctionReference<'mutation', { expectedUserId: string; allowed: boolean; version: string; clientMutationId: string }, unknown>('privacy:setAISharing'),
