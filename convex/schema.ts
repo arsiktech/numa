@@ -50,6 +50,10 @@ export default defineSchema({
   activeDays: defineTable({
     userId: v.id("users"), utcDate: v.string(),
   }).index("by_user", ["userId"]).index("by_user_day", ["userId", "utcDate"]).index("by_day", ["utcDate"]),
+  feedback: defineTable({
+    userId: v.id("users"), kind: v.union(v.literal("idea"), v.literal("problem"), v.literal("other")),
+    message: v.string(), platform: v.string(), appVersion: v.string(), clientMutationId: v.string(), sentAt: v.number(),
+  }).index("by_user", ["userId"]).index("by_user_client_id", ["userId", "clientMutationId"]),
   privacyChoices: defineTable({
     userId: v.id("users"), allowed: v.boolean(), version: v.string(), recordedAt: v.number()
   }).index("by_user", ["userId"]),

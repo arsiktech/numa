@@ -9,6 +9,7 @@ import { AccountSection, DataSection, DeletionBanner } from '@/settings/AccountS
 import { AgentSection } from '@/settings/AgentSection';
 import { AISharingSection } from '@/settings/AISharingSection';
 import { AlertsSection } from '@/settings/AlertsSection';
+import { FeedbackSection } from '@/settings/FeedbackSection';
 import { Action, Row, Section } from '@/settings/rows';
 import { SpaceSection } from '@/settings/SpaceSection';
 import { WalletSection } from '@/settings/WalletSection';
@@ -62,6 +63,7 @@ export default function Settings() {
           <>
             <AlertsSection />
             <WalletSection />
+            <FeedbackSection />
             <DataSection />
             <AccountSection />
           </>
