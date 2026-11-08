@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createTransfer, updateTransfer, deleteTransfer, setCategoryBudget } from "./money";
 import { update as updateAsset, remove as removeAsset } from "./assets";
-import { upsertAsset, deleteAsset, portfolioSnapshot, createCategory } from "./mobile";
+import { bootstrap, upsertAsset, deleteAsset, portfolioSnapshot, createCategory } from "./mobile";
 import { remove as removePortfolio, update as updatePortfolio } from "./portfolios";
 import { add as addCategory, update as updateCategory } from "./categories";
 import { buildMobileDashboard } from "./lib/mobileDashboard";
@@ -185,6 +185,19 @@ describe("legacy manual cash transfer boundary", () => {
     expect(dashboard.dataQuality.ledgerIncluded).toBe(false);
     await f.call(deleteTransfer, { id: first.id, clientMutationId: "delete" });
     expect((await f.call(portfolioSnapshot, { portfolioId: "pf" })).transfers).toEqual([]);
+  });
+
+  it("bootstrap keeps the full response by default and builds no snapshot when a client opts out", async () => {
+    const full = await fixture().call(bootstrap, {});
+    expect(full.portfolioSnapshot.portfolio.id).toBe("pf");
+    expect(full.hasRealData).toBe(true);
+    const f = fixture();
+    const slim = await f.call(bootstrap, { withSnapshot: false });
+    expect(slim).toMatchObject({ selectedPortfolioId: "pf" });
+    expect(slim.profile).toBeDefined();
+    expect(slim).not.toHaveProperty("portfolioSnapshot");
+    expect(slim).not.toHaveProperty("hasRealData");
+    expect(await f.call(bootstrap, { withSnapshot: true })).toHaveProperty("portfolioSnapshot");
   });
 
   it("portfolio removal physically clears active transfers and tombstones", async () => {

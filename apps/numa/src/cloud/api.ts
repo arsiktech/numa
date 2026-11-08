@@ -235,7 +235,7 @@ export const cloud = {
   aiSharing: makeFunctionReference<'query', Record<string, never>, AISharingStatus>('privacy:status'),
   setAISharing: makeFunctionReference<'mutation', { expectedUserId: string; allowed: boolean; version: string; clientMutationId: string }, unknown>('privacy:setAISharing'),
   authFlags: makeFunctionReference<'query', Record<string, never>, { passwordReset: boolean; emailVerification: boolean; googleOAuth: boolean; appleOAuth: boolean }>('authConfig:flags'),
-  bootstrap: makeFunctionReference<'mutation', Record<string, never>, CloudBootstrap>('mobile:bootstrap'),
+  bootstrap: makeFunctionReference<'mutation', { withSnapshot?: boolean }, CloudBootstrap>('mobile:bootstrap'),
   portfolioSnapshot: makeFunctionReference<'query', { portfolioId: string }, CloudSnapshot>('mobile:portfolioSnapshot'),
   defiEarnings: makeFunctionReference<'query', { portfolioId: string }, CloudEarning[]>('defiEarnings:forPortfolio'),
   createPortfolio: makeFunctionReference<
