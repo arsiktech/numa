@@ -6,7 +6,7 @@ import { storage } from '@/cloud/storage';
 import { usePrefs } from '@/state/prefs';
 import { summarize, type Summary } from '@/domain/summary';
 import { fromSnapshot, type HomeData } from './fromSnapshot';
-import { parseFrankfurter, readSavedFx, type FxRate } from './fx';
+import { fetchFxRate, loadFx, type FxRate } from './fx';
 
 /** The signed-in person's data, loaded once and shared by Home and Ask. */
 export type CloudData =
@@ -18,21 +18,16 @@ export type CloudData =
 const FX_KEY = 'numa.fx.v1';
 const CloudContext = createContext<CloudData | null>(null);
 
-/** Today's ECB euro-dollar rate, falling back to the last one this device saw. */
+/** The ECB euro-dollar rate. A current saved rate shows at once; today's replaces it when it arrives. */
 function useFx(): { fx: FxRate | null; settled: boolean } {
   const [fx, setFx] = useState<FxRate | null>(null);
   const [settled, setSettled] = useState(false);
   useEffect(() => {
     let alive = true;
-    (async () => {
-      try {
-        const res = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD');
-        const rate = res.ok ? parseFrankfurter(await res.json()) : null;
-        if (rate) { if (alive) setFx(rate); void storage.setItem(FX_KEY, JSON.stringify(rate)); return; }
-      } catch { /* offline: use the saved rate */ }
-      const saved = readSavedFx(await storage.getItem(FX_KEY));
-      if (alive) setFx(saved);
-    })().finally(() => alive && setSettled(true));
+    void loadFx(
+      { readSaved: () => storage.getItem(FX_KEY), fetchRate: () => fetchFxRate(), save: (raw) => void storage.setItem(FX_KEY, raw), now: Date.now() },
+      (rate) => { if (alive) { setFx(rate); setSettled(true); } },
+    );
     return () => { alive = false; };
   }, []);
   return { fx, settled };
@@ -55,7 +50,10 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true;
-    bootstrap({}).then((b) => alive && setBoot(b), () => alive && setError('Couldn’t reach Numa. Check your connection and try again.'));
+    // This app subscribes to the snapshot below, so it doesn't ask bootstrap to build one too. A
+    // backend still on the previous version rejects the new argument, so that case retries without it.
+    bootstrap({ withSnapshot: false }).catch(() => bootstrap({}))
+      .then((b) => alive && setBoot(b), () => alive && setError('Couldn’t reach Numa. Check your connection and try again.'));
     return () => { alive = false; };
   }, [bootstrap, attempt]);
 

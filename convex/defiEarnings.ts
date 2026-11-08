@@ -12,12 +12,10 @@ export const forPortfolio = query({
   handler: async (ctx, { portfolioId }): Promise<Array<PositionEarnings & { walletId: string; wallet: string }>> => {
     await requireMember(ctx, portfolioId);
     const wallets = await ctx.db.query("cryptoWallets").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect();
-    const out: Array<PositionEarnings & { walletId: string; wallet: string }> = [];
-    for (const w of wallets) {
-      if (!w.includeInNetWorth) continue;
+    const perWallet = await Promise.all(wallets.filter((w) => w.includeInNetWorth).map(async (w) => {
       const readings = (await ctx.db.query("defiReadings").withIndex("by_wallet_day", (q) => q.eq("walletId", w._id)).order("desc").take(MAX_DAYS)).reverse();
-      for (const e of earningsOf(readings)) out.push({ ...e, walletId: w._id, wallet: w.label });
-    }
-    return out;
+      return earningsOf(readings).map((e) => ({ ...e, walletId: w._id as string, wallet: w.label }));
+    }));
+    return perWallet.flat();
   },
 });

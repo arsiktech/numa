@@ -1,6 +1,6 @@
 import { Link, router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, View, useWindowDimensions, type DimensionValue } from 'react-native';
 
 import type { CloudCurrency } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
@@ -119,6 +119,21 @@ function LensTabs({ lens, setLens, wide, compact }: { lens: Lens; setLens: (l: L
   );
 }
 
+/** Holds the place of the total, the chart and the blocks, so the page doesn't jump when they load. */
+function HomeSkeleton({ wide }: { wide: boolean }) {
+  const { c } = useTheme();
+  const block = (height: number, width: DimensionValue, marginTop: number, radius = 12) => <View style={{ height, width, marginTop, borderRadius: radius, backgroundColor: c.s2 }} />;
+  return (
+    <View accessible accessibilityRole="progressbar" accessibilityLabel="Loading your money">
+      {block(wide ? 80 : 60, wide ? 340 : 220, 4)}
+      {block(22, 160, 16, 8)}
+      {block(wide ? 280 : 190, '100%', 16)}
+      {block(56, '100%', 28)}
+      {block(120, '100%', 28)}
+    </View>
+  );
+}
+
 function HomeView({ model, range, setRange, canSignIn }: { model: HomeModel; range: Range; setRange: (r: Range) => void; canSignIn: boolean }) {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
@@ -133,7 +148,7 @@ function HomeView({ model, range, setRange, canSignIn }: { model: HomeModel; ran
   );
 
   if (model.status === 'loading') {
-    return shell(<View style={{ marginTop: 80, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading your money" /></View>);
+    return shell(<HomeSkeleton wide={wide} />);
   }
   if (model.status === 'error') {
     return shell(<Message title="Can’t load your money" body={model.message} action={<Button label="Try again" onPress={model.retry} />} />);
@@ -280,10 +295,12 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   ) : null;
 
   const panelOpen = usePanelOpen();
-  const teaser = <MonthTeaser month={model.month} flow={model.flow} />;
-  const moneyMap = model.source === 'cloud' && !model.empty ? <MoneyMapTeaser /> : null;
-  const earnings = model.source === 'cloud' && !model.empty;
-  const needs = <NeedsYou items={model.attention} readOnly={model.source === 'demo'} />;
+  // Dragging the chart re-renders this screen on every move. These sections don't follow the finger.
+  const teaser = useMemo(() => <MonthTeaser month={model.month} flow={model.flow} />, [model.month, model.flow]);
+  const cloudTeasers = model.source === 'cloud' && !model.empty;
+  const moneyMap = useMemo(() => (cloudTeasers ? <MoneyMapTeaser /> : null), [cloudTeasers]);
+  const earnings = useMemo(() => (cloudTeasers ? <EarningsTeaser style={wide ? undefined : { marginTop: 12 }} /> : null), [cloudTeasers, wide]);
+  const needs = useMemo(() => <NeedsYou items={model.attention} readOnly={model.source === 'demo'} />, [model.attention, model.source]);
 
   if (wide) {
     return shell(
@@ -292,7 +309,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
           {chart}
           {/* Beside an open panel the page is narrower, so the two columns stack. */}
           <View style={{ flexDirection: panelOpen ? 'column' : 'row', gap: panelOpen ? 28 : 48, alignItems: panelOpen ? 'stretch' : 'flex-start', marginTop: 14 }}>
-            <View style={{ flex: panelOpen ? undefined : 1.7, gap: 28 }}>{blocks}{moneyMap}{earnings && <EarningsTeaser />}{teaser}</View>
+            <View style={{ flex: panelOpen ? undefined : 1.7, gap: 28 }}>{blocks}{moneyMap}{earnings}{teaser}</View>
             <View style={{ flex: panelOpen ? undefined : 1, minWidth: 320 }}>{needs}</View>
           </View>
       </View>,
@@ -305,7 +322,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
       {showChart && <View style={{ marginTop: 6, marginHorizontal: -6 }}>{rangePills}</View>}
       <View style={{ marginTop: 28 }}>{blocks}</View>
       {moneyMap && <View style={{ marginTop: 20 }}>{moneyMap}</View>}
-      {earnings && <EarningsTeaser style={{ marginTop: 12 }} />}
+      {earnings}
       <View style={{ marginTop: 28 }}>{teaser}</View>
       <View style={{ marginTop: 30 }}>{needs}</View>
     </>,

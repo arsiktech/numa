@@ -42,3 +42,35 @@ export function readSavedFx(raw: string | null): FxRate | null {
     return null;
   }
 }
+
+/** Longest Home waits for the rate. A hung request must not hold the screen on loading. */
+export const FX_TIMEOUT_MS = 5000;
+
+/** Today's rate from Frankfurter, or null when it fails or takes longer than the timeout. */
+export async function fetchFxRate(fetcher: typeof fetch = fetch, timeoutMs = FX_TIMEOUT_MS): Promise<FxRate | null> {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), timeoutMs);
+  try {
+    const res = await fetcher('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD', { signal: abort.signal });
+    return res.ok ? parseFrankfurter(await res.json()) : null;
+  } catch {
+    return null; // Offline, blocked or timed out.
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Publishes a rate as early as it can be trusted, and always publishes at least once.
+ * A saved rate that is still current goes out at once, then today's rate replaces it. An older
+ * saved rate is only the fallback when today's rate can't be fetched, so it never flashes first.
+ */
+export async function loadFx(io: { readSaved: () => Promise<string | null>; fetchRate: () => Promise<FxRate | null>; save: (raw: string) => void; now: number }, publish: (fx: FxRate | null) => void): Promise<void> {
+  let fresh = false;
+  const saved = io.readSaved().then(readSavedFx, () => null);
+  const early = saved.then((fx) => { if (fx && !fresh && isFxCurrent(fx, io.now)) publish(fx); });
+  const rate = await io.fetchRate();
+  if (rate) { fresh = true; publish(rate); io.save(JSON.stringify(rate)); return; }
+  await early;
+  publish(await saved);
+}

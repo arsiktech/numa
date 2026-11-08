@@ -416,8 +416,10 @@ export const updateMemberCards = mutation({
 });
 
 export const bootstrap = mutation({
-  args: {},
-  handler: async (ctx) => {
+  // withSnapshot: false is for clients that subscribe to portfolioSnapshot anyway. It skips reading
+  // the whole portfolio inside this mutation. Clients that omit it get the full response.
+  args: { withSnapshot: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
     const userId = await ensureUser(ctx);
     await claimInvitedPodRows(ctx, userId);
     const profile = await ensureProfile(ctx, userId);
@@ -425,6 +427,14 @@ export const bootstrap = mutation({
     const portfolios = await userPortfolios(ctx, userId);
     const pods = await listPodsForUser(ctx, userId);
     const selected = portfolios[0];
+    if (args.withSnapshot === false) {
+      return {
+        profile: mobileProfile(userId, user, profile),
+        portfolios: portfolios.map((entry) => mobilePortfolio(entry.portfolio, entry.membership)),
+        selectedPortfolioId: selected?.portfolio._id ?? null,
+        pods
+      };
+    }
     const snapshot = selected ? await buildPortfolioSnapshot(ctx, selected.portfolio._id) : null;
     const hasRealData = Boolean(
       snapshot &&
