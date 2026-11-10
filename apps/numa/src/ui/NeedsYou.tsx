@@ -24,7 +24,7 @@ function Card({ item, index, done, readOnly, onPrimary, onLater, onUndo }: { ite
       aria-disabled={readOnly}
       style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: filled ? 16 : 12, borderRadius: filled ? 999 : 0, backgroundColor: filled ? (readOnly ? c.s2 : c.ink) : 'transparent', justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}
     >
-      <Txt v="body" c={filled ? (readOnly ? 'ink2' : 'bg') : readOnly ? 'ink3' : 'ink'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{label}</Txt>
+      <Txt v="body" c={filled ? (readOnly ? 'ink2' : 'bg') : readOnly ? 'ink3' : 'ink'} style={{ fontFamily: 'Manrope_700Bold' }}>{label}</Txt>
     </Pressable>
   );
   return (
@@ -32,13 +32,13 @@ function Card({ item, index, done, readOnly, onPrimary, onLater, onUndo }: { ite
       <View style={{ width: 8, height: 8, marginTop: 6, borderRadius: 4, backgroundColor: c[dot[item.urgency]] }} />
       <View style={{ flex: 1 }}>
         <Txt v="cardTitle">{mask(item.title)}</Txt>
-        <Txt v="body" c="ink2" style={{ fontSize: 14, marginTop: 4 }}>{mask(item.body)}</Txt>
+        <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(item.body)}</Txt>
         {done ? (
           <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <IconCheck color={c.upInk} />
-            <Txt v="body" c="upInk" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{item.doneText}</Txt>
+            <Txt v="body" c="upInk" style={{ fontFamily: 'Manrope_700Bold' }}>{item.doneText}</Txt>
             <Pressable onPress={onUndo} accessibilityRole="button" hitSlop={8} style={{ paddingHorizontal: 6, minHeight: 30, justifyContent: 'center' }}>
-              <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>Undo</Txt>
+              <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>Undo</Txt>
             </Pressable>
           </View>
         ) : (

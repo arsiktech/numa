@@ -93,7 +93,7 @@ function StartSpace({ create }: { create: (currency: CloudCurrency) => Promise<v
           <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 999, backgroundColor: c.s2, alignSelf: 'flex-start', marginTop: 6 }} accessibilityRole="radiogroup">
             {(['EUR', 'USD'] as const).map((cur) => (
               <Pressable key={cur} onPress={() => setCurrency(cur)} accessibilityRole="radio" aria-checked={currency === cur} style={{ minWidth: 72, minHeight: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: currency === cur ? c.bg : 'transparent' }}>
-                <Txt v="body" c={currency === cur ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{cur === 'EUR' ? '€ Euro' : '$ Dollar'}</Txt>
+                <Txt v="body" c={currency === cur ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{cur === 'EUR' ? '€ Euro' : '$ Dollar'}</Txt>
               </Pressable>
             ))}
           </View>
@@ -233,7 +233,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         ) : showChange ? (
           <Pressable onPress={openMovers} accessibilityRole="button" hitSlop={8} accessibilityHint="Explains this change"
             style={{ minHeight: 44, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-            <Txt v="figure" style={{ fontSize: 15, color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
+            <Txt v="figure" style={{ color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
             {/* A picked date shows above the chart, by the point; here only the change since the start. */}
             {scrub === null && <Txt v="body" c="ink2">{rangeWords(range, points[0].t)}</Txt>}
             <Txt v="body" c="ink3">›</Txt>

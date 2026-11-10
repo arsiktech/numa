@@ -103,7 +103,7 @@ function StrategyRow({ s, share, last }: { s: Strategy; share: number; last: boo
           {s.paidCents > 0 && <Txt v="small" c="ink3">Earned {money(s.earnedCents, { cents: true })} · interest {money(s.paidCents, { cents: true })}</Txt>}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Txt v="figure" style={{ fontSize: 15, color }}>{money(s.netCents, { cents: true, sign: true })}</Txt>
+          <Txt v="figure" style={{ color }}>{money(s.netCents, { cents: true, sign: true })}</Txt>
           {s.rate !== null && <Txt v="figureSm" c="ink3">{pct(s.rate)} a year</Txt>}
         </View>
       </View>

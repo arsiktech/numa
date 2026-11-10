@@ -23,7 +23,7 @@ function LoanRow({ loan, last }: { loan: Loan; last: boolean }) {
         <Txt v="small" c={loan.deployed.length ? 'ink2' : 'ink3'} numberOfLines={1}>{loan.where} · {went}</Txt>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Txt v="figure" style={{ fontSize: 15, color: c.down }}>{loan.debtCents === null ? '—' : money(loan.debtCents)}</Txt>
+        <Txt v="figure" style={{ color: c.down }}>{loan.debtCents === null ? '—' : money(loan.debtCents)}</Txt>
         {loan.resultCents !== null ? <Txt v="figureSm" style={{ color: loan.resultCents >= 0 ? c.upInk : c.down }}>{money(loan.resultCents, { sign: true })}</Txt>
           : loan.ltv !== null ? <Txt v="figureSm" c="ink3">{Math.round(loan.ltv * 100)}% of collateral</Txt> : null}
       </View>
@@ -73,7 +73,7 @@ export function LiquidationSection() {
           <>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
               <Txt v="small" c="ink2" style={{ flex: 1 }} numberOfLines={1}>Closest: {closest.loan.name}</Txt>
-              <Txt v="figureSm" style={{ fontSize: 14, color: zoneColor(closest.safety.zone) }}>{fall(closest.safety)}</Txt>
+              <Txt v="figureSm" style={{ color: zoneColor(closest.safety.zone) }}>{fall(closest.safety)}</Txt>
             </View>
             <SafetyBar safety={closest.safety} />
             {rows.length > 1 && <Txt v="small" c="ink3">{rows.length} loans · tap to see each, and the coin prices they’re sold at</Txt>}
@@ -87,7 +87,7 @@ export function LiquidationSection() {
               accessibilityLabel={`${loan.name}, ${loan.where}. ${zoneText(safety)}: can fall ${Math.round(safety.cushion * 100)} percent before it is sold. Open`} style={{ gap: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
                 <Txt v="body" style={{ flex: 1, fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{loan.name}</Txt>
-                <Txt v="figureSm" style={{ fontSize: 14, color: zoneColor(safety.zone) }}>{fall(safety)}</Txt>
+                <Txt v="figureSm" style={{ color: zoneColor(safety.zone) }}>{fall(safety)}</Txt>
               </View>
               <SafetyBar safety={safety} />
               <Txt v="small" c="ink3" numberOfLines={1}>{loan.where} · health {safety.health.toFixed(2)}</Txt>

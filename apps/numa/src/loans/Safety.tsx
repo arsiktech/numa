@@ -63,8 +63,8 @@ export function SafetyGauge({ safety, size = 280 }: { safety: Safety; size?: num
         </View>
       </View>
       <View style={{ width: size, flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-        <Txt v="label" c="ink3" style={{ fontSize: 10 }}>NOTHING BORROWED</Txt>
-        <Txt v="label" style={{ fontSize: 10, color: c.down }}>LIQUIDATION</Txt>
+        <Txt v="label" c="ink3" style={{}}>NOTHING BORROWED</Txt>
+        <Txt v="label" style={{ color: c.down }}>LIQUIDATION</Txt>
       </View>
       <View style={{ marginTop: 14, minHeight: 28, paddingHorizontal: 12, borderRadius: 999, backgroundColor: c.s2, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />

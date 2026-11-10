@@ -47,7 +47,7 @@ function PlaceRow({ place, onRemove, last }: { place: LoanPlace; onRemove?: () =
           <Txt v="body" c={place.gone ? 'warn' : 'ink'} style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{place.name}</Txt>
           {place.detail && <Txt v="small" c="ink2" numberOfLines={1}>{place.detail}</Txt>}
         </View>
-        <Txt v="figure" style={{ fontSize: 15 }}>{place.valueCents === null ? '—' : money(place.valueCents)}</Txt>
+        <Txt v="figure" style={{}}>{place.valueCents === null ? '—' : money(place.valueCents)}</Txt>
       </Pressable>
       {onRemove && (
         <Pressable onPress={onRemove} accessibilityRole="button" accessibilityLabel={`Unlink ${place.name}`} hitSlop={6}
@@ -89,7 +89,7 @@ function Picker({ loan, role, state, onPick, onClose }: { loan: Loan; role: Loan
               <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{p.name}</Txt>
               <Txt v="small" c={other ? 'warn' : 'ink2'} numberOfLines={1}>{note}</Txt>
             </View>
-            <Txt v="figureSm" style={{ fontSize: 14 }}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
+            <Txt v="figureSm" style={{}}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
             <Txt v="body" c="ink3">+</Txt>
           </Pressable>
         );
@@ -174,7 +174,7 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'dow
   return (
     <View style={{ minHeight: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.line, gap: 12 }}>
       <Txt v="body" c="ink2">{label}</Txt>
-      <Txt v="figureSm" c={tone ?? 'ink'} style={{ fontSize: 14, flexShrink: 1, textAlign: 'right' }}>{value}</Txt>
+      <Txt v="figureSm" c={tone ?? 'ink'} style={{ flexShrink: 1, textAlign: 'right' }}>{value}</Txt>
     </View>
   );
 }

@@ -54,9 +54,9 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
     <View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginBottom: 8 }}>
         <Pressable onPress={() => open('all')} accessibilityRole="link" hitSlop={8}>
-          <Txt v="small" c="ink2" style={{ fontSize: 14 }}>{when ? `What you owned · ${when}${onOpen ? ' ›' : ''}` : 'What you own ›'}</Txt>
+          <Txt v="small" c="ink2" style={{}}>{when ? `What you owned · ${when}${onOpen ? ' ›' : ''}` : 'What you own ›'}</Txt>
         </Pressable>
-        <Txt v="figureSm" style={{ fontSize: 14 }}>{money(ownCents)}</Txt>
+        <Txt v="figureSm" style={{}}>{money(ownCents)}</Txt>
       </View>
       <View style={{ gap: 2 }}>
         <LensBar entries={own} height={wide ? 96 : 60} labelMin={wide ? 0.06 : 0.08} emptyColor={c.s1} />
@@ -66,10 +66,10 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: c.down }} />
           <Pressable onPress={() => open('debts')} accessibilityRole="link" hitSlop={8}>
-            <Txt v="small" c="ink2" style={{ fontSize: 14 }}>{when ? `What you owed${onOpen ? ' ›' : ''}` : 'What you owe ›'}</Txt>
+            <Txt v="small" c="ink2" style={{}}>{when ? `What you owed${onOpen ? ' ›' : ''}` : 'What you owe ›'}</Txt>
           </Pressable>
         </View>
-        <Txt v="figureSm" style={{ fontSize: 14 }}>{money(oweCents)}</Txt>
+        <Txt v="figureSm" style={{}}>{money(oweCents)}</Txt>
       </View>
     </View>
   );

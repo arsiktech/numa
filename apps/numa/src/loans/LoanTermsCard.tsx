@@ -27,7 +27,7 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'dow
   return (
     <View style={{ minHeight: 34, paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
       <Txt v="body" c="ink2" style={{ flexShrink: 1 }} maxFontSizeMultiplier={1.4}>{label}</Txt>
-      <Txt v="figureSm" style={{ fontSize: 14, textAlign: 'right', flexShrink: 1, color: tone === 'down' ? c.down : tone === 'warn' ? c.warn : c.ink }} maxFontSizeMultiplier={1.4}>{mask(value)}</Txt>
+      <Txt v="figureSm" style={{ textAlign: 'right', flexShrink: 1, color: tone === 'down' ? c.down : tone === 'warn' ? c.warn : c.ink }} maxFontSizeMultiplier={1.4}>{mask(value)}</Txt>
     </View>
   );
 }
