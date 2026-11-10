@@ -15,6 +15,7 @@
     },
     "production": {
       "environment": "production",
+      "distribution": "store",
       "autoIncrement": true,
       "node": "24.21.0",
       "channel": "production"
