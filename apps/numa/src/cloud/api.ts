@@ -165,6 +165,8 @@ export type CloudSnapshot = {
   revenue?: CloudRevenue;
   /** Tracked public wallets, loaded beside the snapshot. */
   wallets?: CloudWallet[];
+  /** Oldest transaction, so a ranged snapshot can still name earlier months. */
+  oldestTransactionAt?: number | null;
 };
 
 /** A tracked public address. Balances come from public explorers; values are in US dollars. */
@@ -236,7 +238,9 @@ export const cloud = {
   setAISharing: makeFunctionReference<'mutation', { expectedUserId: string; allowed: boolean; version: string; clientMutationId: string }, unknown>('privacy:setAISharing'),
   authFlags: makeFunctionReference<'query', Record<string, never>, { passwordReset: boolean; emailVerification: boolean; googleOAuth: boolean; appleOAuth: boolean }>('authConfig:flags'),
   bootstrap: makeFunctionReference<'mutation', { withSnapshot?: boolean }, CloudBootstrap>('mobile:bootstrap'),
-  portfolioSnapshot: makeFunctionReference<'query', { portfolioId: string }, CloudSnapshot>('mobile:portfolioSnapshot'),
+  portfolioSnapshot: makeFunctionReference<'query', { portfolioId: string; since?: number }, CloudSnapshot>('mobile:portfolioSnapshot'),
+  monthLedger: makeFunctionReference<'query', { portfolioId: string; start: number; end: number }, CloudTransaction[]>('mobile:monthLedger'),
+  fxRate: makeFunctionReference<'query', Record<string, never>, { usdPerEur: number; asOf: string } | null>('fxRate:read'),
   defiEarnings: makeFunctionReference<'query', { portfolioId: string }, CloudEarning[]>('defiEarnings:forPortfolio'),
   createPortfolio: makeFunctionReference<
     'mutation',
@@ -294,6 +298,7 @@ export const cloud = {
   disconnectAgent: makeFunctionReference<'mutation', { id: string }, null>('agentAccess:disconnect'),
   agentActivity: makeFunctionReference<'query', { limit?: number }, CloudAgentActivity[]>('agentAccess:recentActivity'),
   priceSeries: makeFunctionReference<'action', { range: '1D' | '1W' | '1M' | '1Y'; symbols: { symbol: string; kind: 'crypto' | 'stock' }[] }, Record<string, PriceSeries>>('priceHistory:series'),
+  priceSeriesRead: makeFunctionReference<'query', { range: '1D' | '1W' | '1M' | '1Y'; symbols: { symbol: string; kind: 'crypto' | 'stock' }[] }, Record<string, PriceSeries>>('priceHistory:read'),
   deleteMyAccount: makeFunctionReference<'mutation', Record<string, never>, null>('users:deleteMyAccount'),
   cancelMyDeletion: makeFunctionReference<'mutation', Record<string, never>, { ok: true } | { ok: false; reason: 'already-started' | 'already-deleted' | string }>('users:cancelMyDeletion'),
   exportManifest: makeFunctionReference<'query', ExportScope, ExportManifest>('dataExport:manifest'),

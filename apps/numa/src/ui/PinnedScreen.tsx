@@ -12,7 +12,7 @@ import { IconEye, IconPerson } from './icons';
 import { MiniWordmark, WIDE } from './Nav';
 import { Txt } from './Txt';
 
-const APP_ICON = require('../../assets/images/icon.png');
+const APP_ICON = require('../../assets/images/icon-64.png');
 
 /** Scrolling past this collapses the bar; scrolling back above the lower mark opens it again. */
 const COLLAPSE_AT = 48;
@@ -24,15 +24,15 @@ export function BarButtons({ demo, onDemo, compact }: { demo: boolean; onDemo?: 
   const { hideAmounts, set } = usePrefs();
   const pill = (
     <View style={{ minHeight: 24, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-      <Txt v="label" c="ink2" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.4}>Demo</Txt>
+      <Txt v="label" c="ink2">Demo</Txt>
     </View>
   );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
       {demo && !compact && (onDemo
-        ? <Pressable onPress={onDemo} accessibilityRole="button" accessibilityLabel="Demo data. Sign in" style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 }}>{pill}<Txt v="small" style={{ fontFamily: 'Manrope_700Bold' }}>Sign in</Txt></Pressable>
+        ? <Pressable onPress={onDemo} accessibilityRole="button" accessibilityLabel="DEMO Sign in" style={({ pressed }) => ({ height: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4, opacity: pressed ? 0.72 : 1 })}>{pill}<Txt v="small" style={{ fontFamily: 'Manrope_700Bold' }}>Sign in</Txt></Pressable>
         : <View accessibilityLabel="Demo data" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>{pill}</View>)}
-      <Pressable onPress={() => set('hideAmounts', !hideAmounts)} accessibilityRole="switch" aria-checked={hideAmounts} accessibilityLabel="Hide amounts" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: hideAmounts ? 0.55 : 1 }}>
+      <Pressable onPress={() => set('hideAmounts', !hideAmounts)} accessibilityRole="switch" aria-checked={hideAmounts} accessibilityLabel="Hide amounts" style={({ pressed }) => ({ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
         <IconEye color={c.ink} />
       </Pressable>
       <Link href="/settings" asChild>
@@ -59,7 +59,9 @@ export function PinnedScreen({ nav, buttons, children, maxWidth = 1240, keyboard
 }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const wide = useWindowDimensions().width >= WIDE;
+  const width = useWindowDimensions().width;
+  const wide = width >= WIDE;
+  const stackHeader = width < 375;
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(0);
   const [compact, setCompact] = useState(false);
@@ -90,17 +92,20 @@ export function PinnedScreen({ nav, buttons, children, maxWidth = 1240, keyboard
       }}
       stickyHeaderIndices={[0]}
       scrollIndicatorInsets={{ top: open }}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 150 }}>
+      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 8) + 120 }}>
       {/* Keeps the open bar's height, so folding never moves the page; below the folded bar it is see-through. */}
       <View pointerEvents="box-none" style={{ height: compact && open ? open : undefined }}>
         <Animated.View layout={layout}
           onLayout={(e) => { if (!compact) setOpen(Math.round(e.nativeEvent.layout.height)); }}
           style={{ paddingTop: insets.top + 4, paddingHorizontal: 20, paddingBottom: compact ? 6 : 0, backgroundColor: c.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: compact ? c.line2 : 'transparent' }}>
           {compact ? (
-            <Animated.View key="compact" entering={fade(160)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: -10 }}>
-              <Image source={APP_ICON} accessibilityLabel="Numa Pro" accessibilityRole="image" style={{ width: 28, height: 28, borderRadius: 7, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line2 }} />
-              <View style={{ flex: 1, minWidth: 0 }}>{nav(true)}</View>
-              {buttons(true)}
+            <Animated.View key="compact" entering={fade(160)} style={{ gap: 4, marginRight: -8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Image source={APP_ICON} accessibilityLabel="Numa Pro" accessibilityRole="image" style={{ width: 28, height: 28, borderRadius: 10 }} />
+                {stackHeader ? <View style={{ flex: 1 }} /> : <View style={{ flex: 1, minWidth: 0 }}>{nav(true)}</View>}
+                {buttons(true)}
+              </View>
+              {stackHeader ? <View style={{ minWidth: 0 }}>{nav(true)}</View> : null}
             </Animated.View>
           ) : (
             <Animated.View key="open" entering={fade(200)} exiting={reduce ? undefined : FadeOut.duration(80)}>

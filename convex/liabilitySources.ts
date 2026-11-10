@@ -121,13 +121,13 @@ export const target = internalQuery({
 export const due = internalQuery({
   args: { now: v.number() },
   handler: async (ctx, { now }): Promise<Target[]> => {
-    const out: Target[] = [];
+    const due: Array<Target & { checkedAt: number }> = [];
     for await (const row of ctx.db.query("liabilitySources")) {
       if (row.checkedAt !== undefined && now - row.checkedAt < SCHEDULED_AGE_MS) continue;
-      out.push(targetOf(row));
-      if (out.length >= SCHEDULED_BATCH) break;
+      due.push({ ...targetOf(row), checkedAt: row.checkedAt ?? 0 });
     }
-    return out;
+    due.sort((a, b) => a.checkedAt - b.checkedAt);
+    return due.slice(0, SCHEDULED_BATCH).map(({ checkedAt: _checkedAt, ...target }) => target);
   },
 });
 

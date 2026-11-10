@@ -2,6 +2,7 @@ import { webFont } from '@/theme/webFont';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 
 import { useTheme } from '@/theme/theme';
+import { arrowProps } from './keys';
 import { Txt } from './Txt';
 
 /** Reads "12,500.5" back into cents; returns null for anything that is not a plain amount. */
@@ -18,7 +19,7 @@ export function Field({ label, value, onChangeText, numeric, kind }: { label: st
       <Txt v="small" c="ink3">{label}</Txt>
       <TextInput value={value} onChangeText={onChangeText} accessibilityLabel={label} keyboardType={numeric ? 'decimal-pad' : kind === 'url' ? 'url' : 'default'} inputMode={numeric ? 'decimal' : kind === 'url' ? 'url' : 'text'}
         secureTextEntry={kind === 'secret'} autoCapitalize={kind ? 'none' : undefined} autoCorrect={kind ? false : undefined}
-        style={{ minHeight: 44, borderRadius: 12, paddingHorizontal: 12, backgroundColor: c.s2, color: c.ink, fontFamily: Platform.OS === 'web' ? webFont(numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium') : numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium', fontSize: 15, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
+        style={{ minHeight: 48, borderRadius: 14, paddingHorizontal: 16, backgroundColor: c.s1, color: c.ink, borderWidth: 1, borderColor: c.stroke, fontFamily: Platform.OS === 'web' ? webFont(numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium') : numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium', fontSize: 16, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
     </View>
   );
 }
@@ -28,7 +29,7 @@ export function Seg<T extends string>({ options, value, onChange, label }: { opt
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', maxWidth: '100%', gap: 2, padding: 3, borderRadius: 999, backgroundColor: c.s2, alignSelf: 'flex-start' }} accessibilityRole="radiogroup" accessibilityLabel={label}>
       {options.map(([v, l]) => (
-        <Pressable key={v} onPress={() => onChange(v)} accessibilityRole="radio" aria-checked={value === v} style={{ minWidth: 56, minHeight: 32, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: value === v ? c.bg : 'transparent' }}>
+        <Pressable key={v} onPress={() => onChange(v)} {...arrowProps(options.map(([id]) => id), value, onChange)} accessibilityRole="radio" aria-checked={value === v} style={({ pressed }) => ({ minWidth: 56, minHeight: 44, paddingHorizontal: 12, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: value === v ? c.bg : 'transparent', opacity: pressed ? 0.72 : 1 })}>
           <Txt v="small" c={value === v ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{l}</Txt>
         </Pressable>
       ))}

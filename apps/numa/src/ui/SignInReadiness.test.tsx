@@ -11,7 +11,11 @@ const mockPrepare = jest.fn(async () => undefined);
 const mockSet = jest.fn();
 
 jest.mock('@convex-dev/auth/react', () => ({ useAuthActions: () => ({ signIn: jest.fn() }) }));
-jest.mock('convex/react', () => ({ useQuery: (reference: string) => reference === 'apple-readiness' ? (mockConfigured === undefined ? undefined : { configured: mockConfigured }) : { googleOAuth: mockGoogle } }));
+let mockConnection = { isWebSocketConnected: true, connectionRetries: 0 };
+jest.mock('convex/react', () => ({
+  useQuery: (reference: string) => reference === 'apple-readiness' ? (mockConfigured === undefined ? undefined : { configured: mockConfigured }) : { googleOAuth: mockGoogle },
+  useConvexConnectionState: () => mockConnection,
+}));
 jest.mock('@/cloud/api', () => ({ cloud: { authFlags: 'auth-flags' } }));
 jest.mock('@/cloud/appleLifecycle', () => ({ appleReadiness: 'apple-readiness' }));
 jest.mock('@/cloud/appleWeb', () => ({ prepareAppleWebSignIn: () => mockPrepare() }));
@@ -20,7 +24,7 @@ jest.mock('@/state/prefs', () => ({ usePrefs: () => ({ set: mockSet, lastSignIn:
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }) }));
 jest.mock('@/ui/Nav', () => ({ Wordmark: () => null }));
 jest.mock('@/ui/LegalLinks', () => ({ LegalLinks: () => null }));
-jest.mock('@/theme/theme', () => ({ useTheme: () => ({ name: 'dark', c: { bg: '#000000', ink: '#ffffff', ink2: '#aaaaaa', ink3: '#777777', s1: '#111111', s2: '#222222', line: '#333333', red: '#ff7777' } }) }));
+jest.mock('@/theme/theme', () => ({ useTheme: () => ({ name: 'dark', c: { bg: '#000000', ink: '#ffffff', ink2: '#aaaaaa', ink3: '#8E9198', s1: '#111111', s2: '#222222', line: '#333333', stroke: '#767676', red: '#ff7777' } }) }));
 jest.mock('react-native-svg', () => ({ __esModule: true, default: 'Svg', Path: 'Path' }));
 jest.mock('expo-apple-authentication', () => ({
   AppleAuthenticationButtonType: { CONTINUE: 0 },
@@ -40,7 +44,7 @@ async function render(os: 'web' | 'ios') {
   await act(async () => { tree = TestRenderer.create(<SignIn />); });
 }
 
-beforeEach(() => { mockConfigured = false; mockAvailable = true; mockGoogle = false; mockPrepare.mockClear(); mockSet.mockClear(); });
+beforeEach(() => { mockConfigured = false; mockAvailable = true; mockGoogle = false; mockConnection = { isWebSocketConnected: true, connectionRetries: 0 }; mockPrepare.mockClear(); mockSet.mockClear(); });
 afterEach(() => { if (tree) act(() => tree?.unmount()); tree = undefined; Object.defineProperty(Platform, 'OS', platformDescriptor); });
 
 test.each([false, true])('missing web exchange configuration hides Apple while preserving email and configured Google: %s', async google => {
@@ -91,15 +95,32 @@ function buttonLabel(node: TestRenderer.ReactTestInstance) {
   return node.findAllByType(Text).map((text) => String(text.props.children ?? '')).join('');
 }
 
-test('Explore demo is the secondary action under Sign in', async () => {
+function flatStyle(node: TestRenderer.ReactTestInstance) {
+  const style = node.props.style;
+  return StyleSheet.flatten(typeof style === 'function' ? style({ pressed: false }) : style);
+}
+
+test('Explore demo sits above the disabled Sign in button', async () => {
   await render('web');
   const buttons = tree!.root.findAll((node) => node.props.accessibilityRole === 'button');
   const labels = buttons.map(buttonLabel);
   const signIn = labels.indexOf('Sign in');
   const explore = labels.indexOf('Explore demo');
-  expect(signIn).toBeGreaterThanOrEqual(0);
-  expect(explore).toBeGreaterThan(signIn);
-  expect(StyleSheet.flatten(buttons[signIn].props.style).backgroundColor).toBe('#ffffff');
-  expect(StyleSheet.flatten(buttons[explore].props.style).backgroundColor).toBe('#222222');
+  expect(explore).toBeGreaterThanOrEqual(0);
+  expect(signIn).toBeGreaterThan(explore);
+  expect(flatStyle(buttons[signIn]).opacity ?? 1).toBe(1);
+  expect(flatStyle(buttons[explore]).backgroundColor).toBe('#222222');
   expect(buttons[explore].props.disabled).not.toBe(true);
+  expect(tree!.root.findAllByType(Text).some((text) => text.props.children === 'Sign in' && StyleSheet.flatten(text.props.style).color === '#8E9198')).toBe(true);
+});
+
+test('a dropped socket shows Apple as unavailable and keeps email usable', async () => {
+  mockConfigured = undefined;
+  mockConnection = { isWebSocketConnected: false, connectionRetries: 2 };
+  await render('web');
+  const text = tree!.root.findAllByType(Text).map((node) => String(node.props.children ?? '')).join('\n');
+  expect(text).toContain('Apple sign-in is unavailable right now. Use email');
+  expect(text).not.toContain('Checking Apple sign-in');
+  expect(tree!.root.findAllByProps({ accessibilityLabel: 'Email' }).length).toBeGreaterThan(0);
+  expect(webAppleControls()).toHaveLength(0);
 });

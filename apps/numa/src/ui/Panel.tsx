@@ -48,7 +48,7 @@ export function PanelFrame({ children }: { children: ReactNode }) {
   return (
     <View ref={row} style={{ flex: 1, flexDirection: 'row', backgroundColor: 'transparent' }} pointerEvents="box-none">
       <View style={{ flex: 1 }} pointerEvents="none" />
-      <View accessibilityRole="none" aria-label="Details" style={{ pointerEvents: 'auto', width: panelWidth(width), height: '100%', backgroundColor: c.bg, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: c.line2, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 32, shadowOffset: { width: -8, height: 0 } }}>
+      <View accessibilityRole="none" aria-label="Details" style={{ pointerEvents: 'auto', width: panelWidth(width), height: '100%', backgroundColor: c.bg, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: c.line2, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 32, shadowOffset: { width: -8, height: 0 }, ...(Platform.OS === 'web' && !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) ? { animationDuration: '200ms', animationName: 'numa-fade' } as object : {}) }}>
         {children}
       </View>
     </View>

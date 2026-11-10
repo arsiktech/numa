@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { cloudEnabled } from '@/cloud/CloudProvider';
@@ -17,6 +17,7 @@ import { usePrefs, type ThemeChoice } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
 import { ProBadge } from '@/ui/ProBadge';
 import { ClosePanels, PanelFrame, usePanel } from '@/ui/Panel';
+import { arrowProps } from '@/ui/keys';
 import { Txt } from '@/ui/Txt';
 import { LegalLinks } from '@/ui/LegalLinks';
 
@@ -49,14 +50,18 @@ export default function Settings() {
         <Row title="Theme" detail="Auto follows your device.">
           <View style={{ flexDirection: 'row', gap: 2, padding: 3, borderRadius: 999, backgroundColor: c.s1 }} accessibilityRole="radiogroup">
             {themes.map((t) => (
-              <Pressable key={t.id} onPress={() => setChoice(t.id)} accessibilityRole="radio" aria-checked={choice === t.id} style={{ minWidth: 56, minHeight: 34, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: choice === t.id ? c.s2 : 'transparent' }}>
+              <Pressable key={t.id} onPress={() => setChoice(t.id)} {...arrowProps(themes.map((item) => item.id), choice, setChoice)} accessibilityRole="radio" aria-checked={choice === t.id} style={({ pressed }) => ({ minWidth: 44, minHeight: 44, paddingHorizontal: 12, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: choice === t.id ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
                 <Txt v="small" c={choice === t.id ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{t.label}</Txt>
               </Pressable>
             ))}
           </View>
         </Row>
         <Row title="Hide amounts" detail="Replaces every figure with dots, for screens in public.">
-          <Switch value={hideAmounts} onValueChange={(v) => set('hideAmounts', v)} trackColor={{ true: c.up, false: c.s2 }} thumbColor="#FFFFFF" accessibilityLabel="Hide amounts" />
+          <Pressable onPress={() => set('hideAmounts', !hideAmounts)} accessibilityRole="switch" aria-checked={hideAmounts} accessibilityLabel="Hide amounts" style={({ pressed }) => ({ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
+            <View style={{ width: 48, height: 28, borderRadius: 999, backgroundColor: hideAmounts ? c.up : c.s2, justifyContent: 'center', padding: 4 }}>
+              <View style={{ width: 20, height: 20, borderRadius: 999, backgroundColor: c.bg, alignSelf: hideAmounts ? 'flex-end' : 'flex-start' }} />
+            </View>
+          </Pressable>
         </Row>
 
         {session.kind === 'signedIn' ? (

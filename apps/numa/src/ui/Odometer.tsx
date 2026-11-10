@@ -39,7 +39,8 @@ const MAX_SCALE = 1.2;
 export function Odometer({ text, style: base, fast = false }: { text: string; style: TextStyle; fast?: boolean }) {
   // The system would scale the glyphs but not the boxes measured here, clipping them (the large-text
   // bug). So the scale is applied here, once, and the system's own scaling is turned off.
-  const scale = Math.min(PixelRatio.getFontScale(), MAX_SCALE);
+  const root = Platform.OS === 'web' && typeof document !== 'undefined' ? parseFloat(getComputedStyle(document.documentElement).fontSize) : 16;
+  const scale = Platform.OS === 'web' ? (Number.isFinite(root) && root > 0 ? root / 16 : 1) : Math.min(PixelRatio.getFontScale(), MAX_SCALE);
   const fontSize = ((base.fontSize ?? 16) as number) * scale;
   const lineHeight = ((base.lineHeight ?? base.fontSize ?? 16) as number) * scale;
   const style: TextStyle = { ...base, fontFamily: Platform.OS === 'web' ? webFont(base.fontFamily) : base.fontFamily, fontSize, lineHeight, ...(base.letterSpacing !== undefined ? { letterSpacing: (base.letterSpacing as number) * scale } : {}) };

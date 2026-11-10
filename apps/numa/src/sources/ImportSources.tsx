@@ -131,7 +131,7 @@ export function ImportSources({ onLoaded, pasteText, onPaste }: { onLoaded: (loa
         <View style={{ paddingHorizontal: 4 }}>
           <Txt v="small" c="ink2">Easiest on a computer: select the cells, header row included, copy, and paste here. A CSV’s text works too.</Txt>
           <TextInput value={pasteText} onChangeText={onPaste} multiline placeholder={'Date,Description,Amount\n2026-10-03,October rent,-1200'} placeholderTextColor={c.ink3} accessibilityLabel="Pasted table"
-            style={{ ...field, marginTop: 10, minHeight: 140, maxHeight: 260, fontFamily: 'JetBrainsMono_400Regular', fontSize: 13, textAlignVertical: 'top' }} />
+            style={{ ...field, marginTop: 10, minHeight: 140, maxHeight: 260, fontFamily: 'JetBrainsMono_500Medium', fontSize: 13, textAlignVertical: 'top' }} />
         </View>
       )}
     </View>

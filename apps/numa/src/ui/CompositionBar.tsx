@@ -47,7 +47,7 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
     return { id: cat.category, name: names?.[cat.category] ?? m.name, cents: cat.cents, fill: c[m.color], ink: c[onCategory[m.color]], opacity: counts ? 1 : 0.18, detail: includes(cat.category), onPress: () => open(cat.category) };
   });
   const balance: BarEntry[] = [
-    { id: 'debts', name: 'What you owe', cents: oweCents, fill: c.down, ink: '#FFFFFF', hatch: c.downDeep, detail: includes('debts'), onPress: () => open('debts') },
+    { id: 'debts', name: 'What you owe', cents: oweCents, fill: c.down, ink: c.onDown, hatch: c.downDeep, detail: includes('debts'), onPress: () => open('debts') },
     { id: 'net', name: 'Net worth', cents: netCents, fill: c.netBg, ink: c.upInk, fullAmount: true, detail: when ? `Net worth · ${when}` : 'What you own less what you owe.' },
   ];
   return (
@@ -59,8 +59,8 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
         <Txt v="figureSm" style={{ fontSize: 14 }}>{money(ownCents)}</Txt>
       </View>
       <View style={{ gap: 2 }}>
-        <LensBar entries={own} height={wide ? 96 : 60} labelMin={wide ? 0.075 : 0.16} emptyColor={c.s1} />
-        <LensBar entries={balance} height={wide ? 56 : 60} labelMin={0.16} emptyColor={c.s1} />
+        <LensBar entries={own} height={wide ? 96 : 60} labelMin={wide ? 0.06 : 0.08} emptyColor={c.s1} />
+        <LensBar entries={balance} height={wide ? 56 : 60} labelMin={0.08} emptyColor={c.s1} />
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

@@ -70,6 +70,8 @@ export interface MobileDashboardInput {
   goals: DashboardGoal[];
   nowMs?: number;
   quoteStaleMs?: number;
+  /** Dollars per euro from the shared rate, when one has been stored. */
+  fxUsdPerEur?: number;
 }
 
 const QUOTE_CURRENCY: MobileDashboardCurrency = "USD";
@@ -86,15 +88,14 @@ const BACKEND_FX_RATES: Record<MobileDashboardCurrency, number> = {
 function convertCurrency(
   amount: number,
   from: MobileDashboardCurrency,
-  to: MobileDashboardCurrency
+  to: MobileDashboardCurrency,
+  rates: Record<MobileDashboardCurrency, number> = BACKEND_FX_RATES
 ) {
   assertCurrency(from);
   assertCurrency(to);
   minorUnits(amount);
   if (from === to) return cents(amount);
-  const fromRate = BACKEND_FX_RATES[from];
-  const toRate = BACKEND_FX_RATES[to];
-  return cents((amount / fromRate) * toRate);
+  return cents((amount / rates[from]) * rates[to]);
 }
 
 function cents(amount: number) {
@@ -143,6 +144,7 @@ export function valueDashboardHolding(
 }
 
 export function buildMobileDashboard(input: MobileDashboardInput) {
+  const rates = input.fxUsdPerEur && input.fxUsdPerEur > 0 ? { EUR: 1, USD: input.fxUsdPerEur } : BACKEND_FX_RATES;
   const currency = input.portfolio.defaultCurrency;
   const nowMs = input.nowMs ?? Date.now();
   assertCurrency(currency);
@@ -158,25 +160,25 @@ export function buildMobileDashboard(input: MobileDashboardInput) {
   );
   const income = monthTransactions
     .filter((tx) => tx.kind === "income")
-    .reduce((sum, tx) => addMoney(sum, convertCurrency(tx.amount, tx.currency, currency)), 0);
+    .reduce((sum, tx) => addMoney(sum, convertCurrency(tx.amount, tx.currency, currency, rates)), 0);
   const expenses = monthTransactions
     .filter((tx) => tx.kind === "expense")
-    .reduce((sum, tx) => addMoney(sum, convertCurrency(tx.amount, tx.currency, currency)), 0);
+    .reduce((sum, tx) => addMoney(sum, convertCurrency(tx.amount, tx.currency, currency, rates)), 0);
   const liquid = input.assets
     .filter((asset) => asset.kind === "cash")
-    .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency)), 0);
+    .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency, rates)), 0);
   const hardAssets = input.assets
     .filter((asset) => asset.kind !== "cash" && !isManualFund(asset))
-    .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency)), 0);
+    .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency, rates)), 0);
   const debt = input.liabilities.reduce(
-    (sum, liability) => addMoney(sum, convertCurrency(liability.balance, liability.currency, currency)),
+    (sum, liability) => addMoney(sum, convertCurrency(liability.balance, liability.currency, currency, rates)),
     0
   );
   const holdingValuations = input.holdings.map(({ holding, quote }) =>
     valueDashboardHolding(holding, quote, currency, nowMs, input.quoteStaleMs)
   );
   const manualInvested = input.assets.filter(isManualFund)
-    .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency)), 0);
+    .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency, rates)), 0);
   const invested = holdingValuations.reduce((sum, valuation) => addMoney(sum, valuation.marketValue), manualInvested);
   const marketDriver = holdingValuations.reduce((sum, valuation) => addMoney(sum, valuation.gain), 0);
   const missingQuoteSymbols = input.holdings
@@ -246,10 +248,10 @@ export function buildMobileDashboard(input: MobileDashboardInput) {
       timezone,
       rollupSource: "legacy-finance-tables",
       ledgerIncluded: false,
-      fxEstimated: true,
+      fxEstimated: !input.fxUsdPerEur,
       fxAsOf: null,
-      fxRatesPerEUR: BACKEND_FX_RATES,
-      fxRateSource: "backend-fallback",
+      fxRatesPerEUR: rates,
+      fxRateSource: input.fxUsdPerEur ? "shared-rate" : "backend-fallback",
       quoteCount: holdingValuations.filter((valuation) => valuation.hasQuote).length,
       missingQuoteCount: missingQuoteSymbols.length,
       staleQuoteCount: staleQuoteSymbols.length,

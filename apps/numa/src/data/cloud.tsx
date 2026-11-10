@@ -20,13 +20,15 @@ const CloudContext = createContext<CloudData | null>(null);
 
 /** The ECB euro-dollar rate. A current saved rate shows at once; today's replaces it when it arrives. */
 function useFx(): { fx: FxRate | null; settled: boolean } {
-  const [fx, setFx] = useState<FxRate | null>(null);
+  const shared = useQuery(cloud.fxRate, {});
+  const [local, setLocal] = useState<FxRate | null>(null);
   const [settled, setSettled] = useState(false);
+  const fx = local ?? shared ?? null;
   useEffect(() => {
     let alive = true;
     void loadFx(
       { readSaved: () => storage.getItem(FX_KEY), fetchRate: () => fetchFxRate(), save: (raw) => void storage.setItem(FX_KEY, raw), now: Date.now() },
-      (rate) => { if (alive) { setFx(rate); setSettled(true); } },
+      (rate) => { if (alive) { setLocal(rate); setSettled(true); } },
     );
     return () => { alive = false; };
   }, []);
@@ -45,7 +47,7 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
   const [boot, setBoot] = useState<CloudBootstrap | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const { fx, settled } = useFx();
+  const { fx } = useFx();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -68,7 +70,8 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
   const space = spaces?.find((s) => s.id === portfolioId) ?? null;
   const { set } = prefs;
   const selectSpace = useCallback((id: string) => set('space', id), [set]);
-  const base = useQuery(cloud.portfolioSnapshot, portfolioId ? { portfolioId } : 'skip');
+  const [since] = useState(() => Date.now() - 45 * 24 * 60 * 60 * 1000);
+  const base = useQuery(cloud.portfolioSnapshot, portfolioId ? { portfolioId, since } : 'skip');
   const walletDocs = useQuery(cloud.listWallets, portfolioId ? { portfolioId } : 'skip');
   // Wallets ride along with the snapshot. Until they load, the snapshot waits, so no total jumps.
   const snapshot = useMemo<CloudSnapshot | undefined>(() => (base && walletDocs ? { ...base, wallets: walletDocs.map(toWallet) } : undefined), [base, walletDocs]);
@@ -78,7 +81,7 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
     setAttempt((a) => a + 1);
   }, [createPortfolio]);
 
-  const data = useMemo(() => (snapshot && settled ? fromSnapshot(snapshot, fx, new Date(now)) : null), [snapshot, settled, fx, now]);
+  const data = useMemo(() => (snapshot ? fromSnapshot(snapshot, fx, new Date(now)) : null), [snapshot, fx, now]);
   const summary = useMemo(() => (data ? summarize(data.holdings, data.debts, new Date(now)) : null), [data, now]);
 
   const value = useMemo<CloudData>(() => {

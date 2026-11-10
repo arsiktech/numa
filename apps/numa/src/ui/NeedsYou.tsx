@@ -22,7 +22,7 @@ function Card({ item, index, done, readOnly, onPrimary, onLater, onUndo }: { ite
       accessibilityRole="button"
       accessibilityState={{ disabled: readOnly }}
       aria-disabled={readOnly}
-      style={{ minHeight: 40, paddingHorizontal: filled ? 16 : 10, borderRadius: filled ? 999 : 0, backgroundColor: filled ? (readOnly ? c.s2 : c.ink) : 'transparent', justifyContent: 'center' }}
+      style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: filled ? 16 : 12, borderRadius: filled ? 999 : 0, backgroundColor: filled ? (readOnly ? c.s2 : c.ink) : 'transparent', justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}
     >
       <Txt v="body" c={filled ? (readOnly ? 'ink2' : 'bg') : readOnly ? 'ink3' : 'ink'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{label}</Txt>
     </Pressable>

@@ -21,8 +21,8 @@ export function Action({ label, detail, onPress, danger, disabled }: { label: st
   const { c } = useTheme();
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" aria-disabled={!!disabled} accessibilityHint={detail}
-      style={{ minHeight: 52, paddingVertical: 12, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: c.line, opacity: disabled ? 0.5 : 1 }}>
-      <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', color: danger ? c.down : c.ink }}>{label}</Txt>
+      style={({ pressed }) => ({ minHeight: 48, paddingVertical: 12, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: c.line, opacity: !disabled && pressed ? 0.72 : 1 })}>
+      <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', color: disabled ? c.ink3 : danger ? c.down : c.ink }}>{label}</Txt>
       {detail ? <Txt v="small" c="ink2" style={{ marginTop: 2 }}>{detail}</Txt> : null}
     </Pressable>
   );
@@ -38,8 +38,8 @@ export function Button({ label, onPress, disabled, danger, quiet }: { label: str
   const bg = quiet ? 'transparent' : danger ? c.down : c.ink;
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" aria-disabled={!!disabled}
-      style={{ minHeight: 48, paddingHorizontal: 20, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: quiet ? 1 : 0, borderColor: c.line2, opacity: disabled ? 0.4 : 1 }}>
-      <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', color: quiet ? c.ink : danger ? '#FFFFFF' : c.bg }}>{label}</Txt>
+      style={({ pressed }) => ({ minHeight: 48, paddingHorizontal: 16, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: disabled ? 'transparent' : bg, borderWidth: disabled || quiet ? 1 : 0, borderColor: c.stroke, opacity: !disabled && pressed ? 0.72 : 1 })}>
+      <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', color: disabled ? c.ink3 : quiet ? c.ink : danger ? c.onDown : c.bg }}>{label}</Txt>
     </Pressable>
   );
 }

@@ -96,6 +96,7 @@ function AskView({ source }: { source: AskSource }) {
   };
   const { height: keyboard, sync: syncKeyboard } = useKeyboardHeight();
   const [text, setText] = useState('');
+  const [askFocused, setAskFocused] = useState(false);
   const [consentDecision, setConsentDecision] = useState<ConsentDecision | null>(null);
   const consentQuestion = consentDecision?.question ?? null;
   const currentConsent = useRef<ConsentDecision | null>(null);
@@ -162,7 +163,9 @@ function AskView({ source }: { source: AskSource }) {
     const pendingId = nextId.current++;
     setText(''); setConsentError(null); toEnd();
     setMessages(ms => [...ms, you, { id: pendingId, role: 'numa', text: 'Thinking…', pending: true }]);
-    void askClaude(source.ai, value, history, pendingId);
+    void askClaude(source.ai, value, history, pendingId, (chunk) => {
+      setMessages((ms) => ms.map((m) => m.id === pendingId && m.role === 'numa' ? { ...m, text: (m.text === 'Thinking…' ? '' : m.text) + chunk } : m));
+    });
   }
 
   function send(input = text) {
@@ -217,9 +220,9 @@ function AskView({ source }: { source: AskSource }) {
     }
   }
 
-  async function askClaude(ai: NonNullable<Extract<AskSource, { status: 'ready' }>['ai']>, value: string, history: AskTurn[], pendingId: number) {
+  async function askClaude(ai: NonNullable<Extract<AskSource, { status: 'ready' }>['ai']>, value: string, history: AskTurn[], pendingId: number, onDelta?: (chunk: string) => void) {
     let reply: AskReply;
-    try { reply = await ai(value, history, () => alive.current); }
+    try { reply = await ai(value, history, () => alive.current, onDelta); }
     catch { reply = { status: 'unavailable' }; }
     sendLocked.current = false;
     if (!alive.current) return;
@@ -304,7 +307,7 @@ function AskView({ source }: { source: AskSource }) {
               {source.status === 'ready' && source.ai && <Txt v="small" c="ink3">Questions that need Claude require your AI sharing permission first. Manual entries and local answers work without it. You still decide what is saved.</Txt>}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {EXAMPLES.map((e) => (
-                  <Pressable key={e} onPress={() => send(e)} disabled={!ready} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: c.line2, justifyContent: 'center' }}>
+                  <Pressable key={e} onPress={() => send(e)} disabled={!ready} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.stroke, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
                     <Txt v="small" style={{ fontFamily: 'Manrope_600SemiBold', fontSize: 14 }}>{e}</Txt>
                   </Pressable>
                 ))}
@@ -337,12 +340,12 @@ function AskView({ source }: { source: AskSource }) {
           {recoveryScope && <Txt v="small" c="ink3" style={{ marginBottom: 8 }}>{Platform.OS === 'web' ? 'Drafts stay in memory while this page is open. Reloading or closing it loses unsaved drafts.' : 'Unsaved drafts are kept securely on this device for this account and space.'}</Txt>}
           {recoveryError ? <Txt v="small" style={{ color: c.down, marginBottom: 8 }} accessibilityRole="alert">{recoveryError}</Txt> : null}
           {consentError ? <Txt v="small" style={{ color: c.down, marginBottom: 8 }} accessibilityRole="alert">{consentError}</Txt> : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6, backgroundColor: c.s1, borderWidth: 1, borderColor: c.line2 }}>
-            <TextInput value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus onFocus={syncKeyboard} placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, borderRadius: 999, paddingLeft: 16, paddingRight: 4, backgroundColor: c.s1, borderWidth: askFocused ? 2 : 1, borderColor: askFocused ? c.ink : c.stroke }}>
+            <TextInput value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus onFocus={() => { setAskFocused(true); syncKeyboard(); }} onBlur={() => setAskFocused(false)} placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
               placeholderTextColor={c.ink3} accessibilityLabel="Ask or add anything" submitBehavior="submit" testID="ask-input"
-              style={{ flex: 1, color: c.ink, fontFamily: Platform.OS === 'web' ? webFont('Manrope_500Medium') : 'Manrope_500Medium', fontSize: 16, minHeight: 44, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
-            <Pressable onPress={() => send()} disabled={!text.trim() || !ready || thinking || consentBusy} accessibilityRole="button" accessibilityLabel="Send" testID="ask-send" style={{ minWidth: 78, minHeight: 44, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 22, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink, opacity: text.trim() && ready ? 1 : 0.35 }}>
-              <Txt v="small" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Send</Txt>
+              style={{ flex: 1, minWidth: 0, color: c.ink, fontFamily: Platform.OS === 'web' ? webFont('Manrope_500Medium') : 'Manrope_500Medium', fontSize: 16, minHeight: 44, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
+            <Pressable onPress={() => send()} disabled={!text.trim() || !ready || thinking || consentBusy} accessibilityRole="button" accessibilityLabel="Send" testID="ask-send" style={({ pressed }) => ({ minWidth: 44, minHeight: 44, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: text.trim() && ready ? c.ink : 'transparent', opacity: pressed && text.trim() && ready ? 0.72 : 1 })}>
+              <Txt v="small" c={text.trim() && ready ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Send</Txt>
               <Svg width={16} height={16} viewBox="0 0 24 24"><Path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" stroke={c.bg} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
             </Pressable>
           </View>
