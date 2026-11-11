@@ -132,7 +132,7 @@ async function canSignIn(email, password) {
   watchErrors(d, errors);
   await d.goto(APP + '/sign-in');
   await d.getByText('Explore demo').click();
-  await d.getByRole('button', { name: 'Demo data. Sign in' }).waitFor({ timeout: 15000 });
+  await d.getByRole('button', { name: 'DEMO Sign in' }).waitFor({ timeout: 15000 });
   await d.goto(APP + '/password');
   await d.getByRole('heading', { name: 'Settings' }).waitFor({ timeout: 15000 });
   check('demo mode sends account screens back to Settings', !(await d.locator('body').innerText()).includes('Current password'));
