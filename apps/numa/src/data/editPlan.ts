@@ -4,25 +4,28 @@ import type { Op } from '@/ask/plan';
 const major = (cents: number) => Math.round(cents) / 100;
 const minor = (amount: number) => Math.round(amount * 100);
 
-/** `costCents` and `acquiredAt` are what it cost and when it was bought; null when not known. */
-export type AssetFields = { name: string; kind: CloudAsset['kind']; balanceCents: number; currency: CloudCurrency; location: string; costCents: number | null; acquiredAt: number | null; owedBy: string };
-export type DebtFields = { name: string; kind: CloudLiability['kind']; balanceCents: number; currency: CloudCurrency; dueDate: number | null; counterparty: string }
+/**
+ * `costCents` and `acquiredAt` are what it cost and when it was bought; null when not known. `notes` is resent on every
+ * write ('' when none) because the server clears notes an update leaves out. `investmentType` is only for delete Undo.
+ */
+export type AssetFields = { name: string; kind: CloudAsset['kind']; balanceCents: number; currency: CloudCurrency; location: string; costCents: number | null; acquiredAt: number | null; owedBy: string; notes: string } & Pick<CloudAsset, 'investmentType'>;
+export type DebtFields = { name: string; kind: CloudLiability['kind']; balanceCents: number; currency: CloudCurrency; dueDate: number | null; counterparty: string; notes: string }
   & Pick<CloudLiability, 'principal' | 'startedAt' | 'interestTerms' | 'interestRate' | 'dueKind' | 'interestDueDay' | 'owedSymbol' | 'owedQuantity'>;
 export type HoldingFields = { symbol: string; name: string; kind: CloudHolding['kind']; quantity: number; costBasisCents: number; currency: CloudCurrency; location: string };
 export type Fields = AssetFields | DebtFields | HoldingFields;
 
-export const assetFields = (a: CloudAsset): AssetFields => ({ name: a.name, kind: a.kind, balanceCents: minor(a.balance), currency: a.currency, location: a.location ?? '', costCents: a.costBasis ? minor(a.costBasis) : null, acquiredAt: a.acquiredAt ?? null, owedBy: a.owedBy ?? '' });
+export const assetFields = (a: CloudAsset): AssetFields => ({ name: a.name, kind: a.kind, balanceCents: minor(a.balance), currency: a.currency, location: a.location ?? '', costCents: a.costBasis ? minor(a.costBasis) : null, acquiredAt: a.acquiredAt ?? null, owedBy: a.owedBy ?? '', notes: a.notes ?? '', investmentType: a.investmentType ?? null });
 /** Metadata is snapshotted for delete Undo, not resent by an ordinary balance edit. */
 const debtDetails = (d: Pick<CloudLiability, 'principal' | 'startedAt' | 'interestTerms' | 'interestRate' | 'dueKind' | 'interestDueDay' | 'owedSymbol' | 'owedQuantity'>) => ({
   principal: d.principal, startedAt: d.startedAt, interestTerms: d.interestTerms, interestRate: d.interestRate,
   dueKind: d.dueKind, interestDueDay: d.interestDueDay, owedSymbol: d.owedSymbol, owedQuantity: d.owedQuantity,
 });
-export const debtFields = (l: CloudLiability): DebtFields => ({ name: l.name, kind: l.kind, balanceCents: minor(l.balance), currency: l.currency, dueDate: l.dueDate, counterparty: l.counterparty ?? '', ...debtDetails(l) });
+export const debtFields = (l: CloudLiability): DebtFields => ({ name: l.name, kind: l.kind, balanceCents: minor(l.balance), currency: l.currency, dueDate: l.dueDate, counterparty: l.counterparty ?? '', notes: l.notes ?? '', ...debtDetails(l) });
 export const holdingFields = (h: CloudHolding): HoldingFields => ({ symbol: h.symbol, name: h.name, kind: h.kind, quantity: h.quantity, costBasisCents: minor(h.costBasis), currency: h.currency, location: h.location ?? '' });
 
 function args(type: 'asset' | 'liability' | 'holding', f: Fields, portfolioId: string, extra: Record<string, unknown>) {
-  if (type === 'asset') { const a = f as AssetFields; return { portfolioId, name: a.name.trim(), kind: a.kind, balance: major(a.balanceCents), currency: a.currency, location: a.location.trim(), costBasis: a.costCents ? major(a.costCents) : null, acquiredAt: a.acquiredAt, owedBy: a.owedBy.trim(), ...extra }; }
-  if (type === 'liability') { const d = f as DebtFields; return { portfolioId, name: d.name.trim(), kind: d.kind, balance: major(d.balanceCents), currency: d.currency, ...(d.dueDate !== null ? { dueDate: d.dueDate } : {}), counterparty: d.counterparty.trim(), ...extra }; }
+  if (type === 'asset') { const a = f as AssetFields; return { portfolioId, name: a.name.trim(), kind: a.kind, balance: major(a.balanceCents), currency: a.currency, location: a.location.trim(), costBasis: a.costCents ? major(a.costCents) : null, acquiredAt: a.acquiredAt, owedBy: a.owedBy.trim(), notes: a.notes, ...extra }; }
+  if (type === 'liability') { const d = f as DebtFields; return { portfolioId, name: d.name.trim(), kind: d.kind, balance: major(d.balanceCents), currency: d.currency, ...(d.dueDate !== null ? { dueDate: d.dueDate } : {}), counterparty: d.counterparty.trim(), notes: d.notes, ...extra }; }
   const h = f as HoldingFields;
   return { portfolioId, symbol: h.symbol.trim().toUpperCase(), name: h.name.trim() || h.symbol.trim().toUpperCase(), kind: h.kind, quantity: h.quantity, costBasis: major(h.costBasisCents), currency: h.currency, location: h.location.trim(), ...extra };
 }
@@ -45,9 +48,11 @@ export function editPlan(type: 'asset' | 'liability' | 'holding', id: string, be
 export function deletePlan(type: 'asset' | 'liability' | 'holding', id: string, before: Fields, portfolioId: string, acquiredAt?: number): { apply: Op; undo: Op } {
   // Null/absent metadata stays absent on the new record. History and source links retain their existing identities.
   const restore = type === 'liability' ? Object.fromEntries(Object.entries(debtDetails(before as DebtFields)).filter(([, value]) => value !== null && value !== undefined)) : {};
+  // The server honours this only on create, so a fund stays in "Stocks and funds" instead of returning as a plain "other" asset.
+  const fund = type === 'asset' && (before as AssetFields).investmentType === 'fund' ? { investmentType: 'fund' } : {};
   return {
     apply: { fn: remove[type], args: { id } },
-    undo: { fn: upsert[type], args: args(type, before, portfolioId, type === 'holding' ? { acquiredAt } : restore) },
+    undo: { fn: upsert[type], args: args(type, before, portfolioId, type === 'holding' ? { acquiredAt } : { ...restore, ...fund }) },
   };
 }
 
