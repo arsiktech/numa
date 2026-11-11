@@ -20,6 +20,7 @@ import { OfflineNotice } from '@/ui/Offline';
 import { CloudMoversProvider, MoversProvider } from '@/ui/MoversContext';
 import { clearWidget, WidgetSync } from '@/widget/WidgetSync';
 import { GestureRoot } from '@/ui/GestureRoot';
+import { FeedbackButton } from '@/feedback/FeedbackButton';
 import { ToastProvider } from '@/ui/Toast';
 import { isKnownPath, routeMeta } from './routes';
 
@@ -98,7 +99,10 @@ function Root() {
   return (
     <>
       <StatusBar style={name === 'dark' ? 'light' : 'dark'} />
-      <ToastProvider>{session.kind === 'signedIn' ? <CloudBoundary><ActiveDayTracker /><CloudDataProvider><NavigationWriterProvider><CloudMoversProvider>{stack}<OfflineNotice /><WidgetSync /></CloudMoversProvider></NavigationWriterProvider></CloudDataProvider></CloudBoundary> : <MoversProvider scope={session.kind} evidence={session.kind}>{stack}</MoversProvider>}</ToastProvider>
+      <ToastProvider>
+        {session.kind === 'signedIn' ? <CloudBoundary><ActiveDayTracker /><CloudDataProvider><NavigationWriterProvider><CloudMoversProvider>{stack}<OfflineNotice /><WidgetSync /></CloudMoversProvider></NavigationWriterProvider></CloudDataProvider></CloudBoundary> : <MoversProvider scope={session.kind} evidence={session.kind}>{stack}</MoversProvider>}
+        <FeedbackButton />
+      </ToastProvider>
     </>
   );
 }

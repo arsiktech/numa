@@ -9,7 +9,7 @@ This app is being built beside the current web app (`src/`) and SwiftUI app (`io
 ```sh
 cd apps/numa
 npm ci
-cp .env.example .env.local   # set EXPO_PUBLIC_CONVEX_URL to a development deployment, or leave it empty for demo only
+cp .env.example .env.local   # set EXPO_PUBLIC_CONVEX_URL to a development deployment, or leave it empty for demo only. Leave the feedback variables empty to hide the web feedback button. When they are set, a picture is included only for paths the service lists
 npx expo start          # press i, a or w
 npm test                # domain and data unit tests (Jest, jest-expo)
 npm run lint
