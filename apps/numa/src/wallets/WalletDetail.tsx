@@ -67,7 +67,7 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
   return (
     <View>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{groupNames.crypto.toUpperCase()} · WALLET</Txt>
-      <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{item.name}</Txt>
+      <Txt fbPrivate v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{item.name}</Txt>
       <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40 }}>{item.valueCents === null ? '—' : money(item.valueCents, { cents: true })}</Txt>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
         <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c[toneColor[item.freshness.tone]] }} />

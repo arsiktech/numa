@@ -98,8 +98,8 @@ function StrategyRow({ s, share, last }: { s: Strategy; share: number; last: boo
       style={{ paddingVertical: 12, gap: 8, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-          <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{s.name}</Txt>
-          <Txt v="small" c="ink2" numberOfLines={1}>{s.where}</Txt>
+          <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{s.name}</Txt>
+          <Txt fbPrivate v="small" c="ink2" numberOfLines={1}>{s.where}</Txt>
           {s.paidCents > 0 && <Txt fbPrivate v="small" c="ink3">Earned {money(s.earnedCents, { cents: true })} · interest {money(s.paidCents, { cents: true })}</Txt>}
         </View>
         <View style={{ alignItems: 'flex-end' }}>

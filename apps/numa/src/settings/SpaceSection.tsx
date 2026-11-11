@@ -66,7 +66,7 @@ export function SpaceSection() {
                 {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.ink }} /> : null}
               </View>
               <View style={{ flex: 1 }}>
-                <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{s.name}</Txt>
+                <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{s.name}</Txt>
                 <Txt v="small" c="ink2">{kindWord(s)} · {s.defaultCurrency}{s.role !== 'owner' ? ' · shared with you' : ''}</Txt>
               </View>
             </Pressable>
@@ -78,7 +78,7 @@ export function SpaceSection() {
           <Field label="Space name" value={name} onChangeText={setName} />
           <Seg label="Kind" options={[['business', 'Business'], ['personal', 'Personal']]} value={kind} onChange={setKind} />
           <Seg label="New space currency" options={[["EUR", "EUR"], ["USD", "USD"]]} value={currency} onChange={setCurrency} />
-          <Txt v="small" c="ink2">A new space starts empty. Nothing is moved or copied from {space.name}.</Txt>
+          <Txt fbPrivate v="small" c="ink2">A new space starts empty. Nothing is moved or copied from {space.name}.</Txt>
           {error ? <Txt v="small" style={{ color: c.down }} accessibilityLiveRegion="polite">{error}</Txt> : null}
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Button label={busy ? 'Creating…' : 'Create space'} onPress={create} disabled={busy} />
@@ -88,7 +88,7 @@ export function SpaceSection() {
       ) : (
         <Action label="New space" detail="Keep a company or a side project apart from your own money." onPress={() => setAdding(true)} />
       )}
-      <Row title="Currency" detail={owner ? `Totals in ${space.name} are shown in this currency. Each record keeps its own.` : `Totals are in ${space.defaultCurrency}. Only the owner can change it.`}>
+      <Row title="Currency" detailPrivate={owner} detail={owner ? `Totals in ${space.name} are shown in this currency. Each record keeps its own.` : `Totals are in ${space.defaultCurrency}. Only the owner can change it.`}>
         {owner ? <Seg label="Currency" options={[['EUR', 'EUR'], ['USD', 'USD']]} value={space.defaultCurrency} onChange={setSpaceCurrency} /> : null}
       </Row>
     </>

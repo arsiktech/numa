@@ -45,7 +45,7 @@ function SetPassword() {
   return (
     <Screen back="Settings">
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 8 }}>Set a password</Txt>
-      <Txt v="body" c="ink2" style={{ marginTop: 8, maxWidth: 420 }}>
+      <Txt fbPrivate v="body" c="ink2" style={{ marginTop: 8, maxWidth: 420 }}>
         {methods?.email ? `You’ll sign in with ${methods.email} and this password, on the web or another phone. Apple and Google keep working too.` : 'Apple and Google keep working too.'}
       </Txt>
       <View style={{ marginTop: 20, gap: 14, maxWidth: 420 }}>

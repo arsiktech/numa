@@ -1,5 +1,6 @@
 import { Platform, TextInput, View } from 'react-native';
 
+import { fbField } from '@/feedback/private';
 import { useTheme } from '@/theme/theme';
 import { Txt } from '@/ui/Txt';
 
@@ -8,7 +9,7 @@ export function PasswordField({ label, value, onChangeText, autoComplete, onSubm
   return (
     <View style={{ gap: 4 }}>
       <Txt v="small" c="ink3">{label}</Txt>
-      <TextInput value={value} onChangeText={onChangeText} accessibilityLabel={label} secureTextEntry={autoComplete !== 'off'} autoComplete={autoComplete} autoCapitalize="none" autoCorrect={false} onSubmitEditing={onSubmitEditing}
+      <TextInput {...fbField} value={value} onChangeText={onChangeText} accessibilityLabel={label} secureTextEntry={autoComplete !== 'off'} autoComplete={autoComplete} autoCapitalize="none" autoCorrect={false} onSubmitEditing={onSubmitEditing}
         style={{ minHeight: 48, borderRadius: 12, paddingHorizontal: 14, backgroundColor: c.s2, color: c.ink, fontFamily: 'Manrope_500Medium', fontSize: 16, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
     </View>
   );

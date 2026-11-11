@@ -66,7 +66,7 @@ function Section({ section, focused }: { section: DaySection; focused: boolean }
       {section.lines.map((l, i) => (
         <View key={l.name + i} style={{ minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === section.lines.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
           <View style={{ flex: 1 }}>
-            <Txt v="body">{l.name}</Txt>
+            <Txt fbPrivate v="body">{l.name}</Txt>
             <Txt v="small" c="ink3">{l.kind}</Txt>
           </View>
           <Txt fbPrivate v="figureSm" style={{ fontSize: 14, color: owe ? c.down : c.ink }}>{money(l.cents)}</Txt>

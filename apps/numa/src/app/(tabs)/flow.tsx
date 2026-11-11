@@ -190,7 +190,7 @@ function Inner({ data }: { data: FlowData }) {
               <Pressable key={l.id} onPress={() => setFocus(focus === l.id ? null : l.id)} accessibilityRole="button" aria-selected={focus === l.id} accessibilityLabel={`${l.label}, ${hidden ? 'amount hidden' : money(l.cents)}. ${focus === l.id ? 'Following' : 'Follow this stream'}`}
                 style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: focus === l.id ? c.ink : c.s1, opacity: pressed ? 0.72 : 1 })}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: l.id.startsWith('income:') ? c.up : c.ink3 }} />
-                <Txt v="small" style={{ fontFamily: 'Manrope_700Bold', color: focus === l.id ? c.bg : c.ink }}>{l.label}</Txt>
+                <Txt fbPrivate v="small" style={{ fontFamily: 'Manrope_700Bold', color: focus === l.id ? c.bg : c.ink }}>{l.label}</Txt>
                 <Txt fbPrivate v="figureSm" style={{ color: focus === l.id ? c.bg : c.ink2 }}>{money(l.cents)}</Txt>
               </Pressable>
             ))}
@@ -211,14 +211,14 @@ function Inner({ data }: { data: FlowData }) {
 
       {txs.length > 0 && (
         <View style={{ marginTop: 26 }}>
-          <Txt v="section" accessibilityRole="header">{dayIds && day !== null ? new Date(month.year, month.month, day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : focused ? focused.label : 'Transactions'}</Txt>
+          <Txt fbPrivate v="section" accessibilityRole="header">{dayIds && day !== null ? new Date(month.year, month.month, day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : focused ? focused.label : 'Transactions'}</Txt>
           {txs.map((t, i) => {
             const cents = convertCents(Math.abs(t.amountMinor), t.currency, data.currency, data.fx);
             const income = t.kind === 'income';
             const detail = rowDetails(t);
             const row = (
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{t.description}</Txt>
+                  <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{t.description}</Txt>
                   <Txt fbPrivate v="small" c="ink2" numberOfLines={1}>{[focused ? null : t.categoryId ? names.get(t.categoryId) : null, shortDay(t.occurredAt, data.now), ...detail.meta].filter(Boolean).join(' · ')}</Txt>
                 </View>
             );
@@ -249,7 +249,7 @@ function Inner({ data }: { data: FlowData }) {
           </View>
           {products.products.map((p) => (
             <View key={p.id} style={{ marginTop: 10, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Txt v="body">{p.description}</Txt>
+              <Txt fbPrivate v="body">{p.description}</Txt>
               <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{p.monthlyCents === null ? '—' : money(p.monthlyCents)}</Txt>
             </View>
           ))}
@@ -263,7 +263,7 @@ function Inner({ data }: { data: FlowData }) {
           {data.recurring.map((r, i) => (
             <View key={r.id} style={{ minHeight: 56, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === data.recurring.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
               <View style={{ flex: 1 }}>
-                <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{r.description}</Txt>
+                <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{r.description}</Txt>
                 <Txt v="small" c="ink2">{r.cadence === 'monthly' ? 'Monthly' : `${r.cadence[0].toUpperCase()}${r.cadence.slice(1)}, shown per month`} · next {shortDay(r.nextRunAt, data.now)}</Txt>
               </View>
               <Txt fbPrivate v="figureSm" style={{ fontSize: 14, color: r.kind === 'income' ? c.upInk : c.ink }}>{r.monthlyCents === null ? '—' : (r.kind === 'income' ? '+' : '−') + money(r.monthlyCents)}</Txt>

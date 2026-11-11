@@ -33,10 +33,10 @@ function Row({ dot, name, tag, detail, cents, onPress, last }: { dot: keyof Pale
       <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: c[dot] as string }} />
       <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold', flexShrink: 1 }} numberOfLines={1}>{name}</Txt>
+          <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold', flexShrink: 1 }} numberOfLines={1}>{name}</Txt>
           {tag && <View style={{ paddingHorizontal: 7, minHeight: 20, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}><Txt v="label" c="ink2" style={{}}>{tag}</Txt></View>}
         </View>
-        <Txt v="small" c="ink2" numberOfLines={1}>{detail}</Txt>
+        <Txt fbPrivate v="small" c="ink2" numberOfLines={1}>{detail}</Txt>
       </View>
       <Txt fbPrivate v="figureSm" style={{}}>{cents === null ? '—' : money(cents)}</Txt>
       {onPress && <Txt v="body" c="ink3">›</Txt>}

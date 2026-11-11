@@ -19,12 +19,16 @@ test('the button stays hidden on native, and on web until the service enables it
   expect(feedbackButtonVisible({ platform: 'web', endpoint, enabled: true })).toBe(true);
 });
 
-test('an empty capture list sends notes only', () => {
+test('screenshots follow the service list and add no local path', () => {
   const on = { enabled: true, screenshots: true, capture: [] as string[] };
   expect(shouldCaptureScreenshot(on, '/')).toBe(false);
   expect(shouldCaptureScreenshot(on, '/flow')).toBe(false);
-  expect(shouldCaptureScreenshot({ enabled: true, screenshots: false, capture: ['/'] }, '/')).toBe(false);
-  expect(shouldCaptureScreenshot({ enabled: true, screenshots: true, capture: ['/flow'] }, '/flow')).toBe(true);
+  expect(shouldCaptureScreenshot({ enabled: true, screenshots: false, capture: ['/*'] }, '/')).toBe(false);
+  expect(shouldCaptureScreenshot({ enabled: true, screenshots: true, capture: ['/flow'] }, '/')).toBe(false);
+  const every = { enabled: true, screenshots: true, capture: ['/*'] };
+  for (const path of ['/', '/flow', '/plan', '/settings', '/holdings', '/holdings/crypto', '/ask', '/import', '/loan/rent', '/person/ada', '/tx/1', '/item/asset/cash']) {
+    expect(shouldCaptureScreenshot(every, path)).toBe(true);
+  }
   expect(feedbackCaptureAllowed([], '/')).toBe(false);
 });
 

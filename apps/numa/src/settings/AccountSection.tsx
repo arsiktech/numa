@@ -53,11 +53,12 @@ export function DataSection() {
   const data = useCloudData();
   const name = data.status === 'ready' ? data.space.name : 'this space';
   const label = state.kind === 'running' ? `Copying ${sectionWords[state.section] ?? 'records'}…` : `Download a copy of ${name}`;
+  const labelPrivate = data.status === 'ready';
   return (
     <>
       <Section title="DATA" />
       <Action label="Import from a sheet or CSV" onPress={() => router.push('/import')} />
-      <Action label={label} disabled={!ready || state.kind === 'running'} detail="Every record in one JSON file, with original currencies and dates." onPress={async () => { await run(); }} />
+      <Action label={label} labelPrivate={labelPrivate} disabled={!ready || state.kind === 'running'} detail="Every record in one JSON file, with original currencies and dates." onPress={async () => { await run(); }} />
       {state.kind === 'done' ? <Txt v="small" c="ink2" style={{ marginTop: 8 }} accessibilityLiveRegion="polite">Saved {state.file}</Txt> : null}
       {state.kind === 'failed' ? <Txt v="small" style={{ marginTop: 8, color: c.down }} accessibilityLiveRegion="polite">{state.message}</Txt> : null}
     </>

@@ -15,6 +15,7 @@ import { looksLikeSeveral, parse, type Draft } from '@/ask/parse';
 import { proposalToDraft } from '@/ask/proposal';
 import { useCloudAskSource, useDemoAskSource, type AskSource } from '@/ask/useAskSource';
 import type { AskReply, AskTurn } from '@/cloud/api';
+import { fbField } from '@/feedback/private';
 import { useSession } from '@/cloud/session';
 import { AISharingActions, AISharingPanel } from '@/privacy/AISharingPanel';
 import { useTheme } from '@/theme/theme';
@@ -341,7 +342,7 @@ function AskView({ source }: { source: AskSource }) {
           {recoveryError ? <Txt v="small" style={{ color: c.down, marginBottom: 8 }} accessibilityRole="alert">{recoveryError}</Txt> : null}
           {consentError ? <Txt v="small" style={{ color: c.down, marginBottom: 8 }} accessibilityRole="alert">{consentError}</Txt> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, borderRadius: 999, paddingLeft: 16, paddingRight: 4, backgroundColor: c.s1, borderWidth: askFocused ? 2 : 1, borderColor: askFocused ? c.ink : c.stroke }}>
-            <TextInput value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus onFocus={() => { setAskFocused(true); syncKeyboard(); }} onBlur={() => setAskFocused(false)} placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
+            <TextInput {...fbField} value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus onFocus={() => { setAskFocused(true); syncKeyboard(); }} onBlur={() => setAskFocused(false)} placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
               placeholderTextColor={c.ink3} accessibilityLabel="Ask or add anything" submitBehavior="submit" testID="ask-input"
               style={{ flex: 1, minWidth: 0, color: c.ink, fontFamily: Platform.OS === 'web' ? webFont('Manrope_500Medium') : 'Manrope_500Medium', fontSize: 16, minHeight: 44, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
             <Pressable onPress={() => send()} disabled={!text.trim() || !ready || thinking || consentBusy} accessibilityRole="button" accessibilityLabel="Send" testID="ask-send" style={({ pressed }) => ({ minWidth: 44, minHeight: 44, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: text.trim() && ready ? c.ink : 'transparent', opacity: pressed && text.trim() && ready ? 0.72 : 1 })}>

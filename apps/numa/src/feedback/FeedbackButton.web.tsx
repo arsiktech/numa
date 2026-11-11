@@ -20,6 +20,7 @@ import {
   type FeedbackMood,
 } from './feedback-client';
 import { feedbackEndpoint, feedbackFacts, feedbackLocale, shouldCaptureScreenshot, type FeedbackRole } from './gate';
+import { fbField } from './private';
 
 const MOOD_LABEL: Record<FeedbackMood, string> = {
   happy: 'Happy',
@@ -193,6 +194,7 @@ export function FeedbackButton() {
               })}
             </View>
             <TextInput
+              {...fbField}
               ref={noteRef}
               value={note}
               onChangeText={setNote}

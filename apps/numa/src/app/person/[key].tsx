@@ -54,7 +54,7 @@ function RecordRow({ r, last }: { r: PartyRecord; last: boolean }) {
       style={{ minHeight: 54, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line2 }}>
       <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
         <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{mask(r.amount)}</Txt>
-        <Txt v="small" c="ink2" numberOfLines={1}>{r.name}</Txt>
+        <Txt fbPrivate v="small" c="ink2" numberOfLines={1}>{r.name}</Txt>
       </View>
       <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{r.cents === null ? '—' : money(r.cents)}</Txt>
       <Txt v="body" c="ink3">›</Txt>
@@ -76,7 +76,7 @@ function Sits({ party }: { party: Party }) {
       {places.map(({ p, result }, i) => (
         <View key={p.key} style={{ minHeight: 54, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: i === places.length - 1 ? 0 : 1, borderBottomColor: c.line2 }}>
           <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
-            <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{p.name}</Txt>
+            <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{p.name}</Txt>
             {p.detail && <Txt v="small" c="ink2" numberOfLines={1}>{p.detail}</Txt>}
           </View>
           <View style={{ alignItems: 'flex-end' }}>
@@ -116,9 +116,9 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
   return (
     <Screen back="Money map">
       <Txt v="label" c="ink3" style={{ marginTop: 6 }}>{kindLabel}</Txt>
-      <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{party.name}</Txt>
+      <Txt fbPrivate v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{party.name}</Txt>
       <Txt fbPrivate v="figure" style={{ marginTop: 8, fontSize: 34, lineHeight: 40, color: byYou ? c.down : c.upInk }}>{party.cents === null ? '—' : money(party.cents, { cents: true })}</Txt>
-      <Txt v="body" c="ink2">{party.detail}</Txt>
+      <Txt fbPrivate v="body" c="ink2">{party.detail}</Txt>
       {party.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{party.unknown} without a value {party.unknown === 1 ? 'is' : 'are'} left out.</Txt>}
 
       <Card title={byYou ? (person ? 'Debts' : 'Loans') : 'Money lent'}>
@@ -146,7 +146,7 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Txt v="body">{KIND_WORDS[e.kind]}{e.amount !== null && e.unit ? ` ${unitText(e.amount, e.unit)}` : ''}</Txt>
                   {e.unit && (e.interestPart || e.feePart) ? <Txt v="small" c="ink2" numberOfLines={2}>{`Principal ${unitText(e.principalPart ?? 0, e.unit)} · Interest ${unitText(e.interestPart ?? 0, e.unit)} · Fees ${unitText(e.feePart ?? 0, e.unit)}`}</Txt> : null}
-                  {(e.note || party.records.length > 1) && <Txt v="small" c="ink2" numberOfLines={2}>{[e.note, party.records.length > 1 ? record?.name : null].filter(Boolean).join(' · ')}</Txt>}
+                  {(e.note || party.records.length > 1) && <Txt fbPrivate v="small" c="ink2" numberOfLines={2}>{[e.note, party.records.length > 1 ? record?.name : null].filter(Boolean).join(' · ')}</Txt>}
                 </View>
                 <Pressable onPress={() => removeEvent(e)} accessibilityRole="button" accessibilityLabel={`Remove ${KIND_WORDS[e.kind]} from ${dayText(e.occurredAt, state.now)}`} hitSlop={6}
                   style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
@@ -172,7 +172,7 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
           </Pressable>
           {byYou && party.records.filter((r) => r.loan && !hasTerms(r.loan) && termsFor !== r.subject).map((r) => (
             <Pressable key={r.subject} onPress={() => setTermsFor(r.subject)} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
-              <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>{party.records.length > 1 ? `Set terms for ${r.name}` : 'Set loan terms'}</Txt>
+              <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_700Bold' }}>{party.records.length > 1 ? `Set terms for ${r.name}` : 'Set loan terms'}</Txt>
             </Pressable>
           ))}
         </View>
@@ -208,7 +208,7 @@ function NewDebtForm({ party, portfolioId, currency, onDone }: { party: Party; p
   }
   return (
     <View style={{ marginTop: 14, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 12 }}>
-      <Txt v="cardTitle">{byYou ? `New debt to ${party.name}` : `More lent to ${party.name}`}</Txt>
+      <Txt fbPrivate v="cardTitle">{byYou ? `New debt to ${party.name}` : `More lent to ${party.name}`}</Txt>
       <Field label="Amount" numeric value={amount} onChangeText={setAmount} />
       <Seg label="Currency" options={[['EUR', 'EUR'], ['USD', 'USD']]} value={cur} onChange={setCur} />
       <Txt v="small" c="ink3">A debt in a coin, like BTC or USDC, can be added from Ask or by an agent.</Txt>

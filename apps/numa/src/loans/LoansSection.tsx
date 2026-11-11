@@ -19,8 +19,8 @@ function LoanRow({ loan, last }: { loan: Loan; last: boolean }) {
     <Pressable onPress={() => openLoan(loan.key)} accessibilityRole="link" accessibilityLabel={`${loan.name}, ${loan.debtCents === null ? 'no value' : money(loan.debtCents)} owed. ${went}`}
       style={{ minHeight: 64, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{loan.name}</Txt>
-        <Txt v="small" c={loan.deployed.length ? 'ink2' : 'ink3'} numberOfLines={1}>{loan.where} · {went}</Txt>
+        <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{loan.name}</Txt>
+        <Txt fbPrivate v="small" c={loan.deployed.length ? 'ink2' : 'ink3'} numberOfLines={1}>{loan.where} · {went}</Txt>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Txt fbPrivate v="figure" style={{ color: c.down }}>{loan.debtCents === null ? '—' : money(loan.debtCents)}</Txt>
@@ -72,7 +72,7 @@ export function LiquidationSection() {
         {!open && (
           <>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-              <Txt v="small" c="ink2" style={{ flex: 1 }} numberOfLines={1}>Closest: {closest.loan.name}</Txt>
+              <Txt fbPrivate v="small" c="ink2" style={{ flex: 1 }} numberOfLines={1}>Closest: {closest.loan.name}</Txt>
               <Txt v="figureSm" style={{ color: zoneColor(closest.safety.zone) }}>{fall(closest.safety)}</Txt>
             </View>
             <SafetyBar safety={closest.safety} />
@@ -86,7 +86,7 @@ export function LiquidationSection() {
             <Pressable key={loan.key} onPress={() => openLoan(loan.key)} accessibilityRole="link"
               accessibilityLabel={`${loan.name}, ${loan.where}. ${zoneText(safety)}: can fall ${Math.round(safety.cushion * 100)} percent before it is sold. Open`} style={{ gap: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-                <Txt v="body" style={{ flex: 1, fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{loan.name}</Txt>
+                <Txt fbPrivate v="body" style={{ flex: 1, fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{loan.name}</Txt>
                 <Txt v="figureSm" style={{ color: zoneColor(safety.zone) }}>{fall(safety)}</Txt>
               </View>
               <SafetyBar safety={safety} />

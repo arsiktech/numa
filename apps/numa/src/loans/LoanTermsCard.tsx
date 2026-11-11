@@ -54,7 +54,7 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
     : 'Not set';
   return (
     <View style={{ marginTop: 14, backgroundColor: c.s1, borderRadius: 18, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 }}>
-      <Txt v="cardTitle" accessibilityRole="header" style={{ marginBottom: 4 }}>{loan.name} · terms</Txt>
+      <Txt fbPrivate v="cardTitle" accessibilityRole="header" style={{ marginBottom: 4 }}>{loan.name} · terms</Txt>
       {terms.principal !== null && !coin && <Row label="Original amount" value={money(terms.principal)} />}
       <Row label="Still owed (principal)" value={owedNow} />
       {terms.startedAt !== null && <Row label="Started" value={dayText(terms.startedAt, now)} />}
@@ -222,7 +222,7 @@ export function LoanTermsForm({ loan, events, now, onDone }: { loan: CloudLiabil
 
   return (
     <View style={{ marginTop: 14, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 12 }}>
-      <Txt v="cardTitle">{loan.name} · loan terms</Txt>
+      <Txt fbPrivate v="cardTitle">{loan.name} · loan terms</Txt>
       {!coin && <Field label={`Original amount in ${loan.currency}`} numeric value={principal} onChangeText={setPrincipal} />}
       {!coin && <Field label="Started (like 2026-07-01 or Jul 2026)" value={started} onChangeText={setStarted} />}
       <Seg label="Repayment" options={[['none', 'Not set'], ['flexible', 'Flexible'], ['fixed', 'Fixed date']]} value={dueKind} onChange={setDueKind} />

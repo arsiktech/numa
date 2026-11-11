@@ -55,9 +55,9 @@ function Detail({ position, demo, now }: { position: Position; demo: boolean; no
   return (
     <Screen>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{groupNames[position.group].toUpperCase()}{demo ? ' · DEMO DATA' : ''}</Txt>
-      <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{position.name}</Txt>
+      <Txt fbPrivate v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{position.name}</Txt>
       <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: position.group === 'debts' ? c.down : c.ink }}>{position.valueCents === null ? '—' : money(position.valueCents, { cents: true })}</Txt>
-      {qty && <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(qty)}</Txt>}
+      {qty && <Txt fbPrivate v="body" c="ink2" style={{ marginTop: 4 }}>{mask(qty)}</Txt>}
       {position.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{position.unknown} {position.unknown === 1 ? 'place has' : 'places have'} no value yet and {position.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
       {/* A coin or a stock has a market price; cash, pools, lending and plain records don't. */}
       {!demo && (position.group === 'crypto' || position.group === 'stocks') && /^[A-Z0-9.-]{1,15}$/.test(position.key) && (
@@ -78,11 +78,11 @@ function Detail({ position, demo, now }: { position: Position; demo: boolean; no
           <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color, opacity: (p.valueCents ?? 0) > 0 ? Math.max(0.4, 1 - known.indexOf(p) * 0.2) : 0.2 }} />
           <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold', flexShrink: 1 }} numberOfLines={1}>{p.where}</Txt>
+              <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold', flexShrink: 1 }} numberOfLines={1}>{p.where}</Txt>
               {p.tag && <View style={{ paddingHorizontal: 7, minHeight: 20, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}><Txt v="label" c="ink2" style={{ fontSize: 10 }}>{TAGS[p.tag]}</Txt></View>}
             </View>
-            {p.detail && <Txt v="small" c="ink2" selectable numberOfLines={2}>{p.detail}</Txt>}
-            {quantityText(p.quantity, p.unit) && <Txt v="small" c="ink3">{mask(quantityText(p.quantity, p.unit)!)}</Txt>}
+            {p.detail && <Txt fbPrivate v="small" c="ink2" selectable numberOfLines={2}>{p.detail}</Txt>}
+            {quantityText(p.quantity, p.unit) && <Txt fbPrivate v="small" c="ink3">{mask(quantityText(p.quantity, p.unit)!)}</Txt>}
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Txt fbPrivate v="figure" style={{ fontSize: 15 }}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
@@ -107,9 +107,9 @@ function FamilyDetail({ family, group, demo, now }: { family: Family; group: Gro
   return (
     <Screen>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{groupNames[group].toUpperCase()}{demo ? ' · DEMO DATA' : ''}</Txt>
-      <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{family.name}</Txt>
+      <Txt fbPrivate v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{family.name}</Txt>
       <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: debts ? c.down : c.ink }}>{family.valueCents === null ? '—' : money(family.valueCents, { cents: true })}</Txt>
-      {qty && <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(qty)}</Txt>}
+      {qty && <Txt fbPrivate v="body" c="ink2" style={{ marginTop: 4 }}>{mask(qty)}</Txt>}
       {family.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{family.unknown} {family.unknown === 1 ? 'place has' : 'places have'} no value yet and {family.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
       {!demo && !debts && family.unit && <PriceChart symbol={family.unit} kind="crypto" now={now} />}
       <Txt v="label" c="ink3" style={{ marginTop: 24, marginBottom: 10 }} accessibilityRole="header">{debts ? 'OWED AS' : 'HELD AS'}</Txt>

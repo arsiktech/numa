@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { useRef, useState } from 'react';
 import { Platform, TextInput, View } from 'react-native';
 
+import { fbField } from '@/feedback/private';
 import { cloud } from '@/cloud/api';
 import { useTheme } from '@/theme/theme';
 import { Seg } from '@/ui/form';
@@ -42,7 +43,7 @@ export function FeedbackSection() {
       {open && (
         <View style={{ marginTop: 12, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 12 }}>
           <Seg label="Type of feedback" options={FEEDBACK_KINDS} value={kind} onChange={setKind} />
-          <TextInput value={message} onChangeText={setMessage} multiline maxLength={FEEDBACK_MAX} accessibilityLabel="Your feedback" placeholder="What should we know?" placeholderTextColor={c.ink3}
+          <TextInput {...fbField} value={message} onChangeText={setMessage} multiline maxLength={FEEDBACK_MAX} accessibilityLabel="Your feedback" placeholder="What should we know?" placeholderTextColor={c.ink3}
             style={{ minHeight: 110, borderRadius: 12, padding: 12, backgroundColor: c.s2, color: c.ink, fontFamily: 'Manrope_500Medium', fontSize: 15, textAlignVertical: 'top' }} />
           <Txt v="small" c="ink3">Sent with your account and the app version. Don’t include passwords. It’s deleted when you delete your account.</Txt>
           <View style={{ flexDirection: 'row', gap: 8 }}>

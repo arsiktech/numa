@@ -20,10 +20,10 @@ export function ItemRow({ item, last }: { item: Item; last?: boolean }) {
       <Pressable accessibilityRole="link" accessibilityLabel={`${item.name}, ${item.valueCents === null ? 'no value' : hidden ? 'amount hidden' : money(item.valueCents)}. ${item.freshness.text}`}
         style={{ minHeight: 64, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{item.name}</Txt>
+          <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{item.name}</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c[toneColor[item.freshness.tone]] }} />
-            <Txt v="small" c="ink2" numberOfLines={1} style={{ flexShrink: 1 }}>{[item.detail, item.freshness.text].filter(Boolean).join(' · ')}</Txt>
+            <Txt fbPrivate v="small" c="ink2" numberOfLines={1} style={{ flexShrink: 1 }}>{[item.detail, item.freshness.text].filter(Boolean).join(' · ')}</Txt>
           </View>
         </View>
         <View style={{ alignItems: 'flex-end' }}>

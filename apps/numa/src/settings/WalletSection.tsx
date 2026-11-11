@@ -50,8 +50,8 @@ export function WalletSection() {
         <Pressable key={w.id} onPress={() => router.push({ pathname: '/item/[type]/[id]', params: { type: 'wallet', id: w.id } })} accessibilityRole="link" accessibilityLabel={`${w.label}, ${walletDetail(w)}. Open`}
           style={{ minHeight: 56, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: c.line }}>
           <View style={{ flex: 1 }}>
-            <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{w.label}</Txt>
-            <Txt v="small" c="ink2">{walletDetail(w)}</Txt>
+            <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{w.label}</Txt>
+            <Txt fbPrivate v="small" c="ink2">{walletDetail(w)}</Txt>
           </View>
           <Txt v="body" c="ink3">›</Txt>
         </Pressable>

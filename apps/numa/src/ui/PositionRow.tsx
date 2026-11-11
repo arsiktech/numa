@@ -21,7 +21,7 @@ export function PositionRow({ position, share, swatch, last }: { position: Posit
         style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
         <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: swatch }} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{position.name}</Txt>
+          <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{position.name}</Txt>
           <Txt fbPrivate v="small" c="ink2" numberOfLines={1}>{[qty && mask(qty), where].filter(Boolean).join(' · ')}</Txt>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
@@ -46,7 +46,7 @@ export function FamilyRow({ family, group, share, swatch, last }: { family: Fami
         style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
         <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: swatch }} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{family.name}</Txt>
+          <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{family.name}</Txt>
           <Txt fbPrivate v="small" c="ink2" numberOfLines={1}>{[qty && mask(qty), versions].filter(Boolean).join(' · ')}</Txt>
         </View>
         <View style={{ alignItems: 'flex-end' }}>

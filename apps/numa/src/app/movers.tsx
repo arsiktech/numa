@@ -19,7 +19,7 @@ function ChangeRow({ row }: { row: Mover }) {
   return (
     <View style={{ minHeight: 64, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: c.line }}>
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-        <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{mask(row.name)}</Txt>
+        <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{mask(row.name)}</Txt>
         <Txt v="small" c="ink2" style={{ fontSize: 13.5 }}>{mask([row.group, percent, 'Price estimate'].filter(Boolean).join(' · '))}</Txt>
       </View>
       <Txt fbPrivate v="figure" style={{ fontSize: 15, color: row.cents >= 0 ? c.upInk : c.down }}>{money(row.cents, { cents: true, sign: true })}</Txt>
@@ -78,12 +78,12 @@ function Breakdown({ report }: { report: HomeMovementReport }) {
         <Txt v="section" accessibilityRole="header">Missing coverage</Txt>
         <Txt v="small" c="ink2" style={{ marginTop: 6 }}>These records are not assumed to have stayed unchanged.</Txt>
         {missing.map((row) => <View key={row.id} style={{ minHeight: 56, paddingVertical: 10, gap: 3, borderBottomWidth: 1, borderBottomColor: c.line }}>
-          <Txt v="body">{mask(row.name)}</Txt><Txt v="small" c="ink2" style={{ fontSize: 13.5 }}>{mask(row.reason)}</Txt>
+          <Txt fbPrivate v="body">{mask(row.name)}</Txt><Txt fbPrivate v="small" c="ink2" style={{ fontSize: 13.5 }}>{mask(row.reason)}</Txt>
         </View>)}
       </View>}
       {flat.length > 0 && <View style={{ marginTop: 24 }}>
         <Txt v="section" accessibilityRole="header">No price move in estimate</Txt>
-        {flat.map((row) => <View key={row.id} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.line }}><Txt v="body" c="ink2">{mask(row.name)}</Txt></View>)}
+        {flat.map((row) => <View key={row.id} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.line }}><Txt fbPrivate v="body" c="ink2">{mask(row.name)}</Txt></View>)}
       </View>}
     </>
   );

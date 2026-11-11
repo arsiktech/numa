@@ -172,7 +172,7 @@ function Importer() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <View style={{ flex: 1 }}>
               <Txt v="small" c="ink3">Reading</Txt>
-              <Txt v="body" numberOfLines={1} style={{ fontFamily: 'Manrope_700Bold' }}>{loaded.label}{loaded.tabs.length > 1 ? ` · ${loaded.tabs[loaded.tab].name}` : ''}</Txt>
+              <Txt fbPrivate v="body" numberOfLines={1} style={{ fontFamily: 'Manrope_700Bold' }}>{loaded.label}{loaded.tabs.length > 1 ? ` · ${loaded.tabs[loaded.tab].name}` : ''}</Txt>
             </View>
             <Pressable onPress={startOver} accessibilityRole="button" hitSlop={8} style={{ minHeight: 40, justifyContent: 'center' }}>
               <Txt v="small" style={{ fontFamily: 'Manrope_700Bold' }}>Start over</Txt>
@@ -183,7 +183,7 @@ function Importer() {
               {loaded.tabs.map((t, i) => (
                 <Pressable key={`${t.name}-${i}`} onPress={() => showTab(i)} accessibilityRole="tab" aria-selected={i === loaded.tab}
                   style={{ minHeight: 36, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center', backgroundColor: i === loaded.tab ? c.ink : c.s2 }}>
-                  <Txt v="small" c={i === loaded.tab ? 'bg' : 'ink2'} style={{ fontFamily: 'Manrope_700Bold' }}>{t.name}</Txt>
+                  <Txt fbPrivate v="small" c={i === loaded.tab ? 'bg' : 'ink2'} style={{ fontFamily: 'Manrope_700Bold' }}>{t.name}</Txt>
                 </Pressable>
               ))}
             </View>
@@ -211,7 +211,7 @@ function Importer() {
               const d = describe(r);
               return (
                 <View key={r.line} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === Math.min(ready.length, 50) - 1 ? 0 : 1, borderBottomColor: c.line }}>
-                  <Txt v="body" numberOfLines={1} style={{ flex: 1 }}>{d.title}</Txt>
+                  <Txt fbPrivate v="body" numberOfLines={1} style={{ flex: 1 }}>{d.title}</Txt>
                   <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{d.amount}</Txt>
                 </View>
               );
@@ -286,7 +286,7 @@ function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView
               const x = describe({ draft: d });
               return (
                 <View key={`${d.type}-${d.name}`} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === log.today!.drafts.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
-                  <Txt v="body" numberOfLines={1} style={{ flex: 1 }}>{x.title}</Txt>
+                  <Txt fbPrivate v="body" numberOfLines={1} style={{ flex: 1 }}>{x.title}</Txt>
                   <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{x.amount}</Txt>
                 </View>
               );

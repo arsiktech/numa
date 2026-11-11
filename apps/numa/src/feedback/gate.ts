@@ -22,7 +22,11 @@ export function feedbackButtonVisible(input: { platform: string; endpoint: Feedb
   return input.platform === 'web' && input.endpoint !== null && input.enabled;
 }
 
-/** A screenshot is taken only for a path on the service's capture list. An empty list means notes only. */
+/**
+ * A screenshot is taken only when the service's capture list includes the path.
+ * This app adds no path of its own: an empty list means notes only, and a prefix
+ * that covers every path includes every screen.
+ */
 export function shouldCaptureScreenshot(config: FeedbackCaptureConfig, pathname: string): boolean {
   return config.screenshots === true && feedbackCaptureAllowed(config.capture, pathname);
 }

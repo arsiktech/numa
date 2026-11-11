@@ -64,7 +64,7 @@ function SpotRow({ spot, share, swatch, last }: { spot: Spot; share: number | nu
       style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
       <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: swatch }} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{spot.name}</Txt>
+        <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{spot.name}</Txt>
         <Txt v="small" c="ink2" numberOfLines={1}>{what}</Txt>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
@@ -123,7 +123,7 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
                   <View key={k.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.line, gap: 2 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: c[CLASS_COLOR[k.id]] }} />
-                      <Txt v="body" style={{ flex: 1, fontFamily: 'Manrope_600SemiBold' }}>{k.name}</Txt>
+                      <Txt fbPrivate v="body" style={{ flex: 1, fontFamily: 'Manrope_600SemiBold' }}>{k.name}</Txt>
                       <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{money(cents)}</Txt>
                       <Txt v="figureSm" c="ink3" style={{ width: 40, textAlign: 'right' }}>{ownedCents > 0 ? `${Math.round((cents / ownedCents) * 100)}%` : ''}</Txt>
                     </View>

@@ -7,6 +7,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollVie
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { fbField } from '@/feedback/private';
 import { appleOffer } from '@/cloud/appleOffer';
 import { cloud } from '@/cloud/api';
 import { authErrorText, passwordRuleIssue, resetErrorText } from '@/cloud/authErrors';
@@ -36,6 +37,7 @@ function Field(props: TextInputProps & { label: string }) {
       <Txt v="small" c="ink2">{label}</Txt>
       <TextInput
         {...rest}
+        {...fbField}
         accessibilityLabel={label}
         placeholderTextColor={c.ink3}
         onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }}

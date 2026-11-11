@@ -77,8 +77,8 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
 
   return (
     <View>
-      <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{income ? 'INCOME' : 'SPENDING'}{category ? ` · ${category.toUpperCase()}` : ''}</Txt>
-      <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{tx.description}</Txt>
+      <Txt fbPrivate v="small" c="ink3" style={{ marginTop: 6 }}>{income ? 'INCOME' : 'SPENDING'}{category ? ` · ${category.toUpperCase()}` : ''}</Txt>
+      <Txt fbPrivate v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{tx.description}</Txt>
       <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: income ? c.upInk : c.ink }}>{mask((income ? '+' : '−') + formatMoney(Math.abs(tx.amountMinor), tx.currency, { cents: true }))}</Txt>
       <Txt v="body" c="ink2" style={{ marginTop: 6 }}>{whenOf(tx.occurredAt)}</Txt>
       {!editing && <CardDetailsView tx={tx} category={category} />}
@@ -96,7 +96,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityRole="radiogroup">
               {[{ id: null as string | null, name: 'None' }, ...choices].map((x) => (
                 <Pressable key={x.id ?? 'none'} onPress={() => setForm((f) => ({ ...f, categoryId: x.id }))} accessibilityRole="radio" aria-checked={form.categoryId === x.id} style={{ minHeight: 36, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center', backgroundColor: form.categoryId === x.id ? c.ink : c.s2 }}>
-                  <Txt v="small" style={{ fontFamily: 'Manrope_700Bold', color: form.categoryId === x.id ? c.bg : c.ink }}>{x.name}</Txt>
+                  <Txt fbPrivate v="small" style={{ fontFamily: 'Manrope_700Bold', color: form.categoryId === x.id ? c.bg : c.ink }}>{x.name}</Txt>
                 </Pressable>
               ))}
             </View>

@@ -25,7 +25,7 @@ export function Sankey({ layout, focus, onFocus }: { layout: SankeyLayout; focus
     const style = { position: 'absolute' as const, top: n.y + n.h / 2 - (room === 2 ? 17 : 9), maxWidth: layout.width / 2 - 26, ...(n.side === 'left' ? { left: 12 } : { right: 12, alignItems: 'flex-end' as const }) };
     return (
       <Pressable key={n.id} onPress={() => toggle(n.id)} accessibilityRole="button" aria-selected={focus === n.id} accessibilityLabel={`${n.label}, ${hidden ? 'amount hidden' : money(n.cents)}. ${focus === n.id ? 'Following' : 'Follow this stream'}`} hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }} style={[style, { minHeight: 44, justifyContent: 'center' }]}>
-        <Txt v="small" numberOfLines={1} style={{ fontFamily: 'Manrope_700Bold', color: n.kind === 'kept' ? c.upInk : n.kind === 'savings' ? c.down : c.ink }}>{n.label}</Txt>
+        <Txt fbPrivate v="small" numberOfLines={1} style={{ fontFamily: 'Manrope_700Bold', color: n.kind === 'kept' ? c.upInk : n.kind === 'savings' ? c.down : c.ink }}>{n.label}</Txt>
         {room === 2 && <Txt fbPrivate v="figureSm" c="ink2" numberOfLines={1}>{money(n.cents)}</Txt>}
       </Pressable>
     );

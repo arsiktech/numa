@@ -36,7 +36,7 @@ function Drawing({ tile, rect, geometry, selected, total, sameColor }: {
   return (
     <Animated.View pointerEvents="none" style={[{ position: 'absolute', borderRadius: 4, overflow: 'hidden', backgroundColor: fill, opacity: selected ? 1 : Math.max(0.55, 1 - sameColor * 0.09), justifyContent: 'flex-end' }, style]}>
       {(room || selected) && <View style={{ padding: 8 }}>
-        <Txt v="label" numberOfLines={selected ? undefined : 1} style={{ color: ink, textTransform: 'none', letterSpacing: 0, fontSize: 12 }} maxFontSizeMultiplier={1.3}>{mask(tile.label)}</Txt>
+        <Txt fbPrivate v="label" numberOfLines={selected ? undefined : 1} style={{ color: ink, textTransform: 'none', letterSpacing: 0, fontSize: 12 }} maxFontSizeMultiplier={1.3}>{mask(tile.label)}</Txt>
         {(selected || rect.h >= 54) && <Txt fbPrivate v="figureSm" style={{ color: ink, fontSize: 13 }} maxFontSizeMultiplier={1.3}>{short(Math.round(tile.cents))}{selected || rect.w >= 110 ? mask(` · ${Math.round(share * 100)}%`) : ''}</Txt>}
       </View>}
     </Animated.View>

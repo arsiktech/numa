@@ -44,7 +44,7 @@ function PlaceRow({ place, onRemove, last }: { place: LoanPlace; onRemove?: () =
         accessibilityLabel={`${place.name}, ${place.valueCents === null ? 'no value' : money(place.valueCents)}`}
         style={{ flex: 1, minWidth: 0, minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-          <Txt v="body" c={place.gone ? 'warn' : 'ink'} style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{place.name}</Txt>
+          <Txt fbPrivate v="body" c={place.gone ? 'warn' : 'ink'} style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{place.name}</Txt>
           {place.detail && <Txt v="small" c="ink2" numberOfLines={1}>{place.detail}</Txt>}
         </View>
         <Txt fbPrivate v="figure" style={{}}>{place.valueCents === null ? '—' : money(place.valueCents)}</Txt>
@@ -86,7 +86,7 @@ function Picker({ loan, role, state, onPick, onClose }: { loan: Loan; role: Loan
           <Pressable key={p.key} onPress={() => onPick(p.key)} accessibilityRole="button" accessibilityLabel={`Link ${p.name}${other ? `, moves it from ${loanName(other)}` : shared.length ? `, shared with ${shared.map(loanName).join(', ')}` : ''}`}
             style={{ minHeight: 56, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: c.line }}>
             <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-              <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{p.name}</Txt>
+              <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{p.name}</Txt>
               <Txt v="small" c={other ? 'warn' : 'ink2'} numberOfLines={1}>{note}</Txt>
             </View>
             <Txt fbPrivate v="figureSm" style={{}}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
@@ -119,7 +119,7 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
   return (
     <Screen>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>LOAN · {loan.where.toUpperCase()}</Txt>
-      <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{loan.name}</Txt>
+      <Txt fbPrivate v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{loan.name}</Txt>
       <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: c.down }}>{loan.debtCents === null ? '—' : money(loan.debtCents, { cents: true })}</Txt>
       {owed !== '' && <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(owed)} owed</Txt>}
 
@@ -127,7 +127,7 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
       {safety && (
         <View style={{ marginTop: 20, paddingVertical: 20, borderRadius: 18, backgroundColor: c.s1 }}>
           <SafetyGauge safety={safety} />
-          {loan.checkedAt !== null && <Txt v="small" c="ink3" style={{ textAlign: 'center', marginTop: 8 }}>Read from {loan.name.split(' · ')[0]} {ago(loan.checkedAt, state.now)}</Txt>}
+          {loan.checkedAt !== null && <Txt fbPrivate v="small" c="ink3" style={{ textAlign: 'center', marginTop: 8 }}>Read from {loan.name.split(' · ')[0]} {ago(loan.checkedAt, state.now)}</Txt>}
         </View>
       )}
 

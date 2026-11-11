@@ -17,12 +17,12 @@ export function Row({ title, detail, detailPrivate, children }: { title: string;
   );
 }
 
-export function Action({ label, detail, detailPrivate, onPress, danger, disabled }: { label: string; detail?: string; detailPrivate?: boolean; onPress: () => void; danger?: boolean; disabled?: boolean }) {
+export function Action({ label, labelPrivate, detail, detailPrivate, onPress, danger, disabled }: { label: string; labelPrivate?: boolean; detail?: string; detailPrivate?: boolean; onPress: () => void; danger?: boolean; disabled?: boolean }) {
   const { c } = useTheme();
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" aria-disabled={!!disabled} accessibilityHint={detail}
       style={({ pressed }) => ({ minHeight: 48, paddingVertical: 12, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: c.line, opacity: !disabled && pressed ? 0.72 : 1 })}>
-      <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', color: disabled ? c.ink3 : danger ? c.down : c.ink }}>{label}</Txt>
+      <Txt fbPrivate={labelPrivate} v="body" style={{ fontFamily: 'Manrope_700Bold', color: disabled ? c.ink3 : danger ? c.down : c.ink }}>{label}</Txt>
       {detail ? <Txt v="small" c="ink2" fbPrivate={detailPrivate} style={{ marginTop: 2 }}>{detail}</Txt> : null}
     </Pressable>
   );
