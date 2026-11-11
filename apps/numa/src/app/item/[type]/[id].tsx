@@ -43,12 +43,12 @@ function Detail({ source, type, id, editable }: { source: ItemsSource; type: Ite
   );
 }
 
-function Fact({ label, value, fbPrivate }: { label: string; value: string; fbPrivate?: boolean }) {
+function Fact({ label, value }: { label: string; value: string }) {
   const { c } = useTheme();
   return (
     <View style={{ minHeight: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.line, gap: 12 }}>
       <Txt v="body" c="ink2">{label}</Txt>
-      <Txt fbPrivate={fbPrivate} v="figureSm" style={{ fontSize: 14, flexShrink: 1, textAlign: 'right' }}>{value}</Txt>
+      <Txt v="figureSm" style={{ fontSize: 14, flexShrink: 1, textAlign: 'right' }}>{value}</Txt>
     </View>
   );
 }
@@ -61,8 +61,8 @@ function Facts({ item, now }: { item: Item; now: number }) {
   return (
     <View>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{groupNames[item.group].toUpperCase()}</Txt>
-      <Txt fbPrivate v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{item.name}</Txt>
-      <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: item.group === 'debts' ? c.down : c.ink }}>{item.valueCents === null ? '—' : money(item.valueCents, { cents: true })}</Txt>
+      <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{item.name}</Txt>
+      <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: item.group === 'debts' ? c.down : c.ink }}>{item.valueCents === null ? '—' : money(item.valueCents, { cents: true })}</Txt>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
         <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c[toneColor[item.freshness.tone]] }} />
         <Txt v="body" c="ink2">{item.freshness.text}</Txt>
@@ -72,20 +72,20 @@ function Facts({ item, now }: { item: Item; now: number }) {
           const h = raw as CloudHolding;
           return (
             <>
-              <Fact fbPrivate label="Units" value={`${mask(String(h.quantity))} ${h.symbol}`} />
-              {h.quoteProvider && h.quoteProvider !== 'mock' && <Fact fbPrivate label="Price" value={m(Math.round(h.marketPrice * 100), 'USD')} />}
-              <Fact fbPrivate label="You paid" value={m(Math.round(h.costBasis * 100), h.currency)} />
+              <Fact label="Units" value={`${mask(String(h.quantity))} ${h.symbol}`} />
+              {h.quoteProvider && h.quoteProvider !== 'mock' && <Fact label="Price" value={m(Math.round(h.marketPrice * 100), 'USD')} />}
+              <Fact label="You paid" value={m(Math.round(h.costBasis * 100), h.currency)} />
             </>
           );
         })()}
-        {item.type === 'asset' && (raw as CloudAsset).costBasis ? <Fact fbPrivate label="You paid" value={m(Math.round((raw as CloudAsset).costBasis! * 100), (raw as CloudAsset).currency)} /> : null}
+        {item.type === 'asset' && (raw as CloudAsset).costBasis ? <Fact label="You paid" value={m(Math.round((raw as CloudAsset).costBasis! * 100), (raw as CloudAsset).currency)} /> : null}
         {item.type === 'asset' && (raw as CloudAsset).acquiredAt && !item.gain ? <Fact label="Bought" value={monthYear((raw as CloudAsset).acquiredAt!)} /> : null}
         {item.gain && <GainFact gain={item.gain} />}
         {item.type === 'asset' && <Fact label="Kind" value={item.detail ?? ''} />}
         {item.type === 'asset' && <Fact label="Updated" value={shortDay((raw as CloudAsset).updatedAt, now)} />}
         {item.type === 'liability' && <Fact label="Kind" value={item.detail ?? ''} />}
         {item.type === 'liability' && (raw as CloudLiability).owedSymbol && (
-          <Fact fbPrivate label="Owed in" value={`${mask(String((raw as CloudLiability).owedQuantity))} ${(raw as CloudLiability).owedSymbol}${(raw as CloudLiability).owedPriceAt ? '' : ' · no price yet'}`} />
+          <Fact label="Owed in" value={`${mask(String((raw as CloudLiability).owedQuantity))} ${(raw as CloudLiability).owedSymbol}${(raw as CloudLiability).owedPriceAt ? '' : ' · no price yet'}`} />
         )}
         {item.type === 'liability' && <Fact label="Due" value={(raw as CloudLiability).dueDate ? shortDay((raw as CloudLiability).dueDate!, now) : 'No due date'} />}
         {(item.type === 'holding' || item.type === 'asset') && <Fact label="Where it is" value={(raw as CloudHolding | CloudAsset).location || 'Not set'} />}
@@ -105,7 +105,7 @@ function GainFact({ gain }: { gain: NonNullable<Item['gain']> }) {
   return (
     <View style={{ minHeight: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.line, gap: 12 }}>
       <Txt v="body" c="ink2">{label}</Txt>
-      <Txt fbPrivate v="figureSm" style={{ fontSize: 14, color: up ? c.upInk : c.down }} accessibilityLabel={`${up ? 'Up' : 'Down'} ${hidden ? '' : money(Math.abs(gain.cents), { cents: true })} ${pct.replace('−', 'minus ')}`}>
+      <Txt v="figureSm" style={{ fontSize: 14, color: up ? c.upInk : c.down }} accessibilityLabel={`${up ? 'Up' : 'Down'} ${hidden ? '' : money(Math.abs(gain.cents), { cents: true })} ${pct.replace('−', 'minus ')}`}>
         {(up ? '+' : '−') + money(Math.abs(gain.cents), { cents: true }).replace('−', '')} · {pct}
       </Txt>
     </View>

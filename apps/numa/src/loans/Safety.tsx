@@ -87,10 +87,10 @@ export function CoinPrices({ safety, dense }: { safety: Safety; dense?: boolean 
     <View style={{ gap: dense ? 4 : 8 }}>
       {safety.prices.map((p) => (
         <View key={p.symbol} style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-          <Txt fbPrivate v="small" c="ink2" style={{ flexShrink: 1 }}>{p.name}{p.nowCents !== null ? ` · now ${money(p.nowCents)}` : ''}</Txt>
+          <Txt v="small" c="ink2" style={{ flexShrink: 1 }}>{p.name}{p.nowCents !== null ? ` · now ${money(p.nowCents)}` : ''}</Txt>
           {p.drop === null
             ? <Txt v="small" c="ink3">Can’t trigger it alone</Txt>
-            : <Txt fbPrivate v="figureSm" style={{ fontSize: 13, color: p.drop < 0.25 ? c.down : p.drop < 0.4 ? c.warn : c.ink }}>{p.liquidationCents !== null ? `sold below ${money(p.liquidationCents)}` : `sold after −${pct(p.drop)}`}</Txt>}
+            : <Txt v="figureSm" style={{ fontSize: 13, color: p.drop < 0.25 ? c.down : p.drop < 0.4 ? c.warn : c.ink }}>{p.liquidationCents !== null ? `sold below ${money(p.liquidationCents)}` : `sold after −${pct(p.drop)}`}</Txt>}
         </View>
       ))}
       {safety.prices.length > 1 && (

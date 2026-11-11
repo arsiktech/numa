@@ -2,7 +2,6 @@ import { useAction } from 'convex/react';
 import { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 
-import { fbField } from '@/feedback/private';
 import { cloud } from '@/cloud/api';
 import { useTheme } from '@/theme/theme';
 import { Txt } from '@/ui/Txt';
@@ -115,7 +114,7 @@ export function ImportSources({ onLoaded, pasteText, onPaste }: { onLoaded: (loa
             'In Google Sheets, tap Share, and under General access choose “Anyone with the link”.',
             'Tap Copy link, then paste it below. Numa reads every tab and opens the one it understands.',
           ]} />
-          <TextInput {...fbField} value={link} onChangeText={(t) => { setLink(t); setError(null); }} placeholder="docs.google.com/spreadsheets/d/…" placeholderTextColor={c.ink3}
+          <TextInput value={link} onChangeText={(t) => { setLink(t); setError(null); }} placeholder="docs.google.com/spreadsheets/d/…" placeholderTextColor={c.ink3}
             autoCapitalize="none" autoCorrect={false} keyboardType="url" inputMode="url" onSubmitEditing={readLink} accessibilityLabel="Google Sheets link"
             style={{ ...field, marginTop: 12, minHeight: 50, fontFamily: 'Manrope_500Medium', fontSize: 15 }} />
           <Pressable onPress={readLink} disabled={!link.trim() || busy} accessibilityRole="button" aria-disabled={!link.trim() || busy}
@@ -131,7 +130,7 @@ export function ImportSources({ onLoaded, pasteText, onPaste }: { onLoaded: (loa
       {way === 'paste' && (
         <View style={{ paddingHorizontal: 4 }}>
           <Txt v="small" c="ink2">Easiest on a computer: select the cells, header row included, copy, and paste here. A CSV’s text works too.</Txt>
-          <TextInput {...fbField} value={pasteText} onChangeText={onPaste} multiline placeholder={'Date,Description,Amount\n2026-10-03,October rent,-1200'} placeholderTextColor={c.ink3} accessibilityLabel="Pasted table"
+          <TextInput value={pasteText} onChangeText={onPaste} multiline placeholder={'Date,Description,Amount\n2026-10-03,October rent,-1200'} placeholderTextColor={c.ink3} accessibilityLabel="Pasted table"
             style={{ ...field, marginTop: 10, minHeight: 140, maxHeight: 260, fontFamily: 'JetBrainsMono_500Medium', fontSize: 13, textAlignVertical: 'top' }} />
         </View>
       )}

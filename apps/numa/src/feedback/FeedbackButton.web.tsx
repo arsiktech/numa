@@ -20,7 +20,6 @@ import {
   type FeedbackMood,
 } from './feedback-client';
 import { feedbackEndpoint, feedbackFacts, feedbackLocale, shouldCaptureScreenshot, type FeedbackRole } from './gate';
-import { fbField } from './private';
 
 const MOOD_LABEL: Record<FeedbackMood, string> = {
   happy: 'Happy',
@@ -194,7 +193,6 @@ export function FeedbackButton() {
               })}
             </View>
             <TextInput
-              {...fbField}
               ref={noteRef}
               value={note}
               onChangeText={setNote}
@@ -206,8 +204,9 @@ export function FeedbackButton() {
             />
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               {shot ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Image source={{ uri: shot.dataUrl }} accessibilityLabel="Screenshot" style={{ width: 72, height: 48, borderRadius: 8, backgroundColor: c.s2 }} />
+                  <Txt v="small" c="ink2" style={{ flex: 1 }}>Others on the team can see this screenshot.</Txt>
                   <Pressable onPress={() => { removed.current = true; captureJob.current = null; setShot(null); }} accessibilityRole="button" accessibilityLabel="Remove screenshot" style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                     <Txt v="body" c="ink2">×</Txt>
                   </Pressable>

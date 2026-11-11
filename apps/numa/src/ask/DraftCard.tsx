@@ -75,15 +75,15 @@ export function DraftCard({ draft, status, error, demo, locked = false, onChange
   return (
     <Animated.View entering={reduce ? undefined : FadeInDown.duration(500)} accessibilityLabel={`Draft. ${h.label}`} style={{ padding: 16, borderRadius: 20, backgroundColor: c.s1, borderWidth: 1, borderColor: open ? c.line2 : 'transparent', opacity: status === 'discarded' || status === 'undone' ? 0.55 : 1 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-        <Txt fbPrivate v="cardTitle" style={{ flex: 1 }} numberOfLines={1}>{h.label}</Txt>
+        <Txt v="cardTitle" style={{ flex: 1 }} numberOfLines={1}>{h.label}</Txt>
         <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, justifyContent: 'center', backgroundColor: status === 'saved' ? c.upBg : c.s2 }}>
           <Txt v="label" c={status === 'saved' ? 'upInk' : 'ink2'} style={{ fontSize: 10 }}>{chip}</Txt>
         </View>
       </View>
-      <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 28, lineHeight: 34, color: draft.type === 'transaction' && draft.kind === 'income' ? c.upInk : c.ink }}>
+      <Txt v="figure" style={{ marginTop: 10, fontSize: 28, lineHeight: 34, color: draft.type === 'transaction' && draft.kind === 'income' ? c.upInk : c.ink }}>
         {h.cents === null ? '—' : mask(h.sign + formatMoney(h.cents, draft.currency, { cents: true }))}
       </Txt>
-      {h.lines.map((l, i) => <Txt fbPrivate key={i} v="body" c="ink2" style={{ fontSize: 14, marginTop: 2 }}>{mask(l)}</Txt>)}
+      {h.lines.map((l, i) => <Txt key={i} v="body" c="ink2" style={{ fontSize: 14, marginTop: 2 }}>{mask(l)}</Txt>)}
       {open && editing && !locked && <Editor draft={draft} onChange={onChange} />}
       {open && locked && <Txt v="small" c="ink2" style={{ marginTop: 8 }}>A Save was attempted with these details. Retry confirms that same request. Removing this local draft does not undo a submitted save. Check your records before making changes.</Txt>}
       {open && problems.length > 0 && <Txt v="small" style={{ color: c.warn, marginTop: 8 }}>{problems[0]}</Txt>}

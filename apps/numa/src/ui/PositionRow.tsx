@@ -21,11 +21,11 @@ export function PositionRow({ position, share, swatch, last }: { position: Posit
         style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
         <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: swatch }} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{position.name}</Txt>
-          <Txt fbPrivate v="small" c="ink2" numberOfLines={1}>{[qty && mask(qty), where].filter(Boolean).join(' · ')}</Txt>
+          <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{position.name}</Txt>
+          <Txt v="small" c="ink2" numberOfLines={1}>{[qty && mask(qty), where].filter(Boolean).join(' · ')}</Txt>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Txt fbPrivate v="figure" style={{ fontSize: 15 }}>{position.valueCents === null ? '—' : money(position.valueCents)}</Txt>
+          <Txt v="figure" style={{ fontSize: 15 }}>{position.valueCents === null ? '—' : money(position.valueCents)}</Txt>
           {share !== null && <Txt v="figureSm" c="ink3">{Math.round(share * 100)}%</Txt>}
         </View>
         <Txt v="body" c="ink3">›</Txt>
@@ -46,11 +46,11 @@ export function FamilyRow({ family, group, share, swatch, last }: { family: Fami
         style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
         <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: swatch }} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{family.name}</Txt>
-          <Txt fbPrivate v="small" c="ink2" numberOfLines={1}>{[qty && mask(qty), versions].filter(Boolean).join(' · ')}</Txt>
+          <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{family.name}</Txt>
+          <Txt v="small" c="ink2" numberOfLines={1}>{[qty && mask(qty), versions].filter(Boolean).join(' · ')}</Txt>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Txt fbPrivate v="figure" style={{ fontSize: 15 }}>{family.valueCents === null ? '—' : money(family.valueCents)}</Txt>
+          <Txt v="figure" style={{ fontSize: 15 }}>{family.valueCents === null ? '—' : money(family.valueCents)}</Txt>
           {share !== null && <Txt v="figureSm" c="ink3">{Math.round(share * 100)}%</Txt>}
         </View>
         <Txt v="body" c="ink3">›</Txt>

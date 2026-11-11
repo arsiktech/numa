@@ -112,14 +112,14 @@ export function PaymentForm({ party, events, now, onSave, onCancel }: { party: P
       <Seg label="What happened" options={kinds} value={kind} onChange={setKindChoice} />
       {interest?.status === 'unsupported-history' && byYou && <Txt v="small" c="warn">Interest cannot be worked out. {interest.reason}</Txt>}
       {disagrees && byYou && <Txt v="small" c="warn">The history and the balance of this debt disagree, so interest can’t be added to it yet. Add the missing payments to the history first.</Txt>}
-      {kind === 'capitalized' && <Txt fbPrivate v="small" c="ink3">Unpaid interest becomes part of the amount owed, and counts as interest settled. {dated ? 'Interest that can be added on that date' : 'Interest owed so far'}: {addable === null ? '—' : unitText(addable, unit)}.</Txt>}
+      {kind === 'capitalized' && <Txt v="small" c="ink3">Unpaid interest becomes part of the amount owed, and counts as interest settled. {dated ? 'Interest that can be added on that date' : 'Interest owed so far'}: {addable === null ? '—' : unitText(addable, unit)}.</Txt>}
       {!isNote && <Field label={amountLabel} numeric value={amount} onChangeText={setAmount} />}
       {kind === 'capitalized' && addable !== null && addable > WITHIN_HALF_A_CENT && amount.trim() === '' && (
         <Pressable onPress={() => setAmount(String(addable))} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
-          <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Use {unitText(addable, unit)}</Txt>
+          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Use {unitText(addable, unit)}</Txt>
         </Pressable>
       )}
-      {addIssueText !== null && <Txt fbPrivate v="small" c="warn" accessibilityRole="alert">{addIssueText}</Txt>}
+      {addIssueText !== null && <Txt v="small" c="warn" accessibilityRole="alert">{addIssueText}</Txt>}
       {canSplit && (
         <Pressable onPress={() => setSplit((x) => !x)} accessibilityRole="switch" aria-checked={split} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: split ? c.ink : c.ink3, backgroundColor: split ? c.ink : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
@@ -134,8 +134,8 @@ export function PaymentForm({ party, events, now, onSave, onCancel }: { party: P
             <Field label="Interest" numeric value={interestText} onChangeText={setInterestText} />
             <Field label="Fees" numeric value={feesText} onChangeText={setFeesText} />
           </View>
-          <Field fbPrivate label={`Principal (empty: the rest, ${Number.isFinite(principalPart) ? unitText(Math.max(0, principalPart), unit) : '—'})`} numeric value={principalText} onChangeText={setPrincipalText} />
-          {splitIssue ? <Txt fbPrivate v="small" c="warn" accessibilityRole="alert">{splitIssue}</Txt> : <Txt v="small" c="ink3">Only the principal lowers what you owe. Interest and fees are kept in the history.</Txt>}
+          <Field label={`Principal (empty: the rest, ${Number.isFinite(principalPart) ? unitText(Math.max(0, principalPart), unit) : '—'})`} numeric value={principalText} onChangeText={setPrincipalText} />
+          {splitIssue ? <Txt v="small" c="warn" accessibilityRole="alert">{splitIssue}</Txt> : <Txt v="small" c="ink3">Only the principal lowers what you owe. Interest and fees are kept in the history.</Txt>}
         </View>
       )}
       <Field label="When (like today or 20 Sep)" value={when} onChangeText={setWhen} />

@@ -31,8 +31,8 @@ function Card({ item, index, done, readOnly, onPrimary, onLater, onUndo }: { ite
     <Animated.View entering={reduce ? undefined : FadeInDown.delay(300 + index * 90).duration(500)} style={{ padding: 16, borderRadius: 20, backgroundColor: c.s1, opacity: done ? 0.65 : 1, flexDirection: 'row', gap: 10 }}>
       <View style={{ width: 8, height: 8, marginTop: 6, borderRadius: 4, backgroundColor: c[dot[item.urgency]] }} />
       <View style={{ flex: 1 }}>
-        <Txt fbPrivate v="cardTitle">{mask(item.title)}</Txt>
-        <Txt fbPrivate v="body" c="ink2" style={{ marginTop: 4 }}>{mask(item.body)}</Txt>
+        <Txt v="cardTitle">{mask(item.title)}</Txt>
+        <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(item.body)}</Txt>
         {done ? (
           <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <IconCheck color={c.upInk} />

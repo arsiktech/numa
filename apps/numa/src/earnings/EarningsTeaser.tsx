@@ -24,7 +24,7 @@ export function EarningsTeaser({ style }: { style?: ViewStyle }) {
       </View>
       {started ? (
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-          <Txt fbPrivate v="figure" style={{ fontSize: 20, color: e.netCents >= 0 ? c.upInk : c.down }}>{money(e.netCents, { cents: true, sign: true })}</Txt>
+          <Txt v="figure" style={{ fontSize: 20, color: e.netCents >= 0 ? c.upInk : c.down }}>{money(e.netCents, { cents: true, sign: true })}</Txt>
           <Txt v="small" c="ink2">last 30 days{e.rate !== null ? ` · about ${(e.rate * 100).toFixed(1)}% a year` : ''}</Txt>
         </View>
       ) : (

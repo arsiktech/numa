@@ -233,7 +233,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         ) : showChange ? (
           <Pressable onPress={openMovers} accessibilityRole="button" hitSlop={8} accessibilityHint="Explains this change"
             style={{ minHeight: 44, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-            <Txt fbPrivate v="figure" style={{ color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
+            <Txt v="figure" style={{ color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
             {/* A picked date shows above the chart, by the point; here only the change since the start. */}
             {scrub === null && <Txt v="body" c="ink2">{rangeWords(range, points[0].t)}</Txt>}
             <Txt v="body" c="ink3">›</Txt>
@@ -292,7 +292,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
       {notes[lens] ? <Txt v="body" c="ink2" style={{ fontSize: 13.5, marginTop: 10 }}>{notes[lens]}</Txt> : null}
       {summary.unknown.length > 0 && <Txt v="small" c="ink3" style={{ marginTop: 8 }}>{summary.unknown.length} without a value {summary.unknown.length === 1 ? 'is' : 'are'} left out.</Txt>}
       {lens === 'liquid' && <LiquidBreakdown summary={summary} pledged={model.pledged} invested={model.invested} />}
-      {lens !== 'net' && !chartFollowsLens && <Txt fbPrivate v="small" c="ink3" style={{ marginTop: 6 }}>{tabs.find((t) => t.lens === lens)!.label}{lens === 'liquid' ? ' after debts' : ''} today: {money(lensNow)}. The chart shows net worth.</Txt>}
+      {lens !== 'net' && !chartFollowsLens && <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{tabs.find((t) => t.lens === lens)!.label}{lens === 'liquid' ? ' after debts' : ''} today: {money(lensNow)}. The chart shows net worth.</Txt>}
     </View>
   ) : null;
 

@@ -66,8 +66,8 @@ export function AgentSection() {
 
       {created && (
         <View style={{ marginTop: 12, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 10 }} accessibilityLabel="Agent link ready">
-          <Txt fbPrivate v="cardTitle">Paste this into {created.name}</Txt>
-          <Txt fbPrivate v="small" selectable c="ink2" style={{ fontFamily: 'JetBrainsMono_500Medium', fontSize: 12, lineHeight: 18 }}>{created.prompt}</Txt>
+          <Txt v="cardTitle">Paste this into {created.name}</Txt>
+          <Txt v="small" selectable c="ink2" style={{ fontFamily: 'JetBrainsMono_500Medium', fontSize: 12, lineHeight: 18 }}>{created.prompt}</Txt>
           <Txt v="small" c="ink3">Shown once. Anyone with this link can act as you, so keep it private. If it leaks, disconnect the agent below.</Txt>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Button label={Platform.OS === 'web' ? 'Copy for your agent' : 'Send to your agent'} onPress={() => hand(created.prompt)} />
@@ -79,7 +79,7 @@ export function AgentSection() {
       {(agents ?? []).map((a) => (
         <View key={a.id} style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: c.line }}>
           <View style={{ flex: 1 }}>
-            <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{a.name}</Txt>
+            <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{a.name}</Txt>
             <Txt v="small" c={a.active ? 'ink2' : 'down'}>
               {!a.active ? 'Signed out. Connect it again.' : `${a.access === 'full' ? 'Can read and change' : 'Can only read'} · ${a.lastUsedAt ? `used ${ago(a.lastUsedAt, now)}` : 'not used yet'}`}
             </Txt>
@@ -127,7 +127,7 @@ export function AgentSection() {
         <View style={{ marginTop: 14, gap: 6 }}>
           <Txt v="small" c="ink3">Recent agent activity</Txt>
           {activity!.map((r) => (
-            <Txt fbPrivate key={r.id} v="small" c={r.ok ? 'ink2' : 'down'}>
+            <Txt key={r.id} v="small" c={r.ok ? 'ink2' : 'down'}>
               {r.agent} · {toolWords[r.tool] ?? r.tool}{r.ok ? '' : ' (refused)'} · {ago(r.at, now)}
             </Txt>
           ))}

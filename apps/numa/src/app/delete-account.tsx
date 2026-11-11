@@ -53,7 +53,7 @@ function DeleteAccount() {
     <Screen back="Settings">
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 8 }}>Delete account</Txt>
       <View style={{ marginTop: 16, gap: 12, maxWidth: 520 }}>
-        <Txt fbPrivate v="body">This deletes your Numa account and everything in the spaces you own{owned.length ? `: ${owned.join(', ')}` : ''}. Spaces someone else shared with you keep their records.</Txt>
+        <Txt v="body">This deletes your Numa account and everything in the spaces you own{owned.length ? `: ${owned.join(', ')}` : ''}. Spaces someone else shared with you keep their records.</Txt>
         <Txt v="body" c="ink2">You have 7 days to change your mind. Sign in during that time and choose Keep my account.</Txt>
         <AppleDeletionHelp />
         <Action label={exp.state.kind === 'running' ? 'Copying…' : 'Download a copy first'} disabled={!exp.ready || exp.state.kind === 'running'} onPress={async () => { await exp.run(); }} />

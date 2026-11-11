@@ -148,11 +148,11 @@ function Inner({ data }: { data: FlowData }) {
         {nothing ? (
           <Txt v="section" c="ink2">Nothing logged in {flow.month}</Txt>
         ) : sum.keptCents >= 0 ? (
-          <Txt fbPrivate v="title" style={{ color: c.upInk }}>You kept {money(sum.keptCents)}</Txt>
+          <Txt v="title" style={{ color: c.upInk }}>You kept {money(sum.keptCents)}</Txt>
         ) : (
-          <Txt fbPrivate v="title" style={{ color: c.down }}>{money(-sum.keptCents)} more out than in</Txt>
+          <Txt v="title" style={{ color: c.down }}>{money(-sum.keptCents)} more out than in</Txt>
         )}
-        <Txt fbPrivate v="body" c="ink2" style={{ marginTop: 4 }}>{hidden ? 'Amounts hidden' : `in ${money(sum.inCents)} · out ${money(sum.outCents)}${sum.inCents > 0 && sum.keptCents >= 0 ? ` · ${Math.round(sum.keptShare * 100)}% kept` : ''}`}</Txt>
+        <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{hidden ? 'Amounts hidden' : `in ${money(sum.inCents)} · out ${money(sum.outCents)}${sum.inCents > 0 && sum.keptCents >= 0 ? ` · ${Math.round(sum.keptShare * 100)}% kept` : ''}`}</Txt>
         {flow.unconverted.length > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{flow.unconverted.length} in another currency left out until today’s rate loads.</Txt>}
         {cashback && (
           <View style={{ marginTop: 14, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 18, backgroundColor: c.upBg, flexDirection: 'row', alignItems: 'center', gap: 12 }}
@@ -161,7 +161,7 @@ function Inner({ data }: { data: FlowData }) {
               <Txt v="small" c="upInk" style={{ fontFamily: 'Manrope_700Bold' }}>Cashback in {monthName(month, new Date(data.now))}</Txt>
               <Txt v="small" c="ink2">From {cashback.count} card {cashback.count === 1 ? 'purchase' : 'purchases'}{cashback.share !== null ? ` · about ${(cashback.share * 100).toFixed(1)}% back` : ''}{cashback.unknown ? ` · ${cashback.unknown} in another coin left out` : ''}</Txt>
             </View>
-            <Txt fbPrivate v="figure" style={{ fontSize: 17, color: c.upInk }}>+{money(cashback.cents, { cents: true })}</Txt>
+            <Txt v="figure" style={{ fontSize: 17, color: c.upInk }}>+{money(cashback.cents, { cents: true })}</Txt>
           </View>
         )}
               </View>
@@ -190,8 +190,8 @@ function Inner({ data }: { data: FlowData }) {
               <Pressable key={l.id} onPress={() => setFocus(focus === l.id ? null : l.id)} accessibilityRole="button" aria-selected={focus === l.id} accessibilityLabel={`${l.label}, ${hidden ? 'amount hidden' : money(l.cents)}. ${focus === l.id ? 'Following' : 'Follow this stream'}`}
                 style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: focus === l.id ? c.ink : c.s1, opacity: pressed ? 0.72 : 1 })}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: l.id.startsWith('income:') ? c.up : c.ink3 }} />
-                <Txt fbPrivate v="small" style={{ fontFamily: 'Manrope_700Bold', color: focus === l.id ? c.bg : c.ink }}>{l.label}</Txt>
-                <Txt fbPrivate v="figureSm" style={{ color: focus === l.id ? c.bg : c.ink2 }}>{money(l.cents)}</Txt>
+                <Txt v="small" style={{ fontFamily: 'Manrope_700Bold', color: focus === l.id ? c.bg : c.ink }}>{l.label}</Txt>
+                <Txt v="figureSm" style={{ color: focus === l.id ? c.bg : c.ink2 }}>{money(l.cents)}</Txt>
               </Pressable>
             ))}
           </View>
@@ -203,7 +203,7 @@ function Inner({ data }: { data: FlowData }) {
         <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 16, backgroundColor: c.s1 }}>
           <View style={{ flex: 1 }}>
             <Txt v="small" c="ink3">FOLLOWING</Txt>
-            <Txt fbPrivate v="cardTitle">{focused.label} · {money(focused.cents)}</Txt>
+            <Txt v="cardTitle">{focused.label} · {money(focused.cents)}</Txt>
           </View>
           <Pressable onPress={() => setFocus(null)} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 12, justifyContent: 'center' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Clear</Txt></Pressable>
         </View>
@@ -211,18 +211,18 @@ function Inner({ data }: { data: FlowData }) {
 
       {txs.length > 0 && (
         <View style={{ marginTop: 26 }}>
-          <Txt fbPrivate v="section" accessibilityRole="header">{dayIds && day !== null ? new Date(month.year, month.month, day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : focused ? focused.label : 'Transactions'}</Txt>
+          <Txt v="section" accessibilityRole="header">{dayIds && day !== null ? new Date(month.year, month.month, day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : focused ? focused.label : 'Transactions'}</Txt>
           {txs.map((t, i) => {
             const cents = convertCents(Math.abs(t.amountMinor), t.currency, data.currency, data.fx);
             const income = t.kind === 'income';
             const detail = rowDetails(t);
             const row = (
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{t.description}</Txt>
-                  <Txt fbPrivate v="small" c="ink2" numberOfLines={1}>{[focused ? null : t.categoryId ? names.get(t.categoryId) : null, shortDay(t.occurredAt, data.now), ...detail.meta].filter(Boolean).join(' · ')}</Txt>
+                  <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{t.description}</Txt>
+                  <Txt v="small" c="ink2" numberOfLines={1}>{[focused ? null : t.categoryId ? names.get(t.categoryId) : null, shortDay(t.occurredAt, data.now), ...detail.meta].filter(Boolean).join(' · ')}</Txt>
                 </View>
             );
-            const amount = <Txt fbPrivate v="figure" style={{ color: income ? c.upInk : c.ink }}>{cents === null ? '—' : (income ? '+' : '−') + money(cents, { cents: cents % 100 !== 0 }).replace('−', '')}</Txt>;
+            const amount = <Txt v="figure" style={{ color: income ? c.upInk : c.ink }}>{cents === null ? '—' : (income ? '+' : '−') + money(cents, { cents: cents % 100 !== 0 }).replace('−', '')}</Txt>;
             return data.demo ? (
               <View key={t.id} style={{ minHeight: 56, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === txs.length - 1 ? 0 : 1, borderBottomColor: c.line }}>{row}{amount}</View>
             ) : (
@@ -231,7 +231,7 @@ function Inner({ data }: { data: FlowData }) {
                   {row}
                   <View style={{ alignItems: 'flex-end' }}>
                     {amount}
-                    {detail.extra && !hidden && <Txt fbPrivate v="figureSm" c="upInk">{detail.extra}</Txt>}
+                    {detail.extra && !hidden && <Txt v="figureSm" c="upInk">{detail.extra}</Txt>}
                   </View>
                 </Pressable>
               </Link>
@@ -244,13 +244,13 @@ function Inner({ data }: { data: FlowData }) {
         <View style={{ marginTop: 30, padding: 18, borderRadius: 20, backgroundColor: c.s1 }}>
           <Txt v="small" c="ink3">PRODUCTS AND MRR</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
-            <Txt fbPrivate v="figure" style={{ fontSize: 28, lineHeight: 34 }}>{money(products.mrrCents)}</Txt>
-            <Txt fbPrivate v="body" c="ink2">MRR · {money(products.arrCents)} a year</Txt>
+            <Txt v="figure" style={{ fontSize: 28, lineHeight: 34 }}>{money(products.mrrCents)}</Txt>
+            <Txt v="body" c="ink2">MRR · {money(products.arrCents)} a year</Txt>
           </View>
           {products.products.map((p) => (
             <View key={p.id} style={{ marginTop: 10, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Txt fbPrivate v="body">{p.description}</Txt>
-              <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{p.monthlyCents === null ? '—' : money(p.monthlyCents)}</Txt>
+              <Txt v="body">{p.description}</Txt>
+              <Txt v="figureSm" style={{ fontSize: 14 }}>{p.monthlyCents === null ? '—' : money(p.monthlyCents)}</Txt>
             </View>
           ))}
           {products.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 8 }}>{products.unknown} in another currency left out until today’s rate loads.</Txt>}
@@ -263,10 +263,10 @@ function Inner({ data }: { data: FlowData }) {
           {data.recurring.map((r, i) => (
             <View key={r.id} style={{ minHeight: 56, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === data.recurring.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
               <View style={{ flex: 1 }}>
-                <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{r.description}</Txt>
+                <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{r.description}</Txt>
                 <Txt v="small" c="ink2">{r.cadence === 'monthly' ? 'Monthly' : `${r.cadence[0].toUpperCase()}${r.cadence.slice(1)}, shown per month`} · next {shortDay(r.nextRunAt, data.now)}</Txt>
               </View>
-              <Txt fbPrivate v="figureSm" style={{ fontSize: 14, color: r.kind === 'income' ? c.upInk : c.ink }}>{r.monthlyCents === null ? '—' : (r.kind === 'income' ? '+' : '−') + money(r.monthlyCents)}</Txt>
+              <Txt v="figureSm" style={{ fontSize: 14, color: r.kind === 'income' ? c.upInk : c.ink }}>{r.monthlyCents === null ? '—' : (r.kind === 'income' ? '+' : '−') + money(r.monthlyCents)}</Txt>
             </View>
           ))}
         </View>

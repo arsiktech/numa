@@ -50,7 +50,7 @@ export function SpendCalendar({ cal, selected, onSelect }: { cal: MonthCalendar;
                   <Txt v="label" style={{ color: ink(d.level), textTransform: 'none', letterSpacing: 0 }}>{d.day}</Txt>
                   {d.income && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.up }} />}
                 </View>
-                <Txt fbPrivate v="label" numberOfLines={1} style={{ color: ink(d.level), textTransform: 'none', letterSpacing: 0 }}>{hidden ? '' : short(d.spentCents, (x) => money(x))}</Txt>
+                <Txt v="label" numberOfLines={1} style={{ color: ink(d.level), textTransform: 'none', letterSpacing: 0 }}>{hidden ? '' : short(d.spentCents, (x) => money(x))}</Txt>
               </Pressable>
             </Animated.View>
           ))}
@@ -69,7 +69,7 @@ export function SpendCalendar({ cal, selected, onSelect }: { cal: MonthCalendar;
         <View style={{ marginTop: 10, padding: 14, borderRadius: 18, backgroundColor: c.s1, gap: 2 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
             <Txt v="cardTitle">{dayName(pick.at)}</Txt>
-            <Txt fbPrivate v="figure" style={{ fontSize: 17 }}>{pick.spentCents > 0 ? `−${money(pick.spentCents, { cents: true })}` : money(0)}</Txt>
+            <Txt v="figure" style={{ fontSize: 17 }}>{pick.spentCents > 0 ? `−${money(pick.spentCents, { cents: true })}` : money(0)}</Txt>
           </View>
           <Txt v="small" c="ink2">{pick.spentCents > 0 ? versus ?? '' : 'Nothing spent'}{pick.count ? ` · ${pick.count} ${pick.count === 1 ? 'purchase' : 'purchases'}` : ''}</Txt>
         </View>

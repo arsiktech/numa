@@ -108,11 +108,11 @@ export function EarningsChart({ series, selected, onSelect }: { series: Earnings
             <Txt v="label" c="ink2">{dayText(pick.day).toUpperCase()}</Txt>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Txt v="small" c="ink2">Earned</Txt>
-              <Txt fbPrivate v="figureSm" c="upInk">{money(pick.earnedCents, { cents: true, sign: true })}</Txt>
+              <Txt v="figureSm" c="upInk">{money(pick.earnedCents, { cents: true, sign: true })}</Txt>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Txt v="small" c="ink2">Interest</Txt>
-              <Txt fbPrivate v="figureSm" style={{ color: c.down }}>{money(-pick.paidCents, { cents: true, sign: true })}</Txt>
+              <Txt v="figureSm" style={{ color: c.down }}>{money(-pick.paidCents, { cents: true, sign: true })}</Txt>
             </View>
           </View>
         )}

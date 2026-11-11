@@ -17,9 +17,9 @@ export function LensReadout({ label, amount, detail, surfaceHeight, inspecting, 
       style={{ position: 'absolute', bottom: surfaceHeight + 8, left: 0, right: 0, maxHeight: 176, padding: 8, gap: 4, borderRadius: 10, borderWidth: 1, borderColor: c.line, backgroundColor: c.bg, zIndex: 2 }}>
       <ScrollView key={`${selected}:${label}`} nestedScrollEnabled style={{ maxHeight: 108, flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 4 }}>
         <View accessible accessibilityLabel={[label, amount, detail].filter(Boolean).join('. ')} accessibilityLiveRegion="polite">
-          <Txt fbPrivate v="small" style={{ fontSize: 14, lineHeight: 20 }}>{label}</Txt>
-          {amount && <Txt fbPrivate v="figureSm" style={{ fontSize: 14, lineHeight: 20 }}>{amount}</Txt>}
-          {detail && <Txt fbPrivate v="small" c="ink2" style={{ fontSize: 13.5, lineHeight: 19, marginTop: 3 }}>{detail}</Txt>}
+          <Txt v="small" style={{ fontSize: 14, lineHeight: 20 }}>{label}</Txt>
+          {amount && <Txt v="figureSm" style={{ fontSize: 14, lineHeight: 20 }}>{amount}</Txt>}
+          {detail && <Txt v="small" c="ink2" style={{ fontSize: 13.5, lineHeight: 19, marginTop: 3 }}>{detail}</Txt>}
         </View>
       </ScrollView>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

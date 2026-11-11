@@ -20,15 +20,15 @@ export function ItemRow({ item, last }: { item: Item; last?: boolean }) {
       <Pressable accessibilityRole="link" accessibilityLabel={`${item.name}, ${item.valueCents === null ? 'no value' : hidden ? 'amount hidden' : money(item.valueCents)}. ${item.freshness.text}`}
         style={{ minHeight: 64, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{item.name}</Txt>
+          <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{item.name}</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c[toneColor[item.freshness.tone]] }} />
-            <Txt fbPrivate v="small" c="ink2" numberOfLines={1} style={{ flexShrink: 1 }}>{[item.detail, item.freshness.text].filter(Boolean).join(' · ')}</Txt>
+            <Txt v="small" c="ink2" numberOfLines={1} style={{ flexShrink: 1 }}>{[item.detail, item.freshness.text].filter(Boolean).join(' · ')}</Txt>
           </View>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Txt fbPrivate v="figure" style={{ fontSize: 15 }}>{item.valueCents === null ? '—' : money(item.valueCents)}</Txt>
-          {change ? <Txt fbPrivate v="figureSm" style={{ color: change >= 0 ? c.upInk : c.down }}>{(change >= 0 ? '+' : '−') + money(Math.abs(change)).replace('−', '')}</Txt>
+          <Txt v="figure" style={{ fontSize: 15 }}>{item.valueCents === null ? '—' : money(item.valueCents)}</Txt>
+          {change ? <Txt v="figureSm" style={{ color: change >= 0 ? c.upInk : c.down }}>{(change >= 0 ? '+' : '−') + money(Math.abs(change)).replace('−', '')}</Txt>
             : item.gain ? <Txt v="figureSm" style={{ color: item.gain.cents >= 0 ? c.upInk : c.down }} accessibilityLabel={`${item.gain.cents >= 0 ? 'Up' : 'Down'} ${Math.abs(item.gain.pct * 100).toFixed(1)} percent since bought`}>{(item.gain.cents >= 0 ? '+' : '−') + Math.abs(item.gain.pct * 100).toFixed(1)}%</Txt> : null}
         </View>
       </Pressable>

@@ -17,16 +17,15 @@ function scaleForWeb(style: TextStyle): TextStyle {
   return next;
 }
 
-export function Txt({ v = 'body', c = 'ink', style, fbPrivate, ...rest }: TextProps & { v?: Variant; c?: keyof Palette; fbPrivate?: boolean }) {
+export function Txt({ v = 'body', c = 'ink', style, ...rest }: TextProps & { v?: Variant; c?: keyof Palette }) {
   const { c: p } = useTheme();
   const base: TextStyle = { ...typeScale[v], color: p[c] };
   if (v === 'figure' || v === 'figureSm' || v === 'hero' || v === 'display' || v === 'cents') base.fontVariant = ['tabular-nums'];
   if (v === 'label') base.textTransform = 'uppercase';
   const styles = [base, style];
-  const privacy = fbPrivate && Platform.OS === 'web' ? { dataSet: { fbPrivate: true } } : undefined;
   if (Platform.OS === 'web') {
     const resolved = scaleForWeb(StyleSheet.flatten(styles));
-    return <Text {...rest} {...privacy} style={{ ...resolved, fontFamily: webFont(resolved.fontFamily) }} />;
+    return <Text {...rest} style={{ ...resolved, fontFamily: webFont(resolved.fontFamily) }} />;
   }
   return <Text {...rest} style={styles} />;
 }
