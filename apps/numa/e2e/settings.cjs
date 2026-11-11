@@ -17,7 +17,6 @@ async function canSignIn(email, password) {
 }
 
 (async () => {
-  fs.mkdirSync(OUT, { recursive: true });
   const browser = await launch();
   const errors = [];
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', deviceScaleFactor: 2, acceptDownloads: true });

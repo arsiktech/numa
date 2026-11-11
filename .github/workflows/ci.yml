@@ -89,6 +89,7 @@ jobs:
   # The rebuild app (Expo: iOS, Android and web from one codebase) has its own toolchain.
   app:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: apps/numa
@@ -146,8 +147,31 @@ jobs:
       - name: Install dependencies
         run: npm ci && npm ci --prefix apps/numa
 
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Browser binaries only. System libraries are installed below on every run:
+      # a fresh runner does not keep apt packages from the cache.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-${{ steps.playwright.outputs.version }}
+
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 10
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          # `timeout` is a separate program, so it must run `npx` directly.
+          # Each attempt is bounded so a stalled download is retried instead of
+          # holding the job until the step timeout.
+          for attempt in 1 2 3; do
+            timeout 180 npx playwright install --with-deps chromium && exit 0
+            echo "Playwright install attempt ${attempt} failed"
+          done
+          exit 1
 
       - name: Start a local Convex backend
         run: |
@@ -181,4 +205,5 @@ jobs:
           path: |
             apps/numa/e2e/output/
             ${{ runner.temp }}/convex.log
+            ${{ runner.temp }}/serve.log
           retention-days: 7
