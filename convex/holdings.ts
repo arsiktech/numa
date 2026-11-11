@@ -1,5 +1,6 @@
 import { v, ConvexError } from "convex/values";
 import { removePortfolioDocument } from "./lib/removeDocument";
+import { deleteHoldingEvents } from "./lib/holdingEvents";
 import { mutation, query } from "./_generated/server";
 import { requireEditor, requireMember } from "./lib/access";
 import { withMutationReceipt } from "./lib/mutationReceipts";
@@ -131,7 +132,8 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("holdings"), clientMutationId: v.optional(v.string()) },
   handler: async (ctx, args) =>
-    await removePortfolioDocument(ctx, args.id, args.clientMutationId, "holdings.remove")
+    await removePortfolioDocument(ctx, args.id, args.clientMutationId, "holdings.remove",
+      () => deleteHoldingEvents(ctx, args.id))
 });
 
 export const addEvent = mutation({

@@ -264,8 +264,9 @@ export function paidTotals(events: TermEvent[], unit?: string): { total: number;
   const out = { total: 0, principal: 0, interest: 0, fees: 0 };
   for (const e of events) {
     if (e.kind !== 'repaid' || e.amount === null) continue;
-    // Amounts in another currency or coin are not added to this debt's totals.
-    if (unit !== undefined && e.unit !== undefined && e.unit !== null && e.unit.toUpperCase() !== unit.toUpperCase()) continue;
+    // Amounts in another currency or coin are not added to this debt's totals. An unlabelled
+    // payment is left out too, as interest accrual leaves it out: it cannot be assumed to be this unit.
+    if (unit !== undefined && (!e.unit || e.unit.toUpperCase() !== unit.toUpperCase())) continue;
     out.total += e.amount;
     out.principal += principalPaid(e);
     out.interest += e.interestPart ?? 0;
@@ -273,6 +274,9 @@ export function paidTotals(events: TermEvent[], unit?: string): { total: number;
   }
   return { total: cents(out.total), principal: cents(out.principal), interest: cents(out.interest), fees: cents(out.fees) };
 }
+
+/** Payments recorded before every amount carried a currency or coin: `paidTotals` and interest accrual both leave them out. */
+export const unlabelledPayments = (events: TermEvent[]) => events.filter((e) => e.kind === 'repaid' && e.amount !== null && !e.unit).length;
 
 /** Whether a loan with a fixed repayment date is past it with something still owed. */
 export const isOverdue = (terms: LoanTerms, balance: number, now: number) => terms.dueKind === 'fixed' && terms.dueDate !== null && dayOf(terms.dueDate) < dayOf(now) && balance > 0;
