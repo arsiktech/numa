@@ -21,7 +21,7 @@ export function proposalsFrom(state: AskDeltaState, limit: number): AskProposal[
   const proposals: AskProposal[] = [];
   for (const tool of state.tools) {
     if (proposals.length >= limit) break;
-    let input: unknown = null;
+    let input: unknown;
     try { input = JSON.parse(tool.json || "{}"); } catch { input = null; }
     const proposal = normalizeProposal(input);
     if (proposal) proposals.push(proposal);

@@ -127,7 +127,7 @@ export const due = internalQuery({
       due.push({ ...targetOf(row), checkedAt: row.checkedAt ?? 0 });
     }
     due.sort((a, b) => a.checkedAt - b.checkedAt);
-    return due.slice(0, SCHEDULED_BATCH).map(({ checkedAt: _checkedAt, ...target }) => target);
+    return due.slice(0, SCHEDULED_BATCH).map(({ id, url, key, metric }) => ({ id, url, key, metric }));
   },
 });
 
