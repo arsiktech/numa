@@ -16,7 +16,9 @@ export async function removePortfolioDocument<T extends TableNames>(
   ctx: MutationCtx,
   id: Id<T>,
   clientMutationId: string | undefined,
-  auditLabel: string
+  auditLabel: string,
+  /** Rows that belong to this document, deleted with it inside the same receipt. */
+  deleteDependents?: () => Promise<void>
 ): Promise<ReceiptResult<T> | undefined> {
   const existing = await ctx.db.get(id);
   if (!existing) return undefined;
@@ -25,6 +27,7 @@ export async function removePortfolioDocument<T extends TableNames>(
     (existing as unknown as { portfolioId: Id<"portfolios"> }).portfolioId
   );
   return await withMutationReceipt(ctx, userId, clientMutationId, auditLabel, async () => {
+    await deleteDependents?.();
     await ctx.db.delete(id);
     return id;
   });
