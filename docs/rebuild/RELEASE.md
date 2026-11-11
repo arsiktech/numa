@@ -102,6 +102,8 @@ The app version is `2.0.0`, above the SwiftUI app's 1.2.0 builds. EAS keeps the 
 
 ## Store text (draft)
 
+Paste-ready App Store Connect fields and privacy nutrition answers for the Expo 2.0.0 build are in [APP-STORE-CONNECT.md](APP-STORE-CONNECT.md). Nothing in that document has been submitted. The notes below are the shorter product draft.
+
 **Name:** Numa Pro
 **Subtitle (30):** Your net worth, live
 

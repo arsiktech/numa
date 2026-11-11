@@ -1,4 +1,7 @@
 /** @type {import('@bacons/apple-targets/app.plugin').ConfigFunction} */
+// PrivacyInfo.xcprivacy in this folder ships in the widget target. The extension reads the
+// app-group user defaults, so it declares reason 1C8F.1. Info.plist is excluded from the
+// synchronized group; the privacy manifest is not.
 module.exports = (config) => ({
   type: 'widget',
   name: 'NumaWidget',
