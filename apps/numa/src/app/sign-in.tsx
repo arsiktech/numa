@@ -1,14 +1,15 @@
 import { webFont } from '@/theme/webFont';
 import { useAuthActions } from '@convex-dev/auth/react';
-import { useQuery } from 'convex/react';
+import { useConvexConnectionState, useQuery } from 'convex/react';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View, type TextInputProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { appleOffer } from '@/cloud/appleOffer';
 import { cloud } from '@/cloud/api';
-import { authErrorText, resetErrorText } from '@/cloud/authErrors';
+import { authErrorText, passwordRuleIssue, resetErrorText } from '@/cloud/authErrors';
 import { appleReadiness } from '@/cloud/appleLifecycle';
 import { prepareAppleWebSignIn } from '@/cloud/appleWeb';
 import { appleSignInAvailable, continueWithApple, continueWithGoogle } from '@/cloud/oauth';
@@ -18,6 +19,7 @@ import { type as typeScale } from '@/theme/tokens';
 import { Wordmark } from '@/ui/Nav';
 import { Txt } from '@/ui/Txt';
 import { LegalLinks } from '@/ui/LegalLinks';
+import { arrowProps } from '@/ui/keys';
 
 type Flow = 'signIn' | 'signUp';
 /** Where the screen is: the main form, an emailed sign-up code, or the two password-reset steps. */
@@ -38,7 +40,7 @@ function Field(props: TextInputProps & { label: string }) {
         placeholderTextColor={c.ink3}
         onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }}
         onBlur={(e) => { setFocused(false); rest.onBlur?.(e); }}
-        style={{ minHeight: 52, borderRadius: 14, paddingHorizontal: 16, backgroundColor: c.s1, color: c.ink, fontFamily: Platform.OS === 'web' ? webFont('Manrope_500Medium') : 'Manrope_500Medium', fontSize: 16, borderWidth: 2, borderColor: focused ? c.ink : 'transparent', ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }}
+        style={{ minHeight: 48, borderRadius: 14, paddingHorizontal: 16, backgroundColor: c.s1, color: c.ink, fontFamily: Platform.OS === 'web' ? webFont('Manrope_500Medium') : 'Manrope_500Medium', fontSize: 16, borderWidth: focused ? 2 : 1, borderColor: focused ? c.ink : c.stroke, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }}
       />
     </View>
   );
@@ -82,7 +84,9 @@ function QuickSignIn({ busy, last, onApple, onGoogle }: { busy: boolean; last: S
   const { c, name } = useTheme();
   const flags = useQuery(cloud.authFlags, {});
   const appleLifecycle = useQuery(appleReadiness, {});
+  const connection = useConvexConnectionState();
   const [apple, setApple] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
     let live = true;
     appleSignInAvailable().then((ok) => {
@@ -90,7 +94,13 @@ function QuickSignIn({ busy, last, onApple, onGoogle }: { busy: boolean; last: S
     });
     return () => { live = false; };
   }, []);
-  const appleReady = apple && appleLifecycle?.configured === true;
+  useEffect(() => {
+    if (appleLifecycle !== undefined) return;
+    const id = setTimeout(() => setTimedOut(true), 8000);
+    return () => clearTimeout(id);
+  }, [appleLifecycle]);
+  const offer = appleOffer({ hostAvailable: apple, configured: appleLifecycle?.configured, connected: connection.isWebSocketConnected, retries: connection.connectionRetries, timedOut });
+  const appleReady = offer === 'ready';
   useEffect(() => {
     if (appleReady && Platform.OS === 'web') void prepareAppleWebSignIn().catch(() => {});
   }, [appleReady]);
@@ -117,8 +127,8 @@ function QuickSignIn({ busy, last, onApple, onGoogle }: { busy: boolean; last: S
           {last === 'apple' && <LastUsed on={name === 'dark' ? 'light' : 'dark'} />}
         </Pressable>
       )}
-      {apple && appleLifecycle === undefined && <Txt v="small" c="ink2">Checking Apple sign-in…</Txt>}
-      {apple && appleLifecycle?.configured === false && <Txt v="small" c="ink2">Apple sign-in is unavailable right now. Use email{google ? ' or Google' : ''}.</Txt>}
+      {offer === 'checking' && <Txt v="small" c="ink2">Checking Apple sign-in…</Txt>}
+      {offer === 'unavailable' && <Txt v="small" c="ink2">Apple sign-in is unavailable right now. Use email{google ? ' or Google' : ''}.</Txt>}
       {google && (
         <Pressable onPress={onGoogle} accessibilityRole="button" accessibilityLabel={`Continue with Google${last === 'google' ? ', last used' : ''}`} style={{ minHeight: 52, borderRadius: 999, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.s1, borderWidth: 1, borderColor: c.s2 }}>
           <GoogleMark />
@@ -158,13 +168,15 @@ export default function SignIn() {
   const [quickProvider, setQuickProvider] = useState<'apple' | 'google' | null>(null);
   useEffect(() => () => { attemptRef.current += 1; appleAbort.current?.abort(); }, []);
   const [error, setError] = useState<string | null>(null);
+  const [passwordAlert, setPasswordAlert] = useState<string | null>(null);
 
   const cleanEmail = email.trim().toLowerCase();
   const validEmail = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(cleanEmail);
+  const signUpIssue = flow === 'signUp' || step === 'resetCode' ? passwordRuleIssue(step === 'resetCode' ? newPassword : password) : null;
   const canSubmit = step === 'verify' ? code.trim().length >= 6
     : step === 'resetEmail' ? validEmail
-    : step === 'resetCode' ? code.trim().length >= 6 && newPassword.length >= 10
-    : validEmail && password.length >= (flow === 'signUp' ? 10 : 1);
+    : step === 'resetCode' ? code.trim().length >= 6 && signUpIssue === null
+    : validEmail && (flow === 'signUp' ? signUpIssue === null : password.length >= 1);
 
   const go = (next: Step) => { setStep(next); setCode(''); setError(null); };
 
@@ -203,7 +215,10 @@ export default function SignIn() {
   }
 
   async function submit() {
+    const issue = flow === 'signUp' || step === 'resetCode' ? passwordRuleIssue(step === 'resetCode' ? newPassword : password) : null;
+    if (issue && (flow === 'signUp' || step === 'resetCode')) { setPasswordAlert(issue); return; }
     if (!canSubmit || busyRef.current) return;
+    setPasswordAlert(null);
     busyRef.current = true;
     setBusy(true);
     setError(null);
@@ -234,7 +249,7 @@ export default function SignIn() {
   }
 
   const tab = (f: Flow, label: string) => (
-    <Pressable disabled={busy} onPress={() => { setFlow(f); setError(null); }} accessibilityRole="tab" aria-selected={flow === f} accessibilityLabel={f === 'signIn' && lastSignIn === 'password' ? `${label}, last used` : label} style={{ flex: 1, minHeight: 40, borderRadius: 999, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: flow === f ? c.s2 : 'transparent' }}>
+    <Pressable disabled={busy} onPress={() => { setFlow(f); setError(null); setPasswordAlert(null); }} {...arrowProps(['signIn', 'signUp'] as const, flow, (next) => { setFlow(next); setError(null); setPasswordAlert(null); })} accessibilityRole="tab" aria-selected={flow === f} accessibilityLabel={f === 'signIn' && lastSignIn === 'password' ? `${label}, last used` : label} style={({ pressed }) => ({ flex: 1, minHeight: 44, borderRadius: 999, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: flow === f ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
       <Txt v="body" c={flow === f ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{label}</Txt>
       {f === 'signIn' && lastSignIn === 'password' && <Txt v="label" c="ink3" style={{ fontSize: 10 }} maxFontSizeMultiplier={1.3}>· Last used</Txt>}
     </Pressable>
@@ -282,9 +297,8 @@ export default function SignIn() {
                   </View>
                   <Field label="Email" value={email} onChangeText={setEmail} onBlur={() => setEmailTouched(true)} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" inputMode="email" />
                   <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={flow === 'signUp' ? 'new-password' : 'current-password'} textContentType={flow === 'signUp' ? 'newPassword' : 'password'} onSubmitEditing={submit} />
-                  {flow === 'signUp' && <Txt v="small" c="ink3">At least 10 characters, with 3 of: uppercase, lowercase, number, symbol.</Txt>}
                   {flow === 'signIn' && (
-                    <Pressable disabled={busy} onPress={() => go('resetEmail')} accessibilityRole="button" hitSlop={6} style={{ alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' }}>
+                    <Pressable disabled={busy} onPress={() => go('resetEmail')} accessibilityRole="button" style={({ pressed }) => ({ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
                       <Txt v="small" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>Forgot password?</Txt>
                     </Pressable>
                   )}
@@ -292,16 +306,17 @@ export default function SignIn() {
               )}
 
               {emailTouched && !validEmail && (step === 'form' || step === 'resetEmail') && <Txt v="small" style={{ color: c.down }} accessibilityRole="alert">Enter a valid email address, like name@example.com.</Txt>}
+              {passwordAlert && <Txt v="small" style={{ color: c.down }} accessibilityRole="alert">{passwordAlert}</Txt>}
               {error && <Txt v="body" style={{ color: c.down }} accessibilityRole="alert">{error}</Txt>}
 
-              <Pressable onPress={submit} disabled={!canSubmit || busy} accessibilityRole="button" aria-disabled={!canSubmit || busy} aria-busy={busy} style={{ marginTop: 6, minHeight: 52, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink, opacity: canSubmit ? 1 : 0.4 }}>
-                {busy && !quickProvider ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold', fontSize: 16 }}>{step === 'verify' ? 'Confirm' : step === 'resetEmail' ? 'Send code' : step === 'resetCode' ? 'Set password and sign in' : flow === 'signIn' ? 'Sign in' : 'Create account'}</Txt>}
-              </Pressable>
               {step === 'form' && (
-                <Pressable disabled={busy} onPress={() => set('demo', true)} accessibilityRole="button" style={{ minHeight: 52, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.s2, opacity: busy ? 0.5 : 1 }}>
-                  <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', fontSize: 16 }}>Explore demo</Txt>
+                <Pressable disabled={busy} onPress={() => set('demo', true)} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 48, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.s2, opacity: busy ? 1 : pressed ? 0.72 : 1 })}>
+                  <Txt v="body" c={busy ? 'ink3' : 'ink'} style={{ fontFamily: 'Manrope_700Bold' }}>Explore demo</Txt>
                 </Pressable>
               )}
+              <Pressable onPress={submit} disabled={!canSubmit || busy} accessibilityRole="button" aria-disabled={!canSubmit || busy} aria-busy={busy} style={({ pressed }) => ({ minHeight: 48, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: canSubmit ? c.ink : 'transparent', borderWidth: canSubmit ? 0 : 1, borderColor: c.stroke, opacity: pressed && canSubmit ? 0.72 : 1 })}>
+                {busy && !quickProvider ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c={canSubmit ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{step === 'verify' ? 'Confirm' : step === 'resetEmail' ? 'Send code' : step === 'resetCode' ? 'Set password and sign in' : flow === 'signIn' ? 'Sign in' : 'Create account'}</Txt>}
+              </Pressable>
 
               {step !== 'form' && (
                 <Pressable onPress={() => go('form')} accessibilityRole="button" style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>

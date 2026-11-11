@@ -1,4 +1,4 @@
-import { useAction } from 'convex/react';
+import { useAction, useQuery } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { cloud, type CloudCurrency } from '@/cloud/api';
@@ -75,21 +75,24 @@ export function useDemoHome(range: Range): HomeModel {
 /** Price history for the priced positions, per range, refreshed as often as the range needs. */
 function usePriceHistory(range: Range, pieces: PricedPiece[]): Record<string, PriceSeries> | null {
   const fetchSeries = useAction(cloud.priceSeries);
-  const [store, setStore] = useState<Record<string, Record<string, PriceSeries>>>({});
-  const symbols = pieces.map((p) => `${p.kind}:${p.symbol}`).sort().join(',');
-  const key = `${range}|${symbols}`;
+  const symbols = pieces.map((p) => ({ kind: p.kind, symbol: p.symbol }));
+  const cached = useQuery(cloud.priceSeriesRead, range === 'ALL' || symbols.length === 0 ? 'skip' : { range, symbols });
+  const key = `${range}|${symbols.map((s) => `${s.kind}:${s.symbol}`).sort().join(',')}`;
+  const [filled, setFilled] = useState<Record<string, PriceSeries>>({});
   useEffect(() => {
-    if (range === 'ALL' || !symbols) return;
+    if (range === 'ALL' || cached === undefined) return;
+    const wanted = key.slice(range.length + 1).split(',').filter(Boolean).map((item) => {
+      const [kind, symbol] = item.split(':');
+      return { kind: kind as 'crypto' | 'stock', symbol };
+    });
+    const missing = wanted.filter((s) => s.symbol && !cached[s.symbol.toUpperCase()] && !filled[s.symbol.toUpperCase()]);
+    if (!missing.length) return;
     let alive = true;
-    const load = () => fetchSeries({ range, symbols: symbols.split(',').map((s) => { const [kind, symbol] = s.split(':'); return { kind: kind as 'crypto' | 'stock', symbol }; }) })
-      .then((r) => { if (alive) setStore((all) => ({ ...all, [key]: r })); })
-      .catch(() => undefined);
-    void load();
-    // A day line moves every 10 minutes; longer ranges are fetched once per visit.
-    const id = range === '1D' ? setInterval(load, 5 * 60_000) : undefined;
-    return () => { alive = false; if (id) clearInterval(id); };
-  }, [key, range, symbols, fetchSeries]);
-  return store[key] ?? null;
+    void fetchSeries({ range, symbols: missing }).then((rows) => { if (alive) setFilled((all) => ({ ...all, ...rows })); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [cached, fetchSeries, filled, key, range]);
+  if (range === 'ALL' || symbols.length === 0) return null;
+  return { ...(cached ?? {}), ...filled };
 }
 
 /** The signed-in person's first portfolio, live from Convex. */

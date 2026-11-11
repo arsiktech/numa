@@ -25,6 +25,19 @@ export function localClock(now: number, timeZone: string): { hour: number; day: 
 
 export const isQuiet = (hour: number) => hour >= QUIET_FROM || hour < QUIET_UNTIL;
 
+/** First instant of the local month that contains `now`. */
+export function localMonthStart(now: number, timeZone: string): number {
+  const month = localClock(now, timeZone).day.slice(0, 7);
+  let lo = now - 32 * DAY;
+  let hi = now;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (localClock(mid, timeZone).day.slice(0, 7) < month) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 const dayLabel = (ms: number, timeZone: string) => {
   const [, month, day] = localClock(ms, timeZone).day.split("-").map(Number);
   return `${day} ${MONTHS[month - 1]}`;

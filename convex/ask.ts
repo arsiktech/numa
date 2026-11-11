@@ -2,8 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { AI_SHARING_VERSION } from "./lib/privacyPolicy";
-import { action, internalMutation } from "./_generated/server";
+import { action, internalMutation, type MutationCtx } from "./_generated/server";
 import {
   ASK_LIMITS,
   ASK_SYSTEM_PROMPT,
@@ -35,11 +36,8 @@ export type AskReply =
 
 type AskAuthorization = { status: "allowed" | "limited" } | { status: "denied"; reason: AISharingDeniedReason };
 
-/** Consent and quota commit together. Withdrawal blocks later authorizations, not an already authorized request. */
-export const takeAskQuota = internalMutation({
-  args: { userId: v.id("users"), now: v.number() },
-  handler: async (ctx, { userId, now }): Promise<AskAuthorization> => {
-    if (await getAuthUserId(ctx) !== userId) return { status: "denied", reason: "account-unavailable" };
+/** Consent and quota for a user the caller has already authenticated. Not reachable from the client. */
+async function chargeAsk(ctx: MutationCtx, userId: Id<"users">, now: number): Promise<AskAuthorization> {
     const permission = await readAISharingState(ctx, userId);
     if (!permission.allowed) return { status: "denied", reason: permission.reason ?? "permission-required" };
     const buckets = [];
@@ -58,7 +56,20 @@ export const takeAskQuota = internalMutation({
       });
     }
     return { status: "allowed" };
+}
+
+/** Consent and quota commit together. Withdrawal blocks later authorizations, not an already authorized request. */
+export const takeAskQuota = internalMutation({
+  args: { userId: v.id("users"), now: v.number() },
+  handler: async (ctx, { userId, now }): Promise<AskAuthorization> => {
+    if (await getAuthUserId(ctx) !== userId) return { status: "denied", reason: "account-unavailable" };
+    return await chargeAsk(ctx, userId, now);
   },
+});
+
+export const chargeAskQuota = internalMutation({
+  args: { userId: v.id("users"), now: v.number() },
+  handler: async (ctx, { userId, now }): Promise<AskAuthorization> => await chargeAsk(ctx, userId, now),
 });
 
 export const reply = action({

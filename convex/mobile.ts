@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { activePodMembership } from "./lib/invitationAuthority";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { ensureUser, requireUser, type AnyCtx } from "./lib/access";
+import { ensureUser, requireMember, requireUser, type AnyCtx } from "./lib/access";
 import { cleanRequired, friendlyDisplayName } from "./lib/inputGuards";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 import {
@@ -26,7 +26,7 @@ import {
 } from "./lib/mobileSupport";
 import { requirePodMember as memberInPod, validatePodExpenseInput as validateExpenseInput } from "./lib/podValidation";
 import { assertDistinctSettlementMembers, assertPositiveAmount } from "./lib/inputGuards";
-import { buildPortfolioSnapshot, mobilePortfolio, mobileProfile, userPortfolios } from "./lib/mobilePortfolio";
+import { buildPortfolioSnapshot, mobilePortfolio, mobileProfile, mobileTransaction, userPortfolios } from "./lib/mobilePortfolio";
 
 export const me = mutation({
   args: {},
@@ -455,8 +455,19 @@ export const bootstrap = mutation({
 });
 
 export const portfolioSnapshot = query({
-  args: { portfolioId: v.id("portfolios") },
-  handler: async (ctx, args) => await buildPortfolioSnapshot(ctx, args.portfolioId)
+  args: { portfolioId: v.id("portfolios"), since: v.optional(v.number()) },
+  handler: async (ctx, args) => await buildPortfolioSnapshot(ctx, args.portfolioId, args.since)
+});
+
+/** One month of the ledger, read from the time index. The home subscription does not carry the rest. */
+export const monthLedger = query({
+  args: { portfolioId: v.id("portfolios"), start: v.number(), end: v.number() },
+  handler: async (ctx, { portfolioId, start, end }) => {
+    await requireMember(ctx, portfolioId);
+    if (!(end > start) || end - start > 40 * 24 * 60 * 60 * 1000) return [];
+    const rows = await ctx.db.query("transactions").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId).gte("occurredAt", start).lt("occurredAt", end)).take(2000);
+    return rows.map(mobileTransaction);
+  }
 });
 
 export const updateProfilePrefs = mutation({

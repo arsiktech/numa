@@ -1,6 +1,6 @@
 import { Link, router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View, useWindowDimensions, type DimensionValue } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, View, useWindowDimensions, type DimensionValue } from 'react-native';
 
 import type { CloudCurrency } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
@@ -27,6 +27,7 @@ import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
 import { NeedsYou } from '@/ui/NeedsYou';
 import { Odometer } from '@/ui/Odometer';
 import { ScrubChart } from '@/ui/ScrubChart';
+import { arrowProps } from '@/ui/keys';
 import { Txt } from '@/ui/Txt';
 
 const tabs: { lens: Lens; label: string }[] = [
@@ -92,7 +93,7 @@ function StartSpace({ create }: { create: (currency: CloudCurrency) => Promise<v
           <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 999, backgroundColor: c.s2, alignSelf: 'flex-start', marginTop: 6 }} accessibilityRole="radiogroup">
             {(['EUR', 'USD'] as const).map((cur) => (
               <Pressable key={cur} onPress={() => setCurrency(cur)} accessibilityRole="radio" aria-checked={currency === cur} style={{ minWidth: 72, minHeight: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: currency === cur ? c.bg : 'transparent' }}>
-                <Txt v="body" c={currency === cur ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold', fontSize: 14 }}>{cur === 'EUR' ? '€ Euro' : '$ Dollar'}</Txt>
+                <Txt v="body" c={currency === cur ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{cur === 'EUR' ? '€ Euro' : '$ Dollar'}</Txt>
               </Pressable>
             ))}
           </View>
@@ -111,8 +112,8 @@ function LensTabs({ lens, setLens, wide, compact }: { lens: Lens; setLens: (l: L
   return (
     <View style={{ flexDirection: 'row', gap: wide ? 22 : compact ? 14 : 18 }} accessibilityRole="tablist">
       {tabs.map((t) => (
-        <Pressable key={t.lens} onPress={() => setLens(t.lens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={{ minHeight: 44, justifyContent: 'center' }}>
-          <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold', fontSize: wide ? 16 : 15 }} maxFontSizeMultiplier={compact ? 1.2 : 1.4} numberOfLines={1}>{t.label}</Txt>
+        <Pressable key={t.lens} onPress={() => setLens(t.lens)} {...arrowProps(tabs.map((item) => item.lens), lens, setLens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={({ pressed }) => ({ minHeight: 44, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
+          <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold' }} maxFontSizeMultiplier={compact ? 1.2 : 1.4} numberOfLines={1}>{t.label}</Txt>
         </Pressable>
       ))}
     </View>
@@ -210,13 +211,14 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
     : undefined;
 
   const hero = wide ? typeScale.display : typeScale.hero;
-  const centsStyle = wide ? { ...typeScale.cents, fontSize: 42, lineHeight: 42 } : typeScale.cents;
+  const centsStyle = Platform.OS === 'web' ? { ...typeScale.cents, fontSize: 32, lineHeight: 32 } : typeScale.cents;
   const abs = Math.abs(shown);
   const whole = (shown < 0 ? '−' : '') + formatMoney(abs - (abs % 100), currency);
   const cents = '.' + (abs % 100).toString().padStart(2, '0');
 
   const heroBlock = (
     <View>
+      {model.source === 'demo' && <Txt v="body" c="ink2" style={{ marginBottom: 8 }}>Net worth, cash flow and what needs you, on every device.</Txt>}
       {model.available ? (
         <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
           <Odometer text={mask(whole)} style={{ ...hero, color: c.ink, fontVariant: ['tabular-nums'] }} fast={scrub !== null} />
@@ -229,9 +231,9 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         {!model.available ? (
           <Txt v="body" c="ink2">Totals need today’s exchange rate.</Txt>
         ) : showChange ? (
-          <Pressable onPress={openMovers} accessibilityRole="button" hitSlop={8} accessibilityLabel={mask(`Explain ${money(diff, { cents: true, sign: true })} change${scrub === null ? ` ${rangeWords(range, points[0].t)}` : ' to the selected date'}`)}
+          <Pressable onPress={openMovers} accessibilityRole="button" hitSlop={8} accessibilityHint="Explains this change"
             style={{ minHeight: 44, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-            <Txt v="figure" style={{ fontSize: 15, color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
+            <Txt v="figure" style={{ color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
             {/* A picked date shows above the chart, by the point; here only the change since the start. */}
             {scrub === null && <Txt v="body" c="ink2">{rangeWords(range, points[0].t)}</Txt>}
             <Txt v="body" c="ink3">›</Txt>
@@ -257,9 +259,9 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   );
 
   const rangePills = (
-    <View style={{ flexDirection: 'row', justifyContent: wide ? 'flex-end' : 'space-between', gap: 4 }} accessibilityRole="tablist">
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: wide ? 'flex-end' : 'space-between', gap: 4 }} accessibilityRole="tablist">
       {ranges.map((r) => (
-        <Pressable key={r} onPress={() => { setRange(r); unpin(); }} accessibilityRole="tab" aria-selected={range === r} style={{ minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent' }}>
+        <Pressable key={r} onPress={() => { setRange(r); unpin(); }} {...arrowProps(ranges, range, (next) => { setRange(next); unpin(); })} accessibilityRole="tab" aria-selected={range === r} style={({ pressed }) => ({ minWidth: 44, minHeight: 44, paddingHorizontal: 8, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
           <Txt v="small" c={range === r ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4}>{r}</Txt>
         </Pressable>
       ))}
@@ -305,7 +307,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   if (wide) {
     return shell(
       <View style={{ gap: 20 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>{heroBlock}{showChart && rangePills}</View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>{heroBlock}{showChart && rangePills}</View>
           {chart}
           {/* Beside an open panel the page is narrower, so the two columns stack. */}
           <View style={{ flexDirection: panelOpen ? 'column' : 'row', gap: panelOpen ? 28 : 48, alignItems: panelOpen ? 'stretch' : 'flex-start', marginTop: 14 }}>
@@ -317,7 +319,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   }
   return shell(
     <>
-      <View style={{ marginTop: 4 }}>{heroBlock}</View>
+      <View style={{ marginTop: 8 }}>{heroBlock}</View>
       {chart && <View style={{ marginTop: 12 }}>{chart}</View>}
       {showChart && <View style={{ marginTop: 6, marginHorizontal: -6 }}>{rangePills}</View>}
       <View style={{ marginTop: 28 }}>{blocks}</View>

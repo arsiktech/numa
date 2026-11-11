@@ -17,7 +17,7 @@ jest.mock('@/ask/DraftCard', () => ({ DraftCard: () => null }));
 jest.mock('@/privacy/AISharingPanel', () => ({ AISharingPanel: () => null, AISharingActions: () => null }));
 jest.mock('@/ui/Panel', () => ({ PanelFrame: ({ children }: { children: unknown }) => children }));
 jest.mock('@/ui/money', () => ({ useMoney: () => ({ mask: (text: string) => text }) }));
-jest.mock('@/theme/theme', () => ({ useTheme: () => ({ c: { bg: '#000000', ink: '#ffffff', ink2: '#aaaaaa', ink3: '#777777', s1: '#111111', line: '#333333', line2: '#444444', glassBorder: '#555555' } }) }));
+jest.mock('@/theme/theme', () => ({ useTheme: () => ({ c: { bg: '#000000', ink: '#ffffff', ink2: '#aaaaaa', ink3: '#777777', s1: '#111111', line: '#333333', line2: '#444444', stroke: '#767676', glassBorder: '#555555' } }) }));
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
   default: { View: jest.requireActual('react-native').View },
@@ -35,7 +35,8 @@ afterEach(() => { if (tree) act(() => tree?.unmount()); tree = undefined; });
 test('the rendered Send control grows with its text instead of clipping accessibility sizes', () => {
   act(() => { tree = TestRenderer.create(<AskScreen />); });
   const send = tree!.root.findByProps({ testID: 'ask-send' });
-  const style = StyleSheet.flatten(send.props.style);
+  const raw = send.props.style;
+  const style = StyleSheet.flatten(typeof raw === 'function' ? raw({ pressed: false }) : raw);
   expect(style.height).toBeUndefined();
   expect(style.minHeight).toBeGreaterThanOrEqual(44);
   expect(style.paddingVertical).toBeGreaterThanOrEqual(8);

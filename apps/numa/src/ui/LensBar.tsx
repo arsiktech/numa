@@ -34,7 +34,7 @@ function Drawing({ entry, rect, geometry, selected, labelMin, total }: { entry: 
     <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 0, height: rect.h, backgroundColor: entry.fill, overflow: 'hidden', justifyContent: 'flex-end' }, style]}>
       {entry.hatch && Array.from({ length: 32 }, (_, i) => <View key={i} style={{ position: 'absolute', top: -20, left: -40 + i * 14, width: 7, height: 160, backgroundColor: entry.hatch, transform: [{ rotate: '45deg' }] }} />)}
       {show && <View style={{ paddingLeft: 8, paddingBottom: 7, paddingRight: 2 }}>
-        <Txt v="label" style={{ color: entry.ink, textTransform: 'none', letterSpacing: 0, fontSize: 11.5 }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{mask(entry.name)}</Txt>
+        <Txt v="label" style={{ color: entry.ink, textTransform: 'none', letterSpacing: 0 }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{mask(entry.name)}</Txt>
         <Txt v="figureSm" style={{ color: entry.ink }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{entry.fullAmount ? money(Math.round(entry.cents)) : short(Math.round(entry.cents))}</Txt>
       </View>}
     </Animated.View>

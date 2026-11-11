@@ -1,8 +1,11 @@
+import { useAuthToken } from '@convex-dev/auth/react';
 import { useAction, useConvex } from 'convex/react';
 import { useAISharing, type AISharingControls } from '@/privacy/useAISharing';
+import { readAskStream } from '@/privacy/askStream';
 import { requestPrivateAI } from '@/privacy/requestAI';
 import { useEffect, useMemo, useRef } from 'react';
 
+import { convexUrl } from '@/cloud/config';
 import { cloud, type AskReply, type AskTurn } from '@/cloud/api';
 import { summarizeFlow } from '@/domain/flow';
 import { summarize } from '@/domain/summary';
@@ -25,7 +28,7 @@ export type AskSource =
       prepareSave?: (d: Draft) => DraftSaveIntent;
       checkSave?: () => void;
       /** Asks Claude what the device couldn't answer. Missing in the demo. */
-      ai?: (message: string, history: AskTurn[], stillCurrent: () => boolean) => Promise<AskReply>;
+      ai?: (message: string, history: AskTurn[], stillCurrent: () => boolean, onDelta?: (chunk: string) => void) => Promise<AskReply>;
       sharing?: AISharingControls;
     };
 
@@ -49,6 +52,7 @@ export function useCloudAskSource(): AskSource {
   const data = useCloudData();
   const run = useWriter();
   const askReply = useAction(cloud.askReply);
+  const token = useAuthToken();
   const sharing = useAISharing();
   const invested = useInvested();
   const convex = useConvex();
@@ -83,7 +87,17 @@ export function useCloudAskSource(): AskSource {
     prepareSave,
     ctx,
     answers,
-    ai: (message, history, stillCurrent) => requestPrivateAI({ expectedUserId, message, history, stillCurrent: () => current.current === scope && stillCurrent(), readPermission: sharing.read, buildContext: () => aiContext(ctx, answers, home.history), submit: askReply }),
+    ai: (message, history, stillCurrent, onDelta) => requestPrivateAI({
+      expectedUserId, message, history, stillCurrent: () => current.current === scope && stillCurrent(), readPermission: sharing.read, buildContext: () => aiContext(ctx, answers, home.history),
+      submit: async (args) => {
+        const site = convexUrl?.replace('.convex.cloud', '.convex.site');
+        if (onDelta && token && site) {
+          const streamed = await readAskStream(`${site}/ask/stream`, token, args, onDelta).catch(() => null);
+          if (streamed) return streamed;
+        }
+        return askReply(args);
+      },
+    }),
     save: async (d, intent) => {
       checkSave();
       const p = intent ?? prepareSave(d);

@@ -1,5 +1,13 @@
 import { ConvexError } from 'convex/values';
 
+/** Null when a new password meets the rule: 10 characters and 3 of 4 character classes. */
+export function passwordRuleIssue(password: string): string | null {
+  if (password.length < 10) return 'Use at least 10 characters.';
+  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((pattern) => pattern.test(password)).length;
+  if (classes < 3) return 'Use at least 3 of: uppercase, lowercase, number, symbol.';
+  return null;
+}
+
 /** Turns a Convex Auth failure into one plain sentence. Never echoes server internals. */
 export function authErrorText(error: unknown, flow: 'signIn' | 'signUp' | 'email-verification'): string {
   const message = error instanceof Error ? error.message : String(error ?? '');

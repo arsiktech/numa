@@ -17,6 +17,10 @@ crons.weekly(
 // table. Ticker symbols only; US equities need FINNHUB_API_KEY on Convex.
 crons.interval("refresh market quotes", { minutes: 15 }, internal.marketQuotes.refreshQuotes);
 
+// Chart history and the shared euro rate. Home reads what these stored.
+crons.interval("refresh price history", { minutes: 10 }, internal.priceHistory.refreshDue);
+crons.interval("refresh euro rate", { hours: 6 }, internal.fxRate.refresh);
+
 // Public wallet balances from free explorers (mempool.space, Blockscout). No key, no cost.
 crons.interval("refresh public wallets", { minutes: 30 }, internal.walletSync.refreshDue);
 

@@ -48,20 +48,38 @@ export const demoDebts: Debt[] = [
 export const demoOctober: MonthFlow = {
   month: '2026-10',
   incoming: [
-    { id: 'consulting', label: 'Consulting', cents: 600_000 },
-    { id: 'lumen', label: 'Lumen', cents: 420_000, recurring: true },
-    { id: 'relay', label: 'Relay', cents: 205_000, recurring: true },
-    { id: 'hush', label: 'Hush', cents: 120_000, recurring: true },
-    { id: 'yield', label: 'Yield', cents: 40_500 },
+    { id: 'consulting', label: 'Consulting', cents: 600_000, txIds: ['tx-consulting'] },
+    { id: 'lumen', label: 'Lumen', cents: 420_000, recurring: true, txIds: ['tx-lumen'] },
+    { id: 'relay', label: 'Relay', cents: 205_000, recurring: true, txIds: ['tx-relay'] },
+    { id: 'hush', label: 'Hush', cents: 120_000, recurring: true, txIds: ['tx-hush'] },
+    { id: 'yield', label: 'Yield', cents: 40_500, txIds: ['tx-yield'] },
   ],
   outgoing: [
-    { id: 'taxes', label: 'Taxes', cents: 290_000 },
-    { id: 'living', label: 'Living', cents: 267_400 },
-    { id: 'home', label: 'Home', cents: 189_000 },
-    { id: 'business', label: 'Business', cents: 138_600 },
-    { id: 'car', label: 'Car', cents: 61_000 },
+    { id: 'taxes', label: 'Taxes', cents: 290_000, txIds: ['tx-taxes'] },
+    { id: 'living', label: 'Living', cents: 267_400, txIds: ['tx-living'] },
+    { id: 'home', label: 'Home', cents: 189_000, txIds: ['tx-home'] },
+    { id: 'business', label: 'Business', cents: 138_600, txIds: ['tx-business'] },
+    { id: 'car', label: 'Car', cents: 61_000, txIds: ['tx-car'] },
   ],
 };
+
+/** The demo month as real rows, so Flow can list them and fill the calendar. */
+export function demoTransactions() {
+  const day = (n: number) => new Date(2026, 9, n, 12).getTime();
+  const row = (id: string, kind: 'income' | 'expense', description: string, amountMinor: number, date: number) => ({ id, occurredAt: date, description, categoryId: null, kind, amountMinor, currency: 'EUR' as const, accountId: null, notes: null });
+  return [
+    row('tx-consulting', 'income', 'Consulting', 600_000, day(2)),
+    row('tx-lumen', 'income', 'Lumen', 420_000, day(3)),
+    row('tx-relay', 'income', 'Relay', 205_000, day(4)),
+    row('tx-hush', 'income', 'Hush', 120_000, day(5)),
+    row('tx-yield', 'income', 'Yield', 40_500, day(6)),
+    row('tx-taxes', 'expense', 'Taxes', 290_000, day(7)),
+    row('tx-living', 'expense', 'Living', 267_400, day(8)),
+    row('tx-home', 'expense', 'Home', 189_000, day(9)),
+    row('tx-business', 'expense', 'Business', 138_600, day(10)),
+    row('tx-car', 'expense', 'Car', 61_000, day(11)),
+  ];
+}
 
 export const demoAttention: Attention[] = [
   { id: 'tax', urgency: 'due', title: 'Pay Q3 taxes by 20 October', body: 'About €2,140 for IVA and IRPF. Your tax pot covers it.', primary: 'Mark as paid', secondary: 'Estimate', doneText: 'Marked as paid', dueAt: '2026-10-20', raisedAt: '2026-10-01T08:00:00Z' },

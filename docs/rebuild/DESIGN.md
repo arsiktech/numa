@@ -36,14 +36,15 @@ Same names in both themes.
 | `--bg` | `#000000` | `#FFFFFF` | Page |
 | `--s1` | `#0E0F11` | `#F5F5F3` | Cards |
 | `--s2` | `#1C1E22` | `#ECECE9` | Controls, selected pills |
-| `--line` | `#16181B` | `#EEEEEB` | Row dividers |
-| `--line2` | `#2A2D32` | `#D9D9D5` | Chart baselines, ghost lines |
+| `--line` | `#2A2D32` | `#D9D9D5` | Rules and card edges |
+| `--stroke` | `#767676` | `#767676` | Input border, at least 3:1 |
 | `--ink` | `#F4F4F1` | `#0B0B0C` | Text, primary buttons |
 | `--ink2` | `#A1A4AA` | `#55575C` | Secondary text |
-| `--ink3` | `#7B7E84` | `#6E7076` | Hints, icons, inactive tabs |
-| `--up` | `#3DDC97` | `#0B8A55` | Gains, kept, live, switches on |
+| `--ink3` | `#8E9198` | `#61646A` | Hints, icons, inactive tabs |
+| `--up` | `#3DDC97` | `#0B7A4B` | Gains, kept, live, switches on |
 | `--down` | `#FF6B5E` | `#D23A2D` | Losses, due dates, delete |
-| `--warn` | `#FFB547` | `#A86400` | Attention |
+| `--onDown` | `#0B0B0C` | `#FFFFFF` | Text on the down colour |
+| `--warn` | `#FFB547` | `#8A5200` | Attention |
 | `--upbg` | `rgba(61,220,151,.13)` | `rgba(11,138,85,.1)` | Live chip |
 | `--glass` | `rgba(30,32,36,.72)` | `rgba(255,255,255,.82)` | Floating nav, with 22 px blur |
 | `--glassb` | `rgba(255,255,255,.08)` | `rgba(0,0,0,.07)` | Floating nav border |
@@ -55,7 +56,7 @@ Block palette (composition bars, legends, holdings):
 
 | Token | Dark | Light | Block |
 | --- | --- | --- | --- |
-| `--crypto` | `#FFB547` | `#F2A23A` | Crypto |
+| `--crypto` | `#E09A3A` | `#F2A23A` | Crypto |
 | `--stocks` | `#5B8CFF` | `#2F5BD8` | Stocks and funds |
 | `--biz` | `#9B87F5` | `#6B54E0` | Business and MRR |
 | `--prop` | `#8796AE` | `#5E6F87` | Property |
@@ -79,23 +80,26 @@ never jump.
 
 | Style | Spec | Example |
 | --- | --- | --- |
-| Display, web | Manrope 300, 80/1, −2.5% | €899,538 |
-| Hero, phone | Manrope 300, 54/1, −2%; cents at 30, `--ink3` | €899,538.42 |
-| Title | Manrope 800, 28 to 30/1.1, −3% | Check what Numa read |
-| Section | Manrope 800, 19 | Needs you · 3 |
-| Body | Manrope 500, 15/1.45 | About €2,140 for IVA and IRPF. |
-| Small | Manrope 500, 13, `--ink2` | live · 4 wallets, 2 exchanges |
-| Figure | JetBrains Mono 500, 13 to 20 | ▲ €2,328.94 +0.26% |
-| Label | Manrope 800, 11, +6%, caps | LIVE · DRAFT |
+| Display | Manrope 300, 80 | €899,538 |
+| Hero | Manrope 300, 54 | €899,538 |
+| Cents | Manrope 300, 32 on web, 30 on phone | .42 |
+| Title | Manrope 800, 28 | Check what Numa read |
+| Section | Manrope 800, 20 | Needs you |
+| Body | Manrope 500, 16 | About €2,140 for IVA and IRPF. |
+| Small | Manrope 500, 13 | live · 4 wallets |
+| Figure | JetBrains Mono 500, 16 | ▲ €2,328.94 |
+| Figure small | JetBrains Mono 500, 13 | +0.26% |
+| Label | Manrope 800, 12 | LIVE |
 
-Text is never under 12 px; amounts never under 13 px.
+Nothing is under 12. Card titles use the body size in a heavier weight. On the web, type is set in rem so the page follows the browser text size.
 
 ## Space and shape
 
-- 4 pt grid. Phone gutter 20, web gutter 40, sections 28 to 36 apart.
-- Radius: 10 bars, 14 controls, 18 cards, 20 sheets, 31 capsule nav, 44 phone.
-- Touch targets at least 44 pt on phone, 36 px on web. Every control has a
-  2 px ink focus ring.
+- Space is 4, 8, 12, 16, 24, 32, 40.
+- Radius is 10, 14, 18, and 999 for pills.
+- One segment control. One primary button: 48 px tall, pill radius, 16 px type.
+- Touch targets are at least 44 px. Every control has a 2 px ink focus ring.
+- A disabled label is `--ink3` at full opacity. Pressed controls use opacity 0.72.
 
 ## Motion
 

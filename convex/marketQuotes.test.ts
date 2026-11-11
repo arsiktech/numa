@@ -17,6 +17,14 @@ describe("market quote refresh storage", () => {
     expect((await f.call(listQuoteSymbols)).length).toBe(MAX_REFRESH_SYMBOLS);
   });
 
+  it("refreshes the oldest quote first so a later ticker is not stuck behind fresh ones", async () => {
+    const f = privacyFixture();
+    f.seed("holdings", "fresh", { symbol: "AAA" });
+    f.seed("holdings", "stale", { symbol: "ZZZ" });
+    f.seed("marketQuotes", "q", { symbol: "AAA", price: 1, changePercent: 0, provider: "finnhub", updatedAt: Date.now() });
+    expect(await f.call(listQuoteSymbols)).toEqual(["ZZZ", "AAA"]);
+  });
+
   it("upserts one row per symbol and never moves a quote backwards", async () => {
     const f = privacyFixture();
     const q = (price: number, updatedAt: number) => ({ symbol: "AAPL", price, changePercent: 0, provider: "finnhub" as const, updatedAt });

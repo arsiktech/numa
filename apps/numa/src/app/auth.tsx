@@ -1,6 +1,13 @@
 import { Redirect } from 'expo-router';
+import { Platform } from 'react-native';
 
-/** Where the Google sign-in sheet hands back on phones. The sign-in itself finishes on the sign-in screen. */
+import { useSession } from '@/cloud/session';
+
+import { authTarget } from './authTarget';
+
+/** Where the Google sign-in sheet hands back on phones. On the web it lands on the sign-in screen. */
 export default function AuthReturn() {
-  return <Redirect href="/" />;
+  const session = useSession();
+  if (session.kind === 'loading') return null;
+  return <Redirect href={authTarget(Platform.OS, session.kind === 'signedIn')} />;
 }

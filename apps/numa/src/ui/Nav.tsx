@@ -26,14 +26,14 @@ const NavItem = forwardRef<RNView, ItemProps>(function NavItem({ isFocused, labe
   if (wide) {
     return (
       // A place in the sidebar closes any open panel, so the page it opens is the one in view.
-      <Pressable ref={ref} {...props} onPress={(e) => { if (router.canDismiss()) router.dismissAll(); props.onPress?.(e); }} accessibilityRole="link" aria-selected={isFocused} style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: isFocused ? c.s2 : 'transparent' }}>
+      <Pressable ref={ref} {...props} onPress={(e) => { if (router.canDismiss()) router.dismissAll(); props.onPress?.(e); }} accessibilityRole="link" aria-current={isFocused ? 'page' : undefined} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, backgroundColor: isFocused ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
         {icon(color)}
         <Txt v="body" style={{ color, fontFamily: 'Manrope_600SemiBold' }}>{label}</Txt>
       </Pressable>
     );
   }
   return (
-    <Pressable ref={ref} {...props} accessibilityRole="tab" accessibilityLabel={label} aria-selected={isFocused} style={{ width: 60, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: isFocused ? c.s2 : 'transparent' }}>
+    <Pressable ref={ref} {...props} accessibilityRole="tab" accessibilityLabel={label} aria-selected={isFocused} style={({ pressed }) => ({ width: 60, height: 48, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: isFocused ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
       {icon(color)}
     </Pressable>
   );
@@ -100,7 +100,7 @@ export function AppTabs() {
           ))}
           {wide ? (
             <Link href="/holdings" asChild>
-              <Pressable accessibilityRole="link" style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12 }}>
+              <Pressable accessibilityRole="link" style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, opacity: pressed ? 0.72 : 1 })}>
                 <IconHoldings color={c.ink3} />
                 <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Holdings</Txt>
               </Pressable>
@@ -108,7 +108,7 @@ export function AppTabs() {
           ) : null}
           {wide ? (
             <Link href="/ask" asChild>
-              <Pressable accessibilityRole="link" style={{ minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12 }}>
+              <Pressable accessibilityRole="link" style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, opacity: pressed ? 0.72 : 1 })}>
                 <IconAsk color={c.ink3} />
                 <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Ask or add</Txt>
               </Pressable>
@@ -118,7 +118,7 @@ export function AppTabs() {
       </TabList>
       <TabSlot style={{ flex: 1, marginRight: wide && panelOpen ? panelWidth(width) : 0 }} />
       {!wide ? (
-        <Pressable onPress={() => router.push('/ask')} accessibilityRole="button" accessibilityLabel="Ask or add" style={{ position: 'absolute', zIndex: 10, elevation: 10, right: 20, bottom, width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center', backgroundColor: c.plus, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 } }}>
+        <Pressable onPress={() => router.push('/ask')} accessibilityRole="button" accessibilityLabel="Ask or add" style={({ pressed }) => ({ position: 'absolute', zIndex: 10, elevation: 10, right: 16, bottom, width: 62, height: 62, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.plus, opacity: pressed ? 0.72 : 1, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 } })}>
           <IconPlus color={c.plusInk} />
         </Pressable>
       ) : null}
