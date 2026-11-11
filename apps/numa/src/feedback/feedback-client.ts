@@ -9,7 +9,8 @@
  *  - it or a parent carries `data-fb-private` (add it to every name, address, balance you want hidden);
  *  - it matches the app's extra private selectors, an open dialog, or is a form field's value;
  *  - its text looks like an IBAN, email, international phone, card, long number or wallet address.
- * Requires the `modern-screenshot` package (loaded on first capture only).
+ * Nodes that are not shown (noscript, script, template, hidden, or not displayed) are left out of
+ * the clone. Requires the `modern-screenshot` package (loaded on first capture only).
  */
 
 export type FeedbackMood = "happy" | "neutral" | "unhappy" | "exclamation";
@@ -29,6 +30,7 @@ const MAX_WIDTH = 1600;
 
 const PRIVATE_SELECTOR = "[data-fb-private], [role='dialog']:not([data-fb-self]), [role='alertdialog'], [aria-modal='true']:not([data-fb-self])";
 const EXCLUDED_SELECTOR = "[data-fb-self], video, audio, iframe, embed, object";
+const UNSHOWN_SELECTOR = "noscript, script, template, [hidden]";
 const BLANK_PIXEL = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 const MEDIA_SELECTOR = "img, svg, canvas, picture";
 const VALUE_KEPT_INPUT_TYPES = new Set(["checkbox", "radio", "range", "button", "submit", "reset", "color"]);
@@ -128,6 +130,19 @@ function maskPatterns(root: Element) {
   }
 }
 
+/** True when this node must not be copied into the screenshot. */
+export function feedbackCloneSkipped(node: Node): boolean {
+  if (!(node instanceof Element)) return false
+  if (node.matches(`${EXCLUDED_SELECTOR}, ${UNSHOWN_SELECTOR}`)) return true
+  try {
+    const style = node.ownerDocument.defaultView?.getComputedStyle(node)
+    if (!style) return false
+    return style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse" || style.contentVisibility === "hidden"
+  } catch {
+    return false
+  }
+}
+
 /** Masks a finished clone in place. Runs before anything is drawn. */
 export function maskFeedbackClone(root: Element, extraPrivateSelector?: string) {
   const selector = extraPrivateSelector ? `${PRIVATE_SELECTOR}, ${extraPrivateSelector}` : PRIVATE_SELECTOR;
@@ -176,7 +191,7 @@ export async function captureFeedbackView(options: { privateSelector?: string } 
     timeout: CAPTURE_TIMEOUT_MS,
     backgroundColor: background && background !== "rgba(0, 0, 0, 0)" ? background : "#ffffff",
     style: { margin: "0", marginTop: `-${scrollY}px` },
-    filter: (node: Node) => !(node instanceof Element && node.matches(EXCLUDED_SELECTOR)),
+    filter: (node: Node) => !feedbackCloneSkipped(node),
     onCloneNode: (cloned: Node) => { if (cloned instanceof Element) maskFeedbackClone(cloned, options.privateSelector); },
   });
   try {
