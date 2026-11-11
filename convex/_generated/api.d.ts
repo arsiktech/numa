@@ -31,6 +31,7 @@ import type * as dataExport from "../dataExport.js";
 import type * as debtEvents from "../debtEvents.js";
 import type * as defiEarnings from "../defiEarnings.js";
 import type * as feedback from "../feedback.js";
+import type * as fxRate from "../fxRate.js";
 import type * as goals from "../goals.js";
 import type * as googleLink from "../googleLink.js";
 import type * as holdings from "../holdings.js";
@@ -151,6 +152,7 @@ declare const fullApi: ApiFromModules<{
   debtEvents: typeof debtEvents;
   defiEarnings: typeof defiEarnings;
   feedback: typeof feedback;
+  fxRate: typeof fxRate;
   goals: typeof goals;
   googleLink: typeof googleLink;
   holdings: typeof holdings;

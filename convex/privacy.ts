@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { readAISharingState } from "./lib/aiPermission";
 import { requireUser } from "./lib/access";
@@ -12,6 +12,12 @@ export const status = query({
     ...await readAISharingState(ctx, await getAuthUserId(ctx)),
     disclosure: AI_SHARING_DISCLOSURE,
   }),
+});
+
+/** Sharing state for a user the HTTP action has already authenticated. */
+export const statusFor = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => await readAISharingState(ctx, userId),
 });
 
 export const setAISharing = mutation({

@@ -1,8 +1,9 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
-import { action, internalMutation, internalQuery } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, query } from "./_generated/server";
 import { rateLimitExpiresAt } from "./lib/privacyRetention";
+import { isCryptoSymbol } from "./lib/marketQuoteProviders";
 import { GRID, fetchSeries, type ChartRange, type Get, type Series } from "./lib/priceHistory";
 
 /**
@@ -62,6 +63,47 @@ export const consume = internalMutation({
     if (bucket.count >= CALLS_PER_MINUTE) return false;
     await ctx.db.patch(bucket._id, { count: bucket.count + 1, updatedAt: now });
     return true;
+  },
+});
+
+/** Cached history only. The cron refreshes it, so an open home does not call the providers on a timer. */
+export const read = query({
+  args: { range: rangeValidator, symbols: v.array(v.object({ symbol: v.string(), kind: v.union(v.literal("crypto"), v.literal("stock")) })) },
+  handler: async (ctx, { range, symbols }): Promise<Record<string, Series>> => {
+    if (!(await getAuthUserId(ctx))) return {};
+    const wanted = symbols.slice(0, MAX_SYMBOLS);
+    const now = Date.now();
+    const out: Record<string, Series> = {};
+    await Promise.all(wanted.map(async (s) => {
+      const row = await ctx.db.query("priceHistory").withIndex("by_key", (q) => q.eq("key", `${s.kind}:${s.symbol.toUpperCase()}:${range}`)).unique();
+      if (row && now - row.fetchedAt < GRID[range as ChartRange].ttl) out[s.symbol.toUpperCase()] = { t: row.t, p: row.p, ...(row.observations ? { observations: row.observations } : {}) };
+    }));
+    return out;
+  },
+});
+
+/** Refreshes stale chart history for held symbols. One run is capped so it cannot walk the whole market. */
+export const refreshDue = internalAction({
+  args: {},
+  handler: async (ctx): Promise<number> => {
+    if (process.env.NUMA_QUOTES_OFFLINE === "1") return 0;
+    const symbols: string[] = await ctx.runQuery(internal.marketQuotes.listQuoteSymbols, {});
+    let refreshed = 0;
+    for (const range of ["1D", "1W", "1M", "1Y"] as const) {
+      for (const symbol of symbols.slice(0, 20)) {
+        const kind = isCryptoSymbol(symbol) ? "crypto" as const : "stock" as const;
+        const key = `${kind}:${symbol}:${range}`;
+        const [row] = await ctx.runQuery(internal.priceHistory.cached, { keys: [key] });
+        if (row && Date.now() - row.fetchedAt < GRID[range].ttl) continue;
+        const fresh = await fetchSeries(symbol, kind, range, Date.now(), get).catch(() => null);
+        if (fresh) {
+          await ctx.runMutation(internal.priceHistory.store, { key, ...fresh, fetchedAt: Date.now() });
+          refreshed += 1;
+        }
+        if (refreshed >= 12) return refreshed;
+      }
+    }
+    return refreshed;
   },
 });
 

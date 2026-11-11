@@ -3,22 +3,68 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
-    <title>Numa Pro</title>
-    <meta name="description" content="Your net worth, live: what you own, what you owe and how it moves." />
+    <title>Home · Numa Pro</title>
+    <meta name="description" content="Net worth, cash flow and what needs you, on every device." />
+    <meta property="og:title" content="Home · Numa Pro" />
+    <meta property="og:description" content="Net worth, cash flow and what needs you, on every device." />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FFFFFF" />
     <meta name="apple-mobile-web-app-title" content="Numa Pro" />
+    <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <!-- The react-native-web style reset, plus a background that matches the theme before the app loads. -->
+    <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
     <style id="expo-reset">
+      html { font-size: 100%; }
       html, body { height: 100%; background: #ffffff; }
       @media (prefers-color-scheme: dark) { html, body { background: #000000; } }
       body { overflow: hidden; }
       #root { display: flex; height: 100%; flex: 1; }
+      @font-face { font-family: Manrope_300Light; src: url("/fonts/manrope-latin.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: optional; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+      @font-face { font-family: Manrope_300Light; src: url("/fonts/manrope-latin-ext.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: optional; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+      @font-face { font-family: Manrope_500Medium; src: url("/fonts/manrope-latin.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: optional; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+      @font-face { font-family: Manrope_500Medium; src: url("/fonts/manrope-latin-ext.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: optional; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+      @font-face { font-family: Manrope_600SemiBold; src: url("/fonts/manrope-latin.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: optional; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+      @font-face { font-family: Manrope_600SemiBold; src: url("/fonts/manrope-latin-ext.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: optional; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+      @font-face { font-family: Manrope_700Bold; src: url("/fonts/manrope-latin.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: optional; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+      @font-face { font-family: Manrope_700Bold; src: url("/fonts/manrope-latin-ext.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: optional; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+      @font-face { font-family: Manrope_800ExtraBold; src: url("/fonts/manrope-latin.woff2") format("woff2"); font-weight: 800; font-style: normal; font-display: optional; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+      @font-face { font-family: Manrope_800ExtraBold; src: url("/fonts/manrope-latin-ext.woff2") format("woff2"); font-weight: 800; font-style: normal; font-display: optional; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+      @font-face { font-family: JetBrainsMono_500Medium; src: url("/fonts/jetbrains-mono-latin.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: optional; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+      @font-face { font-family: JetBrainsMono_500Medium; src: url("/fonts/jetbrains-mono-latin-ext.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: optional; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+      @keyframes numa-fade { from { opacity: 0; } to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { @keyframes numa-fade { from, to { opacity: 1; } } }
     </style>
-  <style>html,body,#root{width:100%;height:100%;margin:0}body{overflow:hidden}#root{display:flex;flex:1}#numa-startup{box-sizing:border-box;position:fixed;inset:0;overflow:auto;background:#faf9f6;color:#20211f;font:17px/1.6 system-ui,-apple-system,sans-serif;padding:32px 24px;z-index:9999}#numa-startup section{max-width:420px;margin:5vh auto}#numa-startup h1{font-size:36px;line-height:1.15;letter-spacing:-1px;margin:32px 0 16px}#numa-startup a{color:inherit;display:inline-flex;align-items:center;min-height:44px;margin-right:20px;text-underline-offset:4px}#numa-startup a:focus-visible{outline:3px solid #2d6655;outline-offset:3px}#numa-startup small{display:block;color:#595d55}@media(prefers-color-scheme:dark){#numa-startup{background:#000;color:#f5f5f5}#numa-startup small{color:#bbb}}</style></head>
+    <style>
+      html, body, #root { width: 100%; height: 100%; margin: 0; }
+      body { overflow: hidden; }
+      #root { display: flex; flex: 1; }
+      #numa-startup { box-sizing: border-box; position: fixed; inset: 0; overflow: auto; background: #fff; color: #0B0B0C; font-family: system-ui, sans-serif; font-size: 16px; line-height: 1.5; padding: 32px 24px; z-index: 9999; }
+      #numa-startup section { max-width: 420px; margin: 8vh auto; }
+      #numa-startup .mark { font-family: system-ui, sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -0.03em; }
+      #numa-startup .pro { display: inline-block; margin-left: 8px; padding: 2px 6px; border-radius: 6px; background: #0B0B0C; color: #F4F4F1; font-size: 12px; letter-spacing: 0.06em; vertical-align: 4px; }
+      #numa-startup h1 { font-family: system-ui, sans-serif; font-weight: 300; font-size: 54px; line-height: 1; letter-spacing: -0.02em; margin: 24px 0 16px; }
+      #numa-startup a { color: inherit; display: inline-flex; align-items: center; min-height: 44px; margin-right: 16px; }
+      #numa-startup a:focus-visible { outline: 2px solid #0B0B0C; outline-offset: 3px; }
+      #numa-startup small { display: block; color: #61646A; }
+      @media (prefers-color-scheme: dark) {
+        #numa-startup { background: #000; color: #F4F4F1; }
+        #numa-startup .pro { background: #F4F4F1; color: #0B0B0C; }
+        #numa-startup small { color: #8E9198; }
+        #numa-startup a:focus-visible { outline-color: #F4F4F1; }
+      }
+    </style>
+  </head>
   <body>
     <noscript>Numa Pro needs JavaScript.</noscript>
     <div id="root"></div>
-  <main id="numa-startup"><section><strong>numa PRO</strong><h1>Opening Numa Pro…</h1><p>Track what you own, what you owe and your net worth.</p><p>Free during beta. No card required.</p><small>The app may take a little longer on a slow connection. You can read these pages while it loads.</small><nav aria-label="Information"><a href="/pricing">Pricing</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav><p><a href="/">Reload the app</a><a href="mailto:support@numaworth.com">Contact support</a></p><noscript><p>Enable JavaScript to use the app. Pricing, privacy and terms remain available without it.</p></noscript></section></main></body>
+    <main id="numa-startup">
+      <section>
+        <p class="mark">numa<span class="pro">PRO</span></p>
+        <h1>Opening Numa Pro…</h1>
+        <p>Net worth, cash flow and what needs you, on every device.</p>
+        <nav aria-label="Information"><a href="/pricing">Pricing</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+        <p><a href="/">Reload the app</a><!--email_off--><a href="mailto:support@numaworth.com">Contact support</a><!--/email_off--></p>
+      </section>
+    </main>
+  </body>
 </html>

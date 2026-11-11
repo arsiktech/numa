@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { dueAlerts, EXPO_TOKEN, limitAlerts, localClock, pickToSend, type Alert } from "./lib/pushAlerts";
+import { dueAlerts, EXPO_TOKEN, limitAlerts, localClock, localMonthStart, pickToSend, type Alert } from "./lib/pushAlerts";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -96,7 +96,7 @@ export const plan = internalQuery({
   handler: async (ctx, { userId, timeZone, now }): Promise<{ alerts: Alert[]; sentKeys: string[]; sentToday: number; hour: number }> => {
     const clock = localClock(now, timeZone);
     const monthKey = clock.day.slice(0, 7);
-    const monthStart = now - 32 * DAY;
+    const monthStart = localMonthStart(now, timeZone);
     const alerts: Alert[] = [];
     const memberships = await ctx.db.query("memberships").withIndex("by_user", (q) => q.eq("userId", userId)).take(20);
     for (const m of memberships) {
@@ -107,8 +107,8 @@ export const plan = internalQuery({
       const categories = (await ctx.db.query("categories").withIndex("by_portfolio", (q) => q.eq("portfolioId", m.portfolioId)).take(200))
         .filter((c) => c.kind === "expense" && c.monthlyLimit);
       if (!categories.length) continue;
-      const recent = await ctx.db.query("transactions").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", m.portfolioId).gte("occurredAt", monthStart)).take(2000);
-      const thisMonth = recent.filter((t) => t.kind === "expense" && localClock(t.occurredAt, timeZone).day.startsWith(monthKey));
+      const recent = await ctx.db.query("transactions").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", m.portfolioId).gte("occurredAt", monthStart)).filter((q) => q.eq(q.field("kind"), "expense")).take(2000);
+      const thisMonth = recent.filter((t) => localClock(t.occurredAt, timeZone).day.startsWith(monthKey));
       alerts.push(...limitAlerts(
         categories.map((c) => ({ id: c._id, name: c.name, monthlyLimit: c.monthlyLimit, currency: c.monthlyLimitCurrency ?? portfolio.defaultCurrency ?? "EUR" })),
         thisMonth.map((t) => ({ categoryId: t.categoryId, amount: t.amount, currency: t.currency })),

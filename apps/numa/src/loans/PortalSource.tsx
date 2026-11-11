@@ -57,7 +57,7 @@ export function PortalSource({ portfolioId, liabilityId, assetId, now }: { portf
       <View style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.line, gap: 4 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <Txt v="body" c="ink2">Follows</Txt>
-          <Txt v="figureSm" style={{ fontSize: 14, flexShrink: 1, textAlign: 'right' }}>{source.label ? `${source.label} · ${source.host}` : source.host}</Txt>
+          <Txt v="figureSm" style={{ flexShrink: 1, textAlign: 'right' }}>{source.label ? `${source.label} · ${source.host}` : source.host}</Txt>
         </View>
         <Txt v="small" c={source.status === 'ok' || source.status === null ? 'ink3' : 'warn'}>{state} Updated every 30 minutes.</Txt>
         <Pressable onPress={stop} disabled={busy} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>

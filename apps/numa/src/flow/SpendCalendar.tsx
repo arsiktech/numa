@@ -45,12 +45,12 @@ export function SpendCalendar({ cal, selected, onSelect }: { cal: MonthCalendar;
             <Animated.View key={i} style={{ flex: 1 }} entering={reduce ? undefined : FadeIn.duration(duration.morph).delay(d.day * 14)}>
               <Pressable onPress={() => onSelect(selected === d.day ? null : d.day)} accessibilityRole="button" aria-selected={selected === d.day}
                 accessibilityLabel={`${dayName(d.at)}: ${d.spentCents > 0 ? `spent ${hidden ? 'an amount hidden' : money(d.spentCents)}` : 'nothing spent'}${d.unknown ? `, ${d.unknown} in another currency left out` : ''}${d.income ? ', money came in' : ''}`}
-                style={{ height: 46, borderRadius: 12, paddingVertical: 5, paddingHorizontal: 6, justifyContent: 'space-between', backgroundColor: shades[d.level], borderWidth: 2, borderColor: selected === d.day ? c.ink : 'transparent' }}>
+                style={{ minHeight: 48, borderRadius: 10, paddingVertical: 4, paddingHorizontal: 4, justifyContent: 'space-between', backgroundColor: shades[d.level], borderWidth: 2, borderColor: selected === d.day ? c.ink : 'transparent' }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Txt v="small" style={{ fontSize: 11, lineHeight: 13, fontFamily: 'Manrope_700Bold', color: ink(d.level) }}>{d.day}</Txt>
+                  <Txt v="label" style={{ color: ink(d.level), textTransform: 'none', letterSpacing: 0 }}>{d.day}</Txt>
                   {d.income && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.up }} />}
                 </View>
-                <Txt v="figureSm" numberOfLines={1} style={{ fontSize: 9, lineHeight: 11, color: ink(d.level) }}>{hidden ? '' : short(d.spentCents, (x) => money(x))}</Txt>
+                <Txt v="label" numberOfLines={1} style={{ color: ink(d.level), textTransform: 'none', letterSpacing: 0 }}>{hidden ? '' : short(d.spentCents, (x) => money(x))}</Txt>
               </Pressable>
             </Animated.View>
           ))}

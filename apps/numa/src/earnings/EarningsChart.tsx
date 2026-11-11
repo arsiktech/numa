@@ -119,9 +119,9 @@ export function EarningsChart({ series, selected, onSelect }: { series: Earnings
       </View>
       {n > 0 && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-          <Txt v="figureSm" c="ink3" style={{ fontSize: 11 }}>{dayText(series[0].day)}</Txt>
-          {n > 2 && <Txt v="figureSm" c="ink3" style={{ fontSize: 11 }}>{dayText(series[Math.floor((n - 1) / 2)].day)}</Txt>}
-          {n > 1 && <Txt v="figureSm" c="ink3" style={{ fontSize: 11 }}>{dayText(series[n - 1].day)}</Txt>}
+          <Txt v="figureSm" c="ink3" style={{}}>{dayText(series[0].day)}</Txt>
+          {n > 2 && <Txt v="figureSm" c="ink3" style={{}}>{dayText(series[Math.floor((n - 1) / 2)].day)}</Txt>}
+          {n > 1 && <Txt v="figureSm" c="ink3" style={{}}>{dayText(series[n - 1].day)}</Txt>}
         </View>
       )}
       <View style={{ flexDirection: 'row', gap: 14, marginTop: 10, alignItems: 'center' }}>

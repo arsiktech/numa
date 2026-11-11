@@ -27,9 +27,10 @@ export const listQuoteSymbols = internalQuery({
   handler: async (ctx): Promise<string[]> => {
     const holdings = await ctx.db.query("holdings").collect();
     const owed = (await ctx.db.query("liabilities").collect()).flatMap((l) => (l.owedSymbol ? [l.owedSymbol] : []));
+    const quotedAt = new Map((await ctx.db.query("marketQuotes").collect()).map((quote) => [quote.symbol, quote.updatedAt]));
     return normalizeSymbols([...holdings.map((holding) => holding.symbol), ...owed])
       .filter((symbol) => isCryptoSymbol(symbol) || isUsEquitySymbol(symbol))
-      .sort()
+      .sort((a, b) => (quotedAt.get(a) ?? 0) - (quotedAt.get(b) ?? 0) || a.localeCompare(b))
       .slice(0, MAX_REFRESH_SYMBOLS);
   }
 });

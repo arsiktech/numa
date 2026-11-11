@@ -227,7 +227,10 @@ export async function userPortfolios(ctx: AnyCtx, userId: Id<"users">) {
     .sort((a, b) => a.portfolio.createdAt - b.portfolio.createdAt);
 }
 
-export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portfolios">) {
+const LEDGER_WINDOW_MS = 45 * 24 * 60 * 60 * 1000;
+export const ledgerSince = (now: number) => now - LEDGER_WINDOW_MS;
+
+export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portfolios">, since?: number) {
   const { membership } = await requireMember(ctx, portfolioId);
   const portfolio = await ctx.db.get(portfolioId);
   if (!portfolio) throw new ConvexError({ code: "NOT_FOUND", message: "Portfolio not found" });
@@ -243,29 +246,22 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
     snapshots
   ] = await Promise.all([
     ctx.db.query("categories").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect(),
-    ctx.db.query("transactions").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).collect(),
-    ctx.db.query("cashTransfers").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).collect(),
+    ctx.db.query("transactions").withIndex("by_portfolio_time", (q) => since === undefined ? q.eq("portfolioId", portfolioId) : q.eq("portfolioId", portfolioId).gte("occurredAt", since)).collect(),
+    ctx.db.query("cashTransfers").withIndex("by_portfolio_time", (q) => since === undefined ? q.eq("portfolioId", portfolioId) : q.eq("portfolioId", portfolioId).gte("occurredAt", since)).collect(),
     ctx.db.query("assets").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect(),
     ctx.db.query("liabilities").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect(),
     ctx.db.query("holdings").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect(),
     ctx.db.query("goals").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect(),
     ctx.db.query("recurring").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect(),
-    ctx.db.query("wealthSnapshots").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).collect()
+    since === undefined
+      ? ctx.db.query("wealthSnapshots").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).collect()
+      : ctx.db.query("wealthSnapshots").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).order("desc").take(2000)
   ]);
-  const quoteSymbols = [...new Set([
-    ...holdings.map((holding) => holding.symbol.toUpperCase()),
-    ...liabilities.flatMap((liability) => (liability.owedSymbol ? [liability.owedSymbol.toUpperCase()] : []))
-  ])];
-  const quoteEntries = await Promise.all(
-    quoteSymbols.map(async (symbol): Promise<[string, Doc<"marketQuotes"> | null]> => [
-      symbol,
-      await ctx.db
-        .query("marketQuotes")
-        .withIndex("by_symbol", (q) => q.eq("symbol", symbol))
-        .unique()
-    ])
-  );
-  const quotesBySymbol = new Map(quoteEntries);
+  const quotesBySymbol = new Map((await ctx.db.query("marketQuotes").collect()).map((quote) => [quote.symbol.toUpperCase(), quote]));
+  const fxRow = await ctx.db.query("priceHistory").withIndex("by_key", (q) => q.eq("key", "fx:EURUSD")).unique();
+  const fxUsdPerEur = fxRow && fxRow.p[0] > 0 ? fxRow.p[0] : undefined;
+  const oldest = since === undefined ? null : await ctx.db.query("transactions").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).order("asc").take(1);
+  const oldestTransactionAt = oldest ? oldest[0]?.occurredAt ?? null : transactions.reduce<number | null>((min, tx) => min === null || tx.occurredAt < min ? tx.occurredAt : min, null);
   const holdingsWithQuotes = holdings.map((holding) => ({
     holding,
     quote: quotesBySymbol.get(holding.symbol.toUpperCase()) ?? null
@@ -281,7 +277,8 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
       assets,
       liabilities: valuedLiabilities,
       holdings: holdingsWithQuotes,
-      goals
+      goals,
+      fxUsdPerEur
     }),
     categories: categories.sort((a, b) => a.sortOrder - b.sortOrder).map(category => mobileCategory(category, portfolio.defaultCurrency)),
     transactions: transactions.sort((a, b) => b.occurredAt - a.occurredAt).map(mobileTransaction),
@@ -301,7 +298,8 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
     goals: goals.map(mobileGoal),
     recurring: recurring.sort((a, b) => a.nextRunAt - b.nextRunAt).map(mobileRecurring),
     revenue: mobileRecurringRevenue(portfolio, recurring),
-    wealthSnapshots: snapshots.sort((a, b) => a.takenAt - b.takenAt).map(mobileWealthSnapshot)
+    wealthSnapshots: snapshots.sort((a, b) => a.takenAt - b.takenAt).map(mobileWealthSnapshot),
+    oldestTransactionAt
   };
 }
 

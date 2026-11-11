@@ -82,15 +82,15 @@ export const walletForRefresh = internalQuery({
 export const dueWallets = internalQuery({
   args: { now: v.number() },
   handler: async (ctx, { now }): Promise<Target[]> => {
-    const out: Target[] = [];
+    const due: Target[] = [];
     for await (const wallet of ctx.db.query("cryptoWallets")) {
       if (wallet.addressType === "solana") continue;
       const checkedAt = wallet.snapshot?.updatedAt ?? null;
       if (checkedAt !== null && now - checkedAt < SCHEDULED_AGE_MS) continue;
-      out.push({ id: wallet._id, address: wallet.address, addressType: wallet.addressType, checkedAt });
-      if (out.length >= SCHEDULED_BATCH) break;
+      due.push({ id: wallet._id, address: wallet.address, addressType: wallet.addressType, checkedAt });
     }
-    return out;
+    due.sort((a, b) => (a.checkedAt ?? 0) - (b.checkedAt ?? 0));
+    return due.slice(0, SCHEDULED_BATCH);
   },
 });
 

@@ -16,7 +16,7 @@ export type OAuthOutcome = 'signedIn' | 'cancelled' | 'leaving';
  */
 export async function continueWithGoogle(signIn: SignIn): Promise<OAuthOutcome> {
   if (Platform.OS === 'web') {
-    await signIn('google', { redirectTo: `${window.location.origin}/` });
+    await signIn('google', { redirectTo: `${window.location.origin}/sign-in` });
     return 'leaving';
   }
   const redirectTo = Linking.createURL('auth');

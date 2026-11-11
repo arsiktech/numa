@@ -53,7 +53,7 @@ export function PriceChart({ symbol, kind, now }: { symbol: string; kind: 'crypt
       </View>
       <View style={{ marginHorizontal: -20, marginTop: 4, minHeight: 150 }}>
         {rangeAvailable && (
-          <ScrubChart values={values} times={s.t} height={150} up={up} drawKey={key} pinned={pinned} label="Price over time. Drag or tap to pick a date."
+          <ScrubChart values={values} times={s.t} height={150} up={up} drawKey={key} pinned={pinned} label="Price over time"
             labels={{ times: s.t, at: (i) => pointLabel(s.t[i], range, now), tick: (t) => tickLabel(t, range) }}
             onPreview={setPreview} onPin={(i) => { setPreview(null); setPinned(i >= values.length - 1 ? null : i); }} />
         )}

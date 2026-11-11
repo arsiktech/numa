@@ -13,7 +13,7 @@ export function MonthTeaser({ month, flow }: { month: string; flow: FlowSummary 
   const kept = flow.keptCents >= 0;
   return (
     <Link href="/flow" asChild>
-      <Pressable accessibilityRole="link" accessibilityLabel={nothing ? `${month}: nothing logged yet. Open Flow` : hidden ? `${month} cash flow, amounts hidden. Open Flow` : `${month} cash flow: in ${money(flow.inCents)}, out ${money(flow.outCents)}, ${kept ? 'kept' : 'overspent'} ${money(Math.abs(flow.keptCents))}. Open Flow`} style={{ padding: 16, borderRadius: 20, backgroundColor: c.s1 }}>
+      <Pressable accessibilityRole="link" accessibilityLabel={nothing ? `${month} so far. Nothing logged yet` : hidden ? `${month} so far. Amounts hidden` : `${month} so far. In ${money(flow.inCents)}, out ${money(flow.outCents)}`} style={({ pressed }) => ({ padding: 16, borderRadius: 18, backgroundColor: c.s1, opacity: pressed ? 0.72 : 1 })}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', columnGap: 12 }}>
           <Txt v="cardTitle">{month} so far</Txt>
           {nothing ? (

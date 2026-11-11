@@ -1,11 +1,12 @@
+import { useQuery } from 'convex/react';
 import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 
-import type { CloudCategory, CloudTransaction } from '@/cloud/api';
+import { cloud, type CloudCategory, type CloudTransaction } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
-import { demoOctober } from '@/data/demo';
+import { demoOctober, demoTransactions } from '@/data/demo';
 import { convertCents, type FxRate } from '@/data/fx';
 import { summarizeFlow } from '@/domain/flow';
 import { shortDay } from '@/domain/freshness';
@@ -22,6 +23,8 @@ import { CurrencyScope, useMoney } from '@/ui/money';
 import { WIDE } from '@/ui/Nav';
 import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
 import { Hint } from '@/ui/Hint';
+import { arrowProps } from '@/ui/keys';
+import { SkeletonBlocks } from '@/ui/Skeleton';
 import { Txt } from '@/ui/Txt';
 
 type FlowData = {
@@ -34,6 +37,8 @@ type FlowData = {
   categories: CloudCategory[];
   fx: FxRate | null;
   recurring: RecurringRow[];
+  portfolioId: string | null;
+  oldestAt: number | null;
 };
 
 export default function FlowScreen() {
@@ -42,7 +47,8 @@ export default function FlowScreen() {
 
 function DemoFlow() {
   const now = new Date(2026, 9, 11);
-  const data: FlowData = { demo: true, currency: 'EUR', now: now.getTime(), months: [monthOf(now.getTime())], flowFor: () => ({ ...demoOctober, unconverted: [] }), txsFor: () => [], categories: [], fx: null, recurring: [] };
+  const txs = demoTransactions();
+  const data: FlowData = { demo: true, currency: 'EUR', now: now.getTime(), months: [monthOf(now.getTime())], flowFor: () => ({ ...demoOctober, unconverted: [] }), txsFor: () => txs, categories: [], fx: null, recurring: [], portfolioId: null, oldestAt: null };
   return <FlowView data={data} />;
 }
 
@@ -54,14 +60,26 @@ function CloudFlow() {
     const currency = cloud.data.currency;
     const date = new Date(now);
     return {
-      demo: false, currency, now, months: availableMonths(snapshot.transactions, date),
+      demo: false, currency, now, portfolioId: cloud.portfolioId, oldestAt: snapshot.oldestTransactionAt ?? null, months: availableMonths(snapshot.transactions, date, snapshot.oldestTransactionAt),
       flowFor: (k) => monthFlow(snapshot, k, currency, fx, date), txsFor: (k) => transactionsIn(snapshot.transactions, k, date),
       categories: snapshot.categories, fx, recurring: recurringRows(snapshot.recurring ?? [], currency, fx, now),
     };
   }, [cloud]);
-  if (cloud.status === 'error') return <Shell><Txt v="body" c="ink2" style={{ marginTop: 20 }}>{cloud.message}</Txt></Shell>;
-  if (!data) return <Shell><ActivityIndicator style={{ marginTop: 60 }} accessibilityLabel="Loading" /></Shell>;
+  if (cloud.status === 'error') return <Shell><LoadError message={cloud.message} onRetry={cloud.retry} /></Shell>;
+  if (!data) return <Shell><SkeletonBlocks /></Shell>;
   return <FlowView data={data} />;
+}
+
+function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { c } = useTheme();
+  return (
+    <View style={{ marginTop: 24, gap: 12 }}>
+      <Txt v="body" c="ink2">{message}</Txt>
+      <Pressable onPress={onRetry} accessibilityRole="button" style={({ pressed }) => ({ alignSelf: 'flex-start', minHeight: 48, paddingHorizontal: 16, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
+        <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Try again</Txt>
+      </Pressable>
+    </View>
+  );
 }
 
 function PageTitle({ text, compact }: { text: string; compact: boolean }) {
@@ -93,18 +111,22 @@ function Inner({ data }: { data: FlowData }) {
   // Streams (the Sankey) or the month as a calendar; a picked day narrows the list to it.
   const [lens, setLens] = useState<'streams' | 'calendar'>('streams');
   const [day, setDay] = useState<number | null>(null);
+  const monthStart = new Date(month.year, month.month, 1).getTime();
+  const monthEnd = new Date(month.year, month.month + 1, 1).getTime();
+  const ledger = useQuery(cloud.monthLedger, data.demo || !data.portfolioId ? 'skip' : { portfolioId: data.portfolioId, start: monthStart, end: monthEnd });
+  const monthTxs = ledger ?? data.txsFor(month);
   const idx = data.months.findIndex((m) => sameMonth(m, month));
-  const flow = data.flowFor(month);
+  const flow = ledger && !data.demo ? monthFlow({ categories: data.categories, transactions: ledger } as Parameters<typeof monthFlow>[0], month, data.currency, data.fx, new Date(data.now)) : data.flowFor(month);
   const sum = summarizeFlow(flow);
   const chartW = Math.min(wide ? 1040 : width - 40, 1040);
   const layout = layoutSankey(flow.incoming, flow.outgoing, chartW, wide ? 340 : 260);
   const lines = [...flow.incoming, ...flow.outgoing];
   const focused = lines.find((l) => l.id === focus) ?? null;
-  const cal = lens === 'calendar' ? monthCalendar(data.txsFor(month), month, data.currency, data.fx, data.now) : null;
+  const cal = lens === 'calendar' ? monthCalendar(monthTxs, month, data.currency, data.fx, data.now) : null;
   const dayIds = cal && day !== null ? new Set(cal.days[day - 1]?.txIds ?? []) : null;
-  const txs = data.txsFor(month).filter((t) => (dayIds ? dayIds.has(t.id) : !focused || focused.txIds?.includes(t.id)));
+  const txs = monthTxs.filter((t) => (dayIds ? dayIds.has(t.id) : !focused || focused.txIds?.includes(t.id)));
   // Cashback the month's card purchases earned, whatever stream is followed.
-  const cashback = data.demo ? null : monthCashback(data.txsFor(month), data.currency, data.fx);
+  const cashback = data.demo ? null : monthCashback(monthTxs, data.currency, data.fx);
   const names = new Map(data.categories.map((x) => [x.id, x.name]));
   const go = (by: number) => { const next = data.months[idx + by]; if (next) { setMonth(next); setFocus(null); setDay(null); } };
   const products = mrr(data.recurring);
@@ -115,9 +137,9 @@ function Inner({ data }: { data: FlowData }) {
       <View style={{ flexDirection: 'row', flexWrap: compact ? 'nowrap' : 'wrap', alignItems: 'center', justifyContent: compact ? 'flex-start' : 'space-between' }}>
         {!compact && <PageTitle text="Flow" compact={false} />}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Pressable onPress={() => go(-1)} disabled={idx <= 0} accessibilityRole="button" accessibilityLabel="Previous month" style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', opacity: idx <= 0 ? 0.3 : 1 }}><Txt v="section" maxFontSizeMultiplier={1.3}>‹</Txt></Pressable>
+            <Pressable onPress={() => go(-1)} disabled={idx <= 0} accessibilityRole="button" accessibilityLabel="Previous month" style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><Txt v="section" c={idx <= 0 ? 'ink3' : 'ink'} maxFontSizeMultiplier={1.3}>‹</Txt></Pressable>
             <Txt v="body" style={{ fontFamily: 'Manrope_700Bold', minWidth: 96, textAlign: 'center' }} maxFontSizeMultiplier={1.4}>{monthName(month, new Date(data.now))}</Txt>
-            <Pressable onPress={() => go(1)} disabled={idx >= data.months.length - 1} accessibilityRole="button" accessibilityLabel="Next month" style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', opacity: idx >= data.months.length - 1 ? 0.3 : 1 }}><Txt v="section" maxFontSizeMultiplier={1.3}>›</Txt></Pressable>
+            <Pressable onPress={() => go(1)} disabled={idx >= data.months.length - 1} accessibilityRole="button" accessibilityLabel="Next month" style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><Txt v="section" c={idx >= data.months.length - 1 ? 'ink3' : 'ink'} maxFontSizeMultiplier={1.3}>›</Txt></Pressable>
           </View>
       </View>
     )}>
@@ -152,8 +174,8 @@ function Inner({ data }: { data: FlowData }) {
         <View style={{ marginTop: 18 }}>
           <View style={{ flexDirection: 'row', gap: 4, padding: 3, borderRadius: 999, backgroundColor: c.s1, alignSelf: 'flex-start', marginBottom: 14 }} accessibilityRole="tablist">
             {([['streams', 'Streams'], ['calendar', 'Calendar']] as const).map(([k, label]) => (
-              <Pressable key={k} onPress={() => { setLens(k); setDay(null); setFocus(null); }} accessibilityRole="tab" aria-selected={lens === k}
-                style={{ minHeight: 34, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center', backgroundColor: lens === k ? c.s2 : 'transparent' }}>
+              <Pressable key={k} onPress={() => { setLens(k); setDay(null); setFocus(null); }} {...arrowProps(['streams', 'calendar'] as const, lens, (next) => { setLens(next); setDay(null); setFocus(null); })} accessibilityRole="tab" aria-selected={lens === k}
+                style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 16, borderRadius: 999, justifyContent: 'center', backgroundColor: lens === k ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
                 <Txt v="small" style={{ fontFamily: 'Manrope_600SemiBold', color: lens === k ? c.ink : c.ink2 }}>{label}</Txt>
               </Pressable>
             ))}
@@ -166,7 +188,7 @@ function Inner({ data }: { data: FlowData }) {
           <View style={{ marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityLabel="Streams">
             {lines.map((l) => (
               <Pressable key={l.id} onPress={() => setFocus(focus === l.id ? null : l.id)} accessibilityRole="button" aria-selected={focus === l.id} accessibilityLabel={`${l.label}, ${hidden ? 'amount hidden' : money(l.cents)}. ${focus === l.id ? 'Following' : 'Follow this stream'}`}
-                style={{ minHeight: 36, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: focus === l.id ? c.ink : c.s1 }}>
+                style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: focus === l.id ? c.ink : c.s1, opacity: pressed ? 0.72 : 1 })}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: l.id.startsWith('income:') ? c.up : c.ink3 }} />
                 <Txt v="small" style={{ fontFamily: 'Manrope_700Bold', color: focus === l.id ? c.bg : c.ink }}>{l.label}</Txt>
                 <Txt v="figureSm" style={{ color: focus === l.id ? c.bg : c.ink2 }}>{money(l.cents)}</Txt>
@@ -187,23 +209,29 @@ function Inner({ data }: { data: FlowData }) {
         </View>
       )}
 
-      {!data.demo && txs.length > 0 && (
+      {txs.length > 0 && (
         <View style={{ marginTop: 26 }}>
           <Txt v="section" accessibilityRole="header">{dayIds && day !== null ? new Date(month.year, month.month, day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : focused ? focused.label : 'Transactions'}</Txt>
           {txs.map((t, i) => {
             const cents = convertCents(Math.abs(t.amountMinor), t.currency, data.currency, data.fx);
             const income = t.kind === 'income';
             const detail = rowDetails(t);
-            return (
+            const row = (
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{t.description}</Txt>
+                  <Txt v="small" c="ink2" numberOfLines={1}>{[focused ? null : t.categoryId ? names.get(t.categoryId) : null, shortDay(t.occurredAt, data.now), ...detail.meta].filter(Boolean).join(' · ')}</Txt>
+                </View>
+            );
+            const amount = <Txt v="figure" style={{ color: income ? c.upInk : c.ink }}>{cents === null ? '—' : (income ? '+' : '−') + money(cents, { cents: cents % 100 !== 0 }).replace('−', '')}</Txt>;
+            return data.demo ? (
+              <View key={t.id} style={{ minHeight: 56, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === txs.length - 1 ? 0 : 1, borderBottomColor: c.line }}>{row}{amount}</View>
+            ) : (
               <Link key={t.id} href={{ pathname: '/tx/[id]', params: { id: t.id } }} asChild>
-                <Pressable accessibilityRole="link" style={{ minHeight: 60, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === txs.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{t.description}</Txt>
-                    <Txt v="small" c="ink2" numberOfLines={1}>{[focused ? null : t.categoryId ? names.get(t.categoryId) : null, shortDay(t.occurredAt, data.now), ...detail.meta].filter(Boolean).join(' · ')}</Txt>
-                  </View>
+                <Pressable accessibilityRole="link" style={{ minHeight: 56, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === txs.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
+                  {row}
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Txt v="figure" style={{ fontSize: 15, color: income ? c.upInk : c.ink }}>{cents === null ? '—' : (income ? '+' : '−') + money(cents, { cents: cents % 100 !== 0 }).replace('−', '')}</Txt>
-                    {detail.extra && !hidden && <Txt v="figureSm" c="upInk" style={{ fontSize: 12 }}>{detail.extra}</Txt>}
+                    {amount}
+                    {detail.extra && !hidden && <Txt v="figureSm" c="upInk">{detail.extra}</Txt>}
                   </View>
                 </Pressable>
               </Link>

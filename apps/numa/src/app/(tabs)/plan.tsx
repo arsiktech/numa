@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { bindUndo } from '@/ask/plan';
 import { parseDate } from '@/ask/parse';
@@ -20,6 +20,7 @@ import { CurrencyScope, useMoney } from '@/ui/money';
 import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
 import { useToast } from '@/ui/Toast';
 import { Hint } from '@/ui/Hint';
+import { SkeletonBlocks } from '@/ui/Skeleton';
 import { Txt } from '@/ui/Txt';
 
 type PlanData = {
@@ -56,7 +57,17 @@ function CloudPlan() {
       limits: limits(snapshot, home.currency, fx, date),
     };
   }, [cloud]);
-  if (!data) return <Shell><ActivityIndicator style={{ marginTop: 60 }} accessibilityLabel="Loading" /></Shell>;
+  if (cloud.status === 'error') return (
+    <Shell>
+      <View style={{ marginTop: 24, gap: 12 }}>
+        <Txt v="body" c="ink2">{cloud.message}</Txt>
+        <Pressable onPress={cloud.retry} accessibilityRole="button" style={({ pressed }) => ({ alignSelf: 'flex-start', minHeight: 48, paddingHorizontal: 16, borderRadius: 999, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
+          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Try again</Txt>
+        </Pressable>
+      </View>
+    </Shell>
+  );
+  if (!data) return <Shell><SkeletonBlocks /></Shell>;
   return <PlanView data={data} />;
 }
 
@@ -121,7 +132,7 @@ function Goals({ data }: { data: PlanData }) {
       {data.goals.map((g) => {
         const done = g.share !== null && g.share >= 1;
         return (
-          <Pressable key={g.goal.id} onPress={() => setOpen(open === g.goal.id ? null : g.goal.id)} accessibilityRole="button" accessibilityLabel={`${g.title}. ${g.share === null ? 'Progress unknown' : `${Math.round(g.share * 100)} percent`}`} style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.line }}>
+          <Pressable key={g.goal.id} disabled={data.demo} onPress={() => setOpen(open === g.goal.id ? null : g.goal.id)} accessibilityRole={data.demo ? undefined : 'button'} accessibilityLabel={`${g.title}. ${g.share === null ? 'Progress unknown' : `${Math.round((g.share ?? 0) * 100)} percent`}`} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.line }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
               <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold', flex: 1 }}>{g.title}</Txt>
               <Txt v="figureSm" style={{ fontSize: 14, color: done ? c.upInk : c.ink }}>{g.share === null ? '—' : `${Math.round(g.share * 100)}%`}</Txt>
@@ -184,8 +195,8 @@ function GoalForm({ data, onDone }: { data: PlanData; onDone: () => void }) {
             const undo = bindUndo(p.undo, id);
             toast({ text: 'Goal added', action: { label: 'Undo', onPress: async () => { try { await navigationWrite(undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
           } catch { toast({ text: 'Couldn’t add that goal.' }); setBusy(false); }
-        }} accessibilityRole="button" aria-disabled={!ok || busy} style={{ minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: ok ? 1 : 0.4 }}>
-          <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Save goal</Txt>
+        }} accessibilityRole="button" aria-disabled={!ok || busy} style={{ minHeight: 48, paddingHorizontal: 16, borderRadius: 999, backgroundColor: ok ? c.ink : 'transparent', borderWidth: ok ? 0 : 1, borderColor: c.stroke, justifyContent: 'center' }}>
+          <Txt v="body" c={ok ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Save goal</Txt>
         </Pressable>
         <Pressable onPress={onDone} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Cancel</Txt></Pressable>
       </View>
@@ -237,7 +248,7 @@ function LimitRowView({ row, last }: { row: LimitRow; last: boolean }) {
       {editing && (
         <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
           <View style={{ width: 160 }}><Field label="Monthly limit" numeric value={text} onChangeText={setText} /></View>
-          <Pressable disabled={!toCents(text)} onPress={() => save(toCents(text))} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: toCents(text) ? 1 : 0.4 }}><Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt></Pressable>
+          <Pressable disabled={!toCents(text)} onPress={() => save(toCents(text))} accessibilityRole="button" style={{ minHeight: 48, paddingHorizontal: 16, borderRadius: 999, backgroundColor: toCents(text) ? c.ink : 'transparent', borderWidth: toCents(text) ? 0 : 1, borderColor: c.stroke, justifyContent: 'center' }}><Txt v="body" c={toCents(text) ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt></Pressable>
           {row.limitCents !== null && <Pressable onPress={() => save(null)} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold', color: c.down }}>Remove</Txt></Pressable>}
         </View>
       )}

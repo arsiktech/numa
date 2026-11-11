@@ -1,4 +1,5 @@
 import { httpRouter } from "convex/server";
+import { stream as askStream } from "./askHttp";
 import { auth } from "./auth";
 import { mcp } from "./agentMcp";
 import { receive as receiveAppleNotification } from "./appleNotifications";
@@ -7,6 +8,9 @@ import { googleCallback, start as startGoogleLink } from "./googleLink";
 const http = httpRouter();
 
 auth.addHttpRoutes(http);
+
+http.route({ path: "/ask/stream", method: "POST", handler: askStream });
+http.route({ path: "/ask/stream", method: "OPTIONS", handler: askStream });
 
 // "Add Google" to a signed-in account (see googleLink.ts). Google returns to Convex Auth's
 // registered callback; this exact-path route takes only link states and hands every other

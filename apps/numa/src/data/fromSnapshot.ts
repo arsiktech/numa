@@ -156,6 +156,6 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
     history,
     month,
     attention,
-    empty: s.holdings.length === 0 && !(s.wallets ?? []).length && s.liabilities.length === 0 && s.assets.every((a) => a.balance === 0) && s.transactions.length === 0,
+    empty: s.holdings.length === 0 && !(s.wallets ?? []).length && s.liabilities.length === 0 && s.assets.every((a) => a.balance === 0) && s.transactions.length === 0 && s.oldestTransactionAt == null,
   };
 }

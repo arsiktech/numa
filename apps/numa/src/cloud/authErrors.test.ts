@@ -1,5 +1,13 @@
 import { ConvexError } from 'convex/values';
-import { authErrorText, isAuthGone, passwordErrorText, resetErrorText } from './authErrors';
+import { authErrorText, isAuthGone, passwordErrorText, passwordRuleIssue, resetErrorText } from './authErrors';
+
+describe('passwordRuleIssue', () => {
+  it('blocks a short or single-class password and accepts one that meets the rule', () => {
+    expect(passwordRuleIssue('short')).toBe('Use at least 10 characters.');
+    expect(passwordRuleIssue('abcdefghij')).toBe('Use at least 3 of: uppercase, lowercase, number, symbol.');
+    expect(passwordRuleIssue('Abcdefgh12')).toBeNull();
+  });
+});
 
 describe('authErrorText', () => {
   it('never echoes server internals on sign-in', () => {

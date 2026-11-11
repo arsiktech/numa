@@ -28,7 +28,7 @@ type Props = {
   onPin: (index: number) => void;
   /** Words for the point under the finger and for the time axis, shown only while scrubbing. */
   labels?: { times: number[]; at: (index: number) => string; tick: (t: number) => string };
-  /** What a screen reader says for the chart. */
+  /** What a screen reader calls the chart; the hint already says how to move the date. */
   label?: string;
 };
 
@@ -64,12 +64,13 @@ const PAD = 14;
  * While a point is picked the line after it fades, the date floats above it, and the axes appear:
  * change from the start on the right, time along the bottom. At rest the line stands alone.
  */
-export function ScrubChart({ values, times, height, up, drawKey, pinned, onPreview, onPin, labels, label = 'Net worth over time. Drag or tap to pick a date.' }: Props) {
+export function ScrubChart({ values, times, height, up, drawKey, pinned, onPreview, onPin, labels, label = 'Net worth over time' }: Props) {
   const clipId = useId().replace(/[^a-zA-Z0-9]/g, '');
   const { c } = useTheme();
   const reduce = useReducedMotion();
   const [width, setWidth] = useState(0);
   const [preview, setPreview] = useState<number | null>(null);
+  const [focused, setFocused] = useState(false);
   const scrub = preview ?? (pinned !== null && pinned < values.length ? pinned : null);
   const n = values.length;
   const color = up ? c.up : c.down;
@@ -117,6 +118,7 @@ export function ScrubChart({ values, times, height, up, drawKey, pinned, onPrevi
   const hover = Gesture.Hover().runOnJS(true).onUpdate((e) => move(e.x)).onEnd(clear);
   const gesture = Gesture.Simultaneous(Gesture.Exclusive(pan, tap), hover);
 
+  const step = (by: number) => { if (n < 2) return; keep(Math.max(0, Math.min(n - 1, (scrub ?? n - 1) + by))); };
   const sx = geo && scrub !== null ? geo.x(scrub) : 0;
   // Value axis: the top, the start and the bottom of the line, as change from the start.
   const valueTicks = geo && scrub !== null
@@ -131,7 +133,8 @@ export function ScrubChart({ values, times, height, up, drawKey, pinned, onPrevi
 
   return (
     <GestureDetector gesture={gesture}>
-      <View testID="scrub-chart" style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessibilityRole="image" accessibilityLabel={label}>
+      <View testID="scrub-chart" style={{ height, borderRadius: 10, ...(focused ? { borderWidth: 2, borderColor: c.ink } : {}) }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessibilityRole="adjustable" accessibilityLabel={label} accessibilityHint="Left and right move the date" accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]} onAccessibilityAction={(event) => step(event.nativeEvent.actionName === 'increment' ? 1 : -1)}
+        {...(Platform.OS === 'web' ? { tabIndex: 0, onFocus: () => setFocused(true), onBlur: () => setFocused(false), onKeyDown: (event: { key?: string; nativeEvent?: { key?: string }; preventDefault?: () => void }) => { const key = event.key ?? event.nativeEvent?.key; if (key !== 'ArrowLeft' && key !== 'ArrowRight') return; event.preventDefault?.(); step(key === 'ArrowRight' ? 1 : -1); } } : {})}>
         {geo && (
           <Svg width={width} height={height}>
             <Defs>
