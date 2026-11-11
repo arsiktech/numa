@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalQuery, mutation } from "./_generated/server";
 import { requireUser } from "./lib/access";
+import { normalizeClientMutationId } from "./lib/mutationReceipts";
 
 export const MAX_FEEDBACK_CHARS = 2000;
 const DAILY_LIMIT = 10;
@@ -20,7 +21,8 @@ export const submit = mutation({
     const message = args.message.trim();
     if (!message) throw new ConvexError({ code: "EMPTY_FEEDBACK", message: "Write a message first" });
     if (message.length > MAX_FEEDBACK_CHARS) throw new ConvexError({ code: "FEEDBACK_TOO_LONG", message: `Keep feedback under ${MAX_FEEDBACK_CHARS} characters` });
-    const clientMutationId = args.clientMutationId.slice(0, 80);
+    const clientMutationId = normalizeClientMutationId(args.clientMutationId);
+    if (!clientMutationId) throw new ConvexError({ code: "INVALID_INPUT", message: "clientMutationId is required" });
     const repeat = await ctx.db.query("feedback").withIndex("by_user_client_id", q => q.eq("userId", userId).eq("clientMutationId", clientMutationId)).unique();
     if (repeat) return { id: repeat._id };
     const recent = await ctx.db.query("feedback").withIndex("by_user", q => q.eq("userId", userId)).order("desc").take(DAILY_LIMIT);
