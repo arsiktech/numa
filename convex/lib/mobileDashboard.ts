@@ -101,6 +101,14 @@ function cents(amount: number) {
   return majorUnits(minorUnits(amount));
 }
 
+/** A per-unit price fails like money when non-finite or out of range, but keeps
+ * 8 decimals: clients value a holding as price × quantity, so cents would skew
+ * large positions and zero out sub-cent prices. */
+function unitPrice(price: number) {
+  minorUnits(price);
+  return Number(price.toFixed(8));
+}
+
 export function valueDashboardHolding(
   holding: DashboardHolding,
   quote: DashboardQuote | null,
@@ -123,7 +131,7 @@ export function valueDashboardHolding(
   const marketValue = convertCurrency(rawMarketValue, rawMarketValueCurrency, targetCurrency);
   const costBasis = convertCurrency(holding.costBasis, holding.currency, targetCurrency);
   return {
-    marketPrice: cents(
+    marketPrice: unitPrice(
       hasQuote
         ? quote!.price
         : holding.quantity > 0

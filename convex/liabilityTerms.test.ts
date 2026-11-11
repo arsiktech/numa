@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { setTerms, update } from "./liabilities";
+import { add, setTerms, update } from "./liabilities";
 import { deleteLiability, upsertLiability } from "./mobile";
 import { debtFields, deletePlan, editPlan } from "../apps/numa/src/data/editPlan";
 import type { CloudLiability } from "../apps/numa/src/cloud/api";
@@ -274,5 +274,32 @@ describe("other writes keep the loan terms whole", () => {
     await simple(f);
     await expect(f.call(upsertLiability, upsert({ currency: "USD" }))).rejects.toThrow(/before changing the currency/);
     expect(f.row("l1").currency).toBe("EUR");
+  });
+});
+
+describe("legacy liability balances", () => {
+  const debt = { portfolioId: "pf", name: "Card", kind: "credit_card", currency: "EUR" };
+
+  it("rejects a balance the dashboard total cannot add, and keeps whole-cent and overpaid ones", async () => {
+    const f = fixture();
+    for (const balance of [NaN, Infinity, -Infinity, 1.005, 90_000_000_001]) {
+      await expect(f.call(add, { ...debt, balance })).rejects.toThrow();
+    }
+    const { id } = await f.call(add, { ...debt, balance: 1234.56 });
+    expect(f.row(id).balance).toBe(1234.56);
+    const { id: overpaid } = await f.call(add, { ...debt, balance: -20 });
+    expect(f.row(overpaid).balance).toBe(-20);
+  });
+
+  it("checks only a changed balance on update", async () => {
+    const f = fixture();
+    f.seed("liabilities", "lsub", { portfolioId: "pf", name: "Old card", kind: "credit_card", balance: 10.005, currency: "EUR" });
+    await f.call(update, { id: "lsub", patch: { name: "Renamed card", balance: 10.005 } });
+    expect(f.row("lsub")).toMatchObject({ name: "Renamed card", balance: 10.005 });
+    for (const balance of [NaN, Infinity, 2.345]) {
+      await expect(f.call(update, { id: "lsub", patch: { balance } })).rejects.toThrow();
+    }
+    await f.call(update, { id: "lsub", patch: { balance: 12.5 } });
+    expect(f.row("lsub").balance).toBe(12.5);
   });
 });
