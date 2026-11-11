@@ -1,5 +1,5 @@
 import { mobileAsset } from "./lib/mobilePortfolio";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { addMoney, assertClassifiedAccounts, financeMonth, majorUnits, minorUnits, exactPositiveMoney, type FinanceClassification } from "./lib/finance";
 import { recordClassifiedTransaction, reverseClassifiedTransaction, removeTransaction, recordTransaction, upsertAccount } from "./ledger";
 import { add, update, remove } from "./transactions";
@@ -385,6 +385,20 @@ describe("recurring legacy cash boundary", () => {
     expect(f.all("transactions")).toHaveLength(1);
     expect(f.all("transactions")[0].categoryId).toBeUndefined();
     expect(f.rows.get("cash-asset").balance).toBe(100);
+  });
+
+  it("never posts runs after the server clock, whatever the device sends", async () => {
+    const f = fixture();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(NOW);
+    try {
+      f.seed("recurring", "rule", { ...transaction, active: true, startAt: NOW, nextRunAt: NOW, cadence: "monthly" });
+      const fiveYearsAhead = Date.parse("2031-09-12T12:00:00Z");
+      expect(await f.call(materializeForPortfolio, { portfolioId: "pf", now: fiveYearsAhead })).toEqual({ emitted: 1 });
+      expect(f.rows.get("cash-asset").balance).toBe(100);
+      expect(f.rows.get("rule").nextRunAt).toBe(Date.parse("2026-10-12T12:00:00Z"));
+    } finally {
+      clock.mockRestore();
+    }
   });
 });
 

@@ -65,3 +65,28 @@ describe("recurring revenue fields", () => {
     expect(f.rows.get(id).kind).toBe("expense");
   });
 });
+
+describe("recurring rule amounts", () => {
+  it("rejects amounts the transaction path would refuse at materialization", async () => {
+    const f = fixture();
+    for (const amount of [0, -5, NaN, Infinity, 1.005]) {
+      await expect(f.call(add, { ...rule, amount })).rejects.toThrow();
+    }
+    const { id } = await f.call(add, { ...rule, amount: 99.99 });
+    expect(f.rows.get(id).amount).toBe(99.99);
+  });
+
+  it("checks a changed amount on update but keeps an untouched legacy row editable", async () => {
+    const f = fixture();
+    const { id } = await f.call(add, rule);
+    f.rows.get(id).amount = 1.005;
+    await f.call(update, { id, patch: { description: "Renamed", amount: 1.005, currency: "USD" } });
+    expect(f.rows.get(id).description).toBe("Renamed");
+    for (const amount of [0, NaN, 2.345]) {
+      await expect(f.call(update, { id, patch: { amount } })).rejects.toThrow();
+    }
+    await expect(f.call(update, { id, patch: { currency: "EUR" } })).rejects.toThrow();
+    await f.call(update, { id, patch: { amount: 12.5 } });
+    expect(f.rows.get(id).amount).toBe(12.5);
+  });
+});

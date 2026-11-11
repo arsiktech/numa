@@ -1,8 +1,10 @@
-import { applyTransactionChange } from "./lib/transactionFinance";
+import { applyTransactionChange, assertTransactionMoney } from "./lib/transactionFinance";
+import { nextRunAfter } from "./lib/recurringSchedule";
 import { removePortfolioDocument } from "./lib/removeDocument";
 import { assertTimestamp } from "./lib/finance";
 import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { requireEditor, requireMember } from "./lib/access";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 
@@ -32,26 +34,13 @@ function assertRevenueFields(kind: "income" | "expense", revenueType: unknown, i
   }
 }
 
-type Cadence = "weekly" | "monthly" | "quarterly" | "yearly";
-
-/** Advance a timestamp by one cadence step. Mirrors src/services/store.tsx#nextRunAfter. */
-function nextRunAfter(ts: number, cadence: Cadence): number {
-  const d = new Date(ts);
-  switch (cadence) {
-    case "weekly":
-      d.setDate(d.getDate() + 7);
-      break;
-    case "monthly":
-      d.setMonth(d.getMonth() + 1);
-      break;
-    case "quarterly":
-      d.setMonth(d.getMonth() + 3);
-      break;
-    case "yearly":
-      d.setFullYear(d.getFullYear() + 1);
-      break;
-  }
-  return d.getTime();
+/**
+ * Materialization posts each run through `applyTransactionChange`, so a rule
+ * must pass the same money check at write time; one bad rule would otherwise
+ * stop every rule in the space from posting.
+ */
+function assertRuleMoney(rule: { portfolioId: Id<"portfolios">; kind: "income" | "expense"; amount: number; currency: "USD" | "EUR"; nextRunAt: number; accountId?: Id<"assets">; categoryId?: Id<"categories"> }) {
+  assertTransactionMoney({ ...rule, occurredAt: rule.nextRunAt });
 }
 
 /**
@@ -97,6 +86,7 @@ export const add = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
     assertRevenueFields(args.kind, args.revenueType, args.incomeSource);
+    assertRuleMoney(args);
     return await withMutationReceipt(
       ctx,
       userId,
@@ -168,6 +158,13 @@ export const update = mutation({
         }
         const next = { ...before, ...patch } as typeof before;
         assertRevenueFields(next.kind, next.revenueType, next.incomeSource);
+        // Only a changed amount or currency is checked, so an untouched legacy row stays editable.
+        if (
+          (args.patch.amount !== undefined && !Object.is(args.patch.amount, before.amount)) ||
+          (args.patch.currency !== undefined && args.patch.currency !== before.currency)
+        ) {
+          assertRuleMoney(next);
+        }
         await ctx.db.patch(args.id, patch);
         return args.id;
       }
@@ -190,7 +187,8 @@ export const remove = mutation({
  * `nextRunAt`. Also applies the cash-account delta on linked assets just like
  * `transactions.add` does. Editor+ only.
  *
- * Mirrors the local `materializeRecurring` reducer in src/services/store.tsx.
+ * Mirrors the local `materializeRecurring` reducer in src/services/storeReducer.ts;
+ * both step with `nextRunAfter` from convex/lib/recurringSchedule.ts.
  */
 export const materializeForPortfolio = mutation({
   args: {
@@ -206,13 +204,15 @@ export const materializeForPortfolio = mutation({
       .collect();
 
     assertTimestamp(args.now);
+    // A device clock ahead of the server must not post future runs.
+    const cutoff = Math.min(args.now, Date.now());
     let emitted = 0;
 
     for (const r of rows) {
       if (!r.active) continue;
       if (r.endAt && r.endAt < r.nextRunAt) continue;
       let nextRunAt = r.nextRunAt;
-      for (let i = 0; i < 60 && nextRunAt <= args.now; i++) {
+      for (let i = 0; i < 60 && nextRunAt <= cutoff; i++) {
         if (r.endAt && nextRunAt > r.endAt) break;
         const category = r.categoryId ? await ctx.db.get(r.categoryId) : null;
         // Category deletion/retyping must not prevent materializing a valid
@@ -232,7 +232,7 @@ export const materializeForPortfolio = mutation({
           notes: r.notes
         });
         emitted += 1;
-        nextRunAt = nextRunAfter(nextRunAt, r.cadence);
+        nextRunAt = nextRunAfter(nextRunAt, r.cadence, r.startAt);
       }
       if (nextRunAt !== r.nextRunAt) {
         await ctx.db.patch(r._id, { nextRunAt });
