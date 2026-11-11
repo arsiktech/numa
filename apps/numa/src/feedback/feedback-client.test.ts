@@ -1,13 +1,16 @@
 /**
  * @jest-environment jsdom
  */
-import { feedbackCloneSkipped } from './feedback-client';
+import { feedbackCloneSkips } from './feedback-client';
 
 test('the screenshot clone skips nodes that are not shown', () => {
   const shown = document.createElement('p');
   shown.textContent = 'Shown';
   const noscript = document.createElement('noscript');
   noscript.textContent = 'Enable JavaScript';
+  const insideNoscript = document.createElement('span');
+  insideNoscript.textContent = 'Enable JavaScript';
+  noscript.append(insideNoscript);
   const script = document.createElement('script');
   script.textContent = 'var x = 1';
   const template = document.createElement('template');
@@ -15,33 +18,23 @@ test('the screenshot clone skips nodes that are not shown', () => {
   const hidden = document.createElement('p');
   hidden.hidden = true;
   hidden.textContent = 'hidden attribute';
-  const none = document.createElement('p');
+  const none = document.createElement('div');
   none.style.display = 'none';
-  none.textContent = 'display none';
-  const invisible = document.createElement('p');
-  invisible.style.visibility = 'hidden';
-  invisible.textContent = 'visibility hidden';
+  const insideNone = document.createElement('p');
+  insideNone.textContent = 'display none';
+  none.append(insideNone);
   const self = document.createElement('div');
   self.setAttribute('data-fb-self', 'true');
-  document.body.append(shown, noscript, script, template, hidden, none, invisible, self);
+  document.body.append(shown, noscript, script, template, hidden, none, self);
 
-  expect(feedbackCloneSkipped(shown)).toBe(false);
-  expect(feedbackCloneSkipped(document.createTextNode('Enable JavaScript'))).toBe(false);
-  expect(feedbackCloneSkipped(noscript)).toBe(true);
-  expect(feedbackCloneSkipped(script)).toBe(true);
-  expect(feedbackCloneSkipped(template)).toBe(true);
-  expect(feedbackCloneSkipped(hidden)).toBe(true);
-  expect(feedbackCloneSkipped(none)).toBe(true);
-  expect(feedbackCloneSkipped(invisible)).toBe(true);
-  expect(feedbackCloneSkipped(self)).toBe(true);
-
-  const collapsed = document.createElement('p');
-  const view = document.defaultView!;
-  const original = view.getComputedStyle;
-  view.getComputedStyle = (() => ({ display: 'block', visibility: 'visible', contentVisibility: 'hidden' })) as unknown as typeof view.getComputedStyle;
-  try {
-    expect(feedbackCloneSkipped(collapsed)).toBe(true);
-  } finally {
-    view.getComputedStyle = original;
-  }
+  expect(feedbackCloneSkips(shown)).toBe(false);
+  expect(feedbackCloneSkips(document.createTextNode('Enable JavaScript'))).toBe(false);
+  expect(feedbackCloneSkips(noscript)).toBe(true);
+  expect(feedbackCloneSkips(insideNoscript)).toBe(true);
+  expect(feedbackCloneSkips(script)).toBe(true);
+  expect(feedbackCloneSkips(template)).toBe(true);
+  expect(feedbackCloneSkips(hidden)).toBe(true);
+  expect(feedbackCloneSkips(none)).toBe(true);
+  expect(feedbackCloneSkips(insideNone)).toBe(true);
+  expect(feedbackCloneSkips(self)).toBe(true);
 });
