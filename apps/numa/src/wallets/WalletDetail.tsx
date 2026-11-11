@@ -68,7 +68,7 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
     <View>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{groupNames.crypto.toUpperCase()} · WALLET</Txt>
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{item.name}</Txt>
-      <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40 }}>{item.valueCents === null ? '—' : money(item.valueCents, { cents: true })}</Txt>
+      <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40 }}>{item.valueCents === null ? '—' : money(item.valueCents, { cents: true })}</Txt>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
         <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c[toneColor[item.freshness.tone]] }} />
         <Txt v="body" c="ink2">{item.freshness.text}</Txt>
@@ -78,7 +78,7 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
         <View style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.line, gap: 4 }}>
           <Txt v="body" c="ink2">Address</Txt>
           {/* Long addresses wrap anywhere, so the whole address stays readable and copyable. */}
-          <Txt v="figureSm" selectable style={{ fontSize: 14, lineHeight: 20, wordBreak: 'break-all' } as never}>{w.address}</Txt>
+          <Txt fbPrivate v="figureSm" selectable style={{ fontSize: 14, lineHeight: 20, wordBreak: 'break-all' } as never}>{w.address}</Txt>
         </View>
         <Fact label="Balances from" value={walletSource(w)} />
         {w.snapshot && <Fact label="Checked" value={`${ago(w.snapshot.updatedAt, now)}${w.snapshot.failedChains.length ? ` · ${w.snapshot.failedChains.length} not reachable` : ''}`} />}
@@ -90,10 +90,10 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
         return (
           <View key={t.id} style={{ minHeight: 52, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.line, gap: 12 }}>
             <View style={{ flexShrink: 1 }}>
-              <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{mask(t.quantity)} {t.symbol}</Txt>
+              <Txt fbPrivate v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{mask(t.quantity)} {t.symbol}</Txt>
               <Txt v="small" c="ink3">{t.name === t.chainName ? t.chainName : `${t.name} · ${t.chainName}`}</Txt>
             </View>
-            <Txt v="figureSm" style={{ fontSize: 14 }}>{cents === null ? 'No price' : money(cents)}</Txt>
+            <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{cents === null ? 'No price' : money(cents)}</Txt>
           </View>
         );
       })}
@@ -107,7 +107,7 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
             {p.label !== `${p.protocol} lending` && p.label !== `${p.protocol} lending and borrowing` && <Txt v="small" c="ink3">{p.label}</Txt>}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Txt v="body" c="ink2">{p.kind === 'liquidity' ? 'In the pool, with fees' : p.debtValueUsd > 0 ? 'Collateral' : 'Lent'}</Txt>
-              <Txt v="figureSm" style={{ fontSize: 14 }}>{lent === null ? 'No rate' : money(lent)}</Txt>
+              <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{lent === null ? 'No rate' : money(lent)}</Txt>
             </View>
             {/* What it is made of, coin by coin, when the protocol says so. */}
             {(p.assets ?? []).length > 0 && (
@@ -116,7 +116,7 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
             {p.debtValueUsd > 0 && (
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Txt v="body" c="ink2">Borrowed</Txt>
-                <Txt v="figureSm" style={{ fontSize: 14, color: c.down }}>{owed === null ? 'No rate' : money(owed)}</Txt>
+                <Txt fbPrivate v="figureSm" style={{ fontSize: 14, color: c.down }}>{owed === null ? 'No rate' : money(owed)}</Txt>
               </View>
             )}
             {/* Aave sells collateral when this drops to 1; below about 1.5 is worth watching. */}

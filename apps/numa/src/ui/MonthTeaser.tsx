@@ -19,9 +19,9 @@ export function MonthTeaser({ month, flow }: { month: string; flow: FlowSummary 
           {nothing ? (
             <Txt v="small" c="ink2">Nothing logged yet</Txt>
           ) : kept ? (
-            <Txt v="figureSm" c="upInk">kept {money(flow.keptCents)} · {mask(String(Math.round(flow.keptShare * 100)))}%</Txt>
+            <Txt fbPrivate v="figureSm" c="upInk">kept {money(flow.keptCents)} · {mask(String(Math.round(flow.keptShare * 100)))}%</Txt>
           ) : (
-            <Txt v="figureSm" style={{ color: c.down }}>{money(-flow.keptCents)} more out than in</Txt>
+            <Txt fbPrivate v="figureSm" style={{ color: c.down }}>{money(-flow.keptCents)} more out than in</Txt>
           )}
         </View>
         <View style={{ marginTop: 12, flexDirection: 'row', gap: 2, height: 8, borderRadius: 4, overflow: 'hidden' }}>
@@ -29,8 +29,8 @@ export function MonthTeaser({ month, flow }: { month: string; flow: FlowSummary 
           <View style={{ flexGrow: Math.max(flow.keptCents, 0), flexBasis: 0, backgroundColor: c.up }} />
         </View>
         <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12 }}>
-          <Txt v="figureSm" c="ink2">in {money(flow.inCents)}</Txt>
-          <Txt v="figureSm" c="ink2">out {money(flow.outCents)}</Txt>
+          <Txt fbPrivate v="figureSm" c="ink2">in {money(flow.inCents)}</Txt>
+          <Txt fbPrivate v="figureSm" c="ink2">out {money(flow.outCents)}</Txt>
         </View>
       </Pressable>
     </Link>

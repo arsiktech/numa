@@ -79,7 +79,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
     <View>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{income ? 'INCOME' : 'SPENDING'}{category ? ` · ${category.toUpperCase()}` : ''}</Txt>
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{tx.description}</Txt>
-      <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: income ? c.upInk : c.ink }}>{mask((income ? '+' : '−') + formatMoney(Math.abs(tx.amountMinor), tx.currency, { cents: true }))}</Txt>
+      <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: income ? c.upInk : c.ink }}>{mask((income ? '+' : '−') + formatMoney(Math.abs(tx.amountMinor), tx.currency, { cents: true }))}</Txt>
       <Txt v="body" c="ink2" style={{ marginTop: 6 }}>{whenOf(tx.occurredAt)}</Txt>
       {!editing && <CardDetailsView tx={tx} category={category} />}
 
@@ -163,7 +163,7 @@ function CardDetailsView({ tx, category }: { tx: CloudTransaction; category: str
               <Txt v="label" c="ink2" style={{ fontSize: 9 }}>CARD</Txt>
             </View>
             <View style={{ flex: 1 }}>
-              <Txt v="cardTitle">{card.issuer} card{card.last4 ? ` ••${card.last4}` : ''}</Txt>
+              <Txt fbPrivate={!!card.last4} v="cardTitle">{card.issuer} card{card.last4 ? ` ••${card.last4}` : ''}</Txt>
               {card.mode && <Txt v="small" c="ink2">{/borrow/i.test(card.mode) ? `${card.mode}: paid from your ${card.issuer} credit line` : card.mode}</Txt>}
             </View>
           </View>
@@ -172,14 +172,14 @@ function CardDetailsView({ tx, category }: { tx: CloudTransaction; category: str
               {charged && (
                 <View style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: c.s2, gap: 2 }}>
                   <Txt v="label" c="ink2">CHARGED</Txt>
-                  <Txt v="figure" style={{ fontSize: 15 }}>{mask(formatAmount(charged.amount, charged.currency))}</Txt>
+                  <Txt fbPrivate v="figure" style={{ fontSize: 15 }}>{mask(formatAmount(charged.amount, charged.currency))}</Txt>
                   {rate && <Txt v="small" c="ink2">{rate}</Txt>}
                 </View>
               )}
               {card.cashback && (
                 <View style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: c.upBg, gap: 2 }}>
                   <Txt v="label" c="upInk">CASHBACK</Txt>
-                  <Txt v="figure" style={{ fontSize: 15, color: c.upInk }}>{mask(`+${formatAmount(card.cashback.amount, card.cashback.currency)}`)}</Txt>
+                  <Txt fbPrivate v="figure" style={{ fontSize: 15, color: c.upInk }}>{mask(`+${formatAmount(card.cashback.amount, card.cashback.currency)}`)}</Txt>
                   {share !== null && <Txt v="small" c="ink2">{(share * 100).toFixed(1)}% back</Txt>}
                 </View>
               )}
@@ -191,7 +191,7 @@ function CardDetailsView({ tx, category }: { tx: CloudTransaction; category: str
         {rows.map(([label, value], i) => (
           <View key={label} style={{ minHeight: 48, paddingVertical: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, borderBottomWidth: i === rows.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
             <Txt v="body" c="ink2">{label}</Txt>
-            <Txt v="small" style={{ flexShrink: 1, textAlign: 'right' }} selectable>{value}</Txt>
+            <Txt fbPrivate v="small" style={{ flexShrink: 1, textAlign: 'right' }} selectable>{value}</Txt>
           </View>
         ))}
       </View>

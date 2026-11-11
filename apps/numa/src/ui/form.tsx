@@ -12,11 +12,11 @@ export function toCents(text: string): number | null {
   return Math.round(Number(clean) * 100);
 }
 
-export function Field({ label, value, onChangeText, numeric, kind }: { label: string; value: string; onChangeText: (t: string) => void; numeric?: boolean; kind?: 'url' | 'secret' }) {
+export function Field({ label, value, onChangeText, numeric, kind, fbPrivate }: { label: string; value: string; onChangeText: (t: string) => void; numeric?: boolean; kind?: 'url' | 'secret'; fbPrivate?: boolean }) {
   const { c } = useTheme();
   return (
     <View style={{ gap: 4, flex: 1, minWidth: 120 }}>
-      <Txt v="small" c="ink3">{label}</Txt>
+      <Txt fbPrivate={fbPrivate} v="small" c="ink3">{label}</Txt>
       <TextInput value={value} onChangeText={onChangeText} accessibilityLabel={label} keyboardType={numeric ? 'decimal-pad' : kind === 'url' ? 'url' : 'default'} inputMode={numeric ? 'decimal' : kind === 'url' ? 'url' : 'text'}
         secureTextEntry={kind === 'secret'} autoCapitalize={kind ? 'none' : undefined} autoCorrect={kind ? false : undefined}
         style={{ minHeight: 48, borderRadius: 14, paddingHorizontal: 16, backgroundColor: c.s1, color: c.ink, borderWidth: 1, borderColor: c.stroke, fontFamily: Platform.OS === 'web' ? webFont(numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium') : numeric ? 'JetBrainsMono_500Medium' : 'Manrope_500Medium', fontSize: 16, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />

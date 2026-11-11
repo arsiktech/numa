@@ -46,7 +46,7 @@ export function PriceChart({ symbol, kind, now }: { symbol: string; kind: 'crypt
     <View style={{ marginTop: 22 }}>
       <Txt v="label" c="ink3" accessibilityRole="header">PRICE</Txt>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 6, minHeight: 28 }}>
-        <Txt v="figure" style={{ fontSize: 20 }}>{shown === null ? '—' : priceText(shown)}</Txt>
+        <Txt fbPrivate v="figure" style={{ fontSize: 20 }}>{shown === null ? '—' : priceText(shown)}</Txt>
         {change && <Txt v="small" style={{ color: up ? c.up : c.down, fontFamily: 'Manrope_700Bold' }}>{change}</Txt>}
         {/* While the finger is on the line, the date floats above it instead. */}
         <Txt v="small" c="ink3">{preview !== null ? '' : rangeAvailable && pinned !== null ? pointLabel(s.t[pinned], range, now) : s === 'none' ? 'No price history for this range' : WORDS[range]}</Txt>

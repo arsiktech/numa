@@ -19,7 +19,7 @@ export function LiquidBreakdown({ summary, pledged, invested = null }: { summary
   const row = (label: string, value: string, strong = false, tone?: 'down') => (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
       <Txt v="body" c={strong ? 'ink' : 'ink2'} style={[{ flexShrink: 1 }, strong ? { fontFamily: 'Manrope_700Bold' } : null]} maxFontSizeMultiplier={1.4}>{label}</Txt>
-      <Txt v="figureSm" style={{ color: tone === 'down' ? c.down : c.ink, ...(strong ? { fontFamily: 'Manrope_700Bold' } : null) }} maxFontSizeMultiplier={1.4}>{value}</Txt>
+      <Txt fbPrivate v="figureSm" style={{ color: tone === 'down' ? c.down : c.ink, ...(strong ? { fontFamily: 'Manrope_700Bold' } : null) }} maxFontSizeMultiplier={1.4}>{value}</Txt>
     </View>
   );
   const spoken = hidden
@@ -33,7 +33,7 @@ export function LiquidBreakdown({ summary, pledged, invested = null }: { summary
       {row('Liquid after debts', money(after), true, after < 0 ? 'down' : undefined)}
       {after < 0 && <Txt v="small" c="ink2" maxFontSizeMultiplier={1.4}>What you owe is more than you could turn into cash within a week.</Txt>}
       {left > 0 && (
-        <Txt v="small" c="ink3" maxFontSizeMultiplier={1.4}>
+        <Txt fbPrivate v="small" c="ink3" maxFontSizeMultiplier={1.4}>
           {money(left)} of what you owe went into things you can’t sell within a week, like a company. It is still owed, but it isn’t taken from what you could have this week. Any part those things don’t cover still is.{invested?.partial ? ' Some of those places have no value yet, so this may be low.' : ''}
         </Txt>
       )}
@@ -43,7 +43,7 @@ export function LiquidBreakdown({ summary, pledged, invested = null }: { summary
         </Txt>
       )}
       {pledged && pledged.cents > 0 && (
-        <Txt v="small" c="ink3" maxFontSizeMultiplier={1.4}>
+        <Txt fbPrivate v="small" c="ink3" maxFontSizeMultiplier={1.4}>
           {money(pledged.cents)} of what you owe is backed by collateral{pledged.partial ? ' (some loans have no known collateral, so this may be low)' : ''}.
         </Txt>
       )}

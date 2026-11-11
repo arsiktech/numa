@@ -158,14 +158,14 @@ function SignInMethods() {
 
   return (
     <>
-      <Row title="Apple" detail={apple?.label ? `${apple.label}. Continue with Apple, on iPhone and on the web.` : 'Continue with Apple, on iPhone and on the web.'}>{state(methods.apple)}</Row>
+      <Row title="Apple" detailPrivate={!!apple?.label} detail={apple?.label ? `${apple.label}. Continue with Apple, on iPhone and on the web.` : 'Continue with Apple, on iPhone and on the web.'}>{state(methods.apple)}</Row>
       {list === undefined ? (
         <Row title="Google" detail="Continue with Google, with the same email as this account.">{state(methods.google)}</Row>
       ) : googles.length === 0 ? (
         <Row title="Google" detail="Not linked yet.">{state(false)}</Row>
       ) : googles.map((g) => removing === g.id ? (
         <View key={g.id} style={{ paddingVertical: 12, gap: 10, borderBottomWidth: 1, borderBottomColor: c.line }}>
-          <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>Remove {g.label ?? 'this Google account'}?</Txt>
+          <Txt v="body" fbPrivate={!!g.label} style={{ fontFamily: 'Manrope_600SemiBold' }}>Remove {g.label ?? 'this Google account'}?</Txt>
           <Txt v="small" c="ink2">It will stop opening this account. Your data stays here.</Txt>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Button label={busy === g.id ? 'Removing…' : 'Remove'} danger disabled={busy !== null} onPress={() => remove(g.id)} />
@@ -173,7 +173,7 @@ function SignInMethods() {
           </View>
         </View>
       ) : (
-        <Row key={g.id} title="Google" detail={g.label ?? 'Google account'}>
+        <Row key={g.id} title="Google" detailPrivate={!!g.label} detail={g.label ?? 'Google account'}>
           {g.removable ? (
             <Pressable onPress={() => { setNote(null); setRemoving(g.id); }} disabled={busy !== null} accessibilityRole="button" accessibilityLabel={`Remove ${g.label ?? 'Google account'}`} style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end' }}>
               <Txt v="small" style={{ color: c.ink2, fontFamily: 'Manrope_700Bold' }}>Remove</Txt>
@@ -203,9 +203,9 @@ function SignInMethods() {
       )}
       {note ? <Txt v="small" style={{ marginTop: 10, marginBottom: 6, color: note.tone === 'error' ? c.down : c.ink2 }} accessibilityLiveRegion="polite">{note.text}</Txt> : null}
       {methods.password ? (
-        <Action label="Change password" detail={methods.email ? `Sign in anywhere with ${methods.email} and your password.` : undefined} onPress={() => router.push('/password')} />
+        <Action label="Change password" detailPrivate={!!methods.email} detail={methods.email ? `Sign in anywhere with ${methods.email} and your password.` : undefined} onPress={() => router.push('/password')} />
       ) : (
-        <Action label="Set a password" detail={methods.email ? `Then sign in anywhere with ${methods.email} and that password.${relay}` : 'Add a password to sign in with email.'} onPress={() => router.push({ pathname: '/password', params: { set: '1' } })} />
+        <Action label="Set a password" detailPrivate={!!methods.email} detail={methods.email ? `Then sign in anywhere with ${methods.email} and that password.${relay}` : 'Add a password to sign in with email.'} onPress={() => router.push({ pathname: '/password', params: { set: '1' } })} />
       )}
     </>
   );
@@ -218,7 +218,7 @@ export function AccountSection() {
   return (
     <>
       <Section title="ACCOUNT" />
-      <Row title="Signed in" detail={me?.email ? `${me.email}. Your data syncs across your devices.` : 'Your data syncs across your devices.'} />
+      <Row title="Signed in" detailPrivate={!!me?.email} detail={me?.email ? `${me.email}. Your data syncs across your devices.` : 'Your data syncs across your devices.'} />
       <SignInMethods />
       <Action label={busy ? 'Signing out…' : 'Sign out'} onPress={async () => { setBusy(true); try { await signOut(); } finally { setBusy(false); } }} />
       {!me?.deletionScheduledAt && <Action label="Delete account" danger onPress={() => router.push('/delete-account')} />}

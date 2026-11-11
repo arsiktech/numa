@@ -80,10 +80,10 @@ export function DraftCard({ draft, status, error, demo, locked = false, onChange
           <Txt v="label" c={status === 'saved' ? 'upInk' : 'ink2'} style={{ fontSize: 10 }}>{chip}</Txt>
         </View>
       </View>
-      <Txt v="figure" style={{ marginTop: 10, fontSize: 28, lineHeight: 34, color: draft.type === 'transaction' && draft.kind === 'income' ? c.upInk : c.ink }}>
+      <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 28, lineHeight: 34, color: draft.type === 'transaction' && draft.kind === 'income' ? c.upInk : c.ink }}>
         {h.cents === null ? '—' : mask(h.sign + formatMoney(h.cents, draft.currency, { cents: true }))}
       </Txt>
-      {h.lines.map((l, i) => <Txt key={i} v="body" c="ink2" style={{ fontSize: 14, marginTop: 2 }}>{mask(l)}</Txt>)}
+      {h.lines.map((l, i) => <Txt fbPrivate key={i} v="body" c="ink2" style={{ fontSize: 14, marginTop: 2 }}>{mask(l)}</Txt>)}
       {open && editing && !locked && <Editor draft={draft} onChange={onChange} />}
       {open && locked && <Txt v="small" c="ink2" style={{ marginTop: 8 }}>A Save was attempted with these details. Retry confirms that same request. Removing this local draft does not undo a submitted save. Check your records before making changes.</Txt>}
       {open && problems.length > 0 && <Txt v="small" style={{ color: c.warn, marginTop: 8 }}>{problems[0]}</Txt>}

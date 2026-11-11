@@ -56,7 +56,7 @@ function RecordRow({ r, last }: { r: PartyRecord; last: boolean }) {
         <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{mask(r.amount)}</Txt>
         <Txt v="small" c="ink2" numberOfLines={1}>{r.name}</Txt>
       </View>
-      <Txt v="figureSm" style={{ fontSize: 14 }}>{r.cents === null ? '—' : money(r.cents)}</Txt>
+      <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{r.cents === null ? '—' : money(r.cents)}</Txt>
       <Txt v="body" c="ink3">›</Txt>
     </Pressable>
   );
@@ -80,8 +80,8 @@ function Sits({ party }: { party: Party }) {
             {p.detail && <Txt v="small" c="ink2" numberOfLines={1}>{p.detail}</Txt>}
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Txt v="figureSm" style={{ fontSize: 14 }}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
-            {result !== null && <Txt v="small" style={{ color: result >= 0 ? c.upInk : c.down }}>{money(result, { sign: true })} so far</Txt>}
+            <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
+            {result !== null && <Txt fbPrivate v="small" style={{ color: result >= 0 ? c.upInk : c.down }}>{money(result, { sign: true })} so far</Txt>}
           </View>
         </View>
       ))}
@@ -117,7 +117,7 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
     <Screen back="Money map">
       <Txt v="label" c="ink3" style={{ marginTop: 6 }}>{kindLabel}</Txt>
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{party.name}</Txt>
-      <Txt v="figure" style={{ marginTop: 8, fontSize: 34, lineHeight: 40, color: byYou ? c.down : c.upInk }}>{party.cents === null ? '—' : money(party.cents, { cents: true })}</Txt>
+      <Txt fbPrivate v="figure" style={{ marginTop: 8, fontSize: 34, lineHeight: 40, color: byYou ? c.down : c.upInk }}>{party.cents === null ? '—' : money(party.cents, { cents: true })}</Txt>
       <Txt v="body" c="ink2">{party.detail}</Txt>
       {party.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{party.unknown} without a value {party.unknown === 1 ? 'is' : 'are'} left out.</Txt>}
 

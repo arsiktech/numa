@@ -56,7 +56,7 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
         <Pressable onPress={() => open('all')} accessibilityRole="link" hitSlop={8}>
           <Txt v="small" c="ink2" style={{}}>{when ? `What you owned · ${when}${onOpen ? ' ›' : ''}` : 'What you own ›'}</Txt>
         </Pressable>
-        <Txt v="figureSm" style={{}}>{money(ownCents)}</Txt>
+        <Txt fbPrivate v="figureSm" style={{}}>{money(ownCents)}</Txt>
       </View>
       <View style={{ gap: 2 }}>
         <LensBar entries={own} height={wide ? 96 : 60} labelMin={wide ? 0.06 : 0.08} emptyColor={c.s1} />
@@ -69,7 +69,7 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
             <Txt v="small" c="ink2" style={{}}>{when ? `What you owed${onOpen ? ' ›' : ''}` : 'What you owe ›'}</Txt>
           </Pressable>
         </View>
-        <Txt v="figureSm" style={{}}>{money(oweCents)}</Txt>
+        <Txt fbPrivate v="figureSm" style={{}}>{money(oweCents)}</Txt>
       </View>
     </View>
   );

@@ -47,7 +47,7 @@ function PlaceRow({ place, onRemove, last }: { place: LoanPlace; onRemove?: () =
           <Txt v="body" c={place.gone ? 'warn' : 'ink'} style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{place.name}</Txt>
           {place.detail && <Txt v="small" c="ink2" numberOfLines={1}>{place.detail}</Txt>}
         </View>
-        <Txt v="figure" style={{}}>{place.valueCents === null ? '—' : money(place.valueCents)}</Txt>
+        <Txt fbPrivate v="figure" style={{}}>{place.valueCents === null ? '—' : money(place.valueCents)}</Txt>
       </Pressable>
       {onRemove && (
         <Pressable onPress={onRemove} accessibilityRole="button" accessibilityLabel={`Unlink ${place.name}`} hitSlop={6}
@@ -89,7 +89,7 @@ function Picker({ loan, role, state, onPick, onClose }: { loan: Loan; role: Loan
               <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{p.name}</Txt>
               <Txt v="small" c={other ? 'warn' : 'ink2'} numberOfLines={1}>{note}</Txt>
             </View>
-            <Txt v="figureSm" style={{}}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
+            <Txt fbPrivate v="figureSm" style={{}}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
             <Txt v="body" c="ink3">+</Txt>
           </Pressable>
         );
@@ -120,7 +120,7 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
     <Screen>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>LOAN · {loan.where.toUpperCase()}</Txt>
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{loan.name}</Txt>
-      <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: c.down }}>{loan.debtCents === null ? '—' : money(loan.debtCents, { cents: true })}</Txt>
+      <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: c.down }}>{loan.debtCents === null ? '—' : money(loan.debtCents, { cents: true })}</Txt>
       {owed !== '' && <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(owed)} owed</Txt>}
 
       {/* How close the protocol is to selling what backs it. */}
@@ -134,8 +134,8 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
       {/* The answer first: has borrowing paid off so far? */}
       {loan.resultCents !== null && loan.deployedCents !== null && loan.debtCents !== null && (
         <View style={{ marginTop: 18, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 4 }} accessibilityRole="summary">
-          <Txt v="figure" style={{ fontSize: 22, color: loan.resultCents >= 0 ? c.upInk : c.down }}>{money(loan.resultCents, { cents: true, sign: true })}</Txt>
-          <Txt v="body" c="ink2">What the money went into is worth {money(loan.deployedCents, { cents: true })}; you owe {money(loan.debtCents, { cents: true })}. Your net worth already counts both.</Txt>
+          <Txt fbPrivate v="figure" style={{ fontSize: 22, color: loan.resultCents >= 0 ? c.upInk : c.down }}>{money(loan.resultCents, { cents: true, sign: true })}</Txt>
+          <Txt fbPrivate v="body" c="ink2">What the money went into is worth {money(loan.deployedCents, { cents: true })}; you owe {money(loan.debtCents, { cents: true })}. Your net worth already counts both.</Txt>
         </View>
       )}
 
@@ -149,17 +149,17 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
         {loan.ltv !== null ? (
           <Row label="Loan to value" value={`${pct(loan.ltv)}${loan.liquidationLtv !== null ? ` · sold at ${pct(loan.liquidationLtv)}` : ''}`} tone={loan.liquidationLtv !== null && loan.ltv >= loan.liquidationLtv * 0.85 ? 'down' : undefined} />
         ) : loan.kind === 'wallet' && loan.collateralCents ? <Row label="Loan to value" value="Needs a fresh check" /> : null}
-        {loan.netCents !== null && (loan.collateral.length > 0 || loan.deployed.length > 0) && <Row label="Your stake in it" value={money(loan.netCents, { cents: true })} />}
+        {loan.netCents !== null && (loan.collateral.length > 0 || loan.deployed.length > 0) && <Row fbPrivate label="Your stake in it" value={money(loan.netCents, { cents: true })} />}
         <Row label={loan.kind === 'wallet' ? 'Read from the protocol' : 'Source'} value={loan.checkedAt !== null ? ago(loan.checkedAt, state.now) : 'Your records, not the lender’s'} />
       </View>
 
-      <Txt v="label" c="ink3" style={{ marginTop: 24 }} accessibilityRole="header">BACKED BY{loan.collateralCents !== null ? ` · ${money(loan.collateralCents)}` : ''}</Txt>
+      <Txt fbPrivate v="label" c="ink3" style={{ marginTop: 24 }} accessibilityRole="header">BACKED BY{loan.collateralCents !== null ? ` · ${money(loan.collateralCents)}` : ''}</Txt>
       {loan.collateral.map((p, i) => <PlaceRow key={p.key} place={p} last={i === loan.collateral.length - 1} onRemove={loan.kind === 'debt' && !busy ? () => unlink(p) : undefined} />)}
       {loan.kind === 'wallet' && !loan.collateral.length && <Txt v="body" c="ink2" style={{ marginTop: 8 }}>The protocol reports no collateral for this loan.</Txt>}
       {loan.kind === 'debt' && (picking === 'collateral' ? <Picker loan={loan} role="collateral" state={state} onPick={pick} onClose={() => setPicking(null)} />
         : <AddButton label={loan.collateral.length ? 'Add more' : 'Add what backs it, if anything'} onPress={() => setPicking('collateral')} disabled={busy} />)}
 
-      <Txt v="label" c="ink3" style={{ marginTop: 24 }} accessibilityRole="header">WHERE THE MONEY WENT{loan.deployedCents !== null ? ` · ${money(loan.deployedCents)}` : ''}</Txt>
+      <Txt fbPrivate v="label" c="ink3" style={{ marginTop: 24 }} accessibilityRole="header">WHERE THE MONEY WENT{loan.deployedCents !== null ? ` · ${money(loan.deployedCents)}` : ''}</Txt>
       {!loan.deployed.length && <Txt v="body" c="ink2" style={{ marginTop: 8 }}>Not set yet. Pick where the borrowed money went, and Numa shows whether borrowing has paid off. Nothing moves and your net worth stays the same. If it went into a company or property, it isn’t taken from what you could have within a week.</Txt>}
       {loan.deployed.map((p, i) => <PlaceRow key={p.key} place={p} last={i === loan.deployed.length - 1} onRemove={busy ? undefined : () => unlink(p)} />)}
       {loan.gaps > 0 && <Txt v="small" c="warn" style={{ marginTop: 6 }}>{loan.gaps} {loan.gaps === 1 ? 'place has' : 'places have'} no value now and {loan.gaps === 1 ? 'is' : 'are'} left out, so the result is unknown.</Txt>}
@@ -169,12 +169,12 @@ function Detail({ loan, state }: { loan: Loan; state: Extract<LoansState, { stat
   );
 }
 
-function Row({ label, value, tone }: { label: string; value: string; tone?: 'down' }) {
+function Row({ label, value, tone, fbPrivate }: { label: string; value: string; tone?: 'down'; fbPrivate?: boolean }) {
   const { c } = useTheme();
   return (
     <View style={{ minHeight: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.line, gap: 12 }}>
       <Txt v="body" c="ink2">{label}</Txt>
-      <Txt v="figureSm" c={tone ?? 'ink'} style={{ flexShrink: 1, textAlign: 'right' }}>{value}</Txt>
+      <Txt fbPrivate={fbPrivate} v="figureSm" c={tone ?? 'ink'} style={{ flexShrink: 1, textAlign: 'right' }}>{value}</Txt>
     </View>
   );
 }

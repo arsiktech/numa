@@ -318,11 +318,11 @@ function AskView({ source }: { source: AskSource }) {
             if (m.role === 'you') {
               return (
                 <View key={m.id} style={{ alignSelf: 'flex-end', maxWidth: '82%', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, borderBottomRightRadius: 6, backgroundColor: c.s2 }}>
-                  <Txt v="body">{m.text}</Txt>
+                  <Txt fbPrivate v="body">{m.text}</Txt>
                 </View>
               );
             }
-            if (m.role === 'numa') return <Txt key={m.id} v="body" c={m.pending ? 'ink3' : undefined} style={{ maxWidth: '92%' }} accessibilityLiveRegion="polite">{mask(m.text)}</Txt>;
+            if (m.role === 'numa') return <Txt fbPrivate key={m.id} v="body" c={m.pending ? 'ink3' : undefined} style={{ maxWidth: '92%' }} accessibilityLiveRegion="polite">{mask(m.text)}</Txt>;
             return (
               <DraftCard key={m.id} draft={m.draft} status={m.status} error={m.error} demo={demo} locked={!!m.intent}
                 onChange={(d) => changeDraft(m, d)} onSave={() => save(m)} onDiscard={() => changeDraft(m)} onUndo={() => undo(m)} />

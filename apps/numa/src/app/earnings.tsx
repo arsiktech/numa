@@ -55,9 +55,9 @@ function Body({ state, range, setRange, picked, setPicked }: { state: Extract<Re
             ))}
           </View>
           <Txt v="small" c="ink3" style={{ marginTop: 16 }}>{day ? dayText(day.day) : range === 'all' ? 'Since tracking began' : `Last ${range === '7d' ? '7' : '30'} days`}</Txt>
-          <Txt v="figure" style={{ marginTop: 2, fontSize: 34, lineHeight: 40, color: head >= 0 ? c.upInk : c.down }}>{money(head, { cents: true, sign: true })}</Txt>
+          <Txt fbPrivate v="figure" style={{ marginTop: 2, fontSize: 34, lineHeight: 40, color: head >= 0 ? c.upInk : c.down }}>{money(head, { cents: true, sign: true })}</Txt>
           {day ? (
-            <Txt v="body" c="ink2" style={{ marginTop: 4 }}>Total so far {money(day.totalCents, { cents: true, sign: true })}</Txt>
+            <Txt fbPrivate v="body" c="ink2" style={{ marginTop: 4 }}>Total so far {money(day.totalCents, { cents: true, sign: true })}</Txt>
           ) : (
             <>
               <Txt v="body" c="ink2" style={{ marginTop: 4 }}>
@@ -100,10 +100,10 @@ function StrategyRow({ s, share, last }: { s: Strategy; share: number; last: boo
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{s.name}</Txt>
           <Txt v="small" c="ink2" numberOfLines={1}>{s.where}</Txt>
-          {s.paidCents > 0 && <Txt v="small" c="ink3">Earned {money(s.earnedCents, { cents: true })} · interest {money(s.paidCents, { cents: true })}</Txt>}
+          {s.paidCents > 0 && <Txt fbPrivate v="small" c="ink3">Earned {money(s.earnedCents, { cents: true })} · interest {money(s.paidCents, { cents: true })}</Txt>}
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Txt v="figure" style={{ color }}>{money(s.netCents, { cents: true, sign: true })}</Txt>
+          <Txt fbPrivate v="figure" style={{ color }}>{money(s.netCents, { cents: true, sign: true })}</Txt>
           {s.rate !== null && <Txt v="figureSm" c="ink3">{pct(s.rate)} a year</Txt>}
         </View>
       </View>

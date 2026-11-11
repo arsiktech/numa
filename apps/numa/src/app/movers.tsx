@@ -22,7 +22,7 @@ function ChangeRow({ row }: { row: Mover }) {
         <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{mask(row.name)}</Txt>
         <Txt v="small" c="ink2" style={{ fontSize: 13.5 }}>{mask([row.group, percent, 'Price estimate'].filter(Boolean).join(' · '))}</Txt>
       </View>
-      <Txt v="figure" style={{ fontSize: 15, color: row.cents >= 0 ? c.upInk : c.down }}>{money(row.cents, { cents: true, sign: true })}</Txt>
+      <Txt fbPrivate v="figure" style={{ fontSize: 15, color: row.cents >= 0 ? c.upInk : c.down }}>{money(row.cents, { cents: true, sign: true })}</Txt>
     </View>
   );
 }
@@ -40,7 +40,7 @@ function Rows({ title, rows }: { title: string; rows: Mover[] }) {
       {more.length > 0 && <Pressable onPress={() => setExpanded((v) => !v)} accessibilityRole="button" aria-expanded={expanded}
         style={{ minHeight: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: c.line }}>
         <Txt v="body" c="ink2">{expanded ? 'Show fewer' : `${moreCount} more ${title.toLowerCase()}`}</Txt>
-        {!expanded && <Txt v="figureSm" style={{ color: moreCents >= 0 ? c.upInk : c.down }}>{money(moreCents, { cents: true, sign: true })}</Txt>}
+        {!expanded && <Txt fbPrivate v="figureSm" style={{ color: moreCents >= 0 ? c.upInk : c.down }}>{money(moreCents, { cents: true, sign: true })}</Txt>}
       </Pressable>}
     </View>
   );
@@ -58,7 +58,7 @@ function Breakdown({ report }: { report: HomeMovementReport }) {
     <>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{lensName}{report.demo ? ' · DEMO DATA' : ''}</Txt>
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>Why it moved {period}</Txt>
-      <Txt v="figure" style={{ marginTop: 12, fontSize: 34, lineHeight: 42, color: movers.headlineCents >= 0 ? c.upInk : c.down }}>{money(movers.headlineCents, { cents: true, sign: true })}</Txt>
+      <Txt fbPrivate v="figure" style={{ marginTop: 12, fontSize: 34, lineHeight: 42, color: movers.headlineCents >= 0 ? c.upInk : c.down }}>{money(movers.headlineCents, { cents: true, sign: true })}</Txt>
       <Txt v="small" c="ink2" style={{ marginTop: 6 }}>Same endpoints as Home · {pointLabel(report.from, report.range, report.now)} → {pointLabel(report.to, report.range, report.now)}</Txt>
       <Txt v="body" style={{ marginTop: 20, fontFamily: 'Manrope_600SemiBold' }}>{report.basis}</Txt>
       {report.notes.map((note) => <Txt key={note} v="small" c="ink2" style={{ marginTop: 6, fontSize: 14, lineHeight: 21 }}>{note}</Txt>)}
@@ -69,11 +69,11 @@ function Breakdown({ report }: { report: HomeMovementReport }) {
       {movers.unexplainedCents !== null && movers.unexplainedCents !== 0 && <View style={{ marginTop: 24, paddingVertical: 14, borderTopWidth: 1, borderTopColor: c.line, gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <Txt v="body" style={{ flex: 1, fontFamily: 'Manrope_600SemiBold' }}>Unexplained change</Txt>
-          <Txt v="figure" style={{ fontSize: 15, color: movers.unexplainedCents > 0 ? c.upInk : c.down }}>{money(movers.unexplainedCents, { cents: true, sign: true })}</Txt>
+          <Txt fbPrivate v="figure" style={{ fontSize: 15, color: movers.unexplainedCents > 0 ? c.upInk : c.down }}>{money(movers.unexplainedCents, { cents: true, sign: true })}</Txt>
         </View>
         <Txt v="small" c="ink2" style={{ fontSize: 14, lineHeight: 21 }}>The remainder needed to match Home, including any rounding. Its cause has not been identified.</Txt>
       </View>}
-      <Txt v="small" c="ink3" style={{ marginTop: 14, fontSize: 13.5 }}>Every displayed row, including collapsed rows and any unexplained change, adds up to {money(movers.headlineCents, { cents: true, sign: true })}.</Txt>
+      <Txt fbPrivate v="small" c="ink3" style={{ marginTop: 14, fontSize: 13.5 }}>Every displayed row, including collapsed rows and any unexplained change, adds up to {money(movers.headlineCents, { cents: true, sign: true })}.</Txt>
       {missing.length > 0 && <View style={{ marginTop: 26 }}>
         <Txt v="section" accessibilityRole="header">Missing coverage</Txt>
         <Txt v="small" c="ink2" style={{ marginTop: 6 }}>These records are not assumed to have stayed unchanged.</Txt>

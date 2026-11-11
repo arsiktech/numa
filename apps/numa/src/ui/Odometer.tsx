@@ -47,7 +47,7 @@ export function Odometer({ text, style: base, fast = false }: { text: string; st
   const height = Math.ceil(Math.max(lineHeight, fontSize * GLYPH_BOX));
   const trim = (height - lineHeight) / 2;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginVertical: -trim }} accessible accessibilityLabel={text}>
+    <View {...(Platform.OS === 'web' ? { dataSet: { fbPrivate: true } } : {})} style={{ flexDirection: 'row', alignItems: 'flex-end', marginVertical: -trim }} accessible accessibilityLabel={text}>
       {text.split('').map((ch, i) =>
         /\d/.test(ch) ? (
           <Digit key={i} d={Number(ch)} style={style} height={height} fast={fast} />

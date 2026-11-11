@@ -25,11 +25,11 @@ export function MoneyMapTeaser() {
       <View style={{ flexDirection: 'row', gap: 16 }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt v="small" c="ink2">Owed to you</Txt>
-          <Txt v="figure" style={{ color: c.upInk }}>{money(map.owedToYouCents)}</Txt>
+          <Txt fbPrivate v="figure" style={{ color: c.upInk }}>{money(map.owedToYouCents)}</Txt>
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt v="small" c="ink2">You owe</Txt>
-          <Txt v="figure" style={{ color: c.down }}>{money(map.youOweCents)}</Txt>
+          <Txt fbPrivate v="figure" style={{ color: c.down }}>{money(map.youOweCents)}</Txt>
         </View>
       </View>
       <Txt v="small" c="ink3" numberOfLines={1}>{[...map.people, ...map.owedToYou].slice(0, 4).map((p) => p.name).join(', ')}{map.protocols.length ? ` and ${map.protocols.length} protocol${map.protocols.length === 1 ? '' : 's'}` : ''}</Txt>

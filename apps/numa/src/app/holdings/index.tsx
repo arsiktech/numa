@@ -68,7 +68,7 @@ function SpotRow({ spot, share, swatch, last }: { spot: Spot; share: number | nu
         <Txt v="small" c="ink2" numberOfLines={1}>{what}</Txt>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Txt v="figure" style={{ fontSize: 15 }}>{spot.valueCents === null ? '—' : money(spot.valueCents)}</Txt>
+        <Txt fbPrivate v="figure" style={{ fontSize: 15 }}>{spot.valueCents === null ? '—' : money(spot.valueCents)}</Txt>
         {share !== null && <Txt v="figureSm" c="ink3">{Math.round(share * 100)}%</Txt>}
       </View>
       {open && <Txt v="body" c="ink3">›</Txt>}
@@ -102,7 +102,7 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
       </View>
       {single && total && (
         <View style={{ marginTop: 10 }}>
-          <Txt v="figure" style={{ fontSize: 34, lineHeight: 40, color: only === 'debts' ? c.down : c.ink }}>{money(total.cents, { cents: true })}</Txt>
+          <Txt fbPrivate v="figure" style={{ fontSize: 34, lineHeight: 40, color: only === 'debts' ? c.down : c.ink }}>{money(total.cents, { cents: true })}</Txt>
           {total.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{total.unknown} without a value {total.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
         </View>
       )}
@@ -124,7 +124,7 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: c[CLASS_COLOR[k.id]] }} />
                       <Txt v="body" style={{ flex: 1, fontFamily: 'Manrope_600SemiBold' }}>{k.name}</Txt>
-                      <Txt v="figureSm" style={{ fontSize: 14 }}>{money(cents)}</Txt>
+                      <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{money(cents)}</Txt>
                       <Txt v="figureSm" c="ink3" style={{ width: 40, textAlign: 'right' }}>{ownedCents > 0 ? `${Math.round((cents / ownedCents) * 100)}%` : ''}</Txt>
                     </View>
                     <Txt v="small" c="ink3">{k.note}</Txt>
@@ -189,7 +189,7 @@ function Groups({ source, only }: { source: Extract<ItemsSource, { status: 'read
               <Link href={{ pathname: '/holdings/[group]', params: { group: g } }} asChild>
                 <Pressable accessibilityRole="link" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', minHeight: 36 }}>
                   <Txt v="section">{groupNames[g]}</Txt>
-                  <Txt v="figureSm" style={{ fontSize: 14, color: g === 'debts' ? c.down : c.ink }}>{money(t.cents)}</Txt>
+                  <Txt fbPrivate v="figureSm" style={{ fontSize: 14, color: g === 'debts' ? c.down : c.ink }}>{money(t.cents)}</Txt>
                 </Pressable>
               </Link>
             )}

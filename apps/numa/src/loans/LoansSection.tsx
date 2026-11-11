@@ -23,8 +23,8 @@ function LoanRow({ loan, last }: { loan: Loan; last: boolean }) {
         <Txt v="small" c={loan.deployed.length ? 'ink2' : 'ink3'} numberOfLines={1}>{loan.where} · {went}</Txt>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Txt v="figure" style={{ color: c.down }}>{loan.debtCents === null ? '—' : money(loan.debtCents)}</Txt>
-        {loan.resultCents !== null ? <Txt v="figureSm" style={{ color: loan.resultCents >= 0 ? c.upInk : c.down }}>{money(loan.resultCents, { sign: true })}</Txt>
+        <Txt fbPrivate v="figure" style={{ color: c.down }}>{loan.debtCents === null ? '—' : money(loan.debtCents)}</Txt>
+        {loan.resultCents !== null ? <Txt fbPrivate v="figureSm" style={{ color: loan.resultCents >= 0 ? c.upInk : c.down }}>{money(loan.resultCents, { sign: true })}</Txt>
           : loan.ltv !== null ? <Txt v="figureSm" c="ink3">{Math.round(loan.ltv * 100)}% of collateral</Txt> : null}
       </View>
       <Txt v="body" c="ink3">›</Txt>

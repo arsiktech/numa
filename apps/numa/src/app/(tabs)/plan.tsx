@@ -105,7 +105,7 @@ function Inner({ data }: { data: PlanData }) {
       <View style={{ marginTop: 4, padding: 18, borderRadius: 20, backgroundColor: c.s1 }}>
         <Txt v="small" c="ink3">RUNWAY</Txt>
         <Txt v="title" style={{ marginTop: 4, color: r.months !== null && r.months < 3 ? c.down : c.ink }}>{runwayWords(r.months)}</Txt>
-        <Txt v="body" c="ink2" style={{ marginTop: 6 }}>
+        <Txt fbPrivate v="body" c="ink2" style={{ marginTop: 6 }}>
           {r.monthlyOutCents === null ? `${money(r.cashCents)} in cash. Log a month of spending to see how long it lasts.` : `${money(r.cashCents)} in cash, spending about ${money(r.monthlyOutCents)} a month (last ${r.basisMonths === 1 ? 'month' : `${r.basisMonths} months`}).`}
         </Txt>
       </View>
@@ -137,7 +137,7 @@ function Goals({ data }: { data: PlanData }) {
               <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold', flex: 1 }}>{g.title}</Txt>
               <Txt v="figureSm" style={{ fontSize: 14, color: done ? c.upInk : c.ink }}>{g.share === null ? '—' : `${Math.round(g.share * 100)}%`}</Txt>
             </View>
-            <Txt v="small" c="ink2" style={{ marginTop: 2 }}>
+            <Txt fbPrivate v="small" c="ink2" style={{ marginTop: 2 }}>
               {g.currentCents === null ? 'Progress unknown' : `${money(g.currentCents)} of ${g.targetCents === null ? '—' : money(g.targetCents)}`}{g.goal.deadline ? ` · by ${shortDay(g.goal.deadline, data.now)}` : ''}
             </Txt>
             {g.share !== null && <Bar share={g.share} tone={done ? 'done' : 'ok'} />}
@@ -241,7 +241,7 @@ function LimitRowView({ row, last }: { row: LimitRow; last: boolean }) {
       <Pressable onPress={() => setEditing((e) => !e)} accessibilityRole="button" accessibilityLabel={`${row.category.name}. ${row.limitCents === null ? 'No limit' : `${Math.round((row.share ?? 0) * 100)} percent of limit`}. Edit limit`}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
           <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{row.category.name}</Txt>
-          <Txt v="figureSm" style={{ fontSize: 14, color: tone === 'over' ? c.down : tone === 'warn' ? c.warn : c.ink }}>{row.limitCents === null ? money(row.spentCents) : `${money(row.spentCents)} of ${money(row.limitCents)}`}</Txt>
+          <Txt fbPrivate v="figureSm" style={{ fontSize: 14, color: tone === 'over' ? c.down : tone === 'warn' ? c.warn : c.ink }}>{row.limitCents === null ? money(row.spentCents) : `${money(row.spentCents)} of ${money(row.limitCents)}`}</Txt>
         </View>
         {row.share !== null ? <Bar share={row.share} tone={tone} /> : <Txt v="small" c="ink3" style={{ marginTop: 2 }}>No limit · tap to set one</Txt>}
       </Pressable>

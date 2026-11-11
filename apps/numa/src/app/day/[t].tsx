@@ -50,7 +50,7 @@ function Cloud({ takenAt, focus }: { takenAt: number; focus?: DayGroup }) {
 
 function NetWorth({ cents }: { cents: number }) {
   const { money } = useMoney();
-  return <Txt v="body" c="ink2" style={{ marginTop: 4 }}>Net worth {money(cents)}</Txt>;
+  return <Txt fbPrivate v="body" c="ink2" style={{ marginTop: 4 }}>Net worth {money(cents)}</Txt>;
 }
 
 function Section({ section, focused }: { section: DaySection; focused: boolean }) {
@@ -61,7 +61,7 @@ function Section({ section, focused }: { section: DaySection; focused: boolean }
     <View style={{ marginTop: 24 }} accessibilityLabel={focused ? `${dayGroupNames[section.group]}, the part you opened` : undefined}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', minHeight: 32 }}>
         <Txt v="section" style={focused ? { color: c.ink } : undefined}>{dayGroupNames[section.group]}</Txt>
-        <Txt v="figureSm" style={{ fontSize: focused ? 17 : 14, color: owe ? c.down : c.ink }}>{money(section.cents)}</Txt>
+        <Txt fbPrivate v="figureSm" style={{ fontSize: focused ? 17 : 14, color: owe ? c.down : c.ink }}>{money(section.cents)}</Txt>
       </View>
       {section.lines.map((l, i) => (
         <View key={l.name + i} style={{ minHeight: 48, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === section.lines.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
@@ -69,7 +69,7 @@ function Section({ section, focused }: { section: DaySection; focused: boolean }
             <Txt v="body">{l.name}</Txt>
             <Txt v="small" c="ink3">{l.kind}</Txt>
           </View>
-          <Txt v="figureSm" style={{ fontSize: 14, color: owe ? c.down : c.ink }}>{money(l.cents)}</Txt>
+          <Txt fbPrivate v="figureSm" style={{ fontSize: 14, color: owe ? c.down : c.ink }}>{money(l.cents)}</Txt>
         </View>
       ))}
     </View>

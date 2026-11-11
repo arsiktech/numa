@@ -56,7 +56,7 @@ function Detail({ position, demo, now }: { position: Position; demo: boolean; no
     <Screen>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{groupNames[position.group].toUpperCase()}{demo ? ' · DEMO DATA' : ''}</Txt>
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{position.name}</Txt>
-      <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: position.group === 'debts' ? c.down : c.ink }}>{position.valueCents === null ? '—' : money(position.valueCents, { cents: true })}</Txt>
+      <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: position.group === 'debts' ? c.down : c.ink }}>{position.valueCents === null ? '—' : money(position.valueCents, { cents: true })}</Txt>
       {qty && <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(qty)}</Txt>}
       {position.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{position.unknown} {position.unknown === 1 ? 'place has' : 'places have'} no value yet and {position.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
       {/* A coin or a stock has a market price; cash, pools, lending and plain records don't. */}
@@ -85,7 +85,7 @@ function Detail({ position, demo, now }: { position: Position; demo: boolean; no
             {quantityText(p.quantity, p.unit) && <Txt v="small" c="ink3">{mask(quantityText(p.quantity, p.unit)!)}</Txt>}
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Txt v="figure" style={{ fontSize: 15 }}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
+            <Txt fbPrivate v="figure" style={{ fontSize: 15 }}>{p.valueCents === null ? '—' : money(p.valueCents)}</Txt>
             {total > 0 && p.valueCents !== null && position.places.length > 1 && <Txt v="figureSm" c="ink3">{Math.round((p.valueCents / total) * 100)}%</Txt>}
           </View>
           <Txt v="body" c="ink3">›</Txt>
@@ -108,7 +108,7 @@ function FamilyDetail({ family, group, demo, now }: { family: Family; group: Gro
     <Screen>
       <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{groupNames[group].toUpperCase()}{demo ? ' · DEMO DATA' : ''}</Txt>
       <Txt v="title" accessibilityRole="header" style={{ marginTop: 4 }}>{family.name}</Txt>
-      <Txt v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: debts ? c.down : c.ink }}>{family.valueCents === null ? '—' : money(family.valueCents, { cents: true })}</Txt>
+      <Txt fbPrivate v="figure" style={{ marginTop: 10, fontSize: 34, lineHeight: 40, color: debts ? c.down : c.ink }}>{family.valueCents === null ? '—' : money(family.valueCents, { cents: true })}</Txt>
       {qty && <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(qty)}</Txt>}
       {family.unknown > 0 && <Txt v="small" c="warn" style={{ marginTop: 4 }}>{family.unknown} {family.unknown === 1 ? 'place has' : 'places have'} no value yet and {family.unknown === 1 ? 'is' : 'are'} left out of this total.</Txt>}
       {!demo && !debts && family.unit && <PriceChart symbol={family.unit} kind="crypto" now={now} />}

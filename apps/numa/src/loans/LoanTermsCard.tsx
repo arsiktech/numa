@@ -27,7 +27,7 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'dow
   return (
     <View style={{ minHeight: 34, paddingVertical: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
       <Txt v="body" c="ink2" style={{ flexShrink: 1 }} maxFontSizeMultiplier={1.4}>{label}</Txt>
-      <Txt v="figureSm" style={{ textAlign: 'right', flexShrink: 1, color: tone === 'down' ? c.down : tone === 'warn' ? c.warn : c.ink }} maxFontSizeMultiplier={1.4}>{mask(value)}</Txt>
+      <Txt fbPrivate v="figureSm" style={{ textAlign: 'right', flexShrink: 1, color: tone === 'down' ? c.down : tone === 'warn' ? c.warn : c.ink }} maxFontSizeMultiplier={1.4}>{mask(value)}</Txt>
     </View>
   );
 }
@@ -75,7 +75,7 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
       {a.status === 'unsupported-history' && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>Interest cannot be worked out. {a.reason}</Txt>}
       {a.status === 'incomplete' && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>Add {a.missing} to work out interest.</Txt>}
       {a.status === 'ok' && !a.reconciles && (
-        <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>The history says {money(a.historyPrincipal)} is outstanding but the balance is {money(loan.balance)}, so the interest may be off. Add the missing payments to the history, or correct the balance.</Txt>
+        <Txt fbPrivate v="small" c="warn" style={{ paddingVertical: 4 }}>The history says {money(a.historyPrincipal)} is outstanding but the balance is {money(loan.balance)}, so the interest may be off. Add the missing payments to the history, or correct the balance.</Txt>
       )}
       {paid.total > 0 && <Row label="Paid so far" value={`${money(paid.total)}${paid.interest > 0 || paid.fees > 0 ? ` (principal ${money(paid.principal)}, interest ${money(paid.interest)}, fees ${money(paid.fees)})` : ''}`} />}
       <Txt v="small" c="ink3" style={{ paddingTop: 4 }}>
@@ -235,7 +235,7 @@ export function LoanTermsForm({ loan, events, now, onDone }: { loan: CloudLiabil
       {noSimple && !coin && <Txt v="small" c="ink3">Mortgages and cards usually charge compound or instalment interest, so Numa keeps their interest manual.</Txt>}
       {coin && <Txt v="small" c="ink3">This debt is owed in a coin, so Numa doesn’t keep an original amount or work out interest for it.</Txt>}
       {problem && <Txt v="small" c="warn" accessibilityRole="alert">{problem}</Txt>}
-      {awaiting && <Txt v="small" c="warn" accessibilityRole="alert">{repricing}</Txt>}
+      {awaiting && <Txt fbPrivate v="small" c="warn" accessibilityRole="alert">{repricing}</Txt>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
         <Pressable onPress={submit} disabled={!!problem || busy} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: !problem && !busy ? c.ink : c.s2, justifyContent: 'center' }}>
           {busy ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c={!problem ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{awaiting ? 'Confirm change' : 'Save terms'}</Txt>}

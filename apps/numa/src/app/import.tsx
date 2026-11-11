@@ -212,7 +212,7 @@ function Importer() {
               return (
                 <View key={r.line} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === Math.min(ready.length, 50) - 1 ? 0 : 1, borderBottomColor: c.line }}>
                   <Txt v="body" numberOfLines={1} style={{ flex: 1 }}>{d.title}</Txt>
-                  <Txt v="figureSm" style={{ fontSize: 14 }}>{d.amount}</Txt>
+                  <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{d.amount}</Txt>
                 </View>
               );
             })}
@@ -269,9 +269,9 @@ function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView
           <View key={r.line} style={{ minHeight: 48, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === ready.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
             <View style={{ flex: 1 }}>
               <Txt v="body">{shortDay(r.takenAt!, now)}</Txt>
-              <Txt v="small" c="ink3">own {m(r.liquidCents + r.investedCents + r.hardCents, r.currency)} · owe {m(r.oweCents, r.currency)}</Txt>
+              <Txt fbPrivate v="small" c="ink3">own {m(r.liquidCents + r.investedCents + r.hardCents, r.currency)} · owe {m(r.oweCents, r.currency)}</Txt>
             </View>
-            <Txt v="figureSm" style={{ fontSize: 14 }}>{m(r.netCents, r.currency)}</Txt>
+            <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{m(r.netCents, r.currency)}</Txt>
           </View>
         ))}
       </View>
@@ -287,13 +287,13 @@ function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView
               return (
                 <View key={`${d.type}-${d.name}`} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === log.today!.drafts.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
                   <Txt v="body" numberOfLines={1} style={{ flex: 1 }}>{x.title}</Txt>
-                  <Txt v="figureSm" style={{ fontSize: 14 }}>{x.amount}</Txt>
+                  <Txt fbPrivate v="figureSm" style={{ fontSize: 14 }}>{x.amount}</Txt>
                 </View>
               );
             })}
           </View>
           {log.today.needQuantity.length > 0 && (
-            <Txt v="small" c="ink2" style={{ marginTop: 10 }}>
+            <Txt fbPrivate v="small" c="ink2" style={{ marginTop: 10 }}>
               Not set up yet, because they need how many you hold so their value follows the price: {log.today.needQuantity.map((p) => `${p.name} ${formatMoney(p.cents, log.rows[0]?.currency ?? 'EUR')}`).join(', ')}. Add them in Ask, like “I own 0.5 BTC”, or track a wallet in Settings.
             </Txt>
           )}

@@ -38,7 +38,7 @@ function Row({ dot, name, tag, detail, cents, onPress, last }: { dot: keyof Pale
         </View>
         <Txt v="small" c="ink2" numberOfLines={1}>{detail}</Txt>
       </View>
-      <Txt v="figureSm" style={{}}>{cents === null ? '—' : money(cents)}</Txt>
+      <Txt fbPrivate v="figureSm" style={{}}>{cents === null ? '—' : money(cents)}</Txt>
       {onPress && <Txt v="body" c="ink3">›</Txt>}
     </Pressable>
   );
@@ -51,7 +51,7 @@ function Card({ title, cents, tone, children }: { title: string; cents: number; 
     <View style={{ marginTop: 14, backgroundColor: c.s1, borderRadius: 18, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
         <Txt v="cardTitle" accessibilityRole="header">{title}</Txt>
-        <Txt v="figure" style={{ fontSize: 16, color: tone === 'up' ? c.upInk : tone === 'down' ? c.down : c.ink }}>{money(cents)}</Txt>
+        <Txt fbPrivate v="figure" style={{ fontSize: 16, color: tone === 'up' ? c.upInk : tone === 'down' ? c.down : c.ink }}>{money(cents)}</Txt>
       </View>
       {children}
     </View>
@@ -71,7 +71,7 @@ function Map({ map }: { map: MoneyMap }) {
   return (
     <Screen>
       <Txt v="label" c="ink3" style={{ marginTop: 6 }}>MONEY MAP</Txt>
-      <Txt v="figure" accessibilityRole="header" style={{ marginTop: 6, fontSize: 40, lineHeight: 46 }}>{money(map.netCents, { cents: true })}</Txt>
+      <Txt fbPrivate v="figure" accessibilityRole="header" style={{ marginTop: 6, fontSize: 40, lineHeight: 46 }}>{money(map.netCents, { cents: true })}</Txt>
       <Txt v="body" c="ink2">What’s left after every debt is paid</Txt>
       {total > 0 && (
         <View accessibilityLabel={`Yours ${money(map.ownCents)}, owed to you ${money(map.owedToYouCents)}, you owe ${money(map.youOweCents)}`}>
@@ -81,9 +81,9 @@ function Map({ map }: { map: MoneyMap }) {
             {map.youOweCents > 0 && <View style={{ flexGrow: map.youOweCents, flexBasis: 0, backgroundColor: c.down }} />}
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, gap: 8 }}>
-            <Txt v="small" c="ink2">Yours {money(map.ownCents)}</Txt>
-            <Txt v="small" c="ink2">Owed to you {money(map.owedToYouCents)}</Txt>
-            <Txt v="small" c="ink2">You owe {money(map.youOweCents)}</Txt>
+            <Txt fbPrivate v="small" c="ink2">Yours {money(map.ownCents)}</Txt>
+            <Txt fbPrivate v="small" c="ink2">Owed to you {money(map.owedToYouCents)}</Txt>
+            <Txt fbPrivate v="small" c="ink2">You owe {money(map.youOweCents)}</Txt>
           </View>
         </View>
       )}

@@ -27,8 +27,8 @@ export function ItemRow({ item, last }: { item: Item; last?: boolean }) {
           </View>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Txt v="figure" style={{ fontSize: 15 }}>{item.valueCents === null ? '—' : money(item.valueCents)}</Txt>
-          {change ? <Txt v="figureSm" style={{ color: change >= 0 ? c.upInk : c.down }}>{(change >= 0 ? '+' : '−') + money(Math.abs(change)).replace('−', '')}</Txt>
+          <Txt fbPrivate v="figure" style={{ fontSize: 15 }}>{item.valueCents === null ? '—' : money(item.valueCents)}</Txt>
+          {change ? <Txt fbPrivate v="figureSm" style={{ color: change >= 0 ? c.upInk : c.down }}>{(change >= 0 ? '+' : '−') + money(Math.abs(change)).replace('−', '')}</Txt>
             : item.gain ? <Txt v="figureSm" style={{ color: item.gain.cents >= 0 ? c.upInk : c.down }} accessibilityLabel={`${item.gain.cents >= 0 ? 'Up' : 'Down'} ${Math.abs(item.gain.pct * 100).toFixed(1)} percent since bought`}>{(item.gain.cents >= 0 ? '+' : '−') + Math.abs(item.gain.pct * 100).toFixed(1)}%</Txt> : null}
         </View>
       </Pressable>
