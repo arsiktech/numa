@@ -21,7 +21,7 @@ export type PriceSeries = { t: number[]; p: number[]; observations?: PriceObserv
 export type PricedPiece = { symbol: string; kind: 'crypto' | 'stock'; valueCents: number };
 
 const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
-export const GRID: Record<HistoryRange, { step: number; span: number }> = {
+const GRID: Record<HistoryRange, { step: number; span: number }> = {
   '1D': { step: 10 * MIN, span: DAY },
   '1W': { step: HOUR, span: 7 * DAY },
   '1M': { step: 4 * HOUR, span: 30 * DAY },

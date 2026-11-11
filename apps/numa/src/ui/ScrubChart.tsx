@@ -28,6 +28,8 @@ type Props = {
   onPin: (index: number) => void;
   /** Words for the point under the finger and for the time axis, shown only while scrubbing. */
   labels?: { times: number[]; at: (index: number) => string; tick: (t: number) => string };
+  /** What a screen reader says for the chart. */
+  label?: string;
 };
 
 /**
@@ -62,7 +64,7 @@ const PAD = 14;
  * While a point is picked the line after it fades, the date floats above it, and the axes appear:
  * change from the start on the right, time along the bottom. At rest the line stands alone.
  */
-export function ScrubChart({ values, times, height, up, drawKey, pinned, onPreview, onPin, labels }: Props) {
+export function ScrubChart({ values, times, height, up, drawKey, pinned, onPreview, onPin, labels, label = 'Net worth over time. Drag or tap to pick a date.' }: Props) {
   const clipId = useId().replace(/[^a-zA-Z0-9]/g, '');
   const { c } = useTheme();
   const reduce = useReducedMotion();
@@ -129,7 +131,7 @@ export function ScrubChart({ values, times, height, up, drawKey, pinned, onPrevi
 
   return (
     <GestureDetector gesture={gesture}>
-      <View testID="scrub-chart" style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessibilityRole="image" accessibilityLabel="Net worth over time. Drag or tap to pick a date.">
+      <View testID="scrub-chart" style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessibilityRole="image" accessibilityLabel={label}>
         {geo && (
           <Svg width={width} height={height}>
             <Defs>

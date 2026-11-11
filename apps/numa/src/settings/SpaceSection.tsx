@@ -35,7 +35,7 @@ export function SpaceSection() {
     const write = (to: CloudCurrency) => updatePortfolio({ id: space.id, patch: { defaultCurrency: to }, clientMutationId: newMutationId('numa.updatePortfolio') });
     try {
       await write(next);
-      toast({ text: `Totals now in ${next}`, action: { label: 'Undo', onPress: async () => { await write(before); } } });
+      toast({ text: `Totals now in ${next}`, action: { label: 'Undo', onPress: async () => { try { await write(before); } catch { toast({ text: 'Couldn’t undo that. Try again.' }); } } } });
     } catch { toast({ text: 'Couldn’t change the currency. Try again.' }); }
   }
 

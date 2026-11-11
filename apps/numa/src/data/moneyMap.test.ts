@@ -71,6 +71,23 @@ describe('money map', () => {
     expect(m.unknown).toBe(1);
   });
 
+  it('counts each of your own records without a value, not each place they sit', () => {
+    const watch = { id: 'a4', name: 'Watch', kind: 'collectible', balance: 0, currency: 'EUR', updatedAt: 0 };
+    const safe = { id: 'a5', name: 'Safe', kind: 'cash', balance: 0, currency: 'EUR', updatedAt: 0 };
+    const jar = { id: 'a6', name: 'Jar', kind: 'cash', balance: 0, currency: 'EUR', updatedAt: 0 };
+    const extra = [
+      item({ id: 'a4', type: 'asset', group: 'things', name: watch.name, valueCents: null, raw: watch as never }),
+      item({ id: 'a5', type: 'asset', group: 'cash', name: safe.name, valueCents: null, raw: safe as never }),
+      item({ id: 'a6', type: 'asset', group: 'cash', name: jar.name, valueCents: null, raw: jar as never }),
+    ];
+    const mixed = moneyMap(snapshot, [...items, extra[0]], 'EUR', fx);
+    expect(mixed.spots.find((s) => s.name === 'Things')).toMatchObject({ cents: 2_900_000 });
+    expect(mixed.unknown).toBe(1);
+    const allUnknown = moneyMap(snapshot, [...items, extra[1], extra[2]], 'EUR', fx);
+    expect(allUnknown.spots.find((s) => s.name === 'Cash')).toMatchObject({ cents: null });
+    expect(allUnknown.unknown).toBe(2);
+  });
+
   it('gives a party its history, oldest first, and nothing from other parties', () => {
     const e = (id: string, subject: string, at: number): DebtEvent => ({ id, subject, kind: 'repaid', amount: 1, unit: 'EUR', applied: true, occurredAt: at, note: null });
     const stas = partyOf(map, partyKey('byYou', 'Stas'))!;
