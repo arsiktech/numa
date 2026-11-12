@@ -116,6 +116,13 @@ const { check, finish } = checker();
   await w.screenshot({ path: OUT + '/04-flow-light-1440.png', fullPage: true });
   check('wide light Flow renders', (await w.locator('body').innerText()).includes('Every month'));
 
+  // The app keeps only the last weeks of transactions loaded; an older one is read on its own.
+  const oldId = await add('Old invoice', 'income', 750, now - 100 * DAY);
+  await page.goto(APP + '/tx/' + (typeof oldId === 'string' ? oldId : oldId.id));
+  await page.getByRole('button', { name: 'Edit' }).waitFor({ timeout: 15000 });
+  b = await page.locator('body').innerText();
+  check('a transaction from months ago opens by its address', b.includes('Old invoice') && !b.includes('isn’t here anymore'), b.slice(0, 300).replace(/\n/g, ' | '));
+
   const dm = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
   const dp = await dm.newPage();
   await dp.goto(APP + '/sign-in');

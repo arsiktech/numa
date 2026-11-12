@@ -14,6 +14,7 @@ import { shortDay } from '@/domain/freshness';
 import { countedValue, summarize } from '@/domain/summary';
 import type { Currency } from '@/domain/types';
 import { goalCreatePlan, goalDeletePlan, goalRows, limitPlan, limits, runway, runwayWords, type GoalFields, type GoalRow, type LimitRow } from '@/plan/plan';
+import { useRunwayLedger } from '@/plan/useRunwayLedger';
 import { useTheme } from '@/theme/theme';
 import { Field, Seg, toCents } from '@/ui/form';
 import { CurrencyScope, useMoney } from '@/ui/money';
@@ -45,18 +46,20 @@ function DemoPlan() {
 
 function CloudPlan() {
   const cloud = useCloudData();
+  const ready = cloud.status === 'ready' ? cloud : null;
+  const past = useRunwayLedger(ready?.portfolioId ?? null, ready?.now ?? 0);
   const data = useMemo<PlanData | null>(() => {
-    if (cloud.status !== 'ready') return null;
+    if (cloud.status !== 'ready' || !past) return null;
     const { snapshot, data: home, summary, fx, now } = cloud;
     const date = new Date(now);
     const values = new Map(home.holdings.map((h) => [h.id, countedValue(h.valuation)?.cents ?? null]));
     return {
       demo: false, currency: home.currency, now, portfolioId: cloud.portfolioId,
-      runway: runway(snapshot, summary, home.currency, fx, date),
+      runway: runway({ categories: snapshot.categories, transactions: past }, summary, home.currency, fx, date),
       goals: goalRows(snapshot, summary, home.currency, fx, date, (id) => values.get(id) ?? null),
       limits: limits(snapshot, home.currency, fx, date),
     };
-  }, [cloud]);
+  }, [cloud, past]);
   if (cloud.status === 'error') return (
     <Shell>
       <View style={{ marginTop: 24, gap: 12 }}>

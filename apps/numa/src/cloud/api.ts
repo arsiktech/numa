@@ -169,6 +169,9 @@ export type CloudSnapshot = {
   oldestTransactionAt?: number | null;
 };
 
+/** What tells one transaction from another: when, how much, what. */
+export type LedgerMark = Pick<CloudTransaction, 'occurredAt' | 'amountMinor' | 'description'>;
+
 /** A tracked public address. Balances come from public explorers; values are in US dollars. */
 export type CloudWallet = {
   id: string;
@@ -240,6 +243,8 @@ export const cloud = {
   bootstrap: makeFunctionReference<'mutation', { withSnapshot?: boolean }, CloudBootstrap>('mobile:bootstrap'),
   portfolioSnapshot: makeFunctionReference<'query', { portfolioId: string; since?: number }, CloudSnapshot>('mobile:portfolioSnapshot'),
   monthLedger: makeFunctionReference<'query', { portfolioId: string; start: number; end: number }, CloudTransaction[]>('mobile:monthLedger'),
+  transaction: makeFunctionReference<'query', { portfolioId: string; id: string }, CloudTransaction | null>('mobile:transaction'),
+  ledgerOutline: makeFunctionReference<'query', { portfolioId: string; start: number; end: number }, LedgerMark[]>('mobile:ledgerOutline'),
   fxRate: makeFunctionReference<'query', Record<string, never>, { usdPerEur: number; asOf: string } | null>('fxRate:read'),
   defiEarnings: makeFunctionReference<'query', { portfolioId: string }, CloudEarning[]>('defiEarnings:forPortfolio'),
   createPortfolio: makeFunctionReference<

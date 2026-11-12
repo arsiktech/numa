@@ -1,6 +1,6 @@
 import type { AskContext } from '@/ask/parse';
 import { parseAmount, parseDay, parseQuantity, parseTable } from './csv';
-import { previewImport } from './importRows';
+import { previewImport, transactionSpan } from './importRows';
 
 const now = new Date(2026, 9, 12, 10);
 const ctx: AskContext & { existingTx: { occurredAt: number; amountMinor: number; description: string }[] } = {
@@ -72,5 +72,11 @@ describe('previewImport', () => {
 
   it('says it cannot tell what a table is instead of guessing', () => {
     expect(previewImport(parseTable('foo,bar\n1,2'), ctx).kind).toBeNull();
+  });
+
+  it('names the whole days its transactions fall on, so older saved rows can be checked too', () => {
+    const p = previewImport(parseTable('Date,Description,Amount\n2026-10-05,Coffee,-4.50\n2026-03-01,Payroll,3200\nbad,Row,1'), ctx);
+    expect(transactionSpan(p.rows)).toEqual({ start: new Date(2026, 2, 1).getTime(), end: new Date(2026, 9, 6).getTime() });
+    expect(transactionSpan(previewImport(parseTable('Name\tValue\nMain account\t12500'), ctx).rows)).toBeNull();
   });
 });
