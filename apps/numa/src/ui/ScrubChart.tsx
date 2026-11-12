@@ -18,7 +18,10 @@ type Props = {
   /** Optional timestamps, so uneven saved points sit at their real dates. */
   times?: number[];
   height: number;
-  up: boolean;
+  /** The line's colour; the caller decides what rising and falling look like. */
+  color: string;
+  /** The stepped-back line and the start-value rule. */
+  track: string;
   drawKey: string;
   /** The point kept after the finger lifts, or null for today. */
   pinned: number | null;
@@ -62,7 +65,7 @@ const PAD = 14;
  * While a point is picked the line after it fades, the date floats above it, and the axes appear:
  * change from the start on the right, time along the bottom. At rest the line stands alone.
  */
-export function ScrubChart({ values, times, height, up, drawKey, pinned, onPreview, onPin, labels }: Props) {
+export function ScrubChart({ values, times, height, color, track, drawKey, pinned, onPreview, onPin, labels }: Props) {
   const clipId = useId().replace(/[^a-zA-Z0-9]/g, '');
   const { c } = useTheme();
   const reduce = useReducedMotion();
@@ -71,7 +74,6 @@ export function ScrubChart({ values, times, height, up, drawKey, pinned, onPrevi
   const [focused, setFocused] = useState(false);
   const scrub = preview ?? (pinned !== null && pinned < values.length ? pinned : null);
   const n = values.length;
-  const color = up ? c.up : c.down;
 
   const geo = useMemo(() => {
     if (!width || n < 2) return null;
@@ -139,10 +141,10 @@ export function ScrubChart({ values, times, height, up, drawKey, pinned, onPrevi
               <ClipPath id={`${clipId}past`}><Rect x={0} y={0} width={Math.max(0, sx)} height={height} /></ClipPath>
               <ClipPath id={`${clipId}after`}><Rect x={sx} y={0} width={Math.max(0, width - sx)} height={height} /></ClipPath>
             </Defs>
-            <Line x1={0} x2={width} y1={geo.baseY} y2={geo.baseY} stroke={c.line2} strokeWidth={1} strokeDasharray="2 5" />
+            <Line x1={0} x2={width} y1={geo.baseY} y2={geo.baseY} stroke={track} strokeWidth={1} strokeDasharray="2 5" />
             {scrub === null ? (
               <>
-                <Path d={geo.d} fill="none" stroke={c.line2} strokeWidth={2} strokeLinejoin="round" />
+                <Path d={geo.d} fill="none" stroke={track} strokeWidth={2} strokeLinejoin="round" />
                 <AnimatedPath d={geo.d} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" strokeDasharray={[len, len]} animatedProps={animatedProps} />
                 <Circle cx={geo.x(n - 1)} cy={geo.y(values[n - 1])} r={9} fill={color} opacity={0.18} />
                 <Circle cx={geo.x(n - 1)} cy={geo.y(values[n - 1])} r={4} fill={color} />
@@ -151,7 +153,7 @@ export function ScrubChart({ values, times, height, up, drawKey, pinned, onPrevi
               <>
                 {/* Up to the picked point the line is solid; after it, it steps back. */}
                 <Path d={geo.d} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" clipPath={`url(#${clipId}past)`} />
-                <Path d={geo.d} fill="none" stroke={c.line2} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" clipPath={`url(#${clipId}after)`} />
+                <Path d={geo.d} fill="none" stroke={track} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" clipPath={`url(#${clipId}after)`} />
                 <Circle cx={sx} cy={geo.y(values[scrub])} r={15} fill={c.ink} opacity={0.1} />
                 <Circle cx={sx} cy={geo.y(values[scrub])} r={5.5} fill={color} />
               </>
@@ -160,17 +162,17 @@ export function ScrubChart({ values, times, height, up, drawKey, pinned, onPrevi
         )}
         {geo && scrub !== null && labels && (
           <View pointerEvents="none" style={{ position: 'absolute', top: 2, left: Math.max(0, Math.min(width - 150, sx - 75)), width: 150, alignItems: 'center' }}>
-            <Txt v="small" c="ink3" numberOfLines={1} style={{ fontSize: 12.5 }}>{labels.at(scrub)}</Txt>
+            <Txt v="small" c="ink2" numberOfLines={1}>{labels.at(scrub)}</Txt>
           </View>
         )}
         {valueTicks.map((t) => (
           <View key={t.text} pointerEvents="none" style={{ position: 'absolute', right: 6, top: t.y - 18 }}>
-            <Txt v="figureSm" c="ink3" style={{ fontSize: 11 }}>{t.text}</Txt>
+            <Txt v="figureSm" c="ink2">{t.text}</Txt>
           </View>
         ))}
         {timeTicks.map((t) => (
           <View key={t.text} pointerEvents="none" style={{ position: 'absolute', bottom: 2, left: t.x - 40, width: 80, alignItems: 'center' }}>
-            <Txt v="small" c="ink3" numberOfLines={1} style={{ fontSize: 11.5 }}>{t.text}</Txt>
+            <Txt v="small" c="ink2" numberOfLines={1}>{t.text}</Txt>
           </View>
         ))}
       </View>

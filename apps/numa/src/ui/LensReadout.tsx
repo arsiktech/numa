@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { useTheme } from '@/theme/theme';
+import { radius, space } from '@/theme/tokens';
 
 import { stepFocus } from './lens';
 import { Txt } from './Txt';
@@ -14,15 +15,15 @@ export function LensReadout({ label, amount, detail, surfaceHeight, inspecting, 
   if (selected < 0 || label === undefined) return null;
   return (
     <View testID="lens-readout" pointerEvents={inspecting ? 'none' : 'auto'}
-      style={{ position: 'absolute', bottom: surfaceHeight + 8, left: 0, right: 0, maxHeight: 176, padding: 8, gap: 4, borderRadius: 10, borderWidth: 1, borderColor: c.line, backgroundColor: c.bg, zIndex: 2 }}>
-      <ScrollView key={`${selected}:${label}`} nestedScrollEnabled style={{ maxHeight: 108, flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 4 }}>
+      style={{ position: 'absolute', bottom: surfaceHeight + space[2], left: 0, right: 0, maxHeight: 176, padding: space[2], gap: space[1], borderRadius: radius.bar, borderWidth: 1, borderColor: c.s2, backgroundColor: c.bg, zIndex: 2 }}>
+      <ScrollView key={`${selected}:${label}`} nestedScrollEnabled style={{ maxHeight: 108, flexShrink: 1 }} contentContainerStyle={{ paddingBottom: space[1] }}>
         <View accessible accessibilityLabel={[label, amount, detail].filter(Boolean).join('. ')} accessibilityLiveRegion="polite">
-          <Txt v="small" style={{ fontSize: 14, lineHeight: 20 }}>{label}</Txt>
-          {amount && <Txt v="figureSm" style={{ fontSize: 14, lineHeight: 20 }}>{amount}</Txt>}
-          {detail && <Txt v="small" c="ink2" style={{ fontSize: 13.5, lineHeight: 19, marginTop: 3 }}>{detail}</Txt>}
+          <Txt v="cardTitle">{label}</Txt>
+          {amount && <Txt v="figure">{amount}</Txt>}
+          {detail && <Txt v="small" c="ink2" style={{ marginTop: space[1] }}>{detail}</Txt>}
         </View>
       </ScrollView>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[1] }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Inspect previous tile" disabled={!count} onPress={() => inspect(stepFocus(selected, -1, count))}
           style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
           <Txt v="body" c="ink2">‹</Txt>

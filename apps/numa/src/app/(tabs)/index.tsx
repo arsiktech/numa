@@ -1,6 +1,6 @@
 import { Link, router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, View, useWindowDimensions, type DimensionValue } from 'react-native';
+import { ActivityIndicator, Pressable, View, useWindowDimensions, type DimensionValue, type ViewStyle } from 'react-native';
 
 import type { CloudCurrency } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
@@ -12,7 +12,7 @@ import { pointLabel, rangeWords, ranges, tickLabel, type Range } from '@/data/se
 import { useCloudHome, useDemoHome, type HomeModel } from '@/data/useHome';
 import { usePrefs } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
-import { type as typeScale } from '@/theme/tokens';
+import { radius, space, type as typeScale } from '@/theme/tokens';
 import { CoachTip } from '@/ui/CoachTip';
 import { CompositionBar, type Lens } from '@/ui/CompositionBar';
 import { CurrencyScope, useMoney } from '@/ui/money';
@@ -22,8 +22,7 @@ import { LiquidBreakdown } from '@/ui/LiquidBreakdown';
 import { MonthTeaser } from '@/ui/MonthTeaser';
 import { useMovers } from '@/ui/MoversContext';
 import { WIDE } from '@/ui/Nav';
-import { usePanelOpen } from '@/ui/Panel';
-import { BarButtons, PinnedScreen } from '@/ui/PinnedScreen';
+import { BarButtons, GUTTER, PinnedScreen } from '@/ui/PinnedScreen';
 import { NeedsYou } from '@/ui/NeedsYou';
 import { Odometer } from '@/ui/Odometer';
 import { ScrubChart } from '@/ui/ScrubChart';
@@ -43,6 +42,10 @@ const notes: Record<Lens, string | null> = {
 };
 
 const COACH = 'home-scrub';
+const CHART_WIDE = 200;
+const CHART_PHONE = 160;
+/** Home's cards tile like the attention items: as many 280-point columns as fit, none wider than 560. */
+const tile: ViewStyle = { flexGrow: 1, flexBasis: 280, maxWidth: 560 };
 
 export default function HomeScreen() {
   const session = useSession();
@@ -62,7 +65,7 @@ function CloudHome() {
 function Message({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   const { c } = useTheme();
   return (
-    <View style={{ marginTop: 28, padding: 20, borderRadius: 20, backgroundColor: c.s1, gap: 8, maxWidth: 560 }}>
+    <View style={{ marginTop: space[6], padding: space[6], borderRadius: radius.card, backgroundColor: c.s2, gap: space[2], maxWidth: 560 }}>
       <Txt v="section" accessibilityRole="header">{title}</Txt>
       <Txt v="body" c="ink2">{body}</Txt>
       {action}
@@ -73,7 +76,7 @@ function Message({ title, body, action }: { title: string; body: string; action?
 function Button({ label, onPress, busy }: { label: string; onPress: () => void; busy?: boolean }) {
   const { c } = useTheme();
   return (
-    <Pressable onPress={onPress} disabled={busy} accessibilityRole="button" aria-busy={busy} style={{ marginTop: 8, alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center' }}>
+    <Pressable onPress={onPress} disabled={busy} accessibilityRole="button" aria-busy={busy} style={{ marginTop: space[2], alignSelf: 'flex-start', minHeight: 44, paddingHorizontal: space[6], borderRadius: radius.pill, backgroundColor: c.ink, justifyContent: 'center' }}>
       {busy ? <ActivityIndicator color={c.bg} /> : <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>{label}</Txt>}
     </Pressable>
   );
@@ -89,11 +92,11 @@ function StartSpace({ create }: { create: (currency: CloudCurrency) => Promise<v
       title="Set up your money"
       body="Pick the currency Numa adds everything up in. You can hold money in both."
       action={
-        <View style={{ gap: 4 }}>
-          <View style={{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 999, backgroundColor: c.s2, alignSelf: 'flex-start', marginTop: 6 }} accessibilityRole="radiogroup">
+        <View style={{ gap: space[1] }}>
+          <View style={{ flexDirection: 'row', gap: space[1], padding: space[1], borderRadius: radius.pill, backgroundColor: c.s2, alignSelf: 'flex-start', marginTop: space[2] }} accessibilityRole="radiogroup">
             {(['EUR', 'USD'] as const).map((cur) => (
-              <Pressable key={cur} onPress={() => setCurrency(cur)} accessibilityRole="radio" aria-checked={currency === cur} style={{ minWidth: 72, minHeight: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: currency === cur ? c.bg : 'transparent' }}>
-                <Txt v="body" c={currency === cur ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>{cur === 'EUR' ? '€ Euro' : '$ Dollar'}</Txt>
+              <Pressable key={cur} onPress={() => setCurrency(cur)} accessibilityRole="radio" aria-checked={currency === cur} style={{ minWidth: 72, minHeight: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: currency === cur ? c.bg : 'transparent' }}>
+                <Txt v="body" c={currency === cur ? 'ink' : 'ink2'} style={{ fontFamily: 'Manrope_700Bold' }}>{cur === 'EUR' ? '€ Euro' : '$ Dollar'}</Txt>
               </Pressable>
             ))}
           </View>
@@ -108,29 +111,35 @@ function StartSpace({ create }: { create: (currency: CloudCurrency) => Promise<v
   );
 }
 
-function LensTabs({ lens, setLens, wide, compact }: { lens: Lens; setLens: (l: Lens) => void; wide: boolean; compact?: boolean }) {
+/** One selected pill on a row of words: the lens switch and the range switch look and behave alike. */
+function Choice<T extends string>({ options, value, onChange, label, size, dense }: { options: readonly T[]; value: T; onChange: (v: T) => void; label: (v: T) => string; size: 'body' | 'small'; dense?: boolean }) {
+  const { c } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', gap: wide ? 22 : compact ? 14 : 18 }} accessibilityRole="tablist">
-      {tabs.map((t) => (
-        <Pressable key={t.lens} onPress={() => setLens(t.lens)} {...arrowProps(tabs.map((item) => item.lens), lens, setLens)} accessibilityRole="tab" aria-selected={lens === t.lens} style={({ pressed }) => ({ minHeight: 44, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
-          <Txt v="body" c={lens === t.lens ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_600SemiBold' }} maxFontSizeMultiplier={compact ? 1.2 : 1.4} numberOfLines={1}>{t.label}</Txt>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[1] }} accessibilityRole="tablist">
+      {options.map((o) => (
+        <Pressable key={o} onPress={() => onChange(o)} {...arrowProps(options, value, onChange)} accessibilityRole="tab" aria-selected={value === o}
+          style={({ pressed }) => ({ minWidth: 44, minHeight: 44, paddingHorizontal: dense ? space[2] : space[3], borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: value === o ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
+          <Txt v={size} c={value === o ? 'ink' : 'ink2'} style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4} numberOfLines={1}>{label(o)}</Txt>
         </Pressable>
       ))}
     </View>
   );
 }
 
+const lensLabel = (l: Lens) => tabs.find((t) => t.lens === l)!.label;
+const lensList = tabs.map((t) => t.lens);
+
 /** Holds the place of the total, the chart and the blocks, so the page doesn't jump when they load. */
 function HomeSkeleton({ wide }: { wide: boolean }) {
   const { c } = useTheme();
-  const block = (height: number, width: DimensionValue, marginTop: number, radius = 12) => <View style={{ height, width, marginTop, borderRadius: radius, backgroundColor: c.s2 }} />;
+  const block = (height: number, width: DimensionValue, radiusPx: number = radius.bar) => <View style={{ height, width, borderRadius: radiusPx, backgroundColor: c.s2 }} />;
   return (
-    <View accessible accessibilityRole="progressbar" accessibilityLabel="Loading your money">
-      {block(wide ? 80 : 60, wide ? 340 : 220, 4)}
-      {block(22, 160, 16, 8)}
-      {block(wide ? 280 : 190, '100%', 16)}
-      {block(56, '100%', 28)}
-      {block(120, '100%', 28)}
+    <View accessible accessibilityRole="progressbar" accessibilityLabel="Loading your money" style={{ gap: space[4] }}>
+      {block(wide ? 72 : 48, wide ? 340 : 220)}
+      {block(24, 160)}
+      {block(wide ? CHART_WIDE : CHART_PHONE, '100%')}
+      {block(wide ? 64 : 56, '100%')}
+      {block(120, '100%', radius.card)}
     </View>
   );
 }
@@ -142,7 +151,7 @@ function HomeView({ model, range, setRange, canSignIn }: { model: HomeModel; ran
   const { set } = usePrefs();
   const demo = model.status === 'ready' && model.source === 'demo';
   const shell = (children: React.ReactNode) => (
-    <PinnedScreen nav={(compact) => <LensTabs lens={lens} setLens={setLens} wide={wide} compact={compact} />}
+    <PinnedScreen nav={(compact) => <Choice options={lensList} value={lens} onChange={setLens} label={lensLabel} size="body" dense={compact} />}
       buttons={(compact) => <BarButtons demo={demo} onDemo={canSignIn ? () => set('demo', false) : undefined} compact={compact} />}>
       {children}
     </PinnedScreen>
@@ -211,68 +220,60 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
     : undefined;
 
   const hero = wide ? typeScale.display : typeScale.hero;
-  const centsStyle = Platform.OS === 'web' ? { ...typeScale.cents, fontSize: 32, lineHeight: 32 } : typeScale.cents;
   const abs = Math.abs(shown);
   const whole = (shown < 0 ? '−' : '') + formatMoney(abs - (abs % 100), currency);
   const cents = '.' + (abs % 100).toString().padStart(2, '0');
+  const changeColor = up ? c.ink : c.down;
 
   const heroBlock = (
-    <View>
-      {model.source === 'demo' && <Txt v="body" c="ink2" style={{ marginBottom: 8 }}>Net worth, cash flow and what needs you, on every device.</Txt>}
+    <View style={{ gap: space[2] }}>
+      {model.source === 'demo' && <Txt v="small" c="ink2">Net worth, cash flow and what needs you, on every device.</Txt>}
       {model.available ? (
         <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
           <Odometer text={mask(whole)} style={{ ...hero, color: c.ink, fontVariant: ['tabular-nums'] }} fast={scrub !== null} />
-          <Odometer text={mask(cents)} style={{ ...centsStyle, color: c.ink3, fontVariant: ['tabular-nums'] }} fast={scrub !== null} />
+          <Odometer text={mask(cents)} style={{ ...typeScale.cents, color: c.ink2, fontVariant: ['tabular-nums'] }} fast={scrub !== null} />
         </View>
       ) : (
-        <Txt style={{ ...hero, color: c.ink3 }} accessibilityLabel="Total unavailable">—</Txt>
+        <Txt style={{ ...hero, color: c.ink2 }} accessibilityLabel="Total unavailable">—</Txt>
       )}
-      <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space[3] }}>
         {!model.available ? (
           <Txt v="body" c="ink2">Totals need today’s exchange rate.</Txt>
         ) : showChange ? (
           <Pressable onPress={openMovers} accessibilityRole="button" hitSlop={8} accessibilityHint="Explains this change"
-            style={{ minHeight: 44, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-            <Txt v="figure" style={{ color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
+            style={{ minHeight: 32, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: space[2] }}>
+            <Txt v="figure" style={{ color: changeColor }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
             {/* A picked date shows above the chart, by the point; here only the change since the start. */}
-            {scrub === null && <Txt v="body" c="ink2">{rangeWords(range, points[0].t)}</Txt>}
-            <Txt v="body" c="ink3">›</Txt>
+            {scrub === null && <Txt v="body" c="ink2">{rangeWords(range, points[0].t)} ›</Txt>}
           </Pressable>
         ) : (
           model.empty ? null : <Txt v="body" c="ink2">{lens !== 'net' && !chartFollowsLens ? 'Today' : 'History starts today'}</Txt>
         )}
         {preview === null && pinned !== null && (
           <Pressable onPress={unpin} accessibilityRole="button" accessibilityLabel="Back to today" hitSlop={8}
-            style={{ minHeight: 28, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Txt v="small" c="ink" style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4}>Back to today</Txt>
-            <Txt v="small" c="ink3" maxFontSizeMultiplier={1.4}>✕</Txt>
+            style={{ minHeight: 32, paddingHorizontal: space[3], borderRadius: radius.pill, backgroundColor: c.s2, flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+            <Txt v="small" style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4}>Back to today</Txt>
+            <Txt v="small" c="ink2" maxFontSizeMultiplier={1.4}>✕</Txt>
           </Pressable>
         )}
         {scrub === null && model.live && range === '1D' && model.available && (
-          <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.upBg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.up }} />
-            <Txt v="label" c="upInk">{model.source === 'demo' ? 'Sample data' : 'Live'}</Txt>
+          <View style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+            <View style={{ width: space[2], height: space[2], borderRadius: space[1], backgroundColor: c.ink2 }} />
+            <Txt v="small" c="ink2">{model.source === 'demo' ? 'Sample data' : 'Live'}</Txt>
           </View>
         )}
       </View>
     </View>
   );
 
-  const rangePills = (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: wide ? 'flex-end' : 'space-between', gap: 4 }} accessibilityRole="tablist">
-      {ranges.map((r) => (
-        <Pressable key={r} onPress={() => { setRange(r); unpin(); }} {...arrowProps(ranges, range, (next) => { setRange(next); unpin(); })} accessibilityRole="tab" aria-selected={range === r} style={({ pressed }) => ({ minWidth: 44, minHeight: 44, paddingHorizontal: 8, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
-          <Txt v="small" c={range === r ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4}>{r}</Txt>
-        </Pressable>
-      ))}
-    </View>
-  );
+  const pickRange = (r: Range) => { setRange(r); unpin(); };
+  const rangePills = <Choice options={ranges} value={range} onChange={pickRange} label={(r) => r} size="small" />;
 
-  const chartHeight = wide ? 280 : 190;
+  const chartHeight = wide ? CHART_WIDE : CHART_PHONE;
   const showChart = model.available && !model.empty;
   const chart = showChart ? (
-    <View style={{ marginHorizontal: wide ? 0 : -20 }}>
-      <ScrubChart values={values} times={model.source === 'cloud' ? points.map((p) => p.t) : undefined} height={chartHeight} up={up} drawKey={range + (chartFollowsLens ? lens : 'net')} pinned={pinned}
+    <View style={{ marginHorizontal: wide ? 0 : -GUTTER }}>
+      <ScrubChart values={values} times={model.source === 'cloud' ? points.map((p) => p.t) : undefined} height={chartHeight} color={changeColor} track={c.ink2} drawKey={range + (chartFollowsLens ? lens : 'net')} pinned={pinned}
         labels={{ times: points.map((p) => p.t), at: (i) => pointLabel(points[i].t, range, model.now), tick: (t) => tickLabel(t, range) }}
         onPreview={(i) => { setPreview(i); if (i !== null && coach) seeTip(COACH); }}
         onPin={(i) => { setPreview(null); setPinnedAt(i >= points.length - 1 ? null : points[i].t); if (coach) seeTip(COACH); }} />
@@ -281,52 +282,45 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   ) : null;
 
   const blocks = model.empty ? (
-    <Message title="Nothing tracked yet" body="Add a cash balance to see your net worth. Enter a sentence like “Bank balance 100”, press Send, check the draft, then press Save." action={model.source === 'cloud' ? <View style={{ gap: 6 }}>
+    <Message title="Nothing tracked yet" body="Add a cash balance to see your net worth. Enter a sentence like “Bank balance 100”, press Send, check the draft, then press Save." action={model.source === 'cloud' ? <View style={{ gap: space[2] }}>
       <Button label="Add your first account" onPress={() => router.push('/ask')} />
       <Link href="/import" asChild><Pressable accessibilityRole="link" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Or import a spreadsheet ›</Txt></Pressable></Link>
     </View> : undefined} />
   ) : model.available ? (
-    <View>
+    <View style={{ gap: space[2] }}>
       <CompositionBar {...composition} items={model.items} lens={lens} wide={wide} when={scrub !== null && idx < points.length - 1 ? pointLabel(points[idx].t, range, model.now) : undefined}
         onOpen={openDay ? (cat) => openDay(dayGroupOf(cat)) : undefined} />
-      {notes[lens] ? <Txt v="body" c="ink2" style={{ fontSize: 13.5, marginTop: 10 }}>{notes[lens]}</Txt> : null}
-      {summary.unknown.length > 0 && <Txt v="small" c="ink3" style={{ marginTop: 8 }}>{summary.unknown.length} without a value {summary.unknown.length === 1 ? 'is' : 'are'} left out.</Txt>}
+      {notes[lens] ? <Txt v="small" c="ink2">{notes[lens]}</Txt> : null}
+      {summary.unknown.length > 0 && <Txt v="small" c="ink2">{summary.unknown.length} without a value {summary.unknown.length === 1 ? 'is' : 'are'} left out.</Txt>}
       {lens === 'liquid' && <LiquidBreakdown summary={summary} pledged={model.pledged} invested={model.invested} />}
-      {lens !== 'net' && !chartFollowsLens && <Txt v="small" c="ink3" style={{ marginTop: 6 }}>{tabs.find((t) => t.lens === lens)!.label}{lens === 'liquid' ? ' after debts' : ''} today: {money(lensNow)}. The chart shows net worth.</Txt>}
+      {lens !== 'net' && !chartFollowsLens && <Txt v="small" c="ink2">{lensLabel(lens)}{lens === 'liquid' ? ' after debts' : ''} today: {money(lensNow)}. The chart shows net worth.</Txt>}
     </View>
   ) : null;
 
-  const panelOpen = usePanelOpen();
   // Dragging the chart re-renders this screen on every move. These sections don't follow the finger.
-  const teaser = useMemo(() => <MonthTeaser month={model.month} flow={model.flow} />, [model.month, model.flow]);
   const cloudTeasers = model.source === 'cloud' && !model.empty;
-  const moneyMap = useMemo(() => (cloudTeasers ? <MoneyMapTeaser /> : null), [cloudTeasers]);
-  const earnings = useMemo(() => (cloudTeasers ? <EarningsTeaser style={wide ? undefined : { marginTop: 12 }} /> : null), [cloudTeasers, wide]);
+  const cards = useMemo(() => (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[3] }}>
+      {cloudTeasers && <MoneyMapTeaser style={tile} />}
+      {cloudTeasers && <EarningsTeaser style={tile} />}
+      <MonthTeaser month={model.month} flow={model.flow} style={tile} />
+    </View>
+  ), [cloudTeasers, model.month, model.flow]);
   const needs = useMemo(() => <NeedsYou items={model.attention} readOnly={model.source === 'demo'} />, [model.attention, model.source]);
 
-  if (wide) {
-    return shell(
-      <View style={{ gap: 20 }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>{heroBlock}{showChart && rangePills}</View>
-          {chart}
-          {/* Beside an open panel the page is narrower, so the two columns stack. */}
-          <View style={{ flexDirection: panelOpen ? 'column' : 'row', gap: panelOpen ? 28 : 48, alignItems: panelOpen ? 'stretch' : 'flex-start', marginTop: 14 }}>
-            <View style={{ flex: panelOpen ? undefined : 1.7, gap: 28 }}>{blocks}{moneyMap}{earnings}{teaser}</View>
-            <View style={{ flex: panelOpen ? undefined : 1, minWidth: 320 }}>{needs}</View>
-          </View>
-      </View>,
-    );
-  }
+  // One column at every width: the answer, then why (own against owe), then what to do, then the details.
   return shell(
-    <>
-      <View style={{ marginTop: 8 }}>{heroBlock}</View>
-      {chart && <View style={{ marginTop: 12 }}>{chart}</View>}
-      {showChart && <View style={{ marginTop: 6, marginHorizontal: -6 }}>{rangePills}</View>}
-      <View style={{ marginTop: 28 }}>{blocks}</View>
-      {moneyMap && <View style={{ marginTop: 20 }}>{moneyMap}</View>}
-      {earnings}
-      <View style={{ marginTop: 28 }}>{teaser}</View>
-      <View style={{ marginTop: 30 }}>{needs}</View>
-    </>,
+    <View style={{ gap: wide ? space[8] : space[6] }}>
+      <View style={{ gap: wide ? space[4] : space[3] }}>
+        {wide ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: space[4] }}>{heroBlock}{showChart && rangePills}</View>
+        ) : heroBlock}
+        {chart}
+        {!wide && showChart && rangePills}
+      </View>
+      {blocks}
+      {needs}
+      {cards}
+    </View>,
   );
 }

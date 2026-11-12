@@ -5,11 +5,13 @@ import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated'
 import type { Attention } from '@/domain/types';
 import { usePrefs } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
+import { radius, space, type HomeColor } from '@/theme/tokens';
 import { IconCheck } from './icons';
 import { useMoney } from './money';
 import { Txt } from './Txt';
 
-const dot = { due: 'down', watch: 'warn', housekeeping: 'ink3' } as const;
+// Only what is due takes the alert colour; a watch is ink and housekeeping is quiet.
+const dot = { due: 'down', watch: 'ink', housekeeping: 'ink2' } as const satisfies Record<Attention['urgency'], HomeColor>;
 
 function Card({ item, index, done, readOnly, onPrimary, onLater, onUndo }: { item: Attention; index: number; done: boolean; readOnly: boolean; onPrimary: () => void; onLater: () => void; onUndo: () => void }) {
   const { c } = useTheme();
@@ -22,27 +24,27 @@ function Card({ item, index, done, readOnly, onPrimary, onLater, onUndo }: { ite
       accessibilityRole="button"
       accessibilityState={{ disabled: readOnly }}
       aria-disabled={readOnly}
-      style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: filled ? 16 : 12, borderRadius: filled ? 999 : 0, backgroundColor: filled ? (readOnly ? c.s2 : c.ink) : 'transparent', justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}
+      style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: filled ? space[4] : space[3], borderRadius: filled ? radius.pill : 0, backgroundColor: filled ? (readOnly ? c.bg : c.ink) : 'transparent', justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}
     >
-      <Txt v="body" c={filled ? (readOnly ? 'ink2' : 'bg') : readOnly ? 'ink3' : 'ink'} style={{ fontFamily: 'Manrope_700Bold' }}>{label}</Txt>
+      <Txt v="body" c={filled ? (readOnly ? 'ink2' : 'bg') : readOnly ? 'ink2' : 'ink'} style={{ fontFamily: 'Manrope_700Bold' }}>{label}</Txt>
     </Pressable>
   );
   return (
-    <Animated.View entering={reduce ? undefined : FadeInDown.delay(300 + index * 90).duration(500)} style={{ padding: 16, borderRadius: 20, backgroundColor: c.s1, opacity: done ? 0.65 : 1, flexDirection: 'row', gap: 10 }}>
-      <View style={{ width: 8, height: 8, marginTop: 6, borderRadius: 4, backgroundColor: c[dot[item.urgency]] }} />
+    <Animated.View entering={reduce ? undefined : FadeInDown.delay(300 + index * 90).duration(500)} style={{ flexGrow: 1, flexBasis: 280, maxWidth: 560, padding: space[4], borderRadius: radius.card, backgroundColor: c.s2, opacity: done ? 0.65 : 1, flexDirection: 'row', gap: space[3] }}>
+      <View style={{ width: space[2], height: space[2], marginTop: space[2], borderRadius: space[1], backgroundColor: c[dot[item.urgency]] }} />
       <View style={{ flex: 1 }}>
         <Txt v="cardTitle">{mask(item.title)}</Txt>
-        <Txt v="body" c="ink2" style={{ marginTop: 4 }}>{mask(item.body)}</Txt>
+        <Txt v="body" c="ink2" style={{ marginTop: space[1] }}>{mask(item.body)}</Txt>
         {done ? (
-          <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <IconCheck color={c.upInk} />
-            <Txt v="body" c="upInk" style={{ fontFamily: 'Manrope_700Bold' }}>{item.doneText}</Txt>
-            <Pressable onPress={onUndo} accessibilityRole="button" hitSlop={8} style={{ paddingHorizontal: 6, minHeight: 30, justifyContent: 'center' }}>
+          <View style={{ marginTop: space[2], flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+            <IconCheck color={c.ink} />
+            <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>{item.doneText}</Txt>
+            <Pressable onPress={onUndo} accessibilityRole="button" hitSlop={8} style={{ paddingHorizontal: space[2], minHeight: 32, justifyContent: 'center' }}>
               <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>Undo</Txt>
             </Pressable>
           </View>
         ) : (
-          <View style={{ marginTop: 12, flexDirection: 'row', gap: 4 }}>
+          <View style={{ marginTop: space[3], flexDirection: 'row', gap: space[1] }}>
             {action(item.primary, onPrimary, true)}
             {action(item.secondary, onLater, false)}
           </View>
@@ -59,6 +61,7 @@ function Card({ item, index, done, readOnly, onPrimary, onLater, onUndo }: { ite
  * In the demo the words stay and the buttons do not run. The sample cannot finish them.
  */
 export function NeedsYou({ items, readOnly = false }: { items: Attention[]; readOnly?: boolean }) {
+  const { c } = useTheme();
   const { dismiss } = usePrefs();
   // Cards acted on in this view stay visible in their done state so Undo is reachable,
   // even though the parent has already filtered them out.
@@ -73,14 +76,18 @@ export function NeedsYou({ items, readOnly = false }: { items: Attention[]; read
     dismiss(item.id, null);
     setActed((a) => { const next = { ...a }; delete next[item.id]; return next; });
   };
-  return (
-    <View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', columnGap: 12, marginBottom: 10 }}>
-        <Txt v="section" accessibilityRole="header">{left === 0 ? 'All clear' : `Needs you · ${left}`}</Txt>
-        <Txt v="small" c="ink3">max 3 a day</Txt>
+  if (shown.length === 0) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }} accessible accessibilityRole="text">
+        <IconCheck color={c.ink2} />
+        <Txt v="body" c="ink2"><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>All clear.</Txt> Nothing needs you right now.</Txt>
       </View>
-      {shown.length === 0 && <Txt v="body" c="ink2">Nothing needs you right now.</Txt>}
-      <View style={{ gap: 10 }}>
+    );
+  }
+  return (
+    <View style={{ gap: space[3] }}>
+      <Txt v="section" accessibilityRole="header">{left === 0 ? 'All clear' : `Needs you · ${left}`}</Txt>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[3] }}>
         {shown.map((it, i) => (
           <Card key={it.id} item={acted[it.id] ? { ...it, doneText: acted[it.id].text } : it} index={i} done={!!acted[it.id]} readOnly={readOnly} onPrimary={() => act(it, false)} onLater={() => act(it, true)} onUndo={() => undo(it)} />
         ))}
