@@ -20,7 +20,7 @@ export function EarningsTeaser({ style }: { style?: StyleProp<ViewStyle> }) {
       {started ? (
         <>
           <Txt v="figure" style={e.netCents < 0 ? { color: c.down } : undefined}>{money(e.netCents, { cents: true, sign: true })}</Txt>
-          <Txt v="small" c="ink2">Last 30 days{e.rate !== null ? ` · about ${(e.rate * 100).toFixed(1)}% a year` : ''}</Txt>
+          <Txt v="small" c="ink2">last 30 days{e.rate !== null ? ` · about ${(e.rate * 100).toFixed(1)}% a year` : ''}</Txt>
         </>
       ) : (
         <Txt v="small" c="ink2">Tracking started. Earnings show after a full day.</Txt>
