@@ -1,16 +1,20 @@
 import { Link, router } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, Tabs, type TabTriggerSlotProps } from 'expo-router/ui';
 import { forwardRef, type ReactNode } from 'react';
-import { Platform, Pressable, View, useWindowDimensions, type View as RNView, type ViewProps } from 'react-native';
+import { Pressable, View, useWindowDimensions, type View as RNView, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/theme';
+import { radius, space } from '@/theme/tokens';
 import { WIDE, panelWidth, usePanelOpen } from './Panel';
 import { IconAsk, IconFlow, IconHoldings, IconHome, IconPlan, IconPlus } from './icons';
 import { ProBadge } from './ProBadge';
 import { Txt } from './Txt';
 
 export { WIDE };
+
+/** The phone capsule's height and the round plus beside it. */
+const PLUS = 62;
 
 const routes = [
   { name: 'index', href: '/', label: 'Home', Icon: IconHome },
@@ -20,13 +24,31 @@ const routes = [
 
 type ItemProps = TabTriggerSlotProps & { label: string; icon: (color: string) => ReactNode; wide: boolean };
 
+/** One sidebar row. A plain style object: web links built with `asChild` drop a style function, which stacked the icon over the label. */
+const sideRow = (selected: boolean, bg: string) => ({
+  minHeight: 44, flexDirection: 'row' as const, alignItems: 'center' as const, gap: space[3], paddingHorizontal: space[3],
+  borderRadius: radius.control, backgroundColor: selected ? bg : 'transparent',
+});
+
+function SideLink({ href, label, icon }: { href: '/holdings' | '/ask'; label: string; icon: (color: string) => ReactNode }) {
+  const { c } = useTheme();
+  return (
+    <Link href={href} asChild>
+      <Pressable accessibilityRole="link" style={sideRow(false, c.s2)}>
+        {icon(c.ink2)}
+        <Txt v="body" c="ink2" style={{ fontFamily: 'Manrope_600SemiBold' }}>{label}</Txt>
+      </Pressable>
+    </Link>
+  );
+}
+
 const NavItem = forwardRef<RNView, ItemProps>(function NavItem({ isFocused, label, icon, wide, ...props }, ref) {
   const { c } = useTheme();
-  const color = isFocused ? c.ink : c.ink3;
+  const color = isFocused ? c.ink : c.ink2;
   if (wide) {
     return (
       // A place in the sidebar closes any open panel, so the page it opens is the one in view.
-      <Pressable ref={ref} {...props} onPress={(e) => { if (router.canDismiss()) router.dismissAll(); props.onPress?.(e); }} accessibilityRole="link" aria-current={isFocused ? 'page' : undefined} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, backgroundColor: isFocused ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
+      <Pressable ref={ref} {...props} onPress={(e) => { if (router.canDismiss()) router.dismissAll(); props.onPress?.(e); }} accessibilityRole="link" aria-current={isFocused ? 'page' : undefined} style={({ pressed }) => ({ ...sideRow(!!isFocused, c.s2), opacity: pressed ? 0.72 : 1 })}>
         {icon(color)}
         <Txt v="body" style={{ color, fontFamily: 'Manrope_600SemiBold' }}>{label}</Txt>
       </Pressable>
@@ -41,8 +63,8 @@ const NavItem = forwardRef<RNView, ItemProps>(function NavItem({ isFocused, labe
 
 export function Wordmark() {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 12 }} accessible accessibilityLabel="Numa Pro">
-      <Txt v="title" style={{ fontSize: 22, lineHeight: 26, letterSpacing: -0.9 }}>numa</Txt>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2], paddingHorizontal: space[3] }} accessible accessibilityLabel="Numa Pro">
+      <Txt v="section" style={{ letterSpacing: -0.8 }}>numa</Txt>
       <ProBadge />
     </View>
   );
@@ -51,9 +73,9 @@ export function Wordmark() {
 /** The small mark for the top of a phone screen, so it is always clear which app this is. */
 export function MiniWordmark() {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }} accessible accessibilityRole="header" accessibilityLabel="Numa Pro">
-      <Txt v="title" style={{ fontSize: 19, lineHeight: 24, letterSpacing: -0.8 }} maxFontSizeMultiplier={1.3}>numa</Txt>
-      <ProBadge size={15} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }} accessible accessibilityRole="header" accessibilityLabel="Numa Pro">
+      <Txt v="section" style={{ letterSpacing: -0.8 }} maxFontSizeMultiplier={1.3}>numa</Txt>
+      <ProBadge />
     </View>
   );
 }
@@ -65,14 +87,13 @@ const NavContainer = forwardRef<RNView, ContainerProps>(function NavContainer({ 
   const { c } = useTheme();
   if (wide) {
     return (
-      <View ref={ref} {...props} style={[style, { width: 236, paddingVertical: 26, paddingHorizontal: 14, gap: 2, borderRightWidth: 1, borderRightColor: c.line, flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'stretch' }]}>
+      <View ref={ref} {...props} style={[style, { width: 240, paddingVertical: space[6], paddingHorizontal: space[4], gap: space[1], borderRightWidth: 1, borderRightColor: c.s2, flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'stretch' }]}>
         {children}
       </View>
     );
   }
-  const glass = Platform.OS === 'web' ? ({ backdropFilter: 'blur(22px) saturate(1.4)' } as object) : {};
   return (
-    <View ref={ref} {...props} style={[style, { position: 'absolute', zIndex: 10, elevation: 10, left: 20, right: 92, bottom, height: 62, borderRadius: 31, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: c.glass, borderWidth: 1, borderColor: c.glassBorder, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 } }, glass]}>
+    <View ref={ref} {...props} style={[style, { position: 'absolute', zIndex: 10, elevation: 10, left: space[4], right: space[4] + PLUS + space[3], bottom, height: PLUS, borderRadius: radius.pill, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: c.bg, borderWidth: 1, borderColor: c.s2 }]}>
       {children}
     </View>
   );
@@ -92,34 +113,20 @@ export function AppTabs() {
       <TabList asChild>
         <NavContainer wide={wide} bottom={bottom}>
           {wide ? <Wordmark /> : null}
-          {wide ? <View style={{ height: 24 }} /> : null}
+          {wide ? <View style={{ height: space[6] }} /> : null}
           {routes.map((r) => (
             <TabTrigger key={r.name} name={r.name} href={r.href} asChild>
               <NavItem label={r.label} icon={(col) => <r.Icon color={col} size={wide ? 20 : 22} />} wide={wide} />
             </TabTrigger>
           ))}
-          {wide ? (
-            <Link href="/holdings" asChild>
-              <Pressable accessibilityRole="link" style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, opacity: pressed ? 0.72 : 1 })}>
-                <IconHoldings color={c.ink3} />
-                <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Holdings</Txt>
-              </Pressable>
-            </Link>
-          ) : null}
-          {wide ? (
-            <Link href="/ask" asChild>
-              <Pressable accessibilityRole="link" style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, opacity: pressed ? 0.72 : 1 })}>
-                <IconAsk color={c.ink3} />
-                <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Ask or add</Txt>
-              </Pressable>
-            </Link>
-          ) : null}
+          {wide ? <SideLink href="/holdings" label="Holdings" icon={(col) => <IconHoldings color={col} />} /> : null}
+          {wide ? <SideLink href="/ask" label="Ask or add" icon={(col) => <IconAsk color={col} />} /> : null}
         </NavContainer>
       </TabList>
       <TabSlot style={{ flex: 1, marginRight: wide && panelOpen ? panelWidth(width) : 0 }} />
       {!wide ? (
-        <Pressable onPress={() => router.push('/ask')} accessibilityRole="button" accessibilityLabel="Ask or add" style={({ pressed }) => ({ position: 'absolute', zIndex: 10, elevation: 10, right: 16, bottom, width: 62, height: 62, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.plus, opacity: pressed ? 0.72 : 1, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 10 } })}>
-          <IconPlus color={c.plusInk} />
+        <Pressable onPress={() => router.push('/ask')} accessibilityRole="button" accessibilityLabel="Ask or add" style={({ pressed }) => ({ position: 'absolute', zIndex: 10, elevation: 10, right: space[4], bottom, width: PLUS, height: PLUS, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ink, opacity: pressed ? 0.72 : 1 })}>
+          <IconPlus color={c.bg} />
         </Pressable>
       ) : null}
     </Tabs>

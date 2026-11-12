@@ -27,6 +27,31 @@ The same system is packaged for reuse in other products as the **Pulse** design 
 - **Teach once.** The first visit to each screen shows one tip with a gesture
   demo (pulse, ghost finger, one sentence, "Got it").
 
+## Home core set
+
+Rebuilt on 2026-11-13. Home, the sidebar, the top bar and the phone capsule use
+only five colours, one spacing scale and one type scale. `apps/numa/src/ui/homeTokens.test.ts`
+fails when a Home file uses anything else, so new work on Home stays inside it.
+Other screens still use the full palette below until they move over.
+
+| Token | Dark | Light | Use on Home |
+| --- | --- | --- | --- |
+| `bg` | `#000000` | `#FFFFFF` | Page, text on filled blocks, the unfilled net-worth rest of the debt row |
+| `s2` | `#1C1E22` | `#ECECE9` | Every surface: cards, owned blocks, selected pills, capsule outline |
+| `ink` | `#F4F4F1` | `#0B0B0C` | The answer, figures, gains, primary buttons |
+| `ink2` | `#A1A4AA` | `#55575C` | Labels, inactive tabs, icons, the chart's start line |
+| `down` | `#FF6B5E` | `#D23A2D` | Losses, what you owe, what is due |
+
+Gains are ink, not green: on Home only what needs attention takes a colour.
+Owned blocks share one tone and are told apart by their labels; both bars use
+one scale, so owing more than you own shows as a longer debt bar. No gradients
+and no hatching.
+
+- **Space**: 4, 8, 12, 16, 24, 32, 48, 64 (`space` in `tokens.ts`). Groups on
+  Home are 32 apart on wide screens and 24 on phones; the phone gutter is 16.
+- **Type**: 13, 16, 20, 28, 48, 72. Display 72 and hero 48 are the net worth,
+  cents 28, section 20, body and figures 16, small, label and small figures 13.
+
 ## Colour tokens
 
 Same names in both themes.
@@ -62,7 +87,7 @@ Block palette (composition bars, legends, holdings):
 | `--prop` | `#8796AE` | `#5E6F87` | Property |
 | `--cash` | `#9CCBE8` | `#7FB6E0` | Cash and stablecoins |
 | `--things` | `#D9C9A8` | `#CDB98F` | Watch, car, metals |
-| `--debt1` / `--debt2` | `#FF6B5E` / `#D9483C` | `#D23A2D` / `#B32F24` | Debts, hatched at 135° |
+| `--debt1` / `--debt2` | `#FF6B5E` / `#D9483C` | `#D23A2D` / `#B32F24` | Debts (no longer hatched on Home) |
 | `--netbg` / `--netink` | `rgba(61,220,151,.14)` / `#3DDC97` | `#E3F4EC` / `#0B7A4B` | Net worth bar |
 
 Text on blocks: dark ink on crypto, cash and things in both themes; on stocks,
@@ -71,7 +96,7 @@ theme.
 
 ## Pro badge
 
-The `numa` wordmark stays plain ink (Manrope 800, −0.04em). Next to it sits a small PRO badge that is iridescent, like oil on water: a conic gradient of six film colours (`#FF5FA2 #9B6BFF #4CC9F0 #5EF2B5 #F4E46A #FF9A62`) turning once every 9 s under a soft white highlight, with `#0B0B0C` text so it reads on both themes and a faint violet and cyan glow. Sizes 16, 20 and 30 px tall. With reduced motion it holds still. The film colours are for the badge only, never for data.
+The `numa` wordmark stays plain ink (Manrope 800, section size). Next to it sits a flat PRO chip: label type in ink on an `s2` pill, the same size everywhere. It replaced the iridescent gradient badge on 2026-11-13.
 
 ## Type
 
@@ -80,22 +105,22 @@ never jump.
 
 | Style | Spec | Example |
 | --- | --- | --- |
-| Display | Manrope 300, 80 | €899,538 |
-| Hero | Manrope 300, 54 | €899,538 |
-| Cents | Manrope 300, 32 on web, 30 on phone | .42 |
+| Display | Manrope 300, 72 | €899,538 |
+| Hero | Manrope 300, 48 | €899,538 |
+| Cents | Manrope 300, 28 | .42 |
 | Title | Manrope 800, 28 | Check what Numa read |
 | Section | Manrope 800, 20 | Needs you |
 | Body | Manrope 500, 16 | About €2,140 for IVA and IRPF. |
 | Small | Manrope 500, 13 | live · 4 wallets |
 | Figure | JetBrains Mono 500, 16 | ▲ €2,328.94 |
 | Figure small | JetBrains Mono 500, 13 | +0.26% |
-| Label | Manrope 800, 12 | LIVE |
+| Label | Manrope 800, 13 | DEMO |
 
-Nothing is under 12. Card titles use the body size in a heavier weight. On the web, type is set in rem so the page follows the browser text size.
+Nothing is under 13. Card titles use the body size in a heavier weight. On the web, type is set in rem so the page follows the browser text size.
 
 ## Space and shape
 
-- Space is 4, 8, 12, 16, 24, 32, 40.
+- Space is 4, 8, 12, 16, 24, 32, 48, 64.
 - Radius is 10, 14, 18, and 999 for pills.
 - One segment control. One primary button: 48 px tall, pill radius, 16 px type.
 - Touch targets are at least 44 px. Every control has a 2 px ink focus ring.
@@ -121,10 +146,11 @@ changed. With reduced motion on, everything appears in place.
 
 - **Figure tabs** Net worth, Liquid, Cash; range pills 1D to ALL.
 - **Scrubbable chart**: drag or hover moves the big figure back in time.
-- **Own and owe blocks**: widths are values, debts hatched, tabs dim what is
-  not liquid. Tapping a block opens it.
-- **Needs you card**: dot colour is urgency (red due, amber watch, grey
-  housekeeping), one primary action, resolved state with Undo.
+- **Own and owe blocks**: widths are values on one shared scale, each total
+  written once above its bar, tabs dim what is not liquid. Tapping a block opens it.
+- **Needs you card**: dot colour is urgency (red due, ink watch, grey
+  housekeeping), one primary action, resolved state with Undo. With nothing
+  to do it is one line, not a section.
 - **Capsule nav and plus** on phone; sidebar and ask bar (⌘K) on web.
 - **Draft card** from Ask: marked DRAFT until saved; Save, Edit, Discard.
 - **Freshness label** on every value: live, delay, synced, your value with date,

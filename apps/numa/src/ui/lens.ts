@@ -179,3 +179,12 @@ export function mixGeometry(from: number[], to: number[], phase: number): number
   const p = Number.isFinite(phase) ? Math.max(0, Math.min(1, phase)) : 1;
   return to.map((v, i) => from[i] + (v - from[i]) * p);
 }
+
+/** How wide each bar is, as a share of the larger side, so owing more than you own shows as a longer debt bar. */
+export function barShares(ownCents: number, oweCents: number, netCents: number) {
+  const own = Math.max(ownCents, 0);
+  const balance = Math.max(oweCents, 0) + Math.max(netCents, 0);
+  const max = Math.max(own, balance);
+  if (!(max > 0) || !Number.isFinite(max)) return { own: 1, balance: 1 };
+  return { own: own / max, balance: balance / max };
+}

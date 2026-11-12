@@ -3,7 +3,7 @@ import { Platform, Pressable, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 
-import { duration } from '@/theme/tokens';
+import { duration, radius, space } from '@/theme/tokens';
 
 import { barRects, proportionalWidths } from './lens';
 import { LensReadout } from './LensReadout';
@@ -14,7 +14,9 @@ import { useLensGeometry, useLensInteraction } from './useLensInteraction';
 
 export type BarEntry = {
   id: string; name: string; cents: number; fill: string; ink: string; detail?: string;
-  onPress?: () => void; opacity?: number; hatch?: string; fullAmount?: boolean;
+  onPress?: () => void; opacity?: number; fullAmount?: boolean;
+  /** Label only while inspected, for a block whose amount is already written above the bar. */
+  quiet?: boolean;
 };
 
 function Drawing({ entry, rect, geometry, selected, labelMin, total }: { entry: BarEntry; rect: Tile; geometry: Pick<SharedValue<number[]>, 'get'>; selected: boolean; labelMin: number; total: number }) {
@@ -29,19 +31,22 @@ function Drawing({ entry, rect, geometry, selected, labelMin, total }: { entry: 
     const w = values[offset + 2] ?? rect.w;
     return { left: values[offset] ?? rect.x, width: Math.max(0, w - Math.min(2, w * 0.12)), opacity: opacity.get() };
   });
-  const show = selected || (total > 0 && Number.isFinite(total) && entry.cents / total >= labelMin);
+  const show = selected || (!entry.quiet && total > 0 && Number.isFinite(total) && entry.cents / total >= labelMin);
   return (
     <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 0, height: rect.h, backgroundColor: entry.fill, overflow: 'hidden', justifyContent: 'flex-end' }, style]}>
-      {entry.hatch && Array.from({ length: 32 }, (_, i) => <View key={i} style={{ position: 'absolute', top: -20, left: -40 + i * 14, width: 7, height: 160, backgroundColor: entry.hatch, transform: [{ rotate: '45deg' }] }} />)}
-      {show && <View style={{ paddingLeft: 8, paddingBottom: 7, paddingRight: 2 }}>
-        <Txt v="label" style={{ color: entry.ink, textTransform: 'none', letterSpacing: 0 }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{mask(entry.name)}</Txt>
+      {show && <View style={{ paddingLeft: space[2], paddingBottom: space[2], paddingRight: space[1] }}>
+        <Txt v="small" style={{ color: entry.ink, fontFamily: 'Manrope_700Bold' }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{mask(entry.name)}</Txt>
         <Txt v="figureSm" style={{ color: entry.ink }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{entry.fullAmount ? money(Math.round(entry.cents)) : short(Math.round(entry.cents))}</Txt>
       </View>}
     </Animated.View>
   );
 }
 
-export function LensBar({ entries, height, labelMin, emptyColor }: { entries: BarEntry[]; height: number; labelMin: number; emptyColor: string }) {
+/**
+ * `share` draws the bar at that fraction of the row, so two bars can sit on one scale. Only the drawing
+ * and its hit surface shrink: the readout keeps the full row, so a short bar is still readable when inspected.
+ */
+export function LensBar({ entries, height, labelMin, emptyColor, share = 1 }: { entries: BarEntry[]; height: number; labelMin: number; emptyColor: string; share?: number }) {
   const { money, hidden, mask } = useMoney();
   const [width, setWidth] = useState(0);
   const shown = useMemo(() => entries.filter((e) => Number.isFinite(e.cents) && e.cents > 0), [entries]);
@@ -54,7 +59,7 @@ export function LensBar({ entries, height, labelMin, emptyColor }: { entries: Ba
   return (
     <View style={{ overflow: 'visible', zIndex: selected ? 1 : 0 }}>
       <GestureDetector gesture={interaction.gesture} touchAction="pan-y">
-        <View testID="bar-lens-surface" onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ height, borderRadius: 10, overflow: 'hidden', backgroundColor: shown.length ? 'transparent' : emptyColor }}>
+        <View testID="bar-lens-surface" onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ width: `${Math.max(Math.min(share, 1), 0.02) * 100}%`, height, borderRadius: radius.bar, overflow: 'hidden', backgroundColor: shown.length ? 'transparent' : emptyColor }}>
           {rects.map((r) => <Drawing key={shown[r.index].id} entry={shown[r.index]} rect={r} geometry={geometry} selected={interaction.selected === r.index} total={total} labelMin={labelMin} />)}
           {/* These original hit targets never move with the animated drawings. */}
           {rects.map((r) => {

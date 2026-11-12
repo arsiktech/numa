@@ -51,11 +51,12 @@ const { check, finish } = checker();
   await wait(800);
   check('the tip is remembered once dismissed', !(await page.locator('body').innerText()).includes('Tap a stream, or its chip'));
 
-  // PRO badge: the film turns, unless reduced motion is on.
+  // PRO badge: a flat chip since the Home rebuild (no gradient film), so nothing on the page turns.
   const angle = async (pg) => pg.evaluate(() => {
     const el = [...document.querySelectorAll('div')].find((d) => /rotate\(/.test(d.style.transform || ''));
     return el ? el.style.transform : null;
   });
+  const flat = async (pg) => pg.evaluate(() => ![...document.querySelectorAll('linearGradient, radialGradient')].length);
   const wide = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: 'light' });
   const w = await wide.newPage();
   watchErrors(w, errors);
@@ -63,7 +64,7 @@ const { check, finish } = checker();
   await w.getByText('Explore demo').click();
   await w.getByText('What you own').waitFor({ timeout: 15000 });
   const a1 = await angle(w); await wait(1500); const a2 = await angle(w);
-  check('PRO badge film turns', !!a1 && !!a2 && a1 !== a2, `${a1} → ${a2}`);
+  check('PRO badge is a flat chip that holds still', (await w.getByText('Pro', { exact: true }).count()) > 0 && await flat(w) && a1 === a2, `${a1} → ${a2}`);
   await w.screenshot({ path: OUT + '/03-badge-light-1440.png', clip: { x: 0, y: 0, width: 300, height: 90 } });
   const still = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' })).newPage();
   await still.goto(APP + '/sign-in');

@@ -28,7 +28,18 @@ const light: typeof dark = {
 export const palettes = { dark, light };
 export type Palette = typeof dark;
 
-export const space = { 1: 4, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32, 10: 40 } as const;
+/** The spacing scale, in points: every margin, padding and gap on Home is one of these steps. */
+export const space = { 1: 4, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32, 12: 48, 16: 64 } as const;
+
+/**
+ * The five colours Home and its sidebar may use (docs/rebuild/DESIGN.md, "Home core set").
+ * bg is the page, s2 every surface (cards, selected controls, the net-worth block), ink the
+ * answer and primary actions, ink2 everything secondary (including owned blocks), down losses
+ * and what is owed. Gains stay ink: only what needs attention gets a colour.
+ * `homeTokens.test.ts` keeps the Home files to this list.
+ */
+export const homeColors = ['bg', 's2', 'ink', 'ink2', 'down'] as const;
+export type HomeColor = (typeof homeColors)[number];
 export const radius = { bar: 10, control: 14, card: 18, sheet: 18, capsule: 999, pill: 999 } as const;
 
 export const duration = { quick: 160, ui: 250, morph: 450, card: 500, roll: 600, reveal: 1000, draw: 1300 } as const;
@@ -49,19 +60,20 @@ export const fonts = {
   monoMedium: 'JetBrainsMono_500Medium',
 } as const;
 
+/** The type scale has six sizes: 13, 16, 20, 28, 48 and 72. Every variant uses one of them. */
 export const type = {
-  display: { fontFamily: fonts.light, fontSize: 80, lineHeight: 80, letterSpacing: -2 },
-  hero: { fontFamily: fonts.light, fontSize: 54, lineHeight: 54, letterSpacing: -1.08 },
-  cents: { fontFamily: fonts.light, fontSize: 30, lineHeight: 32 },
+  display: { fontFamily: fonts.light, fontSize: 72, lineHeight: 72, letterSpacing: -1.8 },
+  hero: { fontFamily: fonts.light, fontSize: 48, lineHeight: 52, letterSpacing: -1 },
+  cents: { fontFamily: fonts.light, fontSize: 28, lineHeight: 28 },
   title: { fontFamily: fonts.heavy, fontSize: 28, lineHeight: 32, letterSpacing: -0.84 },
   section: { fontFamily: fonts.heavy, fontSize: 20, lineHeight: 24, letterSpacing: -0.2 },
   /** Card titles use the body size. The heavier weight keeps them distinct. */
   cardTitle: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 24 },
   body: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 24 },
   small: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18 },
-  label: { fontFamily: fonts.heavy, fontSize: 12, lineHeight: 16, letterSpacing: 0.72 },
+  label: { fontFamily: fonts.heavy, fontSize: 13, lineHeight: 16, letterSpacing: 0.6 },
   figure: { fontFamily: fonts.monoMedium, fontSize: 16, lineHeight: 24 },
-  figureSm: { fontFamily: fonts.monoMedium, fontSize: 13, lineHeight: 16 },
+  figureSm: { fontFamily: fonts.monoMedium, fontSize: 13, lineHeight: 18 },
 } as const;
 
 export type CategoryColor = 'catAmber' | 'catBlue' | 'catViolet' | 'catSlate' | 'catSky' | 'catSand';

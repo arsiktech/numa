@@ -5,13 +5,16 @@ import type { Item } from '@/data/items';
 import type { CategorySummary } from '@/domain/summary';
 import type { CategoryId } from '@/domain/types';
 import { useTheme } from '@/theme/theme';
-import { onCategory, type CategoryColor } from '@/theme/tokens';
+import { space, type CategoryColor } from '@/theme/tokens';
+import { barShares } from './lens';
 import { LensBar, type BarEntry } from './LensBar';
 import { useMoney } from './money';
 import { Txt } from './Txt';
 
 export type Lens = 'net' | 'liquid' | 'cash';
 
+// Category colours stay for the holdings lists. Home's bar draws owned blocks in the surface tone,
+// debts in the alert colour, and net worth as the unfilled rest of the debt row.
 const meta: Record<CategoryId, { name: string; color: CategoryColor }> = {
   crypto: { name: 'Crypto', color: 'catAmber' },
   stocks: { name: 'Stocks', color: 'catBlue' },
@@ -44,32 +47,29 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
   const own: BarEntry[] = categories.map((cat) => {
     const m = meta[cat.category];
     const counts = lens === 'net' || (lens === 'liquid' ? cat.liquidCents : cat.cashCents) > 0;
-    return { id: cat.category, name: names?.[cat.category] ?? m.name, cents: cat.cents, fill: c[m.color], ink: c[onCategory[m.color]], opacity: counts ? 1 : 0.18, detail: includes(cat.category), onPress: () => open(cat.category) };
+    return { id: cat.category, name: names?.[cat.category] ?? m.name, cents: cat.cents, fill: c.s2, ink: c.ink, opacity: counts ? 1 : 0.4, detail: includes(cat.category), onPress: () => open(cat.category) };
   });
   const balance: BarEntry[] = [
-    { id: 'debts', name: 'What you owe', cents: oweCents, fill: c.down, ink: c.onDown, hatch: c.downDeep, detail: includes('debts'), onPress: () => open('debts') },
-    { id: 'net', name: 'Net worth', cents: netCents, fill: c.netBg, ink: c.upInk, fullAmount: true, detail: when ? `Net worth · ${when}` : 'What you own less what you owe.' },
+    { id: 'debts', name: 'What you owe', cents: oweCents, fill: c.down, ink: c.bg, quiet: true, detail: includes('debts'), onPress: () => open('debts') },
+    { id: 'net', name: 'Net worth', cents: netCents, fill: c.bg, ink: c.ink2, fullAmount: true, detail: when ? `Net worth · ${when}` : 'What you own less what you owe.' },
   ];
+  const shares = barShares(ownCents, oweCents, netCents);
+  const header = (label: string, cents: number, to: OpenTarget) => (
+    <Pressable onPress={() => open(to)} accessibilityRole="link" hitSlop={8}
+      style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', columnGap: space[3], marginBottom: space[2] }}>
+      <Txt v="small" c="ink2">{label}</Txt>
+      <Txt v="figureSm">{money(cents)}</Txt>
+    </Pressable>
+  );
   return (
-    <View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginBottom: 8 }}>
-        <Pressable onPress={() => open('all')} accessibilityRole="link" hitSlop={8}>
-          <Txt v="small" c="ink2" style={{}}>{when ? `What you owned · ${when}${onOpen ? ' ›' : ''}` : 'What you own ›'}</Txt>
-        </Pressable>
-        <Txt v="figureSm" style={{}}>{money(ownCents)}</Txt>
+    <View style={{ gap: space[4] }}>
+      <View>
+        {header(when ? `What you owned · ${when}${onOpen ? ' ›' : ''}` : 'What you own ›', ownCents, 'all')}
+        <LensBar entries={own} share={shares.own} height={wide ? 64 : 56} labelMin={wide ? 0.06 : 0.15} emptyColor={c.s2} />
       </View>
-      <View style={{ gap: 2 }}>
-        <LensBar entries={own} height={wide ? 96 : 60} labelMin={wide ? 0.06 : 0.08} emptyColor={c.s1} />
-        <LensBar entries={balance} height={wide ? 56 : 60} labelMin={0.08} emptyColor={c.s1} />
-      </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginTop: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: c.down }} />
-          <Pressable onPress={() => open('debts')} accessibilityRole="link" hitSlop={8}>
-            <Txt v="small" c="ink2" style={{}}>{when ? `What you owed${onOpen ? ' ›' : ''}` : 'What you owe ›'}</Txt>
-          </Pressable>
-        </View>
-        <Txt v="figureSm" style={{}}>{money(oweCents)}</Txt>
+      <View>
+        {header(when ? `What you owed${onOpen ? ' ›' : ''}` : 'What you owe ›', oweCents, 'debts')}
+        <LensBar entries={balance} share={shares.balance} height={48} labelMin={0.1} emptyColor={c.s2} />
       </View>
     </View>
   );
