@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 import { useTheme } from '@/theme/theme';
@@ -16,7 +15,7 @@ export function EarningsTeaser({ style }: { style?: StyleProp<ViewStyle> }) {
   const e = state.earnings;
   const started = e.series.length > 0;
   return (
-    <TeaserCard title="DeFi earnings" onPress={() => router.push('/earnings')} style={style}
+    <TeaserCard title="DeFi earnings" href="/earnings" style={style}
       accessibilityLabel={started ? `DeFi earnings, ${money(e.netCents, { sign: true })} in the last 30 days. Open` : 'DeFi earnings, tracking started. Open'}>
       {started ? (
         <>

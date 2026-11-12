@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Pressable, View, type DimensionValue } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import type { Item } from '@/data/items';
 import type { CategorySummary } from '@/domain/summary';
@@ -27,8 +27,6 @@ const meta: Record<CategoryId, { name: string; color: CategoryColor }> = {
 /** Where a block or row leads; by default, today's items in that group. */
 export type OpenTarget = CategoryId | 'debts' | 'all';
 const openToday = (to: OpenTarget) => (to === 'all' ? router.push('/holdings') : router.push({ pathname: '/holdings/[group]', params: { group: to } }));
-
-const pct = (share: number): DimensionValue => `${Math.max(share * 100, 2)}%`;
 
 /** `when`, `names` and `onOpen` retain the chart's historical split and navigation. */
 export function CompositionBar({ categories, ownCents, oweCents, netCents, lens, wide = false, when, names, onOpen, items = [] }: {
@@ -67,15 +65,11 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
     <View style={{ gap: space[4] }}>
       <View>
         {header(when ? `What you owned · ${when}${onOpen ? ' ›' : ''}` : 'What you own ›', ownCents, 'all')}
-        <View style={{ width: pct(shares.own) }}>
-          <LensBar entries={own} height={wide ? 64 : 56} labelMin={wide ? 0.06 : 0.15} emptyColor={c.s2} />
-        </View>
+        <LensBar entries={own} share={shares.own} height={wide ? 64 : 56} labelMin={wide ? 0.06 : 0.15} emptyColor={c.s2} />
       </View>
       <View>
         {header(when ? `What you owed${onOpen ? ' ›' : ''}` : 'What you owe ›', oweCents, 'debts')}
-        <View style={{ width: pct(shares.balance) }}>
-          <LensBar entries={balance} height={48} labelMin={0.1} emptyColor={c.s2} />
-        </View>
+        <LensBar entries={balance} share={shares.balance} height={48} labelMin={0.1} emptyColor={c.s2} />
       </View>
     </View>
   );

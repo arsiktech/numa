@@ -42,7 +42,11 @@ function Drawing({ entry, rect, geometry, selected, labelMin, total }: { entry: 
   );
 }
 
-export function LensBar({ entries, height, labelMin, emptyColor }: { entries: BarEntry[]; height: number; labelMin: number; emptyColor: string }) {
+/**
+ * `share` draws the bar at that fraction of the row, so two bars can sit on one scale. Only the drawing
+ * and its hit surface shrink: the readout keeps the full row, so a short bar is still readable when inspected.
+ */
+export function LensBar({ entries, height, labelMin, emptyColor, share = 1 }: { entries: BarEntry[]; height: number; labelMin: number; emptyColor: string; share?: number }) {
   const { money, hidden, mask } = useMoney();
   const [width, setWidth] = useState(0);
   const shown = useMemo(() => entries.filter((e) => Number.isFinite(e.cents) && e.cents > 0), [entries]);
@@ -55,7 +59,7 @@ export function LensBar({ entries, height, labelMin, emptyColor }: { entries: Ba
   return (
     <View style={{ overflow: 'visible', zIndex: selected ? 1 : 0 }}>
       <GestureDetector gesture={interaction.gesture} touchAction="pan-y">
-        <View testID="bar-lens-surface" onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ height, borderRadius: radius.bar, overflow: 'hidden', backgroundColor: shown.length ? 'transparent' : emptyColor }}>
+        <View testID="bar-lens-surface" onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ width: `${Math.max(Math.min(share, 1), 0.02) * 100}%`, height, borderRadius: radius.bar, overflow: 'hidden', backgroundColor: shown.length ? 'transparent' : emptyColor }}>
           {rects.map((r) => <Drawing key={shown[r.index].id} entry={shown[r.index]} rect={r} geometry={geometry} selected={interaction.selected === r.index} total={total} labelMin={labelMin} />)}
           {/* These original hit targets never move with the animated drawings. */}
           {rects.map((r) => {

@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { FlowSummary } from '@/domain/flow';
@@ -15,7 +14,7 @@ export function MonthTeaser({ month, flow, style }: { month: string; flow: FlowS
   const nothing = flow.inCents === 0 && flow.outCents === 0;
   const kept = flow.keptCents >= 0;
   return (
-    <TeaserCard title={`${month} so far`} onPress={() => router.push('/flow')} style={style}
+    <TeaserCard title={`${month} so far`} href="/flow" style={style}
       accessibilityLabel={nothing ? `${month} so far. Nothing logged yet` : hidden ? `${month} so far. Amounts hidden` : `${month} so far. In ${money(flow.inCents)}, out ${money(flow.outCents)}`}
       aside={nothing ? <Txt v="small" c="ink2">Nothing logged yet</Txt>
         : kept ? <Txt v="figureSm">kept {money(flow.keptCents)} · {mask(String(Math.round(flow.keptShare * 100)))}%</Txt>

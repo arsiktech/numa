@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/theme/theme';
@@ -19,7 +18,7 @@ export function MoneyMapTeaser({ style }: { style?: StyleProp<ViewStyle> }) {
   const who = [...map.people, ...map.owedToYou].slice(0, 4).map((p) => p.name).join(', ')
     + (map.protocols.length ? ` and ${map.protocols.length} protocol${map.protocols.length === 1 ? '' : 's'}` : '');
   return (
-    <TeaserCard title="Money map" onPress={() => router.push('/money-map')} style={style}
+    <TeaserCard title="Money map" href="/money-map" style={style}
       accessibilityLabel={`Money map. Owed to you ${money(map.owedToYouCents)}, you owe ${money(map.youOweCents)}. Open`}>
       <View style={{ flexDirection: 'row', gap: space[4] }}>
         <View style={{ flex: 1 }}>
