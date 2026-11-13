@@ -59,6 +59,7 @@ export type CloudLiability = {
   /** Owed in an asset rather than money, like 0.15 BTC; the balance is then its current value in USD. */
   owedSymbol?: string | null;
   owedQuantity?: number | null;
+  notes?: string | null;
   /** When the asset's price was last read; null when no price is known and the balance is the last one saved. */
   owedPriceAt?: number | null;
   /** Who it is owed to; debts to one party group together. */
