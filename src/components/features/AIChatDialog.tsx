@@ -520,7 +520,7 @@ export function AIChatDialog({ open, onClose, initialPrompt = null }: Props) {
             role="dialog"
             aria-modal="true"
             {...sheetMotion}
-            className="relative nm-glass-strong overflow-hidden flex flex-col w-full max-w-[560px] max-h-[88vh] rounded-t-3xl sm:rounded-3xl pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-0"
+            className="relative nm-glass-strong overflow-hidden flex flex-col w-full max-w-[560px] max-h-[88dvh] rounded-t-3xl sm:rounded-3xl pb-[max(env(safe-area-inset-bottom),16px)] sm:pb-0"
           >
             <header className="flex items-start justify-between gap-4 px-5 sm:px-6 pt-5 pb-3">
               <div className="flex items-center gap-3">

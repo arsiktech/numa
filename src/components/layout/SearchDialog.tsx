@@ -26,6 +26,7 @@ import { emitCommand, type NumaCommand } from "@/lib/commands";
 import { AI_ENABLED } from "@/lib/aiEnabled";
 import { useAppMode } from "@/lib/appMode";
 import { useLocale } from "@/lib/i18n";
+import { isComposingKeydown } from "@/lib/imeComposition";
 import { formatMoney } from "@/lib/money";
 import { format } from "date-fns";
 import { cn } from "@/lib/cn";
@@ -238,6 +239,9 @@ export function SearchDialog({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
+      // Typing in the search field through an IME: Enter, the arrows and
+      // Escape belong to its candidate list, not to the results.
+      if (isComposingKeydown(event)) return;
       if (event.key === "Escape") {
         onClose();
       } else if (event.key === "ArrowDown") {
@@ -275,7 +279,7 @@ export function SearchDialog({ open, onClose }: Props) {
   return createPortal(
     <AnimatePresence>
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4 sm:px-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10dvh] px-4 sm:px-6">
           <motion.div
             {...backdropMotion}
             onClick={onClose}
@@ -286,7 +290,7 @@ export function SearchDialog({ open, onClose }: Props) {
               aria-modal="true"
               aria-label={t("search")}
             {...sheetMotion}
-            className="relative nm-glass-strong rounded-3xl overflow-hidden w-full max-w-[640px] flex flex-col max-h-[70vh]"
+            className="relative nm-glass-strong rounded-3xl overflow-hidden w-full max-w-[640px] flex flex-col max-h-[70dvh]"
           >
             <div className="flex items-center gap-3 px-5 py-4 border-b border-[color:var(--color-line)]">
               <Search size={18} className="text-[color:var(--color-ink-3)] shrink-0" />

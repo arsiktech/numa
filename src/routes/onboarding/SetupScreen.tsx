@@ -10,6 +10,7 @@ import {
   storeOnboardingWeeklyTarget
 } from "@/lib/productPositioning";
 import { cn } from "@/lib/cn";
+import { isComposingKeydown } from "@/lib/imeComposition";
 import { revealDelay } from "@/lib/motion";
 
 const TARGETS = [150, 250, 400, 650];
@@ -107,6 +108,7 @@ export default function SetupScreen() {
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
+                  if (isComposingKeydown(event.nativeEvent)) return;
                   nextStep();
                 }
               }}

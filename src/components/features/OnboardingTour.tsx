@@ -177,8 +177,8 @@ export function OnboardingTour({ open, onClose }: OnboardingTourProps): ReactEle
           aria-labelledby="onboarding-title"
           {...sheetMotion}
           className={cn(
-            "relative nm-glass-strong overflow-hidden flex flex-col w-full max-h-[88vh] rounded-t-3xl pb-[max(env(safe-area-inset-bottom),20px)]",
-            "sm:rounded-3xl sm:max-h-[84vh] sm:pb-0"
+            "relative nm-glass-strong overflow-hidden flex flex-col w-full max-h-[88dvh] rounded-t-3xl pb-[max(env(safe-area-inset-bottom),20px)]",
+            "sm:rounded-3xl sm:max-h-[84dvh] sm:pb-0"
           )}
           style={{ maxWidth: 440 }}
         >
