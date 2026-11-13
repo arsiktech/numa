@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
     <title>Home · Numa Pro</title>
     <meta name="description" content="Net worth, cash flow and what needs you, on every device." />
     <meta property="og:title" content="Home · Numa Pro" />
@@ -14,9 +15,14 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
     <style id="expo-reset">
+      /* Colours of the page canvas and the startup screen. color-scheme follows the system until the app
+         sets the chosen theme on <html> (src/theme/theme.tsx); light-dark() then follows that choice too.
+         The media query serves browsers without light-dark(). */
+      :root { color-scheme: light dark; --numa-canvas: #ffffff; --numa-ink: #0B0B0C; --numa-on-ink: #F4F4F1; --numa-muted: #61646A; }
+      @media (prefers-color-scheme: dark) { :root { --numa-canvas: #000000; --numa-ink: #F4F4F1; --numa-on-ink: #0B0B0C; --numa-muted: #8E9198; } }
+      @supports (color: light-dark(#fff, #000)) { :root { --numa-canvas: light-dark(#ffffff, #000000); --numa-ink: light-dark(#0B0B0C, #F4F4F1); --numa-on-ink: light-dark(#F4F4F1, #0B0B0C); --numa-muted: light-dark(#61646A, #8E9198); } }
       html { font-size: 100%; }
-      html, body { height: 100%; background: #ffffff; }
-      @media (prefers-color-scheme: dark) { html, body { background: #000000; } }
+      html, body { height: 100%; background: var(--numa-canvas); }
       body { overflow: hidden; }
       #root { display: flex; height: 100%; flex: 1; }
       @font-face { font-family: Manrope_300Light; src: url("/fonts/manrope-latin.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: optional; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
@@ -38,20 +44,14 @@
       html, body, #root { width: 100%; height: 100%; margin: 0; }
       body { overflow: hidden; }
       #root { display: flex; flex: 1; }
-      #numa-startup { box-sizing: border-box; position: fixed; inset: 0; overflow: auto; background: #fff; color: #0B0B0C; font-family: system-ui, sans-serif; font-size: 16px; line-height: 1.5; padding: 32px 24px; z-index: 9999; }
+      #numa-startup { box-sizing: border-box; position: fixed; inset: 0; overflow: auto; background: var(--numa-canvas); color: var(--numa-ink); font-family: system-ui, sans-serif; font-size: 16px; line-height: 1.5; padding: 32px 24px; z-index: 9999; }
       #numa-startup section { max-width: 420px; margin: 8vh auto; }
       #numa-startup .mark { font-family: system-ui, sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -0.03em; }
-      #numa-startup .pro { display: inline-block; margin-left: 8px; padding: 2px 6px; border-radius: 6px; background: #0B0B0C; color: #F4F4F1; font-size: 12px; letter-spacing: 0.06em; vertical-align: 4px; }
+      #numa-startup .pro { display: inline-block; margin-left: 8px; padding: 2px 6px; border-radius: 6px; background: var(--numa-ink); color: var(--numa-on-ink); font-size: 12px; letter-spacing: 0.06em; vertical-align: 4px; }
       #numa-startup h1 { font-family: system-ui, sans-serif; font-weight: 300; font-size: 54px; line-height: 1; letter-spacing: -0.02em; margin: 24px 0 16px; }
       #numa-startup a { color: inherit; display: inline-flex; align-items: center; min-height: 44px; margin-right: 16px; }
-      #numa-startup a:focus-visible { outline: 2px solid #0B0B0C; outline-offset: 3px; }
-      #numa-startup small { display: block; color: #61646A; }
-      @media (prefers-color-scheme: dark) {
-        #numa-startup { background: #000; color: #F4F4F1; }
-        #numa-startup .pro { background: #F4F4F1; color: #0B0B0C; }
-        #numa-startup small { color: #8E9198; }
-        #numa-startup a:focus-visible { outline-color: #F4F4F1; }
-      }
+      #numa-startup a:focus-visible { outline: 2px solid var(--numa-ink); outline-offset: 3px; }
+      #numa-startup small { display: block; color: var(--numa-muted); }
     </style>
   </head>
   <body>
