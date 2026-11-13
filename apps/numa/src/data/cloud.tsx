@@ -1,12 +1,14 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useConvex, useMutation, useQuery } from 'convex/react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { cloud, type CloudBootstrap, type CloudCurrency, type CloudSnapshot, type CloudSpace, type CloudWallet, type CloudWalletDoc } from '@/cloud/api';
+import { isAuthGone } from '@/cloud/authErrors';
 import { storage } from '@/cloud/storage';
 import { usePrefs } from '@/state/prefs';
 import { summarize, type Summary } from '@/domain/summary';
 import { fromSnapshot, type HomeData } from './fromSnapshot';
 import { fetchFxRate, loadFx, type FxRate } from './fx';
+import { offlineWriteError, sharedWriteIntents } from './writeIntent';
 
 /** The signed-in person's data, loaded once and shared by Home and Ask. */
 export type CloudData =
@@ -46,7 +48,9 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
   const createPortfolio = useMutation(cloud.createPortfolio);
   const [boot, setBoot] = useState<CloudBootstrap | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authGone, setAuthGone] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
+  const convex = useConvex();
   const { fx } = useFx();
   const [now, setNow] = useState(() => Date.now());
 
@@ -55,7 +59,12 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
     // This app subscribes to the snapshot below, so it doesn't ask bootstrap to build one too. A
     // backend still on the previous version rejects the new argument, so that case retries without it.
     bootstrap({ withSnapshot: false }).catch(() => bootstrap({}))
-      .then((b) => alive && setBoot(b), () => alive && setError('Couldn’t reach Numa. Check your connection and try again.'));
+      .then((b) => alive && setBoot(b), (e) => {
+        if (!alive) return;
+        // An ended session isn't a connection problem: hand it to the boundary, which signs out.
+        if (isAuthGone(e)) setAuthGone(e);
+        else setError('Couldn’t reach Numa. Check your connection and try again.');
+      });
     return () => { alive = false; };
   }, [bootstrap, attempt]);
 
@@ -76,10 +85,15 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
   // Wallets ride along with the snapshot. Until they load, the snapshot waits, so no total jumps.
   const snapshot = useMemo<CloudSnapshot | undefined>(() => (base && walletDocs ? { ...base, wallets: walletDocs.map(toWallet) } : undefined), [base, walletDocs]);
   const retry = useCallback(() => { setError(null); setAttempt((a) => a + 1); }, []);
+  const userId = boot?.profile.userId ?? null;
   const create = useCallback(async (currency: CloudCurrency) => {
-    await createPortfolio({ name: 'Personal', type: 'personal', tagline: '', defaultCurrency: currency, seedDefaults: true, clientMutationId: newMutationId('portfolios.create') });
+    if (!userId) return;
+    if (!convex.connectionState().isWebSocketConnected) throw offlineWriteError();
+    // Pressing Start again after an unclear failure reuses the receipt, so it never makes a second space.
+    const args = { name: 'Personal', type: 'personal' as const, tagline: '', defaultCurrency: currency, seedDefaults: true };
+    await sharedWriteIntents(userId, newMutationId)({ fn: 'portfolios.create', args }, (receipt) => createPortfolio({ ...args, clientMutationId: receipt }));
     setAttempt((a) => a + 1);
-  }, [createPortfolio]);
+  }, [createPortfolio, userId, convex]);
 
   const data = useMemo(() => (snapshot ? fromSnapshot(snapshot, fx, new Date(now)) : null), [snapshot, fx, now]);
   const summary = useMemo(() => (data ? summarize(data.holdings, data.debts, new Date(now)) : null), [data, now]);
@@ -91,7 +105,13 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
     return { status: 'ready', boot, portfolioId, space, spaces, selectSpace, snapshot, data, summary, fx, now };
   }, [error, retry, boot, spaces, portfolioId, space, selectSpace, create, snapshot, data, summary, fx, now]);
 
+  if (authGone) throw authGone;
   return <CloudContext.Provider value={value}>{children}</CloudContext.Provider>;
+}
+
+/** The same, or null outside a signed-in session (demo and signed out). */
+export function useOptionalCloudData(): CloudData | null {
+  return useContext(CloudContext);
 }
 
 export function useCloudData(): CloudData {

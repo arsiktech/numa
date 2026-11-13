@@ -24,6 +24,7 @@ import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
 import { WalletDetail } from '@/wallets/WalletDetail';
+import { NotReady } from '@/ui/NotReady';
 
 export default function ItemScreen() {
   const { type, id } = useLocalSearchParams<{ type: ItemType; id: string }>();
@@ -33,7 +34,7 @@ function Cloud({ type, id }: { type: ItemType; id: string }) { return <Detail so
 function Demo({ type, id }: { type: ItemType; id: string }) { return <Detail source={useDemoItems()} type={type} id={id} editable={false} />; }
 
 function Detail({ source, type, id, editable }: { source: ItemsSource; type: ItemType; id: string; editable: boolean }) {
-  if (source.status !== 'ready') return <Screen><View style={{ marginTop: 60, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading" /></View></Screen>;
+  if (source.status !== 'ready') return <Screen><NotReady /></Screen>;
   const item = source.items.find((i) => i.id === id && i.type === type);
   if (!item) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>This isn’t here anymore. It may have been deleted.</Txt></Screen>;
   return (

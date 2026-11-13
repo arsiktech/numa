@@ -4,6 +4,7 @@ import { useCallback, useMemo } from 'react';
 
 import { cloud } from '@/cloud/api';
 import { newMutationId, useCloudData } from '@/data/cloud';
+import { useSafeMutation } from '@/data/safeMutation';
 import { moneyMap, type DebtEvent, type MoneyMap } from '@/data/moneyMap';
 import { useCloudItems } from '@/data/useItems';
 import type { Currency } from '@/domain/types';
@@ -33,15 +34,16 @@ export function eventErrorText(e: unknown): string {
 
 /** Record or remove history; a payment also changes the debt, and removing it gives it back. */
 export function useDebtWrites(portfolioId: string | null) {
-  const add = useMutation(cloud.addDebtEvent);
-  const remove = useMutation(cloud.removeDebtEvent);
+  // Without a request id from the form, the same entry retried still counts once.
+  const add = useSafeMutation(cloud.addDebtEvent, 'debtEvent');
+  const remove = useSafeMutation(cloud.removeDebtEvent, 'removeDebtEvent');
   return {
     add: useCallback(async (e: { subject: string; kind: DebtEvent['kind']; amount?: number; unit?: string; principalPart?: number; interestPart?: number; feePart?: number; occurredAt: number; note?: string; apply: boolean; clientMutationId?: string }) => {
       if (!portfolioId) throw new Error('No space');
-      const r = await add({ portfolioId, ...e, clientMutationId: e.clientMutationId ?? newMutationId('numa.debtEvent') });
+      const r = await add({ portfolioId, ...e });
       return r.id;
     }, [add, portfolioId]),
-    remove: useCallback(async (id: string) => { await remove({ id, clientMutationId: newMutationId('numa.removeDebtEvent') }); }, [remove]),
+    remove: useCallback(async (id: string) => { await remove({ id }); }, [remove]),
   };
 }
 

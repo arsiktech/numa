@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import { groupNames, type GroupId } from '@/data/items';
@@ -15,6 +15,7 @@ import { PriceChart } from '@/ui/PriceChart';
 import { Screen } from '@/ui/Screen';
 import { Treemap } from '@/ui/Treemap';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 const TAGS: Record<NonNullable<Place['tag']>, string> = { pledged: 'Pledged', lent: 'Lent out', locked: 'Locked', pool: 'In a pool' };
 
@@ -30,7 +31,7 @@ function Demo({ group, id }: { group: GroupId; id: string }) { return <Body sour
 
 function Body({ source, group, id }: { source: ItemsSource; group: GroupId; id: string }) {
   if (source.status !== 'ready') {
-    return <Screen><View style={{ marginTop: 60, alignItems: 'center' }}>{source.status === 'error' ? <Txt v="body" c="ink2">{source.message}</Txt> : <ActivityIndicator accessibilityLabel="Loading" />}</View></Screen>;
+    return <Screen><NotReady /></Screen>;
   }
   // What you owe opens by what is owed (USDC, EUR…); a single debt still opens by its record.
   const positions = positionsOf(source.items, group);

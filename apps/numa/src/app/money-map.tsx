@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import type { MoneyMap, Party, Spot } from '@/data/moneyMap';
@@ -9,6 +9,7 @@ import type { Palette } from '@/theme/tokens';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { Screen } from '@/ui/Screen';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 /** Who you owe, who owes you, and where your own money sits. */
 export default function MoneyMapScreen() {
@@ -18,7 +19,7 @@ export default function MoneyMapScreen() {
 
 function Cloud() {
   const state = useMoneyMap();
-  if (state.status !== 'ready') return <Screen><View style={{ marginTop: 60, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading" /></View></Screen>;
+  if (state.status !== 'ready') return <Screen><NotReady /></Screen>;
   return <CurrencyScope currency={state.currency}><Map map={state.map} /></CurrencyScope>;
 }
 

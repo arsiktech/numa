@@ -4,7 +4,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { cloud } from '@/cloud/api';
 import type { Op, WriteName } from '@/ask/plan';
 import { newMutationId, useCloudData } from './cloud';
-import { createWriteIntents, offlineWriteError, staleWriteError } from './writeIntent';
+import { createWriteIntents, offlineWriteError, sharedWriteIntents, staleWriteError } from './writeIntent';
 
 /** Refuse disconnected/stale confirmations before Convex can queue them. Server authorization still owns access. */
 export function useWriter(): (op: Op, clientMutationId?: string) => Promise<string> {
@@ -15,8 +15,9 @@ export function useWriter(): (op: Op, clientMutationId?: string) => Promise<stri
   const convex = useConvex();
   const key = data.status === 'ready' && auth.isAuthenticated && !auth.isLoading && account?.userId === data.boot.profile.userId && !account.deletionStarted
     ? JSON.stringify([data.boot.profile.userId, data.portfolioId]) : null;
-  // A distinct token also invalidates old closures after switching away and back.
-  const scope = useMemo(() => ({ key, intents: createWriteIntents(newMutationId) }), [key]);
+  // A distinct token also invalidates old closures after switching away and back. Receipts are shared by
+  // account and space, so a retry from a reopened screen reuses the first attempt's receipt.
+  const scope = useMemo(() => ({ key, intents: key ? sharedWriteIntents(key, newMutationId) : createWriteIntents(newMutationId) }), [key]);
   const current = useRef<typeof scope | null>(scope);
   useLayoutEffect(() => { current.current = scope; return () => { current.current = null; }; }, [scope]);
   const { intents } = scope;

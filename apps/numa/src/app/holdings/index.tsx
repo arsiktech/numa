@@ -1,6 +1,6 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, View, useWindowDimensions } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import { groupNames, groupTotal, type GroupId } from '@/data/items';
@@ -21,6 +21,7 @@ import { Screen } from '@/ui/Screen';
 import { Hint } from '@/ui/Hint';
 import { Treemap } from '@/ui/Treemap';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 const ORDER: GroupId[] = [...CATEGORY_ORDER, 'debts'];
 const colorOf = (g: GroupId): CategoryColor | 'down' => (g === 'debts' ? 'down' : categoryColor(g as CategoryId));
@@ -35,7 +36,7 @@ function Demo() { return <Holdings source={useDemoItems()} />; }
 
 export function Holdings({ source, only }: { source: ItemsSource; only?: GroupId }) {
   if (source.status !== 'ready') {
-    return <Screen><View style={{ marginTop: 60, alignItems: 'center' }}>{source.status === 'error' ? <Txt v="body" c="ink2">{source.message}</Txt> : <ActivityIndicator accessibilityLabel="Loading" />}</View></Screen>;
+    return <Screen><NotReady /></Screen>;
   }
   return <CurrencyScope currency={source.currency}><Groups source={source} only={only} /></CurrencyScope>;
 }

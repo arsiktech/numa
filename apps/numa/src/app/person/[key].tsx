@@ -18,6 +18,7 @@ import { CurrencyScope, useMoney } from '@/ui/money';
 import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 /** One person, company or protocol: every debt with them, where their money sits, and what happened. */
 export default function PersonScreen() {
@@ -28,7 +29,7 @@ export default function PersonScreen() {
 
 function Cloud({ partyKey }: { partyKey: string }) {
   const state = useMoneyMap();
-  if (state.status !== 'ready') return <Screen back="Money map"><View style={{ marginTop: 60, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading" /></View></Screen>;
+  if (state.status !== 'ready') return <Screen back="Money map"><NotReady /></Screen>;
   const party = partyOf(state.map, partyKey);
   if (!party) return <Screen back="Money map"><Txt v="body" c="ink2" style={{ marginTop: 20 }}>Nothing is owed here anymore.</Txt></Screen>;
   return <CurrencyScope currency={state.currency}><Detail party={party} state={state} /></CurrencyScope>;

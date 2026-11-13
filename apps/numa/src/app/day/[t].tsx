@@ -1,5 +1,5 @@
 import { Link, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
@@ -9,6 +9,7 @@ import { useTheme } from '@/theme/theme';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { Screen } from '@/ui/Screen';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 /** What you had on one saved date, opened from a block on Home while that date is kept on the chart. */
 export default function DayScreen() {
@@ -20,7 +21,7 @@ export default function DayScreen() {
 function Cloud({ takenAt, focus }: { takenAt: number; focus?: DayGroup }) {
   const cloud = useCloudData();
   if (cloud.status !== 'ready') {
-    return <Screen><View style={{ marginTop: 60, alignItems: 'center' }}>{cloud.status === 'error' ? <Txt v="body" c="ink2">{cloud.message}</Txt> : <ActivityIndicator accessibilityLabel="Loading" />}</View></Screen>;
+    return <Screen><NotReady /></Screen>;
   }
   const day = dayDetails(cloud.snapshot.wealthSnapshots, takenAt, cloud.data.currency, cloud.fx);
   if (!day) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>Nothing was saved for that date.</Txt></Screen>;

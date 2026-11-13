@@ -18,6 +18,7 @@ import { useMoney } from '@/ui/money';
 import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 /** One transaction: what it was, when, and in which category; edit or delete with Undo. */
 export default function TransactionScreen() {
@@ -28,7 +29,7 @@ export default function TransactionScreen() {
 
 function Loaded({ id }: { id: string }) {
   const cloud = useCloudData();
-  if (cloud.status !== 'ready') return <Screen><ActivityIndicator style={{ marginTop: 60 }} accessibilityLabel="Loading" /></Screen>;
+  if (cloud.status !== 'ready') return <Screen><NotReady /></Screen>;
   const tx = cloud.snapshot.transactions.find((t) => t.id === id);
   if (!tx) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>This transaction isn’t here anymore. It may have been deleted.</Txt></Screen>;
   return <Screen><Detail key={tx.id} tx={tx} now={cloud.now} portfolioId={cloud.portfolioId} categories={cloud.snapshot.categories} /></Screen>;

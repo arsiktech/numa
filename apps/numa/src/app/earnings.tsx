@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import type { Range, Strategy } from '@/data/earnings';
@@ -9,6 +9,7 @@ import { useTheme } from '@/theme/theme';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { Screen } from '@/ui/Screen';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 const RANGES: [Range, string][] = [['7d', '7 days'], ['30d', '30 days'], ['all', 'All']];
 const pct = (x: number) => `${(x * 100).toFixed(Math.abs(x) < 0.1 ? 1 : 0)}%`;
@@ -24,7 +25,7 @@ function Cloud() {
   const [range, setRange] = useState<Range>('30d');
   const [picked, setPicked] = useState<number | null>(null);
   const state = useEarnings(range);
-  if (state.status !== 'ready') return <Screen><View style={{ marginTop: 60, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading" /></View></Screen>;
+  if (state.status !== 'ready') return <Screen><NotReady /></Screen>;
   return <CurrencyScope currency={state.currency}><Body state={state} range={range} setRange={(r) => { setRange(r); setPicked(null); }} picked={picked} setPicked={setPicked} /></CurrencyScope>;
 }
 
