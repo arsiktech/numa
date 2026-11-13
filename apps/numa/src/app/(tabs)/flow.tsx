@@ -97,11 +97,16 @@ function Shell({ children, nav, demo = false }: { children: React.ReactNode; nav
   );
 }
 
+/** The month's full ledger from the backend. Only the signed-in screen may ask for it: the demo runs without a Convex client, and `useQuery` throws without one even when it is skipped. */
+const useCloudLedger = (portfolioId: string | null, start: number, end: number) => useQuery(cloud.monthLedger, portfolioId ? { portfolioId, start, end } : 'skip');
+const useNoLedger = (): ReturnType<typeof useCloudLedger> => undefined;
+
 function FlowView({ data }: { data: FlowData }) {
-  return <CurrencyScope currency={data.currency}><Inner data={data} /></CurrencyScope>;
+  // Keyed by source, so the ledger hook never changes under a mounted screen.
+  return <CurrencyScope currency={data.currency}><Inner key={data.demo ? 'demo' : 'cloud'} data={data} useLedger={data.demo ? useNoLedger : useCloudLedger} /></CurrencyScope>;
 }
 
-function Inner({ data }: { data: FlowData }) {
+function Inner({ data, useLedger }: { data: FlowData; useLedger: typeof useCloudLedger }) {
   const { c } = useTheme();
   const { money, hidden } = useMoney();
   const { width } = useWindowDimensions();
@@ -113,7 +118,7 @@ function Inner({ data }: { data: FlowData }) {
   const [day, setDay] = useState<number | null>(null);
   const monthStart = new Date(month.year, month.month, 1).getTime();
   const monthEnd = new Date(month.year, month.month + 1, 1).getTime();
-  const ledger = useQuery(cloud.monthLedger, data.demo || !data.portfolioId ? 'skip' : { portfolioId: data.portfolioId, start: monthStart, end: monthEnd });
+  const ledger = useLedger(data.portfolioId, monthStart, monthEnd);
   const monthTxs = ledger ?? data.txsFor(month);
   const idx = data.months.findIndex((m) => sameMonth(m, month));
   const flow = ledger && !data.demo ? monthFlow({ categories: data.categories, transactions: ledger } as Parameters<typeof monthFlow>[0], month, data.currency, data.fx, new Date(data.now)) : data.flowFor(month);
