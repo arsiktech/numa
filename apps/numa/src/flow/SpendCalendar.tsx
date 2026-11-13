@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 
@@ -10,11 +11,22 @@ import { versusAverage, type CalendarDay, type MonthCalendar } from './calendar'
 const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const dayName = (at: number) => new Date(at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
 
-/** A short amount that fits a day's cell: "€46", "€1.2k". */
-function short(cents: number, money: (c: number) => string): string {
+const GAP = 4;
+/** Room for the amount inside one day cell: a seventh of the grid, less the cell's border and padding. */
+const amountRoom = (gridWidth: number) => (gridWidth - 6 * GAP) / 7 - 8;
+/** Rough width of a 12 px label: full-width characters, with half for a dot or comma. Errs wide. */
+const labelWidth = (text: string) => [...text].reduce((w, ch) => w + (ch === '.' || ch === ',' ? 3.6 : 7.6), 0);
+
+/**
+ * A short amount that fits a day's cell: "€46", "€1.2k". When the cell is too narrow for that
+ * (the smallest phones), the currency sign goes ("2.9k", "610") rather than the amount being cut
+ * to "€2.…". The month's totals above the calendar and the picked day's card both name the currency.
+ */
+function short(cents: number, money: (c: number) => string, room: number): string {
   if (cents <= 0) return '';
   // "€1,200" reads as "€1.2k" in a cell this small.
-  return cents >= 100_000 ? money(Math.round(cents / 10_000) * 10_000).replace(/,(\d)\d\d$/, '.$1k').replace('.0k', 'k') : money(cents);
+  const full = cents >= 100_000 ? money(Math.round(cents / 10_000) * 10_000).replace(/,(\d)\d\d$/, '.$1k').replace('.0k', 'k') : money(cents);
+  return room <= 0 || labelWidth(full) <= room ? full : full.replace(/^[^\d]+/, '');
 }
 
 /**
@@ -25,6 +37,8 @@ export function SpendCalendar({ cal, selected, onSelect }: { cal: MonthCalendar;
   const { c } = useTheme();
   const { money, hidden } = useMoney();
   const reduce = useReducedMotion();
+  const [gridWidth, setGridWidth] = useState(0);
+  const room = gridWidth > 0 ? amountRoom(gridWidth) : 0;
   // Shades from the theme's own greys, so both themes read the same: none to most.
   const shades = [c.s1, c.line2, c.ink3, c.ink2, c.ink];
   const ink = (level: CalendarDay['level']) => (level >= 2 ? c.bg : c.ink2);
@@ -35,22 +49,22 @@ export function SpendCalendar({ cal, selected, onSelect }: { cal: MonthCalendar;
   const versus = pick ? versusAverage(pick, cal.averageCents) : null;
 
   return (
-    <View style={{ gap: 6 }}>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
+    <View style={{ gap: GAP }} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
+      <View style={{ flexDirection: 'row', gap: GAP }}>
         {WEEK.map((w, i) => <Txt key={i} v="label" c="ink3" style={{ flex: 1, textAlign: 'center' }}>{w}</Txt>)}
       </View>
       {rows.map((row, r) => (
-        <View key={r} style={{ flexDirection: 'row', gap: 6 }}>
+        <View key={r} style={{ flexDirection: 'row', gap: GAP }}>
           {row.map((d, i) => d === null ? <View key={i} style={{ flex: 1 }} /> : (
             <Animated.View key={i} style={{ flex: 1 }} entering={reduce ? undefined : FadeIn.duration(duration.morph).delay(d.day * 14)}>
               <Pressable onPress={() => onSelect(selected === d.day ? null : d.day)} accessibilityRole="button" aria-selected={selected === d.day}
                 accessibilityLabel={`${dayName(d.at)}: ${d.spentCents > 0 ? `spent ${hidden ? 'an amount hidden' : money(d.spentCents)}` : 'nothing spent'}${d.unknown ? `, ${d.unknown} in another currency left out` : ''}${d.income ? ', money came in' : ''}`}
-                style={{ minHeight: 48, borderRadius: 10, paddingVertical: 4, paddingHorizontal: 4, justifyContent: 'space-between', backgroundColor: shades[d.level], borderWidth: 2, borderColor: selected === d.day ? c.ink : 'transparent' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                style={{ minHeight: 48, borderRadius: 10, paddingVertical: 4, paddingHorizontal: 2, justifyContent: 'space-between', backgroundColor: shades[d.level], borderWidth: 2, borderColor: selected === d.day ? c.ink : 'transparent' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 }}>
                   <Txt v="label" style={{ color: ink(d.level), textTransform: 'none', letterSpacing: 0 }}>{d.day}</Txt>
                   {d.income && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.up }} />}
                 </View>
-                <Txt v="label" numberOfLines={1} style={{ color: ink(d.level), textTransform: 'none', letterSpacing: 0 }}>{hidden ? '' : short(d.spentCents, (x) => money(x))}</Txt>
+                <Txt v="label" numberOfLines={1} style={{ color: ink(d.level), textTransform: 'none', letterSpacing: 0 }}>{hidden ? '' : short(d.spentCents, (x) => money(x), room)}</Txt>
               </Pressable>
             </Animated.View>
           ))}
