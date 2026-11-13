@@ -5,6 +5,7 @@ import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanParty, cl
 import type { Doc } from "../_generated/dataModel";
 import { majorUnits, minorUnits } from "./finance";
 import { withMutationReceipt } from "./mutationReceipts";
+import { deleteHoldingEvents } from "./holdingEvents";
 import { assertTermsAfterPatch, termsPatch, validDueDate } from "./loanTerms";
 import { refreshQuoteSoon } from "./quoteRefresh";
 import { isCryptoSymbol } from "./marketQuoteProviders";
@@ -463,6 +464,7 @@ const deleteHolding = mutation({
     if (!holding) throw new ConvexError({ code: "NOT_FOUND", message: "Holding not found" });
     const { userId } = await requireEditor(ctx, holding.portfolioId);
     const receipt = await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.deleteHolding", async () => {
+      await deleteHoldingEvents(ctx, args.id);
       await ctx.db.delete(args.id);
       return args.id;
     }, holding.portfolioId);
