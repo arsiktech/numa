@@ -91,10 +91,12 @@ function Root() {
         <Stack.Screen name="password" options={panel} />
         <Stack.Screen name="delete-account" options={panel} />
       </Stack.Protected>
-      <Stack.Screen name="auth" />
       <Stack.Protected guard={!inside}>
         <Stack.Screen name="sign-in" />
       </Stack.Protected>
+      {/* After sign-in on purpose: a signed-out launch opens the first screen it may see. On phones
+          auth sends a signed-out person to Home, which they can't open, so it must not come first. */}
+      <Stack.Screen name="auth" />
     </Stack>
   );
   return (
