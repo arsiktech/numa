@@ -109,3 +109,11 @@ export function previewImport(table: string[][], ctx: AskContext & { existingTx:
   });
   return { kind, rows, headers };
 }
+
+/** The days a preview's transactions fall on, as times from the first day's start to the day after the last. Null when it has no transactions. */
+export function transactionSpan(rows: ImportRow[]): { start: number; end: number } | null {
+  const times = rows.flatMap((r) => (r.draft?.type === 'transaction' ? [r.draft.occurredAt] : []));
+  if (!times.length) return null;
+  const day = (ms: number, plus: number) => { const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + plus).getTime(); };
+  return { start: day(Math.min(...times), 0), end: day(Math.max(...times), 1) };
+}
