@@ -2,8 +2,8 @@ import { ConvexError } from "convex/values";
 
 /**
  * Loan terms and payment splits. Pure checks that the mutations share, so the rules are tested
- * without a database. Accrued interest itself is worked out in the app from these terms; the
- * server only keeps the terms and the split of each payment honest.
+ * without a database. Accrued interest is worked out from these terms in both the app and
+ * convex/lib/loanAccrual.ts, which the server uses to refuse more interest than is owed.
  */
 
 const DAY = 86_400_000;

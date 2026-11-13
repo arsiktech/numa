@@ -62,7 +62,7 @@ type CardArgs = { issuer: string; last4?: string; merchant?: string; mcc?: strin
 function cardOf(args: Json): Record<string, unknown> | null | undefined {
   const c = args.card as CardArgs | null | undefined;
   if (c === undefined || c === null) return c;
-  if (typeof c !== "object" || typeof c.issuer !== "string") throw new Error("card needs at least an issuer");
+  if (typeof c !== "object" || typeof c.issuer !== "string") throw new AgentInputError("card needs at least an issuer");
   const { mcc_name, ...rest } = c;
   return { ...rest, ...(mcc_name !== undefined ? { mccName: mcc_name } : {}) };
 }
@@ -223,12 +223,16 @@ export const AGENT_TOOLS: AgentTool[] = [
       const space = await resolveSpace(io, args);
       const want = Array.isArray(args.sections) && args.sections.length ? new Set(args.sections as string[]) : new Set<string>(SECTIONS);
       const snap = await snapshotOf(io, space);
+      const [wallets, loans, debtHistory] = await Promise.all([
+        want.has("wallets") ? walletsOf(io, space) : undefined,
+        want.has("loans") ? io.query("loanLinks:listForPortfolio", { portfolioId: space.id }) : undefined,
+        want.has("debt_history") ? io.query("debtEvents:listForPortfolio", { portfolioId: space.id }) : undefined,
+      ]);
       const out: Json = { space: { id: space.id, name: space.name, currency: space.currency } };
       for (const key of SECTIONS) {
         if (!want.has(key)) continue;
-        out[key] = key === "wallets" ? (await walletsOf(io, space)).map((w) => walletSummary(w, true))
-          : key === "loans" ? await io.query("loanLinks:listForPortfolio", { portfolioId: space.id })
-          : key === "debt_history" ? await io.query("debtEvents:listForPortfolio", { portfolioId: space.id }) : snap[key];
+        out[key] = key === "wallets" ? (wallets ?? []).map((w) => walletSummary(w, true))
+          : key === "loans" ? loans : key === "debt_history" ? debtHistory : snap[key];
       }
       return out;
     },
@@ -267,11 +271,12 @@ export const AGENT_TOOLS: AgentTool[] = [
     async run(io, args) {
       const space = await resolveSpace(io, args);
       const note = noteOf(args);
+      const cardFields = cardOf(args);
       return io.mutation("mobile:createTransaction", {
         portfolioId: space.id, kind: oneOf(args, "kind", ["income", "expense"] as const), amount: amount(args, "amount"),
         currency: oneOf(args, "currency", CURRENCIES, false) ?? space.currency, description: text(args, "description"),
         occurredAt: date(args, "date", io.now()), ...(text(args, "category_id", false) ? { categoryId: text(args, "category_id") } : {}),
-        ...(note ? { notes: note } : {}), ...(cardOf(args) ? { card: cardOf(args) } : {}), ...write(io, args),
+        ...(note ? { notes: note } : {}), ...(cardFields ? { card: cardFields } : {}), ...write(io, args),
       });
     },
   },

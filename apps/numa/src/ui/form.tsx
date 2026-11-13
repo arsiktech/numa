@@ -1,15 +1,18 @@
 import { webFont } from '@/theme/webFont';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 
+import { parseAmount } from '@/domain/amount';
 import { useTheme } from '@/theme/theme';
 import { arrowProps } from './keys';
 import { Txt } from './Txt';
 
-/** Reads "12,500.5" back into cents; returns null for anything that is not a plain amount. */
+/** Reads "12,500.5", "12,50" or "€4.50" into cents (see `parseAmount`); null for anything else, a negative or more than two decimals. */
 export function toCents(text: string): number | null {
-  const clean = text.replace(/[\s,€$]/g, '');
-  if (!/^\d+(\.\d{0,2})?$/.test(clean)) return null;
-  return Math.round(Number(clean) * 100);
+  const n = parseAmount(text.replace(/[€$]/g, ''));
+  if (Number.isNaN(n) || n < 0) return null;
+  const cents = Math.round(n * 100);
+  // A third decimal is off by at least 0.1 of a cent; float noise stays far below 0.005 up to billions.
+  return Math.abs(n * 100 - cents) > 0.005 ? null : cents;
 }
 
 export function Field({ label, value, onChangeText, numeric, kind }: { label: string; value: string; onChangeText: (t: string) => void; numeric?: boolean; kind?: 'url' | 'secret' }) {

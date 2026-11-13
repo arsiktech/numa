@@ -22,7 +22,7 @@ const TAGS: Record<NonNullable<Place['tag']>, string> = { pledged: 'Pledged', le
 export default function PositionScreen() {
   const { group, key } = useLocalSearchParams<{ group: string; key: string }>();
   const signedIn = useSession().kind === 'signedIn';
-  if (!(group in groupNames)) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>That group doesn’t exist.</Txt></Screen>;
+  if (!Object.prototype.hasOwnProperty.call(groupNames, group)) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>That group doesn’t exist.</Txt></Screen>;
   return signedIn ? <Cloud group={group as GroupId} id={key} /> : <Demo group={group as GroupId} id={key} />;
 }
 function Cloud({ group, id }: { group: GroupId; id: string }) { return <Body source={useCloudItems()} group={group} id={id} />; }

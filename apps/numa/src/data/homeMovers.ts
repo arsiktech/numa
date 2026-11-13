@@ -99,7 +99,7 @@ function quoteEvidence(input: Input): MovementEvidence[] {
     }
     return {
       id, name: item.name, group, changeCents: input.to === input.from ? 0 : item.changeTodayCents,
-      percent: input.to === input.from ? 0 : h.changePercent / 100, debt: item.group === 'debts', status: 'estimate',
+      percent: input.to === input.from ? 0 : h.changePercent / 100, debt: false, status: 'estimate',
     };
   });
 }

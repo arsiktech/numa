@@ -424,15 +424,6 @@ export function rollupCategories(
     .sort((a, b) => b.total - a.total);
 }
 
-export interface SnapshotPoint {
-  takenAt: number;
-  netWorth: number;
-  liquid: number;
-  invested: number;
-  hardAssets: number;
-  liabilities: number;
-}
-
 export interface OwedRow {
   userId: string;
   displayName: string;

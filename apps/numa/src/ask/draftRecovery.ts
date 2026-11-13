@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { storage, type KeyValueStorage } from '@/cloud/storage';
 import type { DraftSaveIntent } from './draftSave';
 import type { Draft } from './parse';
+import { WRITE_NAMES } from './plan';
 
 export type RecoveryDraft = { id: number; draft: Draft; intent?: DraftSaveIntent };
 export type AskRecovery = { text: string; drafts: RecoveryDraft[] };
@@ -42,7 +43,6 @@ function validDraft(d: any): d is Draft {
   if (d.type === 'debt') return typeof d.name === 'string' && typeof d.debtKind === 'string' && finite(d.amountCents) && (d.dueDate === null || finite(d.dueDate)) && (!existing || (finite(existing.balanceCents) && typeof existing.kind === 'string' && (existing.dueDate === null || finite(existing.dueDate))));
   return d.type === 'holding' && typeof d.name === 'string' && typeof d.symbol === 'string' && typeof d.holdingKind === 'string' && ['add', 'set'].includes(d.mode) && finite(d.quantity) && (d.priceCents === null || finite(d.priceCents)) && (!existing || (finite(existing.quantity) && finite(existing.costBasisCents) && finite(existing.acquiredAt) && typeof existing.kind === 'string'));
 }
-const WRITE_NAMES = ['createTransaction', 'updateTransaction', 'deleteTransaction', 'upsertAsset', 'deleteAsset', 'upsertLiability', 'deleteLiability', 'upsertHolding', 'deleteHolding', 'upsertGoal', 'removeGoal', 'updateCategory', 'addSnapshot', 'updateSnapshot', 'removeSnapshot'];
 const validOp = (op: any) => op && WRITE_NAMES.includes(op.fn) && op.args && typeof op.args === 'object' && !Array.isArray(op.args);
 function decode(raw: string, scope: string): AskRecovery {
   const value = JSON.parse(raw);
