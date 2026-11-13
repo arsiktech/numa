@@ -17,7 +17,13 @@ export type BarEntry = {
   onPress?: () => void; opacity?: number; hatch?: string; fullAmount?: boolean;
 };
 
-function Drawing({ entry, rect, geometry, selected, labelMin, total }: { entry: BarEntry; rect: Tile; geometry: Pick<SharedValue<number[]>, 'get'>; selected: boolean; labelMin: number; total: number }) {
+// A block is labelled when its amount fits whole; a narrower one stays a plain block, and touching
+// or pointing at it shows the readout. The amount is in the 13 px figure face, whose characters
+// are all 0.6 em wide; the padding is the label's own (8 + 2) plus the 2 px trimmed between blocks.
+const FIGURE_CHAR = 7.8;
+const LABEL_PAD = 12;
+
+function Drawing({ entry, rect, geometry, selected }: { entry: BarEntry; rect: Tile; geometry: Pick<SharedValue<number[]>, 'get'>; selected: boolean }) {
   const { short, money, mask } = useMoney();
   const reduce = useReducedMotion();
   const opacity = useSharedValue(entry.opacity ?? 1);
@@ -29,19 +35,20 @@ function Drawing({ entry, rect, geometry, selected, labelMin, total }: { entry: 
     const w = values[offset + 2] ?? rect.w;
     return { left: values[offset] ?? rect.x, width: Math.max(0, w - Math.min(2, w * 0.12)), opacity: opacity.get() };
   });
-  const show = selected || (total > 0 && Number.isFinite(total) && entry.cents / total >= labelMin);
+  const amount = entry.fullAmount ? money(Math.round(entry.cents)) : short(Math.round(entry.cents));
+  const show = selected || rect.w >= amount.length * FIGURE_CHAR + LABEL_PAD;
   return (
     <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 0, height: rect.h, backgroundColor: entry.fill, overflow: 'hidden', justifyContent: 'flex-end' }, style]}>
       {entry.hatch && Array.from({ length: 32 }, (_, i) => <View key={i} style={{ position: 'absolute', top: -20, left: -40 + i * 14, width: 7, height: 160, backgroundColor: entry.hatch, transform: [{ rotate: '45deg' }] }} />)}
       {show && <View style={{ paddingLeft: 8, paddingBottom: 7, paddingRight: 2 }}>
         <Txt v="label" style={{ color: entry.ink, textTransform: 'none', letterSpacing: 0 }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{mask(entry.name)}</Txt>
-        <Txt v="figureSm" style={{ color: entry.ink }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{entry.fullAmount ? money(Math.round(entry.cents)) : short(Math.round(entry.cents))}</Txt>
+        <Txt v="figureSm" style={{ color: entry.ink }} numberOfLines={1} maxFontSizeMultiplier={1.3}>{amount}</Txt>
       </View>}
     </Animated.View>
   );
 }
 
-export function LensBar({ entries, height, labelMin, emptyColor }: { entries: BarEntry[]; height: number; labelMin: number; emptyColor: string }) {
+export function LensBar({ entries, height, emptyColor }: { entries: BarEntry[]; height: number; emptyColor: string }) {
   const { money, hidden, mask } = useMoney();
   const [width, setWidth] = useState(0);
   const shown = useMemo(() => entries.filter((e) => Number.isFinite(e.cents) && e.cents > 0), [entries]);
@@ -50,12 +57,11 @@ export function LensBar({ entries, height, labelMin, emptyColor }: { entries: Ba
   const interaction = useLensInteraction(rects, width, height, signature, shown.length);
   const geometry = useLensGeometry(rects, width, height, 'bar', interaction);
   const selected = shown[interaction.selected];
-  const total = shown.reduce((sum, e) => sum + e.cents, 0);
   return (
     <View style={{ overflow: 'visible', zIndex: selected ? 1 : 0 }}>
       <GestureDetector gesture={interaction.gesture} touchAction="pan-y">
         <View testID="bar-lens-surface" onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ height, borderRadius: 10, overflow: 'hidden', backgroundColor: shown.length ? 'transparent' : emptyColor }}>
-          {rects.map((r) => <Drawing key={shown[r.index].id} entry={shown[r.index]} rect={r} geometry={geometry} selected={interaction.selected === r.index} total={total} labelMin={labelMin} />)}
+          {rects.map((r) => <Drawing key={shown[r.index].id} entry={shown[r.index]} rect={r} geometry={geometry} selected={interaction.selected === r.index} />)}
           {/* These original hit targets never move with the animated drawings. */}
           {rects.map((r) => {
             const e = shown[r.index];
