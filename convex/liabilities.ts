@@ -4,6 +4,7 @@ import { mutation, query } from "./_generated/server";
 import { requireEditor, requireMember } from "./lib/access";
 import { assertTermsAfterPatch, termsPatch, validDueDate } from "./lib/loanTerms";
 import { withMutationReceipt } from "./lib/mutationReceipts";
+import { assertAssetBalance } from "./lib/inputGuards";
 
 const currencyValidator = v.union(v.literal("USD"), v.literal("EUR"));
 const liabilityKindValidator = v.union(
@@ -41,6 +42,8 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
+    // A debt balance may be negative (overpaid), but must be finite whole cents like an asset balance.
+    assertAssetBalance(args.balance);
     return await withMutationReceipt(
       ctx,
       userId,
@@ -91,6 +94,10 @@ export const update = mutation({
         const patch: Record<string, unknown> = { updatedAt: Date.now() };
         for (const [key, value] of Object.entries(args.patch)) {
           if (value !== undefined) patch[key] = value === null ? undefined : value;
+        }
+        // Metadata edits must not reject a historical sub-cent balance that the caller resends unchanged.
+        if (args.patch.balance !== undefined && !Object.is(args.patch.balance, existing.balance)) {
+          assertAssetBalance(args.patch.balance);
         }
         if (typeof args.patch.dueDate === "number" && !validDueDate(args.patch.dueDate, Date.now())) {
           throw new ConvexError({ code: "INVALID_INPUT", message: "The due date isn’t a valid date" });

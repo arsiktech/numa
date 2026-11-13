@@ -411,7 +411,8 @@ export function podBalances(
   members: Doc<"podMembers">[],
   expenses: Doc<"podExpenses">[],
   settlements: Doc<"podSettlements">[],
-  groups: Doc<"podGroups">[]
+  groups: Doc<"podGroups">[],
+  currency: "USD" | "EUR"
 ) {
   const settlementPayments: SettlementPayment[] = settlements.map((settlement) => ({
     fromMemberId: String(settlement.fromMemberId),
@@ -431,7 +432,7 @@ export function podBalances(
   return members.map((member) => ({
     memberId: member._id,
     amount: Math.round((netById.get(String(member._id)) ?? 0) * 100) / 100,
-    currency: expenses[0]?.currency ?? settlements[0]?.currency ?? "EUR"
+    currency
   }));
 }
 
@@ -445,14 +446,16 @@ export function podSettlementSummary(
   const memberById = new Map(members.map((member) => [String(member._id), member]));
   const groupById = new Map(groups.map((group) => [String(group._id), group]));
   const me = memberById.get(String(meMemberId));
-  const myPartyName = me ? podPartyName(me, groupById) : null;
+  // A party is identified by its group id, or by the member id outside a group.
+  // Names are for display only: two people called "Alex" are different parties.
   const partyKeyOf = (memberId: string) => {
     const member = memberById.get(memberId);
-    return member ? podPartyName(member, groupById) : memberId;
+    return member ? podPartyKey(member, groupById) : `member:${memberId}`;
   };
+  const myPartyKey = me ? podPartyKey(me, groupById) : null;
   // Shared minimizer with the server's policy: round to 2dp and never emit a
   // transfer between two members of the same party (they're consumed but not
-  // shown). Names are attached afterward for the party-netting pass.
+  // shown). Names are attached afterward for display.
   const transfers = minimizeTransfers(
     balances.map((row) => ({ memberId: String(row.memberId), net: row.amount })),
     { round: true, partyKeyOf }
@@ -467,7 +470,7 @@ export function podSettlementSummary(
       amount: transfer.amount
     };
   });
-  const netTransfers = netPartyTransfers(transfers);
+  const netTransfers = netPartyTransfers(transfers, partyKeyOf);
   const partyTransfers = new Map<
     string,
     {
@@ -482,24 +485,25 @@ export function podSettlementSummary(
       };
     }
   >();
-  if (myPartyName) {
+  if (myPartyKey) {
     for (const transfer of netTransfers) {
       const direction =
-        transfer.fromMemberId === String(meMemberId) || transfer.fromName === myPartyName
+        transfer.fromMemberId === String(meMemberId) || partyKeyOf(transfer.fromMemberId) === myPartyKey
           ? "out"
-          : transfer.toMemberId === String(meMemberId) || transfer.toName === myPartyName
+          : transfer.toMemberId === String(meMemberId) || partyKeyOf(transfer.toMemberId) === myPartyKey
             ? "in"
             : null;
       if (!direction) continue;
       const counterpartyName = direction === "out" ? transfer.toName : transfer.fromName;
-      const current = partyTransfers.get(counterpartyName);
+      const counterpartyKey = partyKeyOf(direction === "out" ? transfer.toMemberId : transfer.fromMemberId);
+      const current = partyTransfers.get(counterpartyKey);
       const signedAmount = direction === "in" ? transfer.amount : -transfer.amount;
       if (current) {
         current.netAmount += signedAmount;
         current.transferCount += 1;
         current.draft = undefined;
       } else {
-        partyTransfers.set(counterpartyName, {
+        partyTransfers.set(counterpartyKey, {
           counterpartyName,
           netAmount: signedAmount,
           transferCount: 1,
@@ -561,7 +565,8 @@ export function netPartyTransfers(
     fromName: string;
     toName: string;
     amount: number;
-  }>
+  }>,
+  partyKeyOf: (memberId: string) => string
 ) {
   const netByPair = new Map<
     string,
@@ -574,13 +579,16 @@ export function netPartyTransfers(
     }
   >();
   for (const transfer of transfers) {
-    const [aName, bName] =
-      transfer.fromName <= transfer.toName
-        ? [transfer.fromName, transfer.toName]
-        : [transfer.toName, transfer.fromName];
-    const key = `${aName}\u0000${bName}`;
-    const current = netByPair.get(key) ?? { aName, bName, netFromAToB: 0 };
-    const fromAToB = transfer.fromName === aName && transfer.toName === bName;
+    // Pair parties by identity; the names only label the result.
+    const fromKey = partyKeyOf(transfer.fromMemberId);
+    const toKey = partyKeyOf(transfer.toMemberId);
+    const fromAToB = fromKey <= toKey;
+    const key = fromAToB ? `${fromKey}\u0000${toKey}` : `${toKey}\u0000${fromKey}`;
+    const current = netByPair.get(key) ?? {
+      aName: fromAToB ? transfer.fromName : transfer.toName,
+      bName: fromAToB ? transfer.toName : transfer.fromName,
+      netFromAToB: 0
+    };
     current.netFromAToB += fromAToB ? transfer.amount : -transfer.amount;
     if (fromAToB && !current.aToBDraft) {
       current.aToBDraft = {
@@ -626,6 +634,11 @@ export function netPartyTransfers(
     .sort((a, b) => b.amount - a.amount);
 }
 
+/** Identity of the party a member settles as: their group when it exists, otherwise themselves. */
+function podPartyKey(member: Doc<"podMembers">, groupById: Map<string, Doc<"podGroups">>) {
+  return member.groupId && groupById.has(String(member.groupId)) ? `group:${String(member.groupId)}` : `member:${String(member._id)}`;
+}
+
 export function podPartyName(member: Doc<"podMembers">, groupById: Map<string, Doc<"podGroups">>) {
   return member.groupId ? groupById.get(String(member.groupId))?.name ?? member.displayName : member.displayName;
 }
@@ -652,7 +665,7 @@ export async function buildPodSnapshot(ctx: QueryCtx, podId: Id<"moneyPods">) {
       .withIndex("by_pod_time", (q) => q.eq("podId", podId))
       .collect()
   ]);
-  const balances = podBalances(members, expenses, settlements, groups);
+  const balances = podBalances(members, expenses, settlements, groups, pod.currency);
   return {
     pod: mobilePod(pod, access.role),
     members: members.map(mobileMember),

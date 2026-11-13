@@ -267,3 +267,46 @@ describe("persisted budget denomination", () => {
     expect(f.all("mutationReceipts").filter(row => ["categories.add", "categories.update"].includes(row.operation)).every(row => row.scopeId === "pf")).toBe(true);
   });
 });
+
+describe("native category order", () => {
+  it("places a new category after the highest position, even after a deletion", async () => {
+    const f = fixture();
+    for (const [id, sortOrder] of [["c1", 1], ["c2", 2], ["c7", 7]] as const) {
+      f.seed("categories", id, { portfolioId: "pf", name: id, kind: "expense", sortOrder, icon: "tag", color: "mint" });
+    }
+    const created = await f.call(createCategory, { portfolioId: "pf", name: "Travel", kind: "expense", clientMutationId: "order" });
+    expect(f.rows.get(created.id).sortOrder).toBe(8);
+  });
+
+  it("starts at zero in an empty space", async () => {
+    const f = fixture();
+    f.seed("memberships", "member-empty", { userId: "user", portfolioId: "empty", role: "owner" });
+    f.seed("portfolios", "empty", { name: "Empty", defaultCurrency: "EUR", ownerId: "user", type: "personal", createdAt: 0 });
+    const created = await f.call(createCategory, { portfolioId: "empty", name: "First", kind: "expense", clientMutationId: "first" });
+    expect(f.rows.get(created.id).sortOrder).toBe(0);
+  });
+});
+
+describe("native manual fund undo", () => {
+  const fund = { portfolioId: "pf", name: "Index fund", kind: "other", balance: 2500, currency: "EUR" };
+
+  it("restores the fund type on create for kind other only", async () => {
+    const f = fixture();
+    const restored = await f.call(upsertAsset, { ...fund, investmentType: "fund", clientMutationId: "undo-fund" });
+    expect(f.rows.get(restored.id).investmentType).toBe("fund");
+    const plain = await f.call(upsertAsset, { ...fund, clientMutationId: "plain-other" });
+    expect(f.rows.get(plain.id).investmentType).toBeUndefined();
+    const cash = await f.call(upsertAsset, { ...fund, kind: "cash", investmentType: "fund", clientMutationId: "cash-fund" });
+    expect(f.rows.get(cash.id).investmentType).toBeUndefined();
+  });
+
+  it("ignores the argument on update and keeps the stored type", async () => {
+    const f = fixture();
+    f.seed("assets", "thing", { ...fund, name: "Painting" });
+    await f.call(upsertAsset, { ...fund, id: "thing", name: "Painting", investmentType: "fund", clientMutationId: "edit-thing" });
+    expect(f.rows.get("thing").investmentType).toBeUndefined();
+    f.seed("assets", "saved-fund", { ...fund, investmentType: "fund" });
+    await f.call(upsertAsset, { ...fund, id: "saved-fund", name: "Renamed fund", clientMutationId: "edit-fund" });
+    expect(f.rows.get("saved-fund")).toMatchObject({ name: "Renamed fund", investmentType: "fund" });
+  });
+});

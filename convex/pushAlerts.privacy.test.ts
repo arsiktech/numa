@@ -62,4 +62,22 @@ describe("Expo push session withdrawal", () => {
     expect(messages).toEqual([{ to: token, title: "Numa Pro", body: "Open Numa Pro to review your alerts.", sound: "default", data: { url: "/" } }]);
     expect(JSON.stringify(messages)).not.toMatch(/Private|999|debt/);
   });
+  it("sends one message per device however many alerts are due, and records every alert", async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [{ status: "ok" }, { status: "ok" }] }) });
+    vi.stubGlobal("fetch", fetch);
+    const second = "ExponentPushToken[synthetic_tablet]";
+    const alerts = ["a", "b", "c"].map((key) => ({ key, title: "Synthetic", body: "Synthetic", url: "/" }));
+    const runMutation = vi.fn();
+    const ctx = {
+      runQuery: async (ref: Parameters<typeof getFunctionName>[0]) => getFunctionName(ref) === "pushAlerts:targets"
+        ? [{ userId: "user", tokens: [token, second], timeZone: "UTC" }]
+        : { alerts, sentKeys: [], sentToday: 0, hour: 12 },
+      runMutation,
+    };
+    expect(await (sendDue as unknown as { _handler: (ctx: unknown, args: object) => Promise<unknown> })._handler(ctx, {})).toBe(2);
+    const messages = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(messages.map((m: { to: string }) => m.to)).toEqual([token, second]);
+    expect(runMutation).toHaveBeenCalledTimes(1);
+    expect(runMutation.mock.calls[0][1]).toMatchObject({ userId: "user", keys: ["a", "b", "c"], deadTokens: [] });
+  });
 });
