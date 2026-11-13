@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { useLocale } from "@/lib/i18n";
+import { isComposingKeydown } from "@/lib/imeComposition";
 import { displayNameFromEmail, isEmailLike, template } from "@/lib/podPageHelpers";
 import { useAuth } from "@/services/auth";
 import { useCurrentUser, usePodGroups, usePodMembers } from "@/services/store";
@@ -530,6 +531,7 @@ export function PeopleSheet({
                             onKeyDown={(event) => {
                               if (event.key === "Enter") {
                                 event.preventDefault();
+                                if (isComposingKeydown(event.nativeEvent)) return;
                                 void renameGroup(group);
                               }
                             }}

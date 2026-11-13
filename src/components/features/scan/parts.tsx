@@ -333,7 +333,7 @@ export function ReviewState({
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-2 max-h-[44vh] overflow-y-auto pr-1 -mr-1">
+      <div className="flex flex-col gap-2 max-h-[44dvh] overflow-y-auto pr-1 -mr-1">
         {editable.map((row) => (
           <ScanRowEditor
             key={row.uid}
