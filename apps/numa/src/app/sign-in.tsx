@@ -270,7 +270,7 @@ export default function SignIn() {
             </Txt>
 
             {step === 'form' && <>
-              <Txt v="small" c="ink2" style={{ marginTop: 12 }}>Free during beta. No card required. We’ll give notice before any paid plan.</Txt>
+              <Txt v="small" c="ink2" style={{ marginTop: 12 }}>Free. No card required. We will tell you before introducing a paid plan.</Txt>
               <LegalLinks />
             </>}
             <View style={{ marginTop: 20, gap: 14 }}>
