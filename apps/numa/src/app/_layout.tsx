@@ -26,8 +26,9 @@ import { isKnownPath, routeMeta } from './routes';
 
 SplashScreen.preventAutoHideAsync();
 
-// A page opened straight from its address (a reload, a bookmark, a link) gets Home beneath it, so a
-// detail shown as a panel on wide screens never sits beside an empty page, and Back goes Home.
+// A page opened straight from its address (a reload, a bookmark, a link) gets Home beneath it, so
+// Back goes Home. The web build loads routes on demand and cannot read this before the layout has
+// loaded, so there a panel puts Home beneath itself (PanelFrame in ui/Panel.tsx).
 export const unstable_settings = { initialRouteName: '(tabs)' };
 
 function hideStartup() {
@@ -90,10 +91,12 @@ function Root() {
         <Stack.Screen name="password" options={panel} />
         <Stack.Screen name="delete-account" options={panel} />
       </Stack.Protected>
-      <Stack.Screen name="auth" />
       <Stack.Protected guard={!inside}>
         <Stack.Screen name="sign-in" />
       </Stack.Protected>
+      {/* After sign-in on purpose: a signed-out launch opens the first screen it may see. On phones
+          auth sends a signed-out person to Home, which they can't open, so it must not come first. */}
+      <Stack.Screen name="auth" />
     </Stack>
   );
   return (

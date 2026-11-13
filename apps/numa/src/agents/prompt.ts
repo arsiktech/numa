@@ -49,4 +49,8 @@ export const toolWords: Record<string, string> = {
   refresh_wallet: 'Checked a wallet',
   save_history_point: 'Saved a history point',
   delete_history_point: 'Deleted a history point',
+  link_loan: 'Linked a loan to where its money went',
+  follow_portal_investors: 'Followed investors in a company portal',
+  record_debt_event: 'Recorded a debt history entry',
+  delete_debt_event: 'Deleted a debt history entry',
 };

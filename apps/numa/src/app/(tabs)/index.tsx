@@ -14,6 +14,7 @@ import { usePrefs } from '@/state/prefs';
 import { useTheme } from '@/theme/theme';
 import { type as typeScale } from '@/theme/tokens';
 import { CoachTip } from '@/ui/CoachTip';
+import { FitLine, scaleType } from '@/ui/FitLine';
 import { CompositionBar, type Lens } from '@/ui/CompositionBar';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { EarningsTeaser } from '@/earnings/EarningsTeaser';
@@ -220,10 +221,14 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
     <View>
       {model.source === 'demo' && <Txt v="body" c="ink2" style={{ marginBottom: 8 }}>Net worth, cash flow and what needs you, on every device.</Txt>}
       {model.available ? (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-          <Odometer text={mask(whole)} style={{ ...hero, color: c.ink, fontVariant: ['tabular-nums'] }} fast={scrub !== null} />
-          <Odometer text={mask(cents)} style={{ ...centsStyle, color: c.ink3, fontVariant: ['tabular-nums'] }} fast={scrub !== null} />
-        </View>
+        <FitLine>
+          {(k) => (
+            <>
+              <Odometer text={mask(whole)} style={{ ...scaleType(hero, k), color: c.ink, fontVariant: ['tabular-nums'] }} fast={scrub !== null} />
+              <Odometer text={mask(cents)} style={{ ...scaleType(centsStyle, k), color: c.ink3, fontVariant: ['tabular-nums'] }} fast={scrub !== null} />
+            </>
+          )}
+        </FitLine>
       ) : (
         <Txt style={{ ...hero, color: c.ink3 }} accessibilityLabel="Total unavailable">—</Txt>
       )}
@@ -307,7 +312,11 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
   if (wide) {
     return shell(
       <View style={{ gap: 20 }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>{heroBlock}{showChart && rangePills}</View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>
+            {/* May shrink: beside an open panel the column is narrow, and the figure and its lines then fit it instead of running under the panel. */}
+            <View style={{ flexShrink: 1, minWidth: 0 }}>{heroBlock}</View>
+            {showChart && rangePills}
+          </View>
           {chart}
           {/* Beside an open panel the page is narrower, so the two columns stack. */}
           <View style={{ flexDirection: panelOpen ? 'column' : 'row', gap: panelOpen ? 28 : 48, alignItems: panelOpen ? 'stretch' : 'flex-start', marginTop: 14 }}>

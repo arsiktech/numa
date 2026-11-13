@@ -1,4 +1,5 @@
 import { newId } from "@/lib/ids";
+import { nextRunAfter } from "../../convex/lib/recurringSchedule";
 import { goalScope, migrateGoalShape } from "@/lib/goals";
 import type {
   Asset,
@@ -17,7 +18,6 @@ import type {
   PodMember,
   PodSettlement,
   Portfolio,
-  RecurrenceCadence,
   RecurringTransaction,
   Settlement,
   Transaction,
@@ -43,25 +43,8 @@ export function detectLocale(): "en" | "ru" | "es" {
   return "en";
 }
 
-/** Advance a timestamp by one cadence step. */
-export function nextRunAfter(ts: number, cadence: RecurrenceCadence): number {
-  const d = new Date(ts);
-  switch (cadence) {
-    case "weekly":
-      d.setDate(d.getDate() + 7);
-      break;
-    case "monthly":
-      d.setMonth(d.getMonth() + 1);
-      break;
-    case "quarterly":
-      d.setMonth(d.getMonth() + 3);
-      break;
-    case "yearly":
-      d.setFullYear(d.getFullYear() + 1);
-      break;
-  }
-  return d.getTime();
-}
+/** Advance a timestamp by one cadence step. Shared with convex/recurring.ts. */
+export { nextRunAfter };
 
 export function applyDelta(assets: Asset[], accountId: string | undefined, delta: number) {
   if (!accountId || delta === 0) return assets;
@@ -477,7 +460,7 @@ export function reducer(state: NumaState, action: Action): NumaState {
           newTxs.push(tx);
           const delta = r.kind === "income" ? r.amount : -r.amount;
           assets = applyDelta(assets, r.accountId, delta);
-          nextRunAt = nextRunAfter(nextRunAt, r.cadence);
+          nextRunAt = nextRunAfter(nextRunAt, r.cadence, r.startAt, "local");
         }
         return { ...r, nextRunAt };
       });

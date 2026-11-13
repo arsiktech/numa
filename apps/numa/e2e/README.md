@@ -22,5 +22,7 @@ Environment overrides: `E2E_APP_URL` (default `http://localhost:5196`),
 Chromium binary). If `HTTPS_PROXY` is set, the browser uses it for outside
 hosts. Screenshots and downloads go to `e2e/output/`, which git ignores.
 
-The journeys read live prices from the backend's market cron and the ECB rate
-from Frankfurter, so they need internet access.
+The journeys seed their own quotes: `setup-auth.mjs` sets
+`NUMA_QUOTES_OFFLINE=1`, so the backend's market cron does not refresh prices
+during a run. They still read the ECB rate from Frankfurter, so they need
+internet access.

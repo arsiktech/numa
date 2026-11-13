@@ -63,16 +63,10 @@ export function formatPercent(value: number, fractionDigits = 1) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(fractionDigits)}%`;
 }
 
-export function formatSignedMoney(value: number, currency: CurrencyCode = "USD") {
-  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
-  return `${sign}${formatMoney(Math.abs(value), currency)}`;
-}
-
 /**
  * Signed amount with cents. Use on small-spend surfaces (the light home)
  * where rounding to whole units would contradict the cents shown elsewhere
- * (the weekly hero and the History list). `formatSignedMoney` stays whole-unit
- * for big-picture deltas on the advanced/wealth surfaces.
+ * (the weekly hero and the History list).
  */
 export function formatSignedMoneyDecimal(value: number, currency: CurrencyCode = "USD") {
   const sign = value > 0 ? "+" : value < 0 ? "−" : "";

@@ -1,6 +1,6 @@
 import type { AskContext } from '@/ask/parse';
 import { parseAmount, parseDay, parseQuantity, parseTable } from './csv';
-import { previewImport } from './importRows';
+import { previewImport, transactionSpan } from './importRows';
 
 const now = new Date(2026, 9, 12, 10);
 const ctx: AskContext & { existingTx: { occurredAt: number; amountMinor: number; description: string }[] } = {
@@ -53,6 +53,15 @@ describe('previewImport', () => {
     expect(p.rows[3]).toMatchObject({ draft: null, problem: 'No readable date' });
   });
 
+  it('marks a row as already imported only when size, local day and description all match', () => {
+    const existingTx = [
+      { occurredAt: new Date(2026, 9, 3, 23, 30).getTime(), amountMinor: -120_000, description: 'October Rent' },
+      { occurredAt: new Date(2026, 9, 7, 9).getTime(), amountMinor: 450, description: 'Coffee' },
+    ];
+    const p = previewImport(parseTable('Date,Description,Amount\n2026-10-03,october rent,-1200\n2026-10-04,October rent,-1200\n2026-10-07,Tea,-4.50'), { ...ctx, existingTx });
+    expect(p.rows.map((r) => r.duplicate)).toEqual([true, false, false]);
+  });
+
   it('reads a balance sheet: accounts update by name, negative or debt rows become debts', () => {
     const p = previewImport(parseTable('Name\tType\tValue\tCurrency\nMain account\tBank\t12500\tEUR\nFlat\tProperty\t250000\tEUR\nCar loan\tLoan\t20000\tEUR\nCard\t\t-420\t'), ctx);
     expect(p.kind).toBe('balances');
@@ -72,5 +81,11 @@ describe('previewImport', () => {
 
   it('says it cannot tell what a table is instead of guessing', () => {
     expect(previewImport(parseTable('foo,bar\n1,2'), ctx).kind).toBeNull();
+  });
+
+  it('names the whole days its transactions fall on, so older saved rows can be checked too', () => {
+    const p = previewImport(parseTable('Date,Description,Amount\n2026-10-05,Coffee,-4.50\n2026-03-01,Payroll,3200\nbad,Row,1'), ctx);
+    expect(transactionSpan(p.rows)).toEqual({ start: new Date(2026, 2, 1).getTime(), end: new Date(2026, 9, 6).getTime() });
+    expect(transactionSpan(previewImport(parseTable('Name\tValue\nMain account\t12500'), ctx).rows)).toBeNull();
   });
 });

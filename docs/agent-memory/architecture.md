@@ -27,7 +27,6 @@ flowchart LR
 - `src/components/ui/`: primitives such as Button, Card, Dialog, Avatar.
 - `src/components/layout/`: shell, sidebar, top bar, bottom nav, FAB, search.
 - `src/components/features/`: domain dialogs and flows.
-- `src/components/charts/`: local SVG charts using `src/lib/chartMath.ts`.
 - `src/services/`: auth, store, Convex mirror, typed actions, write queue,
   market/FX/push/scan services.
 - `src/lib/`: pure helpers, types, money, analytics, ledger, i18n, theme.

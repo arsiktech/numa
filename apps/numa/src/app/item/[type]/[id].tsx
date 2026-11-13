@@ -267,7 +267,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
 }
 
 function initialText(item: Item, f: Fields) {
-  const due = item.type === 'liability' && (f as DebtFields).dueDate ? shortDay((f as DebtFields).dueDate!, 0).replace(/^(\d+ \w+)$/, '$1') : '';
+  const due = item.type === 'liability' && (f as DebtFields).dueDate ? shortDay((f as DebtFields).dueDate!, 0) : '';
   if (item.type === 'holding') return { amount: ((f as HoldingFields).costBasisCents / 100).toFixed(2), qty: String((f as HoldingFields).quantity), due, cost: '', bought: '' };
   const a = f as AssetFields;
   return { amount: (a.balanceCents / 100).toFixed(2), qty: '', due, cost: a.costCents ? (a.costCents / 100).toFixed(2) : '', bought: a.acquiredAt ? new Date(a.acquiredAt).toISOString().slice(0, 10) : '' };

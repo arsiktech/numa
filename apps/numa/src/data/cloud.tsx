@@ -70,6 +70,7 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
   const space = spaces?.find((s) => s.id === portfolioId) ?? null;
   const { set } = prefs;
   const selectSpace = useCallback((id: string) => set('space', id), [set]);
+  // Only the last weeks of transactions ride with the snapshot, which keeps Home quick to load. `ledger.ts` reads older ones.
   const [since] = useState(() => Date.now() - 45 * 24 * 60 * 60 * 1000);
   const base = useQuery(cloud.portfolioSnapshot, portfolioId ? { portfolioId, since } : 'skip');
   const walletDocs = useQuery(cloud.listWallets, portfolioId ? { portfolioId } : 'skip');

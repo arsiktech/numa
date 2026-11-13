@@ -1,6 +1,6 @@
 import type { CloudGoal, CloudSnapshot, CloudTransaction } from '@/cloud/api';
 import { summarize } from '@/domain/summary';
-import { goalCreatePlan, goalDeletePlan, goalRows, limitPlan, limits, runway, runwayWords } from './plan';
+import { goalCreatePlan, goalDeletePlan, goalRows, limitPlan, limits, runway, runwayMonths, runwayWords } from './plan';
 
 const now = new Date(2026, 9, 12, 10);
 const t = now.getTime();
@@ -20,6 +20,9 @@ describe('runway', () => {
     const r = runway(s, cash, 'EUR', null, now);
     expect(r).toMatchObject({ cashCents: 1_200_000, monthlyOutCents: 200_000, months: 6, basisMonths: 3 });
     expect(runwayWords(r.months)).toBe('About 6 months on cash');
+  });
+  it('names the three full months before this one, newest first, across a year end', () => {
+    expect(runwayMonths(new Date(2026, 1, 3))).toEqual([{ year: 2026, month: 0 }, { year: 2025, month: 11 }, { year: 2025, month: 10 }]);
   });
   it('says when there is no recent spending instead of guessing', () => {
     expect(runway(snap({ transactions: [tx('now', 'expense', 1, t)] }), cash, 'EUR', null, now).months).toBeNull();

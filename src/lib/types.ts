@@ -22,14 +22,6 @@ export type GoalScope =
   | "holding_value";
 export type PrimaryJob = "net_worth" | "daily_spending" | "shared_money";
 export type StarterTemplate = "personal_capital" | "couple_family" | "trip_shared_flat";
-export type CaptureDestination = "personal" | "pod";
-export type CaptureDraftKind =
-  | "transaction"
-  | "pod_expense"
-  | "asset"
-  | "liability"
-  | "holding"
-  | "settlement";
 /**
  * `light` is the simple expense tracker + budgeting UI (Money + Settings, big
  * month spend on home). `advanced` is the full app: Wealth + Shared + Holdings
