@@ -144,7 +144,7 @@ function question(t: string): Topic | null {
   return 'help';
 }
 
-function holding(raw: string, t: string, ctx: AskContext): HoldingDraft | null {
+function holding(raw: string, ctx: AskContext): HoldingDraft | null {
   const re = /\b(?:(bought|buy|added|add|own|have|hold)\s+)?(\d+(?:[.,]\d+)?)\s*(?:shares?\s+(?:of\s+)?|units?\s+(?:of\s+)?|coins?\s+(?:of\s+)?)?([a-z]{2,10})\b/gi;
   for (const m of raw.matchAll(re)) {
     const token = m[3];
@@ -170,7 +170,6 @@ function holding(raw: string, t: string, ctx: AskContext): HoldingDraft | null {
       existing: existing ? { id: existing.id, name: existing.name, kind: existing.kind, quantity: existing.quantity, costBasisCents: Math.round(existing.costBasis * 100), currency: existing.currency, acquiredAt: existing.acquiredAt ?? ctx.now.getTime() } : null,
     };
   }
-  void t;
   return null;
 }
 
@@ -181,7 +180,7 @@ export function parse(input: string, ctx: AskContext): Parsed {
   const topic = question(t);
   if (topic) return { type: 'question', topic };
 
-  const h = holding(raw, t, ctx);
+  const h = holding(raw, ctx);
   if (h) return { type: 'draft', draft: h };
 
   const isDebt = /\b(owe|owed|debt|loan|mortgage|credit card|card bill|card balance|borrowed)\b/.test(t);

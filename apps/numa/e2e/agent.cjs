@@ -47,7 +47,7 @@ async function makeLink(page, name, readOnly) {
   const added = await call(link, 'add_transaction', { kind: 'expense', amount: 24, description: 'Lunch with agent', request_id: 'qa-lunch-1' });
   check('the agent adds spending to the account', !added.result.isError, JSON.stringify(added.result.content[0].text).slice(0, 160));
   const again = await call(link, 'add_transaction', { kind: 'expense', amount: 24, description: 'Lunch with agent', request_id: 'qa-lunch-1' });
-  const { c, snap } = await client(EMAIL);
+  const { snap } = await client(EMAIL);
   const lunches = (await snap()).transactions.filter((t) => t.description === 'Lunch with agent');
   check('a retried call with the same request id saves once', !again.result.isError && lunches.length === 1 && lunches[0].amount === 24);
   check('it is saved as the user, in the space currency', lunches[0]?.currency === 'EUR');
@@ -92,7 +92,6 @@ async function makeLink(page, name, readOnly) {
 
   const unexpected = errors.filter((e) => !/favicon|Download the React DevTools/i.test(e));
   check('no page or console errors', unexpected.length === 0, unexpected.slice(0, 3).join(' | '));
-  void c;
   await browser.close();
   process.exit(finish() ? 1 : 0);
 })().catch((e) => { console.error('JOURNEY CRASH', e); process.exit(2); });

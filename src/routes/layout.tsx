@@ -92,10 +92,10 @@ export function AppLayout() {
 
   return (
     // UndoToastProvider MUST wrap the entire AppLayout — including BottomNav
-    // and FloatingAddFab — because the FAB opens AddTransactionDialog which
-    // mounts CategoryDialog, and that one calls useUndo(). If we wrap only
-    // the <Outlet>, tapping "+" anywhere crashes the route with "useUndo
-    // must be used inside <UndoToastProvider>".
+    // and FloatingAddFab — so every dialog that calls useUndo() (CategoryDialog,
+    // EditTransactionDialog and others) finds it, wherever it is opened from.
+    // A dialog outside it fails with "useUndo must be used inside
+    // <UndoToastProvider>".
     <UndoToastProvider>
       <div className="min-h-screen lg:min-h-[100dvh] flex">
         {isSharedSurface ? null : <Sidebar />}

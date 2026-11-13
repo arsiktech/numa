@@ -55,6 +55,10 @@ export function previewImport(table: string[][], ctx: AskContext & { existingTx:
     return c === 'USD' || c === 'EUR' ? c : fromAmount ?? ctx.currency;
   };
 
+  // Already imported: same size, same local day, same description.
+  const txKey = (cents: number, at: number, description: string) => `${Math.abs(cents)}|${new Date(at).toDateString()}|${description.toLowerCase()}`;
+  const imported = kind === 'transactions' ? new Set(ctx.existingTx.map((t) => txKey(t.amountMinor, t.occurredAt, t.description))) : null;
+
   const rows: ImportRow[] = body.map((r, i): ImportRow => {
     const line = i + 2;
     const fail = (problem: string): ImportRow => ({ line, draft: null, problem, duplicate: false });
@@ -68,7 +72,7 @@ export function previewImport(table: string[][], ctx: AskContext & { existingTx:
       const description = cell(r, col.desc) || (income ? 'Income' : 'Spending');
       const category = ctx.categories.find((c) => c.kind === (income ? 'income' : 'expense') && c.name.toLowerCase() === type);
       const cents = Math.abs(amount.cents);
-      const duplicate = ctx.existingTx.some((t) => Math.abs(t.amountMinor) === cents && new Date(t.occurredAt).toDateString() === new Date(at).toDateString() && t.description.toLowerCase() === description.toLowerCase());
+      const duplicate = imported?.has(txKey(cents, at, description)) ?? false;
       return { line, problem: null, duplicate, draft: { type: 'transaction', kind: income ? 'income' : 'expense', description, amountCents: cents, currency: currencyOf(r, amount.currency), occurredAt: at, categoryId: category?.id ?? null, categoryName: category?.name ?? null } };
     }
     if (kind === 'holdings') {
