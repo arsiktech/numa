@@ -123,8 +123,11 @@ function Inner({ data, useLedger }: { data: FlowData; useLedger: typeof useCloud
   const idx = data.months.findIndex((m) => sameMonth(m, month));
   const flow = ledger && !data.demo ? monthFlow({ categories: data.categories, transactions: ledger } as Parameters<typeof monthFlow>[0], month, data.currency, data.fx, new Date(data.now)) : data.flowFor(month);
   const sum = summarizeFlow(flow);
-  const chartW = Math.min(wide ? 1040 : width - 40, 1040);
-  const layout = layoutSankey(flow.incoming, flow.outgoing, chartW, wide ? 340 : 260);
+  // The chart takes the width its column really has: beside the sidebar and an open panel that is
+  // less than the window, and a width guessed from the window ran off the right edge.
+  const [room, setRoom] = useState(0);
+  const chartH = wide ? 340 : 260;
+  const layout = room > 0 ? layoutSankey(flow.incoming, flow.outgoing, Math.min(room, 1040), chartH) : null;
   const lines = [...flow.incoming, ...flow.outgoing];
   const focused = lines.find((l) => l.id === focus) ?? null;
   const cal = lens === 'calendar' ? monthCalendar(monthTxs, month, data.currency, data.fx, data.now) : null;
@@ -188,7 +191,9 @@ function Inner({ data, useLedger }: { data: FlowData; useLedger: typeof useCloud
           {cal ? <SpendCalendar cal={cal} selected={day} onSelect={setDay} /> : <View>
           <Hint id="flow-follow" text="Tap a stream, or its chip, to follow it. The list below shows just its transactions." />
           <View style={{ height: 14 }} />
-          <Sankey layout={layout} focus={focus} onFocus={setFocus} />
+          <View onLayout={(e) => setRoom(Math.floor(e.nativeEvent.layout.width))} style={{ minHeight: chartH }}>
+            {layout && <Sankey layout={layout} focus={focus} onFocus={setFocus} />}
+          </View>
           {/* Every stream as a chip, so even ones too thin to label can be followed. */}
           <View style={{ marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityLabel="Streams">
             {lines.map((l) => (

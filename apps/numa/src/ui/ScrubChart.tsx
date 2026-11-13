@@ -58,6 +58,12 @@ const TOP = 26;
 const BOTTOM = 24;
 const PAD = 14;
 
+/** True when focus came from the keyboard. A tap or a click also focuses the chart, and must not draw the ring. */
+const keyboardFocus = (target: unknown) => {
+  const el = target as { matches?: (selector: string) => boolean } | null;
+  try { return el?.matches ? el.matches(':focus-visible') : true; } catch { return true; }
+};
+
 /**
  * A single line of value over time. Drag (or hover on web) to read earlier values; the hero figure
  * follows. Letting go, or tapping the line, keeps that date so the blocks below can be opened for it.
@@ -134,7 +140,7 @@ export function ScrubChart({ values, times, height, up, drawKey, pinned, onPrevi
   return (
     <GestureDetector gesture={gesture}>
       <View testID="scrub-chart" style={{ height, borderRadius: 10, ...(focused ? { borderWidth: 2, borderColor: c.ink } : {}) }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessibilityRole="adjustable" accessibilityLabel={label} accessibilityHint="Left and right move the date" accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]} onAccessibilityAction={(event) => step(event.nativeEvent.actionName === 'increment' ? 1 : -1)}
-        {...(Platform.OS === 'web' ? { tabIndex: 0, onFocus: () => setFocused(true), onBlur: () => setFocused(false), onKeyDown: (event: { key?: string; nativeEvent?: { key?: string }; preventDefault?: () => void }) => { const key = event.key ?? event.nativeEvent?.key; if (key !== 'ArrowLeft' && key !== 'ArrowRight') return; event.preventDefault?.(); step(key === 'ArrowRight' ? 1 : -1); } } : {})}>
+        {...(Platform.OS === 'web' ? { tabIndex: 0, onFocus: (event: { target?: unknown }) => setFocused(keyboardFocus(event.target)), onBlur: () => setFocused(false), onKeyDown: (event: { key?: string; nativeEvent?: { key?: string }; preventDefault?: () => void }) => { const key = event.key ?? event.nativeEvent?.key; if (key !== 'ArrowLeft' && key !== 'ArrowRight') return; event.preventDefault?.(); setFocused(true); step(key === 'ArrowRight' ? 1 : -1); } } : {})}>
         {geo && (
           <Svg width={width} height={height}>
             <Defs>

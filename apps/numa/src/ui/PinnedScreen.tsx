@@ -70,9 +70,10 @@ export function PinnedScreen({ nav, buttons, children, maxWidth = 1240, keyboard
     return (
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} keyboardShouldPersistTaps={keyboard ? 'handled' : undefined} contentContainerStyle={{ paddingHorizontal: 40, paddingTop: 22, paddingBottom: 60 }}>
         <View style={{ width: '100%', maxWidth, alignSelf: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-            <View style={{ flex: 1 }}>{nav(false)}</View>
-            {buttons(false)}
+          {/* When the column is too narrow for both (a panel open beside it), the buttons drop to their own line instead of covering the screen's row. */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12, marginBottom: 14 }}>
+            <View style={{ flexGrow: 1 }}>{nav(false)}</View>
+            <View style={{ marginLeft: 'auto' }}>{buttons(false)}</View>
           </View>
           {children}
         </View>
