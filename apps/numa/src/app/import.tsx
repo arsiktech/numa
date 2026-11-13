@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { bindUndo, CREATED, plan, type Op } from '@/ask/plan';
 import { useSession } from '@/cloud/session';
@@ -17,6 +17,7 @@ import { useTheme } from '@/theme/theme';
 import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 const KIND_WORDS = { transactions: 'transactions', balances: 'accounts and debts', holdings: 'holdings' } as const;
 
@@ -69,7 +70,7 @@ function Importer() {
     const s = cloud.snapshot;
     return previewImport(table, { currency: cloud.data.currency, now: new Date(cloud.now), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings, existingTx: s.transactions });
   }, [cloud, table, log]);
-  if (cloud.status !== 'ready') return <Screen><ActivityIndicator style={{ marginTop: 60 }} accessibilityLabel="Loading" /></Screen>;
+  if (cloud.status !== 'ready') return <Screen><NotReady /></Screen>;
 
   const fresh = () => { setResult(null); setUndone(false); };
   /** Opens the first tab Numa understands: a wealth log, or a table whose columns it recognises. */

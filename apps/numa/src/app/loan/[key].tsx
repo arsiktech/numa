@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
@@ -15,6 +15,7 @@ import { quantityText } from '@/ui/PositionRow';
 import { Screen } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 /** One loan whole: what backs it, what is owed, where the money went and whether that paid off. */
 export default function LoanScreen() {
@@ -26,7 +27,7 @@ export default function LoanScreen() {
 function Cloud({ loanKey }: { loanKey: string }) {
   const state = useLoans();
   const cloud = useCloudData();
-  if (state.status !== 'ready' || cloud.status !== 'ready') return <Screen><View style={{ marginTop: 60, alignItems: 'center' }}><ActivityIndicator accessibilityLabel="Loading" /></View></Screen>;
+  if (state.status !== 'ready' || cloud.status !== 'ready') return <Screen><NotReady /></Screen>;
   const loan = state.loans.find((l) => l.key === loanKey);
   if (!loan) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>This loan isn’t here anymore. It may have been repaid or deleted.</Txt></Screen>;
   return <CurrencyScope currency={cloud.data.currency}><Detail loan={loan} state={state} /></CurrencyScope>;

@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { cloud, type CloudCurrency, type CloudSpace } from '@/cloud/api';
 import { newMutationId, useCloudData } from '@/data/cloud';
+import { useSafeMutation } from '@/data/safeMutation';
 import { useTheme } from '@/theme/theme';
 import { Field, Seg } from '@/ui/form';
 import { useToast } from '@/ui/Toast';
@@ -18,7 +19,7 @@ export function SpaceSection() {
   const { c } = useTheme();
   const toast = useToast();
   const updatePortfolio = useMutation(cloud.updatePortfolio);
-  const createSpace = useMutation(cloud.createSpace);
+  const createSpace = useSafeMutation(cloud.createSpace, 'createSpace');
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [kind, setKind] = useState<'personal' | 'business'>('business');
@@ -44,7 +45,7 @@ export function SpaceSection() {
     if (!clean) { setError('Give the space a name.'); return; }
     setBusy(true); setError(null);
     try {
-      const { id } = await createSpace({ name: clean, spaceKind: kind, currency, clientMutationId: newMutationId('numa.createSpace') });
+      const { id } = await createSpace({ name: clean, spaceKind: kind, currency });
       selectSpace(id);
       setAdding(false); setName('');
       toast({ text: `Now showing ${clean}` });

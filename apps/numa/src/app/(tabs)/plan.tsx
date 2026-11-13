@@ -22,6 +22,7 @@ import { useToast } from '@/ui/Toast';
 import { Hint } from '@/ui/Hint';
 import { SkeletonBlocks } from '@/ui/Skeleton';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 type PlanData = {
   demo: boolean; currency: Currency; now: number;
@@ -67,6 +68,7 @@ function CloudPlan() {
       </View>
     </Shell>
   );
+  if (cloud.status === 'needsSpace') return <Shell><NotReady /></Shell>;
   if (!data) return <Shell><SkeletonBlocks /></Shell>;
   return <PlanView data={data} />;
 }

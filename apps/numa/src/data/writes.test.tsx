@@ -2,6 +2,7 @@ import React from 'react';
 import { useWriter } from './writes';
 import { NavigationWriterProvider, useNavigationWriter } from './NavigationWriter';
 import type { Op } from '@/ask/plan';
+import { forgetWriteIntents } from './writeIntent';
 
 const { act, create } = jest.requireActual('react-test-renderer');
 let mockConnected = true;
@@ -25,6 +26,7 @@ beforeEach(() => {
   mockConnected = true; mockUser = 'user-a';
   mockData = { status: 'ready', portfolioId: 'space-a', boot: { profile: { userId: 'user-a' } } };
   mockSubmit.mockReset().mockResolvedValue({ id: 'record' });
+  forgetWriteIntents();
 });
 afterEach(async () => { if (tree) await act(async () => tree.unmount()); tree = null; });
 async function mount() { await act(async () => { tree = create(<Harness />); }); }
@@ -85,4 +87,17 @@ it('a root-owned Undo survives detail unmount, while its account and space guard
   await act(async () => { tree.update(show(false)); });
   await expect(rootUndo(op())).rejects.toThrow(/account|space|changed/);
   expect(mockSubmit).toHaveBeenCalledTimes(1);
+});
+
+it('a save cut off by an ended session is retried after signing back in with the same receipt, so it counts once', async () => {
+  mockSubmit.mockRejectedValueOnce(new Error('Not signed in'));
+  await mount();
+  await expect(run(op())).rejects.toThrow('Not signed in');
+  const receipt = mockSubmit.mock.calls[0][0].clientMutationId;
+  // Signed out: the whole signed-in tree goes away. Signing back in mounts a new writer.
+  await act(async () => { tree.unmount(); }); tree = null;
+  await mount();
+  await expect(run(op())).resolves.toBe('record');
+  expect(mockSubmit).toHaveBeenCalledTimes(2);
+  expect(mockSubmit.mock.calls[1][0].clientMutationId).toBe(receipt);
 });

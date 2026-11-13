@@ -26,6 +26,7 @@ import { Hint } from '@/ui/Hint';
 import { arrowProps } from '@/ui/keys';
 import { SkeletonBlocks } from '@/ui/Skeleton';
 import { Txt } from '@/ui/Txt';
+import { NotReady } from '@/ui/NotReady';
 
 type FlowData = {
   demo: boolean;
@@ -66,6 +67,7 @@ function CloudFlow() {
     };
   }, [cloud]);
   if (cloud.status === 'error') return <Shell><LoadError message={cloud.message} onRetry={cloud.retry} /></Shell>;
+  if (cloud.status === 'needsSpace') return <Shell><NotReady /></Shell>;
   if (!data) return <Shell><SkeletonBlocks /></Shell>;
   return <FlowView data={data} />;
 }

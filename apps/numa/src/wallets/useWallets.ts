@@ -1,9 +1,9 @@
-import { useAction, useMutation } from 'convex/react';
+import { useAction } from 'convex/react';
 import { ConvexError } from 'convex/values';
 import { useCallback } from 'react';
 
 import { cloud } from '@/cloud/api';
-import { newMutationId } from '@/data/cloud';
+import { useSafeMutation } from '@/data/safeMutation';
 
 const EVM = /^0x[0-9a-fA-F]{40}$/;
 
@@ -38,17 +38,17 @@ export const refreshText: Record<'ok' | 'partial' | 'failed' | 'recent' | 'unsup
   unsupported: 'Numa can’t check this kind of address yet.',
 };
 
-/** Add, remove and refresh tracked wallets. Adds and removes carry receipts. */
+/** Add, remove and refresh tracked wallets. Adds and removes carry receipts, kept across retries. */
 export function useWalletWrites() {
-  const add = useMutation(cloud.addWallet);
-  const remove = useMutation(cloud.removeWallet);
+  const add = useSafeMutation(cloud.addWallet, 'addWallet');
+  const remove = useSafeMutation(cloud.removeWallet, 'removeWallet');
   const refresh = useAction(cloud.refreshWallet);
   return {
     add: useCallback(async (portfolioId: string, address: string, type: 'bitcoin' | 'evm', label: string) => {
-      const r = await add({ portfolioId, address, addressType: type, label, includeInNetWorth: true, clientMutationId: newMutationId('numa.addWallet') });
+      const r = await add({ portfolioId, address, addressType: type, label, includeInNetWorth: true });
       return typeof r === 'string' ? r : r.id;
     }, [add]),
-    remove: useCallback(async (id: string) => { await remove({ id, clientMutationId: newMutationId('numa.removeWallet') }); }, [remove]),
+    remove: useCallback(async (id: string) => { await remove({ id }); }, [remove]),
     refresh: useCallback(async (walletId: string) => {
       try { return (await refresh({ walletId })).status; } catch { return 'failed' as const; }
     }, [refresh]),

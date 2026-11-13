@@ -10,6 +10,7 @@ import { answer, EXAMPLES } from '@/ask/answer';
 import { DraftCard, type DraftStatus } from '@/ask/DraftCard';
 import { askDraftRecovery, RECOVERY_ERROR_MESSAGE, type AskRecovery } from '@/ask/draftRecovery';
 import type { DraftSaveIntent } from '@/ask/draftSave';
+import { useOptionalCloudData } from '@/data/cloud';
 import { WriteRefusedError } from '@/data/writeIntent';
 import { looksLikeSeveral, parse, type Draft } from '@/ask/parse';
 import { proposalToDraft } from '@/ask/proposal';
@@ -19,7 +20,9 @@ import { useSession } from '@/cloud/session';
 import { AISharingActions, AISharingPanel } from '@/privacy/AISharingPanel';
 import { useTheme } from '@/theme/theme';
 import { useMoney } from '@/ui/money';
+import { NotReady } from '@/ui/NotReady';
 import { PanelFrame } from '@/ui/Panel';
+import { Screen } from '@/ui/Screen';
 import { Txt } from '@/ui/Txt';
 
 type ConsentDecision = { question: string; status: 'open' | 'approving' | 'closed' };
@@ -35,7 +38,13 @@ export default function AskScreen() {
   const session = useSession();
   return session.kind === 'signedIn' ? <CloudAsk /> : <DemoAsk />;
 }
-function CloudAsk() { const source = useCloudAskSource(); return <AskView key={source.status === 'ready' ? source.contextKey : 'loading'} source={source} />; }
+function CloudAsk() {
+  const cloud = useOptionalCloudData();
+  const source = useCloudAskSource();
+  // Ask can't save into numbers that didn't load, so it says why instead of a composer that never answers.
+  if (cloud?.status === 'error' || cloud?.status === 'needsSpace') return <Screen><NotReady /></Screen>;
+  return <AskView key={source.status === 'ready' ? source.contextKey : 'loading'} source={source} />;
+}
 function DemoAsk() { return <AskView source={useDemoAskSource()} />; }
 
 const FAILED: Record<Exclude<AskReply['status'], 'ok'>, string> = {
