@@ -31,6 +31,14 @@
   Cache-Control: public, max-age=0, stale-while-revalidate=120
 /terms.html
   Cache-Control: public, max-age=0, stale-while-revalidate=120
+/support
+  Cache-Control: public, max-age=0, stale-while-revalidate=120
+/support.html
+  Cache-Control: public, max-age=0, stale-while-revalidate=120
+/account-deletion
+  Cache-Control: public, max-age=0, stale-while-revalidate=120
+/account-deletion.html
+  Cache-Control: public, max-age=0, stale-while-revalidate=120
 
 # Same address after every change, so these keep a short lifetime.
 /legal.css
