@@ -4,12 +4,13 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import { bindUndo, CREATED, plan, type Op } from '@/ask/plan';
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
+import { useLedgerOutline } from '@/data/ledger';
 import { useWriter } from '@/data/writes';
 import { useNavigationWriter } from '@/data/NavigationWriter';
 import { formatMoney } from '@/domain/money';
 import { parseTable } from '@/sources/csv';
 import { ImportKinds, ImportSources, type Loaded } from '@/sources/ImportSources';
-import { previewImport, type ImportRow } from '@/sources/importRows';
+import { previewImport, transactionSpan, type ImportRow } from '@/sources/importRows';
 import { dayKeyOf, isWealthLog, linesOf, readWealthLog, todayFromLatest, type LogRow } from '@/sources/wealthLog';
 import type { CloudWealthSnapshot } from '@/cloud/api';
 import { shortDay } from '@/domain/freshness';
@@ -64,11 +65,15 @@ function Importer() {
     });
     return { ...read, fill, today: read.latest ? todayFromLatest(read.latest, { currency: cloud.data.currency, assets: s.assets, liabilities: s.liabilities }) : null };
   }, [cloud, table]);
-  const preview = useMemo(() => {
+  const reading = useMemo(() => {
     if (cloud.status !== 'ready' || !table.length || log) return null;
     const s = cloud.snapshot;
-    return previewImport(table, { currency: cloud.data.currency, now: new Date(cloud.now), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings, existingTx: s.transactions });
+    return { currency: cloud.data.currency, now: new Date(cloud.now), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings };
   }, [cloud, table, log]);
+  // The table is read once to learn which days its rows fall on, then again against what is already saved on those days.
+  const span = useMemo(() => (reading ? transactionSpan(previewImport(table, { ...reading, existingTx: [] }).rows) : null), [reading, table]);
+  const saved = useLedgerOutline(cloud.status === 'ready' ? cloud.portfolioId : null, span);
+  const preview = useMemo(() => (reading && saved ? previewImport(table, { ...reading, existingTx: saved }) : null), [reading, table, saved]);
   if (cloud.status !== 'ready') return <Screen><ActivityIndicator style={{ marginTop: 60 }} accessibilityLabel="Loading" /></Screen>;
 
   const fresh = () => { setResult(null); setUndone(false); };
@@ -78,7 +83,7 @@ function Importer() {
     const known = next.tabs.findIndex((t) => {
       const tbl = parseTable(t.csv);
       if (isWealthLog(tbl)) return true;
-      return !!s && !!previewImport(tbl, { currency: 'EUR', now: new Date(), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings, existingTx: s.transactions }).kind;
+      return !!s && !!previewImport(tbl, { currency: 'EUR', now: new Date(), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings, existingTx: [] }).kind;
     });
     const tab = known < 0 ? 0 : known;
     setLoaded({ ...next, tab });
@@ -196,6 +201,8 @@ function Importer() {
       {!text.trim() && !result && <ImportKinds />}
 
       {log && <WealthLogPreview log={log} now={cloud.now} busy={busy} onHistory={importHistory} onToday={setUpToday} />}
+
+      {reading && !saved && <ActivityIndicator style={{ marginTop: 18 }} accessibilityLabel="Checking for rows already in Numa" />}
 
       {preview && !preview.kind && <Txt v="body" style={{ color: c.warn, marginTop: 14 }}>Numa can’t tell what this table is. It needs the header row, with columns like Date, Description and Amount, or Name and Value, or Symbol and Quantity.{loaded && loaded.tabs.length > 1 ? ' Try another tab above.' : ''}</Txt>}
 

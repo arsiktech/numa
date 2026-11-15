@@ -50,9 +50,20 @@ const { check, finish } = checker();
   const rent = s.transactions.find((t) => t.description === 'October rent');
   check('bank CSV imports with sign, date and category', !!rent && rent.kind === 'expense' && rent.amount === 1200 && new Date(rent.occurredAt).getDate() === 3 && s.categories.find((c) => c.id === rent.categoryId)?.name === 'Rent' && s.transactions.find((t) => t.description === 'Client A')?.kind === 'income');
   await box.fill(tx);
-  await wait(400);
+  // The preview waits for what is already saved on those days, so wait for it rather than a fixed time.
+  await page.getByText(/already in Numa, skipped/).waitFor({ timeout: 10000 });
   b = await page.locator('body').innerText();
   check('pasting the same file again skips duplicates', b.includes('0 transactions ready') && b.includes('2 already in Numa, skipped'));
+
+  // A row from before the weeks the app keeps loaded is still recognised as already saved.
+  const oldTx = `Date,Description,Amount\n${new Date(Date.now() - 100 * 86400000).toISOString().slice(0, 10)},Old invoice,750`;
+  await box.fill(oldTx);
+  await page.getByRole('button', { name: 'Import 1' }).click();
+  await page.getByText('Imported 1').first().waitFor({ timeout: 20000 });
+  await box.fill(oldTx);
+  await page.getByText(/already in Numa, skipped/).waitFor({ timeout: 10000 });
+  b = await page.locator('body').innerText();
+  check('a row saved months ago is skipped as a duplicate too', b.includes('0 transactions ready') && b.includes('1 already in Numa, skipped'), b.split('\n').filter((l) => /ready|already/.test(l)).join(' | '));
 
   await box.fill('Symbol,Quantity,Total cost,Currency\nVOO,10,5000,USD\nBTC,0.12345678,4000,USD\nAAPL,3,,');
   await wait(300);

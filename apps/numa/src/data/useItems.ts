@@ -31,9 +31,12 @@ export function demoItems(): Item[] {
 export function useCloudItems(): ItemsSource {
   const data = useCloudData();
   const items = useMemo(() => (data.status === 'ready' ? itemsFrom(data.snapshot, data.data, data.now, data.fx) : null), [data]);
-  if (data.status === 'error') return { status: 'error', message: data.message };
-  if (data.status !== 'ready' || !items) return { status: 'loading' };
-  return { status: 'ready', demo: false, items, currency: data.data.currency, portfolioId: data.portfolioId, now: data.now };
+  // One object while the data is unchanged, so screens can memoize on the source.
+  return useMemo((): ItemsSource => {
+    if (data.status === 'error') return { status: 'error', message: data.message };
+    if (data.status !== 'ready' || !items) return { status: 'loading' };
+    return { status: 'ready', demo: false, items, currency: data.data.currency, portfolioId: data.portfolioId, now: data.now };
+  }, [data, items]);
 }
 
 const demo: ItemsSource = { status: 'ready', demo: true, items: demoItems(), currency: 'EUR', portfolioId: null, now: demoNow.getTime() };

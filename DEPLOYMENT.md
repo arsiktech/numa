@@ -2,7 +2,7 @@
 
 Production: **<https://numa-ecru.vercel.app>**
 GitHub: <https://github.com/arsiktech/numa>
-Active branch: `numa-v2`
+Default branch: `main`
 
 > For architecture + conventions, see [the runtime map](docs/agent-memory/architecture.md). This file
 > covers only how the deploy pipeline is wired.
@@ -46,7 +46,9 @@ shows the "Cloud auth required" screen.
 
 ### Branch policy
 
-- Pushing to `numa-v2` creates a **Preview** deployment automatically.
+- Pushing to `main` starts a Vercel deployment automatically (a **Preview**,
+  unless the Vercel project's production branch is `main`; that setting is not
+  recorded in this repository).
 - Feature-branch previews also deploy when Vercel's Git settings allow them.
   They must be opened and smoke-tested after `READY`; status alone is not a
   product check.
@@ -191,20 +193,20 @@ npm run verify:production              # app shell + /api/market-quotes
 npm run verify:production:convex       # the above + check bundle contains a Convex cloud URL
 ```
 
-The same smoke can run from GitHub Actions: `.github/workflows/production-smoke.yml`
-has a manual `workflow_dispatch` trigger.
-
 ---
 
 ## CI
 
-`.github/workflows/ci.yml` runs on push + pull-request:
+`.github/workflows/ci.yml` runs on every pull request and on pushes to the
+branches listed in its `on.push` block. It has three jobs:
 
-- `npm run lint`
-- `npm run build`
-- `npm test`
-- `npm run test:ui` (Playwright)
-- `npm audit --audit-level=moderate`
+- `verify` (legacy web app, repo root): lint, build, bundle size budget, unit
+  tests, Playwright browser tests, release dependency audit, and an
+  all-dependency audit that may fail without failing the job.
+- `app` (Expo app, `apps/numa/`): type check, lint, unit tests, web build, and
+  a check that the web build's paths suit Cloudflare Pages.
+- `e2e`: starts a throwaway local Convex backend, serves the Expo web build and
+  runs the scripted journeys in `apps/numa/e2e/`.
 
 Node 24 (matches `package.json`; confirm the Vercel runtime setting before
 runtime-sensitive release work).

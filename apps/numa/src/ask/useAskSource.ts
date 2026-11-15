@@ -5,7 +5,7 @@ import { readAskStream } from '@/privacy/askStream';
 import { requestPrivateAI } from '@/privacy/requestAI';
 import { useEffect, useMemo, useRef } from 'react';
 
-import { convexUrl } from '@/cloud/config';
+import { convexSiteUrl } from '@/cloud/config';
 import { cloud, type AskReply, type AskTurn } from '@/cloud/api';
 import { summarizeFlow } from '@/domain/flow';
 import { summarize } from '@/domain/summary';
@@ -90,9 +90,8 @@ export function useCloudAskSource(): AskSource {
     ai: (message, history, stillCurrent, onDelta) => requestPrivateAI({
       expectedUserId, message, history, stillCurrent: () => current.current === scope && stillCurrent(), readPermission: sharing.read, buildContext: () => aiContext(ctx, answers, home.history),
       submit: async (args) => {
-        const site = convexUrl?.replace('.convex.cloud', '.convex.site');
-        if (onDelta && token && site) {
-          const streamed = await readAskStream(`${site}/ask/stream`, token, args, onDelta).catch(() => null);
+        if (onDelta && token && convexSiteUrl) {
+          const streamed = await readAskStream(`${convexSiteUrl}/ask/stream`, token, args, onDelta).catch(() => null);
           if (streamed) return streamed;
         }
         return askReply(args);

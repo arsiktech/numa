@@ -8,6 +8,7 @@ import { useTheme } from '@/theme/theme';
 import type { Palette } from '@/theme/tokens';
 import { CurrencyScope, useMoney } from '@/ui/money';
 import { Screen } from '@/ui/Screen';
+import { FitLine, scaleType } from '@/ui/FitLine';
 import { Txt } from '@/ui/Txt';
 
 /** Who you owe, who owes you, and where your own money sits. */
@@ -71,7 +72,9 @@ function Map({ map }: { map: MoneyMap }) {
   return (
     <Screen>
       <Txt v="label" c="ink3" style={{ marginTop: 6 }}>MONEY MAP</Txt>
-      <Txt v="figure" accessibilityRole="header" style={{ marginTop: 6, fontSize: 40, lineHeight: 46 }}>{money(map.netCents, { cents: true })}</Txt>
+      <FitLine style={{ marginTop: 6 }}>
+        {(k) => <Txt v="figure" accessibilityRole="header" style={{ ...scaleType({ fontSize: 40, lineHeight: 46 }, k), flexShrink: 0 }}>{money(map.netCents, { cents: true })}</Txt>}
+      </FitLine>
       <Txt v="body" c="ink2">What’s left after every debt is paid</Txt>
       {total > 0 && (
         <View accessibilityLabel={`Yours ${money(map.ownCents)}, owed to you ${money(map.owedToYouCents)}, you owe ${money(map.youOweCents)}`}>

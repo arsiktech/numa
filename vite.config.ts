@@ -187,22 +187,6 @@ function numaDevApiFallbacks() {
           error: "Live wallet sync runs in the Vercel function runtime."
         }));
       });
-
-      // Merchant art is an optional enhancement. In local Vite runs there is
-      // no Vercel function runtime, so acknowledge the background request as a
-      // no-op instead of letting Vite serve api/merchant-image.ts as a 404.
-      server.middlewares.use("/api/merchant-image", (request, response) => {
-        response.setHeader("Content-Type", "application/json; charset=utf-8");
-        response.setHeader("Cache-Control", "no-store");
-        if (request.method !== "POST") {
-          response.statusCode = 405;
-          response.setHeader("Allow", "POST");
-          response.end(JSON.stringify({ error: "Method not allowed" }));
-          return;
-        }
-        response.statusCode = 200;
-        response.end(JSON.stringify({ generated: false }));
-      });
     }
   };
 }

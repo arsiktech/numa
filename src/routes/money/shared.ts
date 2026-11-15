@@ -1,35 +1,6 @@
 import type { PeriodPreset } from "@/lib/period";
 import type { RecurringTransaction } from "@/lib/types";
 
-export type Tab = "cashflow" | "earnings" | "expenses" | "categories" | "budgets" | "recurring" | "transactions";
-
-export const TAB_LABEL_KEYS: Record<Tab, "money.cashflow" | "money.earnings" | "money.expenses" | "money.categories" | "money.budgets" | "money.recurring" | "money.transactions"> = {
-  cashflow: "money.cashflow",
-  earnings: "money.earnings",
-  expenses: "money.expenses",
-  categories: "money.categories",
-  budgets: "money.budgets",
-  recurring: "money.recurring",
-  transactions: "money.transactions"
-};
-
-export const ADVANCED_TAB_VALUES: Tab[] = [
-  "cashflow",
-  "earnings",
-  "expenses",
-  "categories",
-  "budgets",
-  "recurring",
-  "transactions"
-];
-
-// Light mode collapses Money to the views that map cleanly onto its
-// "expense tracker + budgeting" pitch: the history list, monthly budgets and
-// recurring rules ("rent lands in 3 days"). Categories management still
-// happens inline via the per-row edit; the explicit Categories tab is
-// Advanced.
-export const LIGHT_TAB_VALUES: Tab[] = ["transactions", "budgets", "recurring"];
-
 /**
  * Period presets surfaced in the MonAI-style "this month" pill. Kept in sync
  * with the canonical list in `src/lib/period.ts` so the dropdown stays a thin
@@ -45,9 +16,6 @@ export const PERIOD_OPTIONS: { value: PeriodPreset; labelKey: "money.period.week
   { value: "year", labelKey: "money.period.year" },
   { value: "last-year", labelKey: "money.period.lastYear" }
 ];
-
-/** Filter for the MonAI hero — "both" shows net, the others isolate one side. */
-export type HeroFilter = "both" | "expense" | "income";
 
 export function cadenceLabel(c: RecurringTransaction["cadence"]) {
   switch (c) {

@@ -53,19 +53,6 @@ export function assertPositiveAmount(amount: number) {
   }
 }
 
-export function assertSamePod(
-  actualPodId: Id<"moneyPods">,
-  expectedPodId: Id<"moneyPods">,
-  label: string
-) {
-  if (String(actualPodId) !== String(expectedPodId)) {
-    throw new ConvexError({
-      code: "INVALID_REFERENCE",
-      message: `${label} does not belong to this money pod`
-    });
-  }
-}
-
 export function assertDistinctSettlementMembers(
   fromMemberId: Id<"podMembers">,
   toMemberId: Id<"podMembers">

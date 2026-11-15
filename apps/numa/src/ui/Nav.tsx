@@ -1,12 +1,13 @@
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, Tabs, type TabTriggerSlotProps } from 'expo-router/ui';
 import { forwardRef, type ReactNode } from 'react';
-import { Platform, Pressable, View, useWindowDimensions, type View as RNView, type ViewProps } from 'react-native';
+import { Platform, Pressable, View, useWindowDimensions, type View as RNView, type ViewProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme/theme';
 import { WIDE, panelWidth, usePanelOpen } from './Panel';
 import { IconAsk, IconFlow, IconHoldings, IconHome, IconPlan, IconPlus } from './icons';
+import { PressableLink } from './PressableLink';
 import { ProBadge } from './ProBadge';
 import { Txt } from './Txt';
 
@@ -18,6 +19,9 @@ const routes = [
   { name: 'plan', href: '/plan', label: 'Plan', Icon: IconPlan },
 ] as const;
 
+/** One row of the sidebar: the three places and the two links below them share it. */
+const sideRow = (pressed: boolean, backgroundColor = 'transparent'): ViewStyle => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, backgroundColor, opacity: pressed ? 0.72 : 1 });
+
 type ItemProps = TabTriggerSlotProps & { label: string; icon: (color: string) => ReactNode; wide: boolean };
 
 const NavItem = forwardRef<RNView, ItemProps>(function NavItem({ isFocused, label, icon, wide, ...props }, ref) {
@@ -26,7 +30,7 @@ const NavItem = forwardRef<RNView, ItemProps>(function NavItem({ isFocused, labe
   if (wide) {
     return (
       // A place in the sidebar closes any open panel, so the page it opens is the one in view.
-      <Pressable ref={ref} {...props} onPress={(e) => { if (router.canDismiss()) router.dismissAll(); props.onPress?.(e); }} accessibilityRole="link" aria-current={isFocused ? 'page' : undefined} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, backgroundColor: isFocused ? c.s2 : 'transparent', opacity: pressed ? 0.72 : 1 })}>
+      <Pressable ref={ref} {...props} onPress={(e) => { if (router.canDismiss()) router.dismissAll(); props.onPress?.(e); }} accessibilityRole="link" aria-current={isFocused ? 'page' : undefined} style={({ pressed }) => sideRow(pressed, isFocused ? c.s2 : 'transparent')}>
         {icon(color)}
         <Txt v="body" style={{ color, fontFamily: 'Manrope_600SemiBold' }}>{label}</Txt>
       </Pressable>
@@ -99,20 +103,16 @@ export function AppTabs() {
             </TabTrigger>
           ))}
           {wide ? (
-            <Link href="/holdings" asChild>
-              <Pressable accessibilityRole="link" style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, opacity: pressed ? 0.72 : 1 })}>
-                <IconHoldings color={c.ink3} />
-                <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Holdings</Txt>
-              </Pressable>
-            </Link>
+            <PressableLink href="/holdings" look={(pressed) => sideRow(pressed)}>
+              <IconHoldings color={c.ink3} />
+              <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Holdings</Txt>
+            </PressableLink>
           ) : null}
           {wide ? (
-            <Link href="/ask" asChild>
-              <Pressable accessibilityRole="link" style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 14, opacity: pressed ? 0.72 : 1 })}>
-                <IconAsk color={c.ink3} />
-                <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Ask or add</Txt>
-              </Pressable>
-            </Link>
+            <PressableLink href="/ask" look={(pressed) => sideRow(pressed)}>
+              <IconAsk color={c.ink3} />
+              <Txt v="body" c="ink3" style={{ fontFamily: 'Manrope_600SemiBold' }}>Ask or add</Txt>
+            </PressableLink>
           ) : null}
         </NavContainer>
       </TabList>

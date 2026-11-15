@@ -150,7 +150,8 @@ export const sendDue = internalAction({
       const send = pickToSend(p.alerts, new Set(p.sentKeys), p.sentToday, p.hour);
       if (!send.length) continue;
       // A logout can race an already planned send. Never put private account data on a lock screen.
-      const messages = send.flatMap(() => target.tokens.map((to) => ({ to, title: "Numa Pro", body: "Open Numa Pro to review your alerts.", sound: "default", data: { url: "/" } })));
+      // The message is the same for every alert, so each device gets it once; every alert key is still recorded below.
+      const messages = target.tokens.map((to) => ({ to, title: "Numa Pro", body: "Open Numa Pro to review your alerts.", sound: "default", data: { url: "/" } }));
       const dead = new Set<string>();
       try {
         const response = await fetch("https://exp.host/--/api/v2/push/send", {

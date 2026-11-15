@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import type { CloudLiability } from '@/cloud/api';
 import type { DebtEvent } from '@/data/moneyMap';
 
-import { accrual, isOverdue, paidTotals, parseAmount, type LoanTerms } from '@/domain/loanTerms';
+import { accrual, isOverdue, paidTotals, unlabelledPayments, parseAmount, type LoanTerms } from '@/domain/loanTerms';
 import { formatMoney } from '@/domain/money';
 import { useTheme } from '@/theme/theme';
 import { Field, Seg } from '@/ui/form';
@@ -43,6 +43,7 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
   const a = accrual(terms, list, loan.balance, today);
   // Totals are only of payments in this debt's own currency or coin.
   const paid = paidTotals(list, unit);
+  const unlabelled = unlabelledPayments(list);
   const overdue = isOverdue(terms, loan.balance, today);
   // A debt owed in a coin is shown in that coin, never as currency.
   const money = (n: number) => (coin ? `${amountText(n)} ${unit}` : major(n, loan.currency));
@@ -78,6 +79,7 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
         <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>The history says {money(a.historyPrincipal)} is outstanding but the balance is {money(loan.balance)}, so the interest may be off. Add the missing payments to the history, or correct the balance.</Txt>
       )}
       {paid.total > 0 && <Row label="Paid so far" value={`${money(paid.total)}${paid.interest > 0 || paid.fees > 0 ? ` (principal ${money(paid.principal)}, interest ${money(paid.interest)}, fees ${money(paid.fees)})` : ''}`} />}
+      {unlabelled > 0 && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>{unlabelled} {unlabelled === 1 ? 'payment has' : 'payments have'} no currency and {unlabelled === 1 ? 'is' : 'are'} left out of Paid so far.</Txt>}
       <Txt v="small" c="ink3" style={{ paddingTop: 4 }}>
         {terms.interestTerms === 'simple' && a.status !== 'unsupported-history' ? 'Each completed month adds the yearly rate ÷ 12 on what was owed at its start. The running month is an estimate and is not owed until it completes. Interest accrued is not counted in What you owe.' : 'Terms you set here stay with this debt. What you owe above is the principal.'}
       </Txt>

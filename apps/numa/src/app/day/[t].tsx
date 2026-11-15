@@ -14,7 +14,7 @@ import { Txt } from '@/ui/Txt';
 export default function DayScreen() {
   const { t, group } = useLocalSearchParams<{ t: string; group?: string }>();
   if (useSession().kind !== 'signedIn') return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>Sign in to see your saved dates.</Txt></Screen>;
-  return <Cloud takenAt={Number(t)} focus={group && group in dayGroupNames ? (group as DayGroup) : undefined} />;
+  return <Cloud takenAt={Number(t)} focus={group && Object.prototype.hasOwnProperty.call(dayGroupNames, group) ? (group as DayGroup) : undefined} />;
 }
 
 function Cloud({ takenAt, focus }: { takenAt: number; focus?: DayGroup }) {

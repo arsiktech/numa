@@ -54,7 +54,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.getByRole('link', { name: /^Bitcoin,/ }).last().click();
   await page.getByText('You paid').waitFor({ timeout: 10000 });
   const d = await page.locator('body').innerText();
-  // The local backend refreshes real prices every 15 minutes, so read the price it holds.
+  // The quote seeded above; the backend market cron is off in e2e (NUMA_QUOTES_OFFLINE), so read the price it holds.
   const price = (await snapNow()).holdings[0].marketPrice;
   const usd = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   check('detail shows units, price, cost and gain', d.includes('0.5 BTC') && d.includes(usd) && d.includes('$15,000.00') && /Since \w{3} \d{4}\s*\n?\s*\+€[\d,.]+ · \+\d+\.\d%/.test(d), d.split('\n').slice(0, 16).join(' | '));

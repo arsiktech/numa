@@ -21,18 +21,23 @@ export function availableMonths(txs: CloudTransaction[], now: Date, oldestAt?: n
   return out;
 }
 
+/** A local calendar month as times: start included, end excluded. */
+export const monthRange = (k: MonthKey) => ({ start: new Date(k.year, k.month, 1).getTime(), end: new Date(k.year, k.month + 1, 1).getTime() });
+
 /** The month's transactions, newest first. Future-dated ones (beyond the clock slack) are left out. */
 export function transactionsIn(txs: CloudTransaction[], k: MonthKey, now: Date): CloudTransaction[] {
-  const start = new Date(k.year, k.month, 1).getTime();
-  const end = new Date(k.year, k.month + 1, 1).getTime();
+  const { start, end } = monthRange(k);
   return txs.filter((t) => t.occurredAt >= start && t.occurredAt < end && t.occurredAt <= now.getTime() + CLOCK_SLACK).sort((a, b) => b.occurredAt - a.occurredAt);
 }
+
+/** Transactions with the categories that name them. The snapshot is one for its recent weeks; older months are read on their own. */
+export type Ledger = Pick<CloudSnapshot, 'categories' | 'transactions'>;
 
 /**
  * Where money came from and went in one month, in the portfolio currency, grouped by
  * category (or description), each stream remembering its transactions.
  */
-export function monthFlow(s: CloudSnapshot, k: MonthKey, currency: Currency, fx: FxRate | null, now: Date): MonthFlow & { unconverted: string[] } {
+export function monthFlow(s: Ledger, k: MonthKey, currency: Currency, fx: FxRate | null, now: Date): MonthFlow & { unconverted: string[] } {
   const names = new Map(s.categories.map((c) => [c.id, c.name]));
   const groups = { income: new Map<string, FlowLine>(), expense: new Map<string, FlowLine>() };
   const unconverted: string[] = [];

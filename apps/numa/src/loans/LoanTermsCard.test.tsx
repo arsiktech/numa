@@ -62,6 +62,19 @@ describe('LoanTermsCard', () => {
     expect(text()).toContain('not counted in What you owe');
   });
 
+  it('says how many payments without a currency are left out of Paid so far', () => {
+    const events = [event({ amount: 500 }), event({ id: 'old', amount: 300, unit: null }), event({ id: 'older', amount: 200, unit: null })];
+    render(<LoanTermsCard loan={loan({ interestTerms: 'none', interestRate: null })} events={events} now={NOW} onEdit={() => undefined} />);
+    expect(text()).toContain('Paid so far');
+    expect(text()).toContain('€500.00');
+    expect(text()).toContain('2 payments have no currency and are left out of Paid so far.');
+    act(() => tree!.update(<LoanTermsCard loan={loan({ interestTerms: 'none', interestRate: null })} events={[event({ id: 'old', amount: 300, unit: null })]} now={NOW} onEdit={() => undefined} />));
+    expect(text()).not.toContain('Paid so far€');
+    expect(text()).toContain('1 payment has no currency and is left out of Paid so far.');
+    act(() => tree!.update(<LoanTermsCard loan={loan()} events={[event({ amount: 500 })]} now={NOW} onEdit={() => undefined} />));
+    expect(text()).not.toContain('no currency');
+  });
+
   it('shows what was paid, split into principal, interest and fees', () => {
     const events = [event({ amount: 1_000, principalPart: 800, interestPart: 150, feePart: 50 })];
     render(<LoanTermsCard loan={loan({ balance: 19_200 })} events={events} now={NOW} onEdit={() => undefined} />);

@@ -4,7 +4,7 @@ import { convertCents, type FxRate } from './fx';
 
 /** The four parts a saved date splits into, matching the blocks Home shows for a past date. */
 export type DayGroup = 'liquid' | 'invested' | 'hard' | 'owe';
-export const dayGroups: DayGroup[] = ['liquid', 'invested', 'hard', 'owe'];
+const dayGroups: DayGroup[] = ['liquid', 'invested', 'hard', 'owe'];
 export const dayGroupNames: Record<DayGroup, string> = { liquid: 'Liquid', invested: 'Invested', hard: 'Property & things', owe: 'Owed' };
 
 /** Which part a tapped block belongs to on a past date; `all` opens the whole date. */

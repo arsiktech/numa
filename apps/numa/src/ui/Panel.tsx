@@ -1,5 +1,5 @@
 import { router, useNavigation } from 'expo-router';
-import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { useTheme } from '@/theme/theme';
@@ -34,8 +34,27 @@ export function PanelFrame({ children }: { children: ReactNode }) {
   const row = useRef<View>(null);
   const navigation = useNavigation();
   const wide = width >= WIDE;
-  useEffect(() => (wide ? passThrough(row.current as unknown as HTMLElement | null) : undefined), [wide]);
+  // Whether a page is under this panel. It changes once, when Home is put beneath a panel that was
+  // opened by its address, and the pass-through is then set up again for the page that is now there.
+  const [beneath, setBeneath] = useState(() => hasPage(navigation.getState()));
+  useEffect(() => navigation.addListener('state', (e) => setBeneath(hasPage(e.data.state))), [navigation]);
+  useEffect(() => (wide ? passThrough(row.current as unknown as HTMLElement | null) : undefined), [wide, beneath]);
   useEffect(() => { setOpen(open + 1); return () => setOpen(open - 1); }, []);
+  // A panel opened straight from its address (a reload, a bookmark, a link) has no page under it,
+  // so it would sit beside an empty window with no sidebar. Put Home beneath it. The root layout's
+  // `initialRouteName` is meant to do this, but the web build loads routes on demand and the router
+  // cannot read that setting from a layout it has not loaded yet.
+  useEffect(() => {
+    if (!wide || Platform.OS !== 'web') return;
+    // On a first load this effect runs before the stack starts listening for actions, so the
+    // reset waits one tick; sent straight away it is dropped without an error.
+    const later = setTimeout(() => {
+      const state = navigation.getState();
+      if (!state || hasPage(state)) return;
+      navigation.dispatch({ type: 'RESET', payload: { ...state, routes: [{ name: '(tabs)' }, ...state.routes], index: state.routes.length } } as never);
+    }, 0);
+    return () => clearTimeout(later);
+  }, [wide, navigation]);
   // A block tapped on the page replaces the open panel; one tapped inside a panel opens on top of it, so Back returns.
   useEffect(() => {
     if (!wide || Platform.OS !== 'web' || openedFromPanel) return;
@@ -54,6 +73,9 @@ export function PanelFrame({ children }: { children: ReactNode }) {
     </View>
   );
 }
+
+/** True when the stack has the tabs page (Home, Flow or Plan) under its panels. */
+const hasPage = (state: { routes?: readonly { name: string }[] } | undefined) => !!state?.routes?.some((r) => r.name === '(tabs)');
 
 let openedFromPanel = false;
 if (Platform.OS === 'web' && typeof document !== 'undefined') {

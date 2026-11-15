@@ -9,14 +9,14 @@ import { useEarnings } from './useEarnings';
 /** What DeFi earned in the last 30 days, opening the earnings screen. Signed-in only, once a wallet is read. */
 export function EarningsTeaser({ style }: { style?: ViewStyle }) {
   const { c } = useTheme();
-  const { money } = useMoney();
+  const { money, hidden } = useMoney();
   const state = useEarnings('30d');
   if (state.status !== 'ready' || !state.tracked || !state.earnings) return null;
   const e = state.earnings;
   const started = e.series.length > 0;
   return (
     <Pressable onPress={() => router.push('/earnings')} accessibilityRole="link"
-      accessibilityLabel={started ? `DeFi earnings, ${money(e.netCents, { sign: true })} in the last 30 days. Open` : 'DeFi earnings, tracking started. Open'}
+      accessibilityLabel={started ? `DeFi earnings, ${hidden ? 'amount hidden' : money(e.netCents, { sign: true })} in the last 30 days. Open` : 'DeFi earnings, tracking started. Open'}
       style={[{ backgroundColor: c.s1, borderRadius: 18, padding: 16, gap: 6 }, style]}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Txt v="cardTitle">DeFi earnings</Txt>

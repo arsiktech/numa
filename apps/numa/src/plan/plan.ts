@@ -3,18 +3,23 @@ import type { CloudCategory, CloudGoal, CloudSnapshot } from '@/cloud/api';
 import { convertCents, type FxRate } from '@/data/fx';
 import type { Summary } from '@/domain/summary';
 import type { Currency } from '@/domain/types';
-import { monthFlow, monthOf, shiftMonth } from '@/flow/month';
+import { monthFlow, monthOf, shiftMonth, type Ledger, type MonthKey } from '@/flow/month';
+
+/** The full months runway is averaged over, newest first. */
+export function runwayMonths(now: Date): [MonthKey, MonthKey, MonthKey] {
+  const current = monthOf(now.getTime());
+  return [shiftMonth(current, -1), shiftMonth(current, -2), shiftMonth(current, -3)];
+}
 
 /**
  * Runway: how long cash lasts at the recent pace of spending. It uses the last three
  * full months; with less history it says so rather than guessing from a few days.
+ * `ledger` must hold those months in full; the snapshot's recent weeks are not enough.
  */
-export function runway(s: CloudSnapshot, summary: Summary, currency: Currency, fx: FxRate | null, now: Date): { cashCents: number; monthlyOutCents: number | null; months: number | null; basisMonths: number } {
-  const current = monthOf(now.getTime());
+export function runway(ledger: Ledger, summary: Summary, currency: Currency, fx: FxRate | null, now: Date): { cashCents: number; monthlyOutCents: number | null; months: number | null; basisMonths: number } {
   const outs: number[] = [];
-  for (let i = 1; i <= 3; i++) {
-    const k = shiftMonth(current, -i);
-    const f = monthFlow(s, k, currency, fx, now);
+  for (const k of runwayMonths(now)) {
+    const f = monthFlow(ledger, k, currency, fx, now);
     if (f.incoming.length === 0 && f.outgoing.length === 0) continue;
     outs.push(f.outgoing.reduce((t, l) => t + l.cents, 0));
   }

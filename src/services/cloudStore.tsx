@@ -253,18 +253,7 @@ function CloudDataProviderInner({ children }: { children: ReactNode }) {
     setByPod(cached.byPod as Record<string, CloudPodData>);
   }, [cloudCacheScope, isAuthenticated]);
 
-  // Auto-redeem any matching invites once we have a profile loaded. The
-  // mutation is idempotent — calling it twice is safe.
-  const redeem = useMutation(api.memberships.redeemInvitesForMe);
   const materializeRecurring = useMutation(api.recurring.materializeForPortfolio);
-  useEffect(() => {
-    if (!pendingInvitesRaw || pendingInvitesRaw.length === 0) return;
-    // Don't auto-redeem — leave it as an explicit user choice so the banner
-    // can stay informative. (Auto-redemption would clear it before the user
-    // sees what they accepted.)
-    void redeem;
-  }, [pendingInvitesRaw, redeem]);
-
   const portfolios = useMemo<Portfolio[]>(() => {
     if (!portfoliosRaw) return [];
     return portfoliosRaw.map((row) => ({
@@ -582,7 +571,6 @@ export function useCloudMutations() {
     inviteByEmail: useMutation(api.memberships.inviteByEmail),
     updateMembership: useMutation(api.memberships.updateMembership),
     removeMembership: useMutation(api.memberships.removeMembership),
-    redeemInvites: useMutation(api.memberships.redeemInvitesForMe),
     addCategory: useMutation(api.categories.add),
     updateCategory: useMutation(api.categories.update),
     removeCategory: useMutation(api.categories.remove),

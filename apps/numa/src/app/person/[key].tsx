@@ -1,13 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
-import { cloud } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
-import { newMutationId } from '@/data/cloud';
 import { historyOf, partyOf, type DebtEvent, type Party, type PartyRecord } from '@/data/moneyMap';
+import { WriteRefusedError } from '@/data/writeIntent';
+import { useWriter } from '@/data/writes';
 import { LoanTermsCard, LoanTermsForm } from '@/loans/LoanTermsCard';
+import { newDebtOp } from '@/loans/newDebtOp';
 import { PaymentForm, unitText } from '@/loans/PaymentForm';
 import { dayText, hasTerms, removedText } from '@/loans/termsHelpers';
 import { useLoans } from '@/loans/useLoans';
@@ -186,8 +186,8 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
 function NewDebtForm({ party, portfolioId, currency, onDone }: { party: Party; portfolioId: string; currency: 'EUR' | 'USD'; onDone: () => void }) {
   const { c } = useTheme();
   const toast = useToast();
-  const upsertLiability = useMutation(cloud.upsertLiability);
-  const upsertAsset = useMutation(cloud.upsertAsset);
+  // The writer refuses offline or stale saves and keeps one receipt per intent, so a retry can't add it twice.
+  const run = useWriter();
   const byYou = party.owed === 'byYou';
   const [amount, setAmount] = useState('');
   const [cur, setCur] = useState<'EUR' | 'USD'>(currency);
@@ -198,12 +198,10 @@ function NewDebtForm({ party, portfolioId, currency, onDone }: { party: Party; p
     if (cents === null) return;
     setBusy(true);
     try {
-      const balance = cents / 100;
-      if (byYou) await upsertLiability({ portfolioId, name: party.name, kind: 'loan', balance, currency: cur, counterparty: party.name, clientMutationId: newMutationId('numa.addDebt') });
-      else await upsertAsset({ portfolioId, name: `Loan to ${party.name}`, kind: 'other', balance, currency: cur, owedBy: party.name, clientMutationId: newMutationId('numa.addLent') });
+      await run(newDebtOp(party, portfolioId, cents, cur));
       toast({ text: 'Added' });
       onDone();
-    } catch { toast({ text: 'Couldn’t add that. Check your connection and try again.' }); }
+    } catch (e) { toast({ text: e instanceof WriteRefusedError ? e.message : 'Couldn’t add that. Check your connection and try again.' }); }
     setBusy(false);
   }
   return (

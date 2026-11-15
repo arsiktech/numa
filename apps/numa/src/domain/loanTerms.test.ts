@@ -1,4 +1,4 @@
-import { accrual, addMonths, dayOf, dueDateFor, isOverdue, monthInterest, paidTotals, parseAmount, principalAt, roundDecimals, splitProblem, type LoanTerms, type TermEvent } from './loanTerms';
+import { accrual, addMonths, dayOf, dueDateFor, isOverdue, monthInterest, paidTotals, unlabelledPayments, parseAmount, principalAt, roundDecimals, splitProblem, type LoanTerms, type TermEvent } from './loanTerms';
 
 const day = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d, 12);
 const terms = (over: Partial<LoanTerms> = {}): LoanTerms => ({ unit: 'EUR', principal: 20_000, startedAt: day(2026, 7, 1), dueKind: 'flexible', interestTerms: 'simple', interestRate: 8, dueDate: null, ...over });
@@ -248,9 +248,20 @@ describe('paidTotals by unit', () => {
       ev({ kind: 'repaid', amount: 0.1, unit: 'BTC', occurredAt: 2 }),
       ev({ kind: 'repaid', amount: 50, unit: null, occurredAt: 3 }),
     ];
-    expect(paidTotals(events, 'EUR')).toEqual({ total: 150, principal: 150, interest: 0, fees: 0 });
-    expect(paidTotals(events, 'btc')).toEqual({ total: 50.1, principal: 50.1, interest: 0, fees: 0 });
+    expect(paidTotals(events, 'EUR')).toEqual({ total: 100, principal: 100, interest: 0, fees: 0 });
+    expect(paidTotals(events, 'btc')).toEqual({ total: 0.1, principal: 0.1, interest: 0, fees: 0 });
     expect(paidTotals(events).total).toBe(150.1);
+  });
+  it('leaves out an unlabelled payment, as interest accrual does', () => {
+    const events = [
+      ev({ kind: 'repaid', amount: 200, principalPart: 150, interestPart: 50, feePart: 0, unit: 'EUR', occurredAt: 1 }),
+      ev({ kind: 'repaid', amount: 80, interestPart: 30, unit: undefined, occurredAt: 2 }),
+    ];
+    expect(paidTotals(events, 'EUR')).toEqual({ total: 200, principal: 150, interest: 50, fees: 0 });
+    const loan: LoanTerms = { principal: 1_000, startedAt: 0, dueKind: null, dueDate: null, interestTerms: 'simple', interestRate: 12, unit: 'EUR' };
+    expect(accrual(loan, events, 800, 3)).toMatchObject({ status: 'unsupported-history' });
+    expect(unlabelledPayments(events)).toBe(1);
+    expect(unlabelledPayments([ev({ kind: 'note', amount: null, unit: null, occurredAt: 1 }), ev({ kind: 'borrowed', amount: 5, unit: null, occurredAt: 2 })])).toBe(0);
   });
 });
 

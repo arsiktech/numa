@@ -5,7 +5,7 @@
  */
 
 /** The Services ID registered with Apple for numaworth.com. Not a secret. */
-export const APPLE_WEB_CLIENT_ID = 'com.arsiktech.numa.web';
+const APPLE_WEB_CLIENT_ID = 'com.arsiktech.numa.web';
 
 /** Apple only returns to addresses registered on the Services ID; previews on other hosts can't use it. */
 const APPLE_WEB_HOSTS = ['numaworth.com', 'www.numaworth.com', 'numa-pro.pages.dev'];

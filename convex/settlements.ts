@@ -3,8 +3,28 @@ import { removePortfolioDocument } from "./lib/removeDocument";
 import { mutation, query } from "./_generated/server";
 import { requireEditor, requireMember } from "./lib/access";
 import { withMutationReceipt } from "./lib/mutationReceipts";
+import { exactPositiveMoney } from "./lib/finance";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 
 const currencyValidator = v.union(v.literal("USD"), v.literal("EUR"));
+
+function assertDistinctUsers(fromUserId: Id<"users">, toUserId: Id<"users">) {
+  if (fromUserId === toUserId) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Settlement payer and recipient must be different" });
+  }
+}
+
+async function assertPortfolioMember(ctx: MutationCtx, portfolioId: Id<"portfolios">, userId: Id<"users">) {
+  const membership = await ctx.db
+    .query("memberships")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .filter((q) => q.eq(q.field("portfolioId"), portfolioId))
+    .first();
+  if (!membership) {
+    throw new ConvexError({ code: "INVALID_REFERENCE", message: "Settlement users must be members of this portfolio" });
+  }
+}
 
 export const listForPortfolio = query({
   args: { portfolioId: v.id("portfolios") },
@@ -31,6 +51,10 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await requireEditor(ctx, args.portfolioId);
+    exactPositiveMoney(args.amount);
+    assertDistinctUsers(args.fromUserId, args.toUserId);
+    await assertPortfolioMember(ctx, args.portfolioId, args.fromUserId);
+    await assertPortfolioMember(ctx, args.portfolioId, args.toUserId);
     return await withMutationReceipt(
       ctx,
       userId,
@@ -78,6 +102,16 @@ export const update = mutation({
         const patch: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(args.patch)) {
           if (value !== undefined) patch[key] = value;
+        }
+        // Only changed fields are checked, so a historical row stays editable after a member leaves.
+        const { amount, fromUserId, toUserId } = args.patch;
+        if (amount !== undefined && !Object.is(amount, existing.amount)) exactPositiveMoney(amount);
+        const fromChanged = fromUserId !== undefined && fromUserId !== existing.fromUserId;
+        const toChanged = toUserId !== undefined && toUserId !== existing.toUserId;
+        if (fromChanged || toChanged) {
+          assertDistinctUsers(fromUserId ?? existing.fromUserId, toUserId ?? existing.toUserId);
+          if (fromChanged) await assertPortfolioMember(ctx, existing.portfolioId, fromUserId);
+          if (toChanged) await assertPortfolioMember(ctx, existing.portfolioId, toUserId);
         }
         await ctx.db.patch(args.id, patch);
         return args.id;

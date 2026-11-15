@@ -69,6 +69,8 @@ describe("agent tools", () => {
     expect(f.writes()[1][2]).toMatchObject({ id: "t1", card: expected });
     expect(f.writes()[2][2]).toMatchObject({ id: "t2", card: null });
     expect("card" in (f.writes()[3][2] as object)).toBe(false);
+    await expect(tool("add_transaction").run(f.io, { kind: "expense", amount: 1, description: "x", card: { last4: "1234" } })).rejects.toThrow(AgentInputError);
+    expect(() => tool("update_transaction").run(f.io, { id: "t4", card: { last4: "1234" } })).toThrow(AgentInputError);
   });
 
   it("adds a category once, after the last one, and reuses a name the space already has", async () => {
@@ -220,5 +222,15 @@ describe("classify_asset", () => {
     const asset = { id: "fund", investmentType: "fund", notes: "Synthetic note", costBasis: null, acquiredAt: null, updatedAt: 123, location: "Synthetic broker · 3.25 units" };
     const f = fakeIo({ assets: [asset] });
     expect(await tool("get_records").run(f.io, { space_id: "p1", sections: ["assets"] })).toMatchObject({ assets: [asset] });
+  });
+  it("returns get_records sections in a fixed order and reads only the sections asked for", async () => {
+    const f = fakeIo({ assets: [], goals: [] });
+    const query = f.io.query;
+    f.io.query = async (path, args) => path === "loanLinks:listForPortfolio" ? ["loan"] : path === "debtEvents:listForPortfolio" ? ["event"] : query(path, args);
+    expect(Object.keys(await tool("get_records").run(f.io, { space_id: "p1" }) as object)).toEqual(["space", "assets", "liabilities", "holdings", "goals", "categories", "recurring", "revenue", "wallets", "loans", "debt_history"]);
+    expect(await tool("get_records").run(f.io, { space_id: "p1", sections: ["debt_history", "loans"] })).toEqual({ space: { id: "p1", name: "Personal", currency: "EUR" }, loans: ["loan"], debt_history: ["event"] });
+    const before = f.calls.length;
+    await tool("get_records").run(f.io, { space_id: "p1", sections: ["goals"] });
+    expect(f.calls.slice(before).map(([, path]) => path)).not.toContain("cryptoWallets:listForPortfolio");
   });
 });

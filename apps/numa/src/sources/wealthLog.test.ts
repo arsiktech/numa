@@ -37,7 +37,7 @@ describe('wealth log', () => {
     const log = readWealthLog(table, { currency: 'EUR', existingDays: [new Date(2026, 0, 5, 9).getTime()] });
     expect(log.rows.map((r) => r.duplicate)).toEqual([true, false, false]);
     const broken = parseTable(LOG.replace('"€25,000","€5,000",2/20', '"€99,000","€5,000",2/20'));
-    expect(readWealthLog(broken, { currency: 'EUR', existingDays: [] }).rows[1].problem).toMatch(/Adds up to 25000, the sheet says 99000/);
+    expect(readWealthLog(broken, { currency: 'EUR', existingDays: [] }).rows[1].problem).toMatch(/Adds up to €25,000, the sheet says €99,000/);
   });
 
   it('skips rows with no date quietly, but reports a date it can’t read', () => {

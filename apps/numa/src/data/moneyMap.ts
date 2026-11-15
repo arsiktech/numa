@@ -57,7 +57,7 @@ function party(owed: Party['owed'], kind: Party['kind'], name: string, records: 
 const byCents = <T extends { cents: number | null }>(a: T, b: T) => (b.cents ?? -1) - (a.cents ?? -1);
 
 /** Who a recorded debt is with: its counterparty when set, otherwise its own name. */
-export const debtParty = (l: CloudLiability) => (l.counterparty?.trim() || l.name);
+const debtParty = (l: CloudLiability) => (l.counterparty?.trim() || l.name);
 
 export function moneyMap(s: CloudSnapshot, items: Item[], currency: Currency, fx: FxRate | null): MoneyMap {
   const byId = new Map(items.map((i) => [`${i.type}:${i.id}`, i]));
@@ -124,6 +124,7 @@ export function moneyMap(s: CloudSnapshot, items: Item[], currency: Currency, fx
   // Where the person's own money sits: each wallet, then the rest by kind. Money lent out is above.
   const spots: Spot[] = [];
   const rest = new Map<string, Item[]>();
+  let ownUnknown = 0; // records, not spots: a group counts each of its items without a value
   for (const i of items) {
     if (i.group === 'debts') continue;
     if (i.type === 'asset' && (i.raw as CloudAsset).owedBy?.trim()) continue;
@@ -131,6 +132,7 @@ export function moneyMap(s: CloudSnapshot, items: Item[], currency: Currency, fx
       const w = s.wallets?.find((x) => x.id === i.id);
       const protos = [...new Set((w?.snapshot?.defiPositions ?? []).filter((p) => p.assetValueUsd > 0).map((p) => p.protocol))];
       const coins = (i.pieces ?? []).filter((p) => (p.valueCents ?? 0) > 0).sort((a, b) => (b.valueCents ?? 0) - (a.valueCents ?? 0)).map((p) => p.unit ?? p.name);
+      if (i.valueCents === null) ownUnknown += 1;
       spots.push({ key: `wallet:${i.id}`, name: i.name, detail: [list(protos), list(coins)].filter(Boolean).join(' · ') || i.freshness.text, cents: i.valueCents, pledged: (w?.snapshot?.debtValueUsd ?? 0) > 0, open: { pathname: '/item/[type]/[id]', params: { type: 'wallet', id: i.id } } });
       continue;
     }
@@ -138,6 +140,7 @@ export function moneyMap(s: CloudSnapshot, items: Item[], currency: Currency, fx
   }
   for (const [group, xs] of rest) {
     const s2 = sum(xs.map((x) => ({ cents: x.valueCents })));
+    ownUnknown += s2.unknown;
     spots.push({ key: `group:${group}`, name: groupNames[group as keyof typeof groupNames], detail: list(xs.sort(byCents2).filter((x) => x.valueCents !== 0).map((x) => x.name)), cents: xs.every((x) => x.valueCents === null) ? null : s2.cents, pledged: false, open: null });
   }
   spots.sort(byCents);
@@ -146,7 +149,7 @@ export function moneyMap(s: CloudSnapshot, items: Item[], currency: Currency, fx
   return {
     ownCents: own.cents, owedToYouCents: lent.cents, youOweCents: owe.cents, netCents: own.cents + lent.cents - owe.cents,
     // Records without a value, left out of every sum above.
-    unknown: own.unknown + [...owedToYou, ...people, ...protocols].reduce((t, p) => t + p.unknown, 0),
+    unknown: ownUnknown + [...owedToYou, ...people, ...protocols].reduce((t, p) => t + p.unknown, 0),
     owedToYou, people, protocols, spots,
   };
 }

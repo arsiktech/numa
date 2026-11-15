@@ -2,7 +2,9 @@ import { convertCents, type FxRate } from '@/data/fx';
 import type { Draft } from './parse';
 
 /** One call to a Convex write, named by its key in `cloud`. `id: CREATED` means "the record the save made". */
-export type WriteName = 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'upsertAsset' | 'deleteAsset' | 'upsertLiability' | 'deleteLiability' | 'upsertHolding' | 'deleteHolding' | 'upsertGoal' | 'removeGoal' | 'updateCategory' | 'addSnapshot' | 'updateSnapshot' | 'removeSnapshot';
+/** Every backend write a plan can name; also checks ops read back from a saved draft. */
+export const WRITE_NAMES = ['createTransaction', 'updateTransaction', 'deleteTransaction', 'upsertAsset', 'deleteAsset', 'upsertLiability', 'deleteLiability', 'upsertHolding', 'deleteHolding', 'upsertGoal', 'removeGoal', 'updateCategory', 'addSnapshot', 'updateSnapshot', 'removeSnapshot'] as const;
+export type WriteName = (typeof WRITE_NAMES)[number];
 export type Op = { fn: WriteName; args: Record<string, unknown> };
 export const CREATED = '__created__';
 export type Plan = { apply: Op; undo: Op } | { error: string };

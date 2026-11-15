@@ -53,7 +53,8 @@ function turns(messages: Message[]): AskTurn[] {
 /**
  * How much of the screen the keyboard covers (0 when hidden). On iPhone Ask always reaches the bottom
  * of the screen, as a sheet or full screen, so the composer moves up by exactly this much. Android
- * resizes the window itself and reports 0 here.
+ * draws edge to edge, so the window no longer shrinks for the keyboard either; React Native reports
+ * the keyboard above the navigation bar there, so the bar's inset is added back.
  *
  * The keyboard can come up before this subscribes (focus while the sheet is still sliding in), so it
  * also reads where the keyboard is now, follows every frame change, and `sync` re-reads it on focus.
@@ -63,7 +64,13 @@ function useKeyboardHeight() {
   const covered = (screenY: number) => Math.max(0, Math.round(Dimensions.get('screen').height - screenY));
   const now = () => { const m = ios ? Keyboard.metrics() : undefined; return m && Keyboard.isVisible() ? covered(m.screenY) : 0; };
   const [height, setHeight] = useState(now);
+  const bottomInset = useSafeAreaInsets().bottom;
   useEffect(() => {
+    if (Platform.OS === 'android') {
+      const show = Keyboard.addListener('keyboardDidShow', (e) => setHeight(Math.round(e.endCoordinates.height)));
+      const hide = Keyboard.addListener('keyboardDidHide', () => setHeight(0));
+      return () => { show.remove(); hide.remove(); };
+    }
     if (!ios) return;
     const follow = (e: KeyboardEvent) => {
       const next = covered(e.endCoordinates.screenY);
@@ -78,7 +85,7 @@ function useKeyboardHeight() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const sync = () => { if (ios) setTimeout(() => setHeight(now()), 400); };
-  return { height, sync };
+  return { height: Platform.OS === 'android' && height > 0 ? height + bottomInset : height, sync };
 }
 
 const close = () => (router.canGoBack() ? router.back() : router.replace('/'));

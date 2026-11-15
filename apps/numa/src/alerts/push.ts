@@ -8,7 +8,16 @@ import { Platform } from 'react-native';
 import { storage } from '@/cloud/storage';
 
 const TOKEN_KEY = 'numa.pushToken.v1';
-export const pushSupported = true;
+
+/**
+ * Android delivers alerts through Firebase Cloud Messaging, which needs `android.googleServicesFile`
+ * in the app config. A build without it can't get a push token, so it hides Alerts instead of
+ * offering a switch that always fails.
+ */
+export function pushAvailable(os: string, googleServicesFile: string | undefined): boolean {
+  return os !== 'android' || Boolean(googleServicesFile);
+}
+export const pushSupported = pushAvailable(Platform.OS, Constants.expoConfig?.android?.googleServicesFile);
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
@@ -18,6 +27,7 @@ export type PushResult = { token: string; platform: 'ios' | 'android'; timeZone:
 
 /** Asks for permission and returns this phone's Expo push token. */
 export async function requestPushToken(): Promise<PushResult> {
+  if (!pushSupported) return { error: 'Alerts aren’t available in this version of the app yet.' };
   if (!Device.isDevice) return { error: 'Alerts need a real phone, not a simulator.' };
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', { name: 'Alerts', importance: Notifications.AndroidImportance.DEFAULT });

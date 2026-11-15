@@ -62,7 +62,7 @@ export function AgentSection() {
   return (
     <>
       <Section title="AI AGENTS" />
-      <Txt v="small" c="ink2" style={{ marginTop: 6 }}>Let Claude, ChatGPT, Cursor or any agent that supports MCP read and manage your money here. It acts as you. You can see what it did and disconnect it at any time.</Txt>
+      <Txt v="small" c="ink2" style={{ marginTop: 6 }}>Let Claude, ChatGPT, Cursor or any agent that supports MCP read and update your records here. It acts as you. You can see what it did and disconnect it at any time.</Txt>
 
       {created && (
         <View style={{ marginTop: 12, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 10 }} accessibilityLabel="Agent link ready">

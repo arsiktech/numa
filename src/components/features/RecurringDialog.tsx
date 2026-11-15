@@ -155,7 +155,7 @@ export function RecurringDialog({ open, onClose, editing }: Props) {
     const now = Date.now();
     let nextRunAt = startTs;
     while (nextRunAt < now) {
-      nextRunAt = nextRunAfter(nextRunAt, cadence);
+      nextRunAt = nextRunAfter(nextRunAt, cadence, startTs, "local");
     }
 
     await actions.createRecurring({

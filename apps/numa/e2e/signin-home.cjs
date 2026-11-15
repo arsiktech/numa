@@ -168,7 +168,7 @@ const euro = (c) => '€' + Math.floor(Math.abs(c) / 100).toString().replace(/\B
   await page.screenshot({ path: OUT + '/09-wrong-password-dark-390.png' });
 
   await page.getByRole('button', { name: 'Explore demo' }).click();
-  await page.getByRole('button', { name: 'Demo data. Sign in' }).waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: 'DEMO Sign in' }).waitFor({ timeout: 15000 });
   check('demo path works while signed out', true);
   const settingsBox = await page.getByRole('link', { name: 'Settings' }).boundingBox();
   check('demo header fits a phone screen', !!settingsBox && settingsBox.x + settingsBox.width <= 390, JSON.stringify(settingsBox));

@@ -470,6 +470,31 @@ export const monthLedger = query({
   }
 });
 
+/** One transaction of this space, for a screen opened on a record older than the home subscription carries. Null when it is gone or belongs to another space. */
+export const transaction = query({
+  args: { portfolioId: v.id("portfolios"), id: v.string() },
+  handler: async (ctx, { portfolioId, id }) => {
+    await requireMember(ctx, portfolioId);
+    const txId = ctx.db.normalizeId("transactions", id);
+    const tx = txId ? await ctx.db.get(txId) : null;
+    return tx && tx.portfolioId === portfolioId ? mobileTransaction(tx) : null;
+  }
+});
+
+/** When, how much and what, for every transaction between two times: what an import needs to recognise a row that is already saved. */
+export const ledgerOutline = query({
+  args: { portfolioId: v.id("portfolios"), start: v.number(), end: v.number() },
+  handler: async (ctx, { portfolioId, start, end }) => {
+    await requireMember(ctx, portfolioId);
+    if (!(end > start)) return [];
+    const rows = await ctx.db.query("transactions").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId).gte("occurredAt", start).lt("occurredAt", end)).collect();
+    return rows.map((tx) => {
+      const { occurredAt, amountMinor, description } = mobileTransaction(tx);
+      return { occurredAt, amountMinor, description };
+    });
+  }
+});
+
 export const updateProfilePrefs = mutation({
   args: {
     displayName: v.optional(v.string()),

@@ -23,6 +23,15 @@ describe("feedback", () => {
     await expect(f.call(submit, { ...base, message: "hi", clientMutationId: "f" })).rejects.toThrow();
     expect(f.all("feedback")).toHaveLength(0);
   });
+  it("rejects a missing or blank retry id instead of folding every later message into the first", async () => {
+    const f = privacyFixture();
+    for (const clientMutationId of ["", "   "]) {
+      await expect(f.call(submit, { ...base, message: "hi", clientMutationId })).rejects.toMatchObject({ data: { code: "INVALID_INPUT" } });
+    }
+    await expect(f.call(submit, { ...base, message: "hi", clientMutationId: "x".repeat(201) })).rejects.toMatchObject({ data: { code: "INVALID_INPUT" } });
+    await f.call(submit, { ...base, message: "hi", clientMutationId: "  g  " });
+    expect(f.all("feedback").map(row => row.clientMutationId)).toEqual(["g"]);
+  });
   it("limits one account to ten messages a day", async () => {
     const f = privacyFixture();
     for (let i = 0; i < 10; i++) await f.call(submit, { ...base, message: `m${i}`, clientMutationId: `id${i}` });

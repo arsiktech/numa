@@ -21,7 +21,10 @@ export function FeedbackSection() {
   const [kind, setKind] = useState<FeedbackKind>('idea');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  // One id per text: a retry of the same words reuses it, so the server keeps one row; any edit is a new request.
   const id = useRef(newFeedbackId());
+  const changeKind = (next: FeedbackKind) => { if (next !== kind) { setKind(next); id.current = newFeedbackId(); } };
+  const changeMessage = (next: string) => { setMessage(next); id.current = newFeedbackId(); };
 
   async function submit() {
     if (!me || !canSendFeedback(message) || busy) return;
@@ -41,12 +44,12 @@ export function FeedbackSection() {
       {!open && <Action label="Send feedback" detail="Tell us what to build or what broke." onPress={() => setOpen(true)} />}
       {open && (
         <View style={{ marginTop: 12, padding: 16, borderRadius: 18, backgroundColor: c.s1, gap: 12 }}>
-          <Seg label="Type of feedback" options={FEEDBACK_KINDS} value={kind} onChange={setKind} />
-          <TextInput value={message} onChangeText={setMessage} multiline maxLength={FEEDBACK_MAX} accessibilityLabel="Your feedback" placeholder="What should we know?" placeholderTextColor={c.ink3}
+          <Seg label="Type of feedback" options={FEEDBACK_KINDS} value={kind} onChange={changeKind} />
+          <TextInput value={message} onChangeText={changeMessage} multiline maxLength={FEEDBACK_MAX} accessibilityLabel="Your feedback" placeholder="What should we know?" placeholderTextColor={c.ink3}
             style={{ minHeight: 110, borderRadius: 12, padding: 12, backgroundColor: c.s2, color: c.ink, fontFamily: 'Manrope_500Medium', fontSize: 15, textAlignVertical: 'top' }} />
           <Txt v="small" c="ink3">Sent with your account and the app version. Don’t include passwords. It’s deleted when you delete your account.</Txt>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button label={busy ? 'Sending…' : 'Send'} onPress={submit} disabled={busy || !canSendFeedback(message)} />
+            <Button label={busy ? 'Sending…' : 'Send'} onPress={submit} disabled={busy || !me || !canSendFeedback(message)} />
             <Button label="Cancel" quiet onPress={() => setOpen(false)} />
           </View>
         </View>

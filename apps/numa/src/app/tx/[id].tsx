@@ -6,6 +6,7 @@ import { parseDate } from '@/ask/parse';
 import type { CloudTransaction } from '@/cloud/api';
 import { useSession } from '@/cloud/session';
 import { useCloudData } from '@/data/cloud';
+import { useTransaction } from '@/data/ledger';
 import { useWriter } from '@/data/writes';
 import { useNavigationWriter } from '@/data/NavigationWriter';
 import { shortDay } from '@/domain/freshness';
@@ -28,8 +29,9 @@ export default function TransactionScreen() {
 
 function Loaded({ id }: { id: string }) {
   const cloud = useCloudData();
-  if (cloud.status !== 'ready') return <Screen><ActivityIndicator style={{ marginTop: 60 }} accessibilityLabel="Loading" /></Screen>;
-  const tx = cloud.snapshot.transactions.find((t) => t.id === id);
+  const ready = cloud.status === 'ready' ? cloud : null;
+  const tx = useTransaction(ready?.snapshot ?? null, ready?.portfolioId ?? null, id);
+  if (cloud.status !== 'ready' || tx === undefined) return <Screen><ActivityIndicator style={{ marginTop: 60 }} accessibilityLabel="Loading" /></Screen>;
   if (!tx) return <Screen><Txt v="body" c="ink2" style={{ marginTop: 20 }}>This transaction isn’t here anymore. It may have been deleted.</Txt></Screen>;
   return <Screen><Detail key={tx.id} tx={tx} now={cloud.now} portfolioId={cloud.portfolioId} categories={cloud.snapshot.categories} /></Screen>;
 }

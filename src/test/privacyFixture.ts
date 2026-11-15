@@ -23,6 +23,7 @@ export function privacyFixture() {
   };
   const all = (table: string) => [...rows].filter(([id]) => tables.get(id) === table).map(([, row]) => structuredClone(row));
   const db = {
+    normalizeId: (table: string, id: string) => (tables.get(id) === table ? id : null),
     get: async (id: string) => readRows(rows.has(id) ? [structuredClone(rows.get(id))] : [])[0] ?? null,
     insert: async (table: string, value: object) => { wrote(value); return seed(table, `${table}-${++sequence}`, value); },
     patch: async (id: string, patch: Record<string, unknown>) => {
@@ -45,7 +46,9 @@ export function privacyFixture() {
           const builder = {
             eq: (key: string, value: unknown) => { predicates.push(row => row[key] === value); return builder; },
             gt: (key: string, value: number) => { predicates.push(row => typeof row[key] === "number" && row[key] > value); return builder; },
-            lte: (key: string, value: number) => { predicates.push(row => typeof row[key] === "number" && row[key] <= value); return builder; },
+            gte: (key: string, value: number) => { predicates.push(row => typeof row[key] === "number" && row[key] >= value); return builder; },
+            lt: (key: string, value: number) => { predicates.push(row => typeof row[key] === "number" && row[key] < value); return builder; },
+            lte:(key: string, value: number) => { predicates.push(row => typeof row[key] === "number" && row[key] <= value); return builder; },
           };
           callback?.(builder); return query;
         },

@@ -17,7 +17,6 @@ async function canSignIn(email, password) {
 }
 
 (async () => {
-  fs.mkdirSync(OUT, { recursive: true });
   const browser = await launch();
   const errors = [];
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', deviceScaleFactor: 2, acceptDownloads: true });
@@ -133,7 +132,7 @@ async function canSignIn(email, password) {
   watchErrors(d, errors);
   await d.goto(APP + '/sign-in');
   await d.getByText('Explore demo').click();
-  await d.getByRole('button', { name: 'Demo data. Sign in' }).waitFor({ timeout: 15000 });
+  await d.getByRole('button', { name: 'DEMO Sign in' }).waitFor({ timeout: 15000 });
   await d.goto(APP + '/password');
   await d.getByRole('heading', { name: 'Settings' }).waitFor({ timeout: 15000 });
   check('demo mode sends account screens back to Settings', !(await d.locator('body').innerText()).includes('Current password'));

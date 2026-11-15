@@ -45,11 +45,15 @@ export function parseAmount(raw: string): { cents: number; currency: 'EUR' | 'US
   return { cents: Math.round(value * 100) * (negative ? -1 : 1), currency };
 }
 
-/** Unit counts keep every decimal ("0.12345678" BTC); a comma counts as the decimal mark only when there is no dot. */
+/**
+ * Unit counts keep every decimal ("0.12345678" BTC) and read a dot as the decimal mark ("1.200" is 1.2). Commas
+ * between groups of three digits after a first group of 1 to 3 digits not starting with 0 separate thousands
+ * ("1,000", "1,234.5"), as spreadsheets export #,##0 cells; any other comma is the decimal mark ("0,5", "1,5").
+ */
 export function parseQuantity(raw: string): number | null {
   const s = raw.trim().replace(/\s/g, '');
   if (!s) return null;
-  const normal = s.includes('.') ? s.replace(/,/g, '') : s.replace(',', '.');
+  const normal = /^[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(s) || s.includes('.') ? s.replace(/,/g, '') : s.replace(',', '.');
   const value = Number(normal.replace(/[^\d.]/g, ''));
   return Number.isFinite(value) && value > 0 ? value : null;
 }

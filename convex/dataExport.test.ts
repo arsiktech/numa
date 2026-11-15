@@ -102,4 +102,29 @@ describe("registered financial export", () => {
     await expect(f.call(manifest, { ...scope, requestId: "" })).rejects.toThrow(/request identifier/);
     await expect(f.call(page, { ...scope, section: "portfolio", cursor: "unexpected", limit: 32 })).rejects.toThrow(/single-record/);
   });
+  it("exports DeFi readings in full and debt portal links as a host, without the link or the portal key", async () => {
+    const f = fixture();
+    f.seed("defiReadings", "reading", { portfolioId: "space", walletId: "wallet", day: "2027-01-15", takenAt: 1800000000000, refs: { ETH: 3000, EUR: 0.9 },
+      rows: [{ position: "lending", protocol: "Synthetic", chainName: "ethereum", label: "Supplied", symbol: "USDC", debt: false, quantity: 10.5, valueUsd: 10.5 }] });
+    f.seed("defiReadings", "foreign-reading", { portfolioId: "foreign", walletId: "their-wallet", day: "2027-01-15", takenAt: 1, refs: {}, rows: [] });
+    f.seed("liabilitySources", "portal", { portfolioId: "space", liabilityId: "loan", metric: "investors", investorIds: ["inv-1"], label: "Synthetic investors",
+      url: "https://portal.example.com/agent?token=SYNTHETIC-LINK-SECRET", key: "SYNTHETIC-PORTAL-SECRET", status: "ok", message: "Read", checkedAt: 1800000000000,
+      readingAt: 1800000000000, createdBy: "user", createdAt: 1700000000000 });
+    f.seed("liabilitySources", "foreign-portal", { portfolioId: "foreign", url: "https://other.example.com/agent", key: "FOREIGN-SECRET", createdBy: "other", createdAt: 1 });
+    const m = await f.call(manifest, scope);
+    expect(m.sections).toContain("defiReadings"); expect(m.sections).toContain("liabilitySources");
+    expect(await exportSection(f, "defiReadings")).toEqual([f.rows.get("reading")]);
+    const portals = await exportSection(f, "liabilitySources");
+    expect(portals).toEqual([{ ...f.rows.get("portal"), key: undefined, url: undefined, host: "portal.example.com" }]);
+    expect(portals[0]).toMatchObject({ host: "portal.example.com", status: "ok", label: "Synthetic investors", investorIds: ["inv-1"] });
+    const serialized = JSON.stringify(await Promise.all(SPACE_EXPORT_SECTIONS.map(section => exportSection(f, section))));
+    expect(serialized).not.toContain("SYNTHETIC-PORTAL-SECRET"); expect(serialized).not.toContain("FOREIGN-SECRET");
+    expect(serialized).not.toContain('"key"'); expect(serialized).not.toContain("SYNTHETIC-LINK-SECRET"); expect(serialized).not.toContain("/agent");
+  });
+  it("exports an empty space: every section completes, only the space and membership have rows", async () => {
+    const f = fixture();
+    for (const section of SPACE_EXPORT_SECTIONS) {
+      expect(await exportSection(f, section)).toHaveLength(section === "portfolio" || section === "membership" ? 1 : 0);
+    }
+  });
 });

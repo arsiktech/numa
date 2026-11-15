@@ -9,6 +9,8 @@ Pre-approved by the owner, once the accounts below are connected:
 
 Production web deploys and public store releases need an explicit go-ahead each time.
 
+**Status (2026-11-13):** the owner approved a public release on the App Store, Google Play and the web. Each upload, store submission and production web deploy is still a separate step taken after the release is shown. Public pages: `/pricing`, `/privacy`, `/terms`, `/support` and `/account-deletion` (static files in `apps/numa/public/`).
+
 ## What the owner connects (one time)
 
 | Account | What to do | Why it needs the owner |
@@ -112,14 +114,14 @@ The app version is `2.0.0`, above the SwiftUI app's 1.2.0 builds. EAS keeps the 
 Numa Pro shows your net worth as it moves: cash, stocks, crypto, property and the debts against them, in one live number.
 
 - **Live net worth.** Prices update through the day. Every figure says how fresh it is.
-- **Ask or add.** Type "Coffee 4.50" or "Bought 10 VOO at $500", or ask anything about your money. Numa drafts it, and nothing is saved until you press Save. Undo is always there.
+- **Ask or add.** Type "Coffee 4.50" or "Bought 10 VOO at $500", or ask anything about your money. Numa drafts it, and nothing is saved until you press Save. You can undo a save right after you make it.
 - **Wallets.** Track a Bitcoin or Ethereum address. Public balances only, never keys.
 - **Alerts and widget.** Bills due and spending limits on your phone, at most three a day and never at night. Net worth on your home screen.
 - **Flow.** See where each month's money came from and where it went, and what you kept.
 - **Plan.** Runway at your real pace, goals, and spending limits that warn you at 80%.
-- **Needs you.** At most three things a day that deserve a look, like a bill due soon or a price that's gone stale.
+- **Needs you.** Up to three things that deserve a look, like a bill due soon or a price that's gone stale.
 - **Import.** Paste a sheet or a bank CSV. You see a preview before anything is saved.
-- **Your data.** Download a full copy any time. Delete your account from Settings.
+- **Your data.** Download a copy of a space as one file. Delete your account from Settings.
 
 Numa never moves money and doesn't link to your bank. Unknown values are shown as unknown, never as zero.
 
@@ -135,5 +137,5 @@ Numa never moves money and doesn't link to your bank. Unknown values are shown a
 - **Service providers:**
   - hosting: Convex for data, Cloudflare for the web app;
   - Anthropic (Claude): only when Ask can't answer on the device, it receives the question and a short summary of the person's own numbers (names and amounts; no email or account ids). Nothing is used for tracking;
-  - Expo push service: the alert text, for people who turn on phone alerts.
+  - Expo push service: the push token and a fixed alert text with no account data, for people who turn on phone alerts.
 - **Public data, no user data attached:** exchange rates from the ECB via Frankfurter; wallet balances for the public addresses a person chooses to track, from mempool.space and Blockscout; lending and pool positions for those addresses from public RPC nodes (publicnode.com) and the Morpho API, priced by DefiLlama; market price history from Coinbase and Yahoo Finance.

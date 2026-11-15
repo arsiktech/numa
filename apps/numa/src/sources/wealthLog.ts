@@ -1,5 +1,6 @@
 import type { CloudAsset, CloudLiability } from '@/cloud/api';
 import type { AskContext, AssetDraft, DebtDraft } from '@/ask/parse';
+import { formatMoney } from '@/domain/money';
 import type { Currency } from '@/domain/types';
 import { parseAmount, parseDay } from './csv';
 
@@ -144,7 +145,7 @@ export function readWealthLog(table: string[][], ctx: { currency: Currency; exis
     if (!positions.length) return { ...out, problem: 'No values in this row' };
     // The sheet rounds to whole units, so allow a little; anything more means a column was misread.
     if (sheet && Math.abs(sheet.cents - net) > Math.max(500, Math.abs(sheet.cents) * 0.005)) {
-      return { ...out, problem: `Adds up to ${(net / 100).toFixed(0)}, the sheet says ${(sheet.cents / 100).toFixed(0)}` };
+      return { ...out, problem: `Adds up to ${formatMoney(net, currency)}, the sheet says ${formatMoney(sheet.cents, currency)}` };
     }
     const key = dayKey(takenAt);
     const duplicate = existing.has(key) || seen.has(key);

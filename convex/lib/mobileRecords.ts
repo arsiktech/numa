@@ -5,6 +5,7 @@ import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanParty, cl
 import type { Doc } from "../_generated/dataModel";
 import { majorUnits, minorUnits } from "./finance";
 import { withMutationReceipt } from "./mutationReceipts";
+import { deleteHoldingEvents } from "./holdingEvents";
 import { assertTermsAfterPatch, termsPatch, validDueDate } from "./loanTerms";
 import { refreshQuoteSoon } from "./quoteRefresh";
 import { isCryptoSymbol } from "./marketQuoteProviders";
@@ -168,7 +169,8 @@ const createCategory = mutation({
         kind: args.kind,
         icon: args.icon?.trim() || "tag",
         color: args.color?.trim() || "mint",
-        sortOrder: existing.length,
+        // After a deletion, the count can repeat a used position; the highest one plus one never does.
+        sortOrder: existing.reduce((max, category) => (Number.isFinite(category.sortOrder) ? Math.max(max, category.sortOrder) : max), -1) + 1,
         monthlyLimit: args.monthlyLimit,
         monthlyLimitCurrency
       });
@@ -191,6 +193,8 @@ const upsertAsset = mutation({
     /** Total paid, in the asset's currency; null clears it, leaving it out keeps what is saved. */
     costBasis: v.optional(v.union(v.number(), v.null())),
     acquiredAt: v.optional(v.union(v.number(), v.null())),
+    /** Create only, for kind "other": restores a manually valued fund (Undo of a delete). Updates ignore it. */
+    investmentType: v.optional(v.literal("fund")),
     clientMutationId: v.optional(v.string())
   },
   handler: async (ctx, args) => {
@@ -224,6 +228,7 @@ const upsertAsset = mutation({
         portfolioId: args.portfolioId,
         name: cleanRequired(args.name, "Name"),
         kind: args.kind,
+        ...(args.kind === "other" && args.investmentType === "fund" ? { investmentType: "fund" as const } : {}),
         balance: args.balance,
         currency: args.currency,
         notes: args.notes?.trim() || undefined,
@@ -459,6 +464,7 @@ const deleteHolding = mutation({
     if (!holding) throw new ConvexError({ code: "NOT_FOUND", message: "Holding not found" });
     const { userId } = await requireEditor(ctx, holding.portfolioId);
     const receipt = await withMutationReceipt(ctx, userId, args.clientMutationId, "mobile.deleteHolding", async () => {
+      await deleteHoldingEvents(ctx, args.id);
       await ctx.db.delete(args.id);
       return args.id;
     }, holding.portfolioId);

@@ -2,6 +2,7 @@ import type { CloudAsset, CloudHolding, CloudLiability, CloudWallet } from '@/cl
 import type { Currency } from '@/domain/types';
 import { convertCents, type FxRate } from './fx';
 import type { GroupId, Item } from './items';
+import { shortAddress } from './wallets';
 
 /**
  * A group seen by what is in it rather than by record: one Bitcoin position however many wallets,
@@ -26,7 +27,6 @@ const COINS: Record<string, string> = {
   TBTC: 'tBTC', WSTETH: 'Lido staked Ether', STETH: 'Lido staked Ether', WEETH: 'ether.fi staked Ether', EZETH: 'Renzo restaked Ether', CBETH: 'Coinbase staked Ether', GHO: 'GHO', EURC: 'Euro Coin',
 };
 const CURRENCIES: Record<string, string> = { EUR: 'Euro', USD: 'US dollar', GBP: 'Pound sterling', CHF: 'Swiss franc' };
-export const shortAddress = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
 
 /**
  * The tokens and lending inside one wallet, in the portfolio currency. Each token is its own

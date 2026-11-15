@@ -3,8 +3,8 @@ import { query } from "./_generated/server";
 import { requireMember } from "./lib/access";
 
 export const SPACE_EXPORT_SECTIONS = [
-  "portfolio", "membership", "categories", "transactions", "assets", "liabilities",
-  "holdings", "holdingEvents", "cryptoWallets", "loanLinks", "debtEvents", "wealthSnapshots", "settlements",
+  "portfolio", "membership", "categories", "transactions", "assets", "liabilities", "liabilitySources",
+  "holdings", "holdingEvents", "cryptoWallets", "defiReadings", "loanLinks", "debtEvents", "wealthSnapshots", "settlements",
   "goals", "recurring", "ledgerAccounts", "ledgerTransactions", "ledgerLines", "aiActionDrafts", "cashTransfers", "activeDays", "feedback",
 ] as const;
 const sectionValidator = v.union(...SPACE_EXPORT_SECTIONS.map(section => v.literal(section)));
@@ -30,7 +30,7 @@ export const manifest = query({
       exclusions: [
         "Other spaces and /pod records are not included in this single-space export.",
         "Other users' private profiles, AI drafts and credentials are excluded. Authorized shared financial records retain participant IDs for reconciliation.",
-        "Account settings, authentication secrets, provider logs, device subscriptions, invitations, ephemeral wallet-sync leases and raw attachments are not part of this financial export.",
+        "Account settings, authentication secrets, debt portal keys, provider logs, device subscriptions, invitations, ephemeral wallet-sync leases and raw attachments are not part of this financial export.",
       ],
     };
   },
@@ -61,9 +61,11 @@ export const page = query({
         case "cashTransfers": return ctx.db.query("cashTransfers").withIndex("by_portfolio_export", q => q.eq("portfolioId", id)).paginate(options);
         case "assets": return ctx.db.query("assets").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "liabilities": return ctx.db.query("liabilities").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
+        case "liabilitySources": return ctx.db.query("liabilitySources").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "holdings": return ctx.db.query("holdings").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "holdingEvents": return ctx.db.query("holdingEvents").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "cryptoWallets": return ctx.db.query("cryptoWallets").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
+        case "defiReadings": return ctx.db.query("defiReadings").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "loanLinks": return ctx.db.query("loanLinks").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "debtEvents": return ctx.db.query("debtEvents").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "wealthSnapshots": return ctx.db.query("wealthSnapshots").withIndex("by_portfolio_export", q => q.eq("portfolioId", id)).paginate(options);
@@ -85,6 +87,13 @@ export const page = query({
         const { syncLeaseId: _lease, syncLeaseUntil: _until, ...safe } = row as typeof row & { syncLeaseId?: string; syncLeaseUntil?: number };
         void _lease; void _until;
         return safe;
+      }
+      if (args.section === "liabilitySources") {
+        // Members see only a portal's host in the app (liabilitySources.listForPortfolio). The export follows
+        // the same rule, so a secret carried in the link's path or query never leaves with the file.
+        const { key: _key, url, ...safe } = row as typeof row & { key?: string; url: string };
+        void _key;
+        return { ...safe, host: new URL(url).hostname };
       }
       if (args.section === "membership") {
         const { avatarUrl: _avatar, ...safe } = membership;

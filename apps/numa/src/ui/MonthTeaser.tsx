@@ -1,9 +1,9 @@
-import { Link } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import type { FlowSummary } from '@/domain/flow';
 import { useTheme } from '@/theme/theme';
 import { useMoney } from './money';
+import { PressableLink } from './PressableLink';
 import { Txt } from './Txt';
 
 export function MonthTeaser({ month, flow }: { month: string; flow: FlowSummary }) {
@@ -12,8 +12,7 @@ export function MonthTeaser({ month, flow }: { month: string; flow: FlowSummary 
   const nothing = flow.inCents === 0 && flow.outCents === 0;
   const kept = flow.keptCents >= 0;
   return (
-    <Link href="/flow" asChild>
-      <Pressable accessibilityRole="link" accessibilityLabel={nothing ? `${month} so far. Nothing logged yet` : hidden ? `${month} so far. Amounts hidden` : `${month} so far. In ${money(flow.inCents)}, out ${money(flow.outCents)}`} style={({ pressed }) => ({ padding: 16, borderRadius: 18, backgroundColor: c.s1, opacity: pressed ? 0.72 : 1 })}>
+    <PressableLink href="/flow" accessibilityLabel={nothing ? `${month} so far. Nothing logged yet` : hidden ? `${month} so far. Amounts hidden` : `${month} so far. In ${money(flow.inCents)}, out ${money(flow.outCents)}`} look={(pressed) => ({ padding: 16, borderRadius: 18, backgroundColor: c.s1, opacity: pressed ? 0.72 : 1 })}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', columnGap: 12 }}>
           <Txt v="cardTitle">{month} so far</Txt>
           {nothing ? (
@@ -32,7 +31,6 @@ export function MonthTeaser({ month, flow }: { month: string; flow: FlowSummary 
           <Txt v="figureSm" c="ink2">in {money(flow.inCents)}</Txt>
           <Txt v="figureSm" c="ink2">out {money(flow.outCents)}</Txt>
         </View>
-      </Pressable>
-    </Link>
+    </PressableLink>
   );
 }

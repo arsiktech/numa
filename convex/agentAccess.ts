@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { assertExistingAccount, requireUser } from "./lib/access";
 import { rateLimitExpiresAt } from "./lib/privacyRetention";
 
@@ -160,6 +161,7 @@ export const expireActivity = internalMutation({
   handler: async (ctx) => {
     const rows = await ctx.db.query("agentActivity").withIndex("by_expires", (q) => q.lte("expiresAt", Date.now())).take(200);
     for (const row of rows) await ctx.db.delete(row._id);
+    if (rows.length === 200) await ctx.scheduler.runAfter(0, internal.agentAccess.expireActivity, {});
     return rows.length;
   },
 });

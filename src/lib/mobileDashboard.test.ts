@@ -136,6 +136,18 @@ describe("valueDashboardHolding", () => {
     expect(valuation.hasQuote).toBe(false);
     expect(valuation.quoteStale).toBe(false);
   });
+
+  it("keeps a sub-dollar unit price precise so price × quantity matches the value", () => {
+    const holding = { symbol: "PENNY", quantity: 10_000, costBasis: 4000, currency: "USD" as const };
+    const quote = (price: number) => ({ symbol: "PENNY", price, changePercent: 0, provider: "coingecko" as const, updatedAt: NOW_MS });
+    const valuation = valueDashboardHolding(holding, quote(0.4567), "USD", NOW_MS);
+    expect(valuation.marketPrice).toBe(0.4567);
+    expect(valuation.marketPrice * holding.quantity).toBeCloseTo(4567, 6);
+    expect(valuation.marketValue).toBe(4567);
+    expect(valueDashboardHolding(holding, quote(0.00123456789), "USD", NOW_MS).marketPrice).toBe(0.00123457);
+    expect(valueDashboardHolding({ ...holding, costBasis: 0.01 }, null, "USD", NOW_MS).marketPrice).toBe(0.000001);
+    expect(() => valueDashboardHolding(holding, quote(Number.MAX_VALUE), "USD", NOW_MS)).toThrow();
+  });
 });
 
 describe("manual fund dashboard classification", () => {

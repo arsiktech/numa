@@ -1,35 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
-  Check,
-  ChevronRight,
-  Copy,
   Layers3,
-  Plus,
   RefreshCw,
   ShieldCheck,
-  Trash2,
-  WalletCards
+  Trash2
 } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
 import {
   relativeCryptoUpdateTime,
-  shortCryptoAddress,
-  walletSnapshotIsFresh,
-  type CryptoPortfolioRollup
+  shortCryptoAddress
 } from "@/lib/cryptoWallets";
 import { convertCurrency, type FxRates } from "@/lib/fx";
 import { formatMoney } from "@/lib/money";
 import type { CryptoWallet, CurrencyCode } from "@/lib/types";
 import { useDomainActions } from "@/services/domainActions";
-
-function walletStatus(wallet: CryptoWallet, syncing: boolean) {
-  if (syncing) return "Updating";
-  if (!wallet.snapshot) return "Needs refresh";
-  if (wallet.snapshot.partial) return "Partial";
-  if (!walletSnapshotIsFresh(wallet.snapshot)) return "Refresh due";
-  return relativeCryptoUpdateTime(wallet.snapshot.updatedAt);
-}
 
 function quantity(value: string) {
   const parsed = Number(value);
@@ -47,245 +31,9 @@ function quantity(value: string) {
   return fraction ? `${whole}.${fraction.slice(0, 6)}` : whole;
 }
 
-async function copyAddress(address: string) {
-  if (!navigator.clipboard) return false;
-  await navigator.clipboard.writeText(address);
-  return true;
-}
-
 function actionErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
   return "This wallet change could not be saved. Try again.";
-}
-
-export function CryptoWalletSection({
-  wallets,
-  rollup,
-  currency,
-  rates,
-  syncingIds,
-  syncing,
-  error,
-  warning,
-  hasManualCrypto,
-  onTrack,
-  onSelectWallet,
-  onRefreshAll,
-  className = ""
-}: {
-  wallets: CryptoWallet[];
-  rollup: CryptoPortfolioRollup;
-  currency: CurrencyCode;
-  rates: FxRates;
-  syncingIds: Set<string>;
-  syncing: boolean;
-  error: string | null;
-  warning: string | null;
-  hasManualCrypto: boolean;
-  onTrack: () => void;
-  onSelectWallet: (walletId: string) => void;
-  onRefreshAll: () => void | Promise<unknown>;
-  className?: string;
-}) {
-  const total = convertCurrency(rollup.totalValueUsd, "USD", currency, rates);
-  const hasSnapshot = rollup.updatedAt !== undefined;
-  const pendingWallets = wallets.filter((wallet) => !wallet.snapshot).length;
-  const headlineStatus = pendingWallets > 0
-    ? `${pendingWallets} wallet${pendingWallets === 1 ? "" : "s"} still reading`
-    : rollup.partial
-      ? "partial coverage"
-      : rollup.stale
-        ? "saved values · refresh due"
-        : relativeCryptoUpdateTime(rollup.updatedAt);
-
-  return (
-    <section
-      aria-labelledby="crypto-wallets-title"
-      className={`rounded-2xl border border-[color:var(--color-line)] bg-[color:var(--color-paper)] p-4 shadow-[var(--shadow-sm)] sm:p-5 ${className}`}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-ink-3)]">
-            on-chain · read-only
-          </p>
-          <h2 id="crypto-wallets-title" className="mt-1 text-[17px] font-bold text-[color:var(--color-ink)]">
-            Wallets
-          </h2>
-          <p className="mt-0.5 text-[12px] text-[color:var(--color-ink-3)]">
-            Tokens and DeFi positions visible from public addresses.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {wallets.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => void onRefreshAll()}
-              disabled={syncing}
-              aria-label="Refresh wallets"
-              className="nm-interactive grid h-11 w-11 place-items-center rounded-xl bg-[color:var(--color-bg)] text-[color:var(--color-ink)] disabled:opacity-50"
-            >
-              <RefreshCw size={15} className={syncing ? "animate-spin" : ""} />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={onTrack}
-            className="nm-interactive inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-[color:var(--color-cta)] px-4 text-[12.5px] font-semibold text-[color:var(--color-cta-ink)]"
-          >
-            <Plus size={15} /> Track wallet
-          </button>
-        </div>
-      </div>
-
-      {wallets.length > 0 ? (
-        <div className="mt-4 overflow-hidden rounded-[18px] bg-[color:var(--color-ink)] p-4 text-[color:var(--color-bg)] sm:p-5">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[color:color-mix(in_oklab,var(--color-bg)_60%,transparent)]">
-                {pendingWallets > 0 ? "known on-chain value so far" : "estimated on-chain value"}
-              </p>
-              <p className="mt-1 font-mono text-[30px] font-semibold leading-none tracking-[-0.04em] sm:text-[36px]">
-                {hasSnapshot ? formatMoney(total, currency) : "Reading…"}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[12px] font-semibold">
-                {wallets.length} wallet{wallets.length === 1 ? "" : "s"} · {rollup.chains.length} network{rollup.chains.length === 1 ? "" : "s"}
-              </p>
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[color:color-mix(in_oklab,var(--color-bg)_60%,transparent)]">
-                {headlineStatus}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 flex min-h-6 items-center gap-2 overflow-hidden" aria-hidden>
-            {(rollup.chains.length ? rollup.chains : ["Waiting for first scan"]).slice(0, 7).map((chain, index) => (
-              <span key={chain} className="flex min-w-0 items-center gap-2">
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${index === 0 ? "bg-[color:var(--color-brand)]" : "bg-[color:color-mix(in_oklab,var(--color-bg)_42%,transparent)]"}`} />
-                <span className="truncate font-mono text-[10px] uppercase tracking-[0.08em] text-[color:color-mix(in_oklab,var(--color-bg)_70%,transparent)]">
-                  {chain}
-                </span>
-                {index < Math.min(6, rollup.chains.length - 1) ? (
-                  <span className="h-px w-5 shrink-0 bg-[color:color-mix(in_oklab,var(--color-bg)_22%,transparent)]" />
-                ) : null}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="mt-4 grid min-h-[170px] place-items-center rounded-[18px] bg-[color:var(--color-bg)] px-5 text-center">
-          <div>
-            <span className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-[color:var(--color-brand-soft)] text-[color:var(--color-brand-strong)]">
-              <WalletCards size={19} />
-            </span>
-            <p className="mt-3 text-[14px] font-semibold text-[color:var(--color-ink)]">No public wallets tracked</p>
-            <p className="mt-1 max-w-sm text-[12px] leading-relaxed text-[color:var(--color-ink-3)]">
-              Add an address to see supported tokens, networks, lending, staking, pools, and debt.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {error || warning ? (
-        <p
-          role="status"
-          aria-live="polite"
-          className={`mt-3 rounded-xl px-3 py-2 text-[12px] ${error ? "bg-[color:var(--color-blush-100)] text-[color:var(--color-negative)]" : "bg-[color:var(--color-bg)] text-[color:var(--color-ink-3)]"}`}
-        >
-          {error ?? warning}
-        </p>
-      ) : null}
-
-      {hasManualCrypto && wallets.some((wallet) => wallet.includeInNetWorth) ? (
-        <div className="mt-3 flex gap-2 rounded-xl bg-[color:var(--color-peach-100)] px-3 py-2.5 text-[12px] text-[color:var(--color-ink-2)]">
-          <AlertTriangle size={15} className="mt-0.5 shrink-0 text-[color:var(--color-warning)]" />
-          <span>Manual crypto holdings are also counted. Exclude any wallet that duplicates them.</span>
-        </div>
-      ) : null}
-
-      {wallets.length > 0 ? (
-        <div className="mt-3 divide-y divide-[color:var(--color-line)]">
-          {wallets.map((wallet) => (
-            <WalletRow
-              key={wallet.id}
-              wallet={wallet}
-              currency={currency}
-              rates={rates}
-              syncing={syncingIds.has(wallet.id)}
-              onOpen={() => onSelectWallet(wallet.id)}
-            />
-          ))}
-        </div>
-      ) : null}
-
-    </section>
-  );
-}
-
-function WalletRow({
-  wallet,
-  currency,
-  rates,
-  syncing,
-  onOpen
-}: {
-  wallet: CryptoWallet;
-  currency: CurrencyCode;
-  rates: FxRates;
-  syncing: boolean;
-  onOpen: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const snapshot = wallet.snapshot;
-  const value = snapshot
-    ? convertCurrency(snapshot.totalValueUsd, "USD", currency, rates)
-    : null;
-  const status = walletStatus(wallet, syncing);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), 1600);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-
-  return (
-    <div className="flex items-center gap-2 py-3">
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`${wallet.label}, ${wallet.address}, ${value === null ? "value pending" : formatMoney(value, currency)}, ${status}`}
-        className="nm-interactive flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1.5 text-left hover:bg-[color:var(--color-bg)]"
-      >
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--color-ink)] font-mono text-[11px] font-bold uppercase text-[color:var(--color-brand)]">
-          {wallet.addressType.slice(0, 3)}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13.5px] font-semibold text-[color:var(--color-ink)]">
-            {wallet.label}
-          </span>
-          <span className="mt-0.5 block truncate font-mono text-[10.5px] text-[color:var(--color-ink-3)]">
-            {shortCryptoAddress(wallet.address)} · {snapshot?.chains.slice(0, 3).join(" · ") || wallet.addressType.toUpperCase()}
-          </span>
-        </span>
-        <span className="shrink-0 text-right">
-          <span className="block text-[13.5px] font-semibold tabular-nums text-[color:var(--color-ink)]">
-            {value === null ? "Reading…" : formatMoney(value, currency)}
-          </span>
-          <span className={`mt-0.5 block font-mono text-[10px] uppercase tracking-[0.06em] ${snapshot?.partial ? "text-[color:var(--color-warning)]" : "text-[color:var(--color-ink-3)]"}`}>
-            {status}
-          </span>
-        </span>
-        <ChevronRight size={15} className="shrink-0 text-[color:var(--color-ink-4)]" />
-      </button>
-      <button
-        type="button"
-        onClick={() => void copyAddress(wallet.address).then(setCopied).catch(() => setCopied(false))}
-        aria-label="Copy wallet address"
-        className="nm-interactive grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-bg)] hover:text-[color:var(--color-ink)]"
-      >
-        {copied ? <Check size={15} /> : <Copy size={15} />}
-      </button>
-    </div>
-  );
 }
 
 export function CryptoWalletDetailDialog({

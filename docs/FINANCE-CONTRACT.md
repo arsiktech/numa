@@ -15,9 +15,15 @@ ledger helpers. Existing `/pod` settlement math and data are unchanged.
   missing/invalid/non-finite money and unsupported currencies fail closed.
 - Ledger totals require one portfolio and one currency; no implicit FX. Cash
   account writes require the transaction's currency and owning portfolio.
-- Timestamps are integer Unix milliseconds. Mobile monthly reporting uses UTC
-  calendar months, inclusive start/exclusive end, excluding records after the
-  snapshot's `recordedThrough` time. Scheduled rules themselves are not income.
+- Timestamps are integer Unix milliseconds. App screens (Flow, the Home month,
+  the spending calendar, limits and runway) group records by the device's
+  local calendar month, inclusive start/exclusive end: a purchase belongs to
+  the month it happened in for the person (owner decision, 2026-11-11). The
+  server stores no time zone, so its own monthly figures (`financeMonth` in the
+  mobile snapshot, reported as `timezone: "UTC"`, and spending-limit alerts)
+  use UTC calendar months, inclusive start/exclusive end, excluding records
+  after the snapshot's `recordedThrough` time. The two can differ for a few
+  hours around a month boundary. Scheduled rules themselves are not income.
   Existing recurring materialization behavior is not redesigned here (ARS-90).
 - Mobile totals retain existing USD/EUR fallback conversion. `dataQuality`
   exposes the rates, `fxEstimated: true`, `fxAsOf: null`, precision, period,

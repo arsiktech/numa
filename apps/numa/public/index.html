@@ -43,6 +43,10 @@
       #numa-startup .mark { font-family: system-ui, sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -0.03em; }
       #numa-startup .pro { display: inline-block; margin-left: 8px; padding: 2px 6px; border-radius: 6px; background: #0B0B0C; color: #F4F4F1; font-size: 12px; letter-spacing: 0.06em; vertical-align: 4px; }
       #numa-startup h1 { font-family: system-ui, sans-serif; font-weight: 300; font-size: 54px; line-height: 1; letter-spacing: -0.02em; margin: 24px 0 16px; }
+      #numa-startup .bar { width: 120px; height: 2px; margin: 0 0 20px; border-radius: 2px; background: #D9D9D5; overflow: hidden; }
+      #numa-startup .bar::after { content: ""; display: block; width: 40%; height: 100%; border-radius: 2px; background: currentColor; animation: numa-load 1.2s cubic-bezier(.22, 1, .36, 1) infinite alternate; }
+      @keyframes numa-load { from { transform: translateX(0); } to { transform: translateX(150%); } }
+      @media (prefers-reduced-motion: reduce) { #numa-startup .bar::after { animation: none; width: 100%; opacity: .45; } }
       #numa-startup a { color: inherit; display: inline-flex; align-items: center; min-height: 44px; margin-right: 16px; }
       #numa-startup a:focus-visible { outline: 2px solid #0B0B0C; outline-offset: 3px; }
       #numa-startup small { display: block; color: #61646A; }
@@ -50,6 +54,7 @@
         #numa-startup { background: #000; color: #F4F4F1; }
         #numa-startup .pro { background: #F4F4F1; color: #0B0B0C; }
         #numa-startup small { color: #8E9198; }
+        #numa-startup .bar { background: #2A2D32; }
         #numa-startup a:focus-visible { outline-color: #F4F4F1; }
       }
     </style>
@@ -61,6 +66,8 @@
       <section>
         <p class="mark">numa<span class="pro">PRO</span></p>
         <h1>Opening Numa Pro…</h1>
+        <!-- Moves while the app downloads, so a slow connection does not look like a hang. -->
+        <div class="bar" aria-hidden="true"></div>
         <p>Net worth, cash flow and what needs you, on every device.</p>
         <nav aria-label="Information"><a href="/pricing">Pricing</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
         <p><a href="/">Reload the app</a><!--email_off--><a href="mailto:support@numaworth.com">Contact support</a><!--/email_off--></p>

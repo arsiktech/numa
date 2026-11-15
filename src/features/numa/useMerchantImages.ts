@@ -12,7 +12,7 @@ import type { StillLifeKind } from "./stillLife";
  * never sent to an AI endpoint as a background side effect.
  */
 
-/** Must mirror api/merchant-image.ts keyOf — same normalization, same key. */
+/** Render-cache key for a merchant and still-life kind: case, accents and punctuation are ignored. */
 export function merchantImageKey(merchant: string, kind: StillLifeKind): string {
   const normalized = merchant
     .toLowerCase()

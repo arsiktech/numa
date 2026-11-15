@@ -36,28 +36,6 @@ export function createReporterState(): ReporterState {
   return { sentTotal: 0, lastSentByFingerprint: new Map() };
 }
 
-/** djb2 over message+source — stable, tiny, good enough for grouping. */
-export function errorFingerprint(message: string, source: string): string {
-  const input = `${source}:${normalizeMessage(message)}`;
-  let hash = 5381;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = ((hash << 5) + hash + input.charCodeAt(i)) | 0;
-  }
-  return `e${(hash >>> 0).toString(36)}`;
-}
-
-/**
- * Collapse the variable parts of common messages (ids, urls, numbers) so the
- * same logical error groups under one fingerprint.
- */
-export function normalizeMessage(message: string): string {
-  return message
-    .replace(/https?:\/\/\S+/g, "<url>")
-    .replace(/[0-9a-f]{8,}/gi, "<hex>")
-    .replace(/\d{3,}/g, "<n>")
-    .slice(0, 300);
-}
-
 export function describeUnknownError(value: unknown): { message: string; stack?: string } {
   if (value instanceof Error) {
     return { message: `${value.name}: ${value.message}`, stack: value.stack ?? undefined };

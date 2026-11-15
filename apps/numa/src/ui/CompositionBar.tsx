@@ -21,6 +21,10 @@ const meta: Record<CategoryId, { name: string; color: CategoryColor }> = {
   things: { name: 'Things', color: 'catSand' },
 };
 
+// The two text links are one small line each. The padding makes the touch area 44 px tall, and the
+// equal negative margin keeps the line where it was. (`hitSlop` does nothing on the web.)
+const tapArea = { paddingVertical: 13, marginVertical: -13 };
+
 /** Where a block or row leads; by default, today's items in that group. */
 export type OpenTarget = CategoryId | 'debts' | 'all';
 const openToday = (to: OpenTarget) => (to === 'all' ? router.push('/holdings') : router.push({ pathname: '/holdings/[group]', params: { group: to } }));
@@ -53,19 +57,19 @@ export function CompositionBar({ categories, ownCents, oweCents, netCents, lens,
   return (
     <View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginBottom: 8 }}>
-        <Pressable onPress={() => open('all')} accessibilityRole="link" hitSlop={8}>
+        <Pressable onPress={() => open('all')} accessibilityRole="link" style={tapArea}>
           <Txt v="small" c="ink2" style={{}}>{when ? `What you owned · ${when}${onOpen ? ' ›' : ''}` : 'What you own ›'}</Txt>
         </Pressable>
         <Txt v="figureSm" style={{}}>{money(ownCents)}</Txt>
       </View>
       <View style={{ gap: 2 }}>
-        <LensBar entries={own} height={wide ? 96 : 60} labelMin={wide ? 0.06 : 0.08} emptyColor={c.s1} />
-        <LensBar entries={balance} height={wide ? 56 : 60} labelMin={0.08} emptyColor={c.s1} />
+        <LensBar entries={own} height={wide ? 96 : 60} emptyColor={c.s1} />
+        <LensBar entries={balance} height={wide ? 56 : 60} emptyColor={c.s1} />
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12, marginTop: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: c.down }} />
-          <Pressable onPress={() => open('debts')} accessibilityRole="link" hitSlop={8}>
+          <Pressable onPress={() => open('debts')} accessibilityRole="link" style={tapArea}>
             <Txt v="small" c="ink2" style={{}}>{when ? `What you owed${onOpen ? ' ›' : ''}` : 'What you owe ›'}</Txt>
           </Pressable>
         </View>
