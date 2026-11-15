@@ -1,5 +1,5 @@
 import { useAction, useQuery } from 'convex/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { cloud, type CloudCurrency } from '@/cloud/api';
 import { liquidSummary, useInvested, type Invested } from '@/loans/useInvested';
@@ -78,21 +78,26 @@ function usePriceHistory(range: Range, pieces: PricedPiece[]): Record<string, Pr
   const symbols = pieces.map((p) => ({ kind: p.kind, symbol: p.symbol }));
   const cached = useQuery(cloud.priceSeriesRead, range === 'ALL' || symbols.length === 0 ? 'skip' : { range, symbols });
   const key = `${range}|${symbols.map((s) => `${s.kind}:${s.symbol}`).sort().join(',')}`;
-  const [filled, setFilled] = useState<Record<string, PriceSeries>>({});
+  // Fetched series, kept per range so a late answer for one range never draws on another.
+  const [filled, setFilled] = useState<Record<string, Record<string, PriceSeries>>>({});
+  // Symbols already asked for, per range. A provider with no answer, or the per-minute limit,
+  // returns nothing; asking again on every render would call the backend in a loop.
+  const asked = useRef(new Set<string>());
   useEffect(() => {
     if (range === 'ALL' || cached === undefined) return;
     const wanted = key.slice(range.length + 1).split(',').filter(Boolean).map((item) => {
       const [kind, symbol] = item.split(':');
       return { kind: kind as 'crypto' | 'stock', symbol };
     });
-    const missing = wanted.filter((s) => s.symbol && !cached[s.symbol.toUpperCase()] && !filled[s.symbol.toUpperCase()]);
+    const missing = wanted.filter((s) => s.symbol && !cached[s.symbol.toUpperCase()] && !asked.current.has(`${range}|${s.kind}:${s.symbol}`));
     if (!missing.length) return;
-    let alive = true;
-    void fetchSeries({ range, symbols: missing }).then((rows) => { if (alive) setFilled((all) => ({ ...all, ...rows })); }).catch(() => undefined);
-    return () => { alive = false; };
-  }, [cached, fetchSeries, filled, key, range]);
+    for (const s of missing) asked.current.add(`${range}|${s.kind}:${s.symbol}`);
+    void fetchSeries({ range, symbols: missing })
+      .then((rows) => { if (Object.keys(rows).length) setFilled((all) => ({ ...all, [range]: { ...all[range], ...rows } })); })
+      .catch(() => undefined);
+  }, [cached, fetchSeries, key, range]);
   if (range === 'ALL' || symbols.length === 0) return null;
-  return { ...(cached ?? {}), ...filled };
+  return { ...filled[range], ...(cached ?? {}) };
 }
 
 /** The signed-in person's first portfolio, live from Convex. */

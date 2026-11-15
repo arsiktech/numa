@@ -126,10 +126,10 @@ describe("price-history cache evidence", () => {
     expect((await f.db.call(cached, { keys: ["crypto:BTC:1D"] }))[0].observations).toBeUndefined();
   });
 
-  it("still obeys the existing per-user rate limit before requesting provider data", async () => {
+  it("fails over the per-user rate limit, before requesting provider data, so older apps stop asking", async () => {
     const f = fixture();
     for (let i = 0; i < 30; i++) expect(await f.db.call(consume, { userId: "user" })).toBe(true);
     const fetch = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Synthetic provider must not be called"));
-    expect(await f.run()).toEqual({}); expect(fetch).not.toHaveBeenCalled();
+    await expect(f.run()).rejects.toMatchObject({ data: { code: "RATE_LIMITED" } }); expect(fetch).not.toHaveBeenCalled();
   });
 });
