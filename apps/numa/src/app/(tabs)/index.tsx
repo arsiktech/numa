@@ -219,7 +219,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
 
   const heroBlock = (
     <View>
-      {model.source === 'demo' && <Txt v="body" c="ink2" style={{ marginBottom: 8 }}>Net worth, cash flow and what needs you, on every device.</Txt>}
+      {model.source === 'demo' && <Txt v="body" c="ink2" style={{ marginBottom: 8 }} maxFontSizeMultiplier={1.4}>Net worth, cash flow and what needs you, on every device.</Txt>}
       {model.available ? (
         <FitLine>
           {(k) => (
