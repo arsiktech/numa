@@ -114,7 +114,9 @@ export const series = action({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Sign in to see your chart" });
     if (process.env.NUMA_QUOTES_OFFLINE === "1") return {};
-    if (!(await ctx.runMutation(internal.priceHistory.consume, { userId }))) return {};
+    // Over the per-minute limit this must fail, not return an empty answer: apps before the retry fix
+    // ask again after every empty answer, and only stop on an error.
+    if (!(await ctx.runMutation(internal.priceHistory.consume, { userId }))) throw new ConvexError({ code: "RATE_LIMITED", message: "Too many chart requests. Try again in a minute." });
     const wanted = [...new Map(symbols.slice(0, MAX_SYMBOLS).map((s) => [`${s.kind}:${s.symbol.toUpperCase()}`, s])).values()];
     const keys = wanted.map((s) => `${s.kind}:${s.symbol.toUpperCase()}:${range}`);
     const now = Date.now();
