@@ -238,10 +238,11 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         ) : showChange ? (
           <Pressable onPress={openMovers} accessibilityRole="button" hitSlop={8} accessibilityHint="Explains this change"
             style={{ minHeight: 44, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-            <Txt v="figure" style={{ color: up ? c.upInk : c.down }}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
+            {/* The total above keeps its size at every text setting; capped, this row stays smaller than the total it describes. */}
+            <Txt v="figure" style={{ color: up ? c.upInk : c.down }} maxFontSizeMultiplier={1.4}>{mask((up ? '▲ ' : '▼ ') + formatMoney(Math.abs(diff), currency, { cents: true }) + (values[0] ? ' ' + formatPercent(diff / Math.abs(values[0])) : ''))}</Txt>
             {/* A picked date shows above the chart, by the point; here only the change since the start. */}
-            {scrub === null && <Txt v="body" c="ink2">{rangeWords(range, points[0].t)}</Txt>}
-            <Txt v="body" c="ink3">›</Txt>
+            {scrub === null && <Txt v="body" c="ink2" maxFontSizeMultiplier={1.4}>{rangeWords(range, points[0].t)}</Txt>}
+            <Txt v="body" c="ink3" maxFontSizeMultiplier={1.4}>›</Txt>
           </Pressable>
         ) : (
           model.empty ? null : <Txt v="body" c="ink2">{lens !== 'net' && !chartFollowsLens ? 'Today' : 'History starts today'}</Txt>
@@ -256,7 +257,7 @@ function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<H
         {scrub === null && model.live && range === '1D' && model.available && (
           <View style={{ minHeight: 22, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.upBg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.up }} />
-            <Txt v="label" c="upInk">{model.source === 'demo' ? 'Sample data' : 'Live'}</Txt>
+            <Txt v="label" c="upInk" maxFontSizeMultiplier={1.3}>{model.source === 'demo' ? 'Sample data' : 'Live'}</Txt>
           </View>
         )}
       </View>
