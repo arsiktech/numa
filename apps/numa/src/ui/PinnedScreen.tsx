@@ -24,13 +24,13 @@ export function BarButtons({ demo, onDemo, compact }: { demo: boolean; onDemo?: 
   const { hideAmounts, set } = usePrefs();
   const pill = (
     <View style={{ minHeight: 24, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.s2, justifyContent: 'center' }}>
-      <Txt v="label" c="ink2">Demo</Txt>
+      <Txt v="label" c="ink2" maxFontSizeMultiplier={1.3}>Demo</Txt>
     </View>
   );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
       {demo && !compact && (onDemo
-        ? <Pressable onPress={onDemo} accessibilityRole="button" accessibilityLabel="DEMO Sign in" style={({ pressed }) => ({ height: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4, opacity: pressed ? 0.72 : 1 })}>{pill}<Txt v="small" style={{ fontFamily: 'Manrope_700Bold' }}>Sign in</Txt></Pressable>
+        ? <Pressable onPress={onDemo} accessibilityRole="button" accessibilityLabel="DEMO Sign in" style={({ pressed }) => ({ height: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4, opacity: pressed ? 0.72 : 1 })}>{pill}<Txt v="small" style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.3}>Sign in</Txt></Pressable>
         : <View accessibilityLabel="Demo data" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>{pill}</View>)}
       <Pressable onPress={() => set('hideAmounts', !hideAmounts)} accessibilityRole="switch" aria-checked={hideAmounts} accessibilityLabel="Hide amounts" style={({ pressed }) => ({ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
         <IconEye color={c.ink} />

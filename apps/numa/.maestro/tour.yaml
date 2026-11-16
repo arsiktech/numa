@@ -4,8 +4,10 @@ appId: com.arsiktech.numa
 ---
 - launchApp:
     clearState: true
+# Home has loaded once the demo intro line shows. "What you own" is not a safe gate: at the
+# largest text size it starts below the first screen, and the walk scrolls to it further down.
 - extendedWaitUntil:
-    visible: "What you own.*"
+    visible: "Net worth, cash flow and what needs you.*"
     timeout: 60000
 - waitForAnimationToEnd
 - takeScreenshot: ${SHOT}-01-home
