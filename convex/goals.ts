@@ -89,7 +89,7 @@ export const upsert = mutation({
         message: "AI goal drafts can only create a reviewed goal"
       });
     }
-    if (args.target <= 0) {
+    if (!Number.isFinite(args.target) || args.target <= 0) {
       throw new ConvexError({ code: "INVALID_GOAL", message: "Target must be positive" });
     }
     await assertGoalRefs(ctx, args);
@@ -156,7 +156,7 @@ export const upsert = mutation({
           if (existing.portfolioId !== args.portfolioId) {
             throw new ConvexError({ code: "INVALID_GOAL", message: "Goal portfolio cannot change" });
           }
-          await ctx.db.patch(args.id, patch);
+          await ctx.db.patch(args.id, { ...patch, createdAt: existing.createdAt });
           return args.id;
         }
 

@@ -3,7 +3,7 @@ import type { CloudCategory, CloudGoal, CloudSnapshot } from '@/cloud/api';
 import { convertCents, type FxRate } from '@/data/fx';
 import type { Summary } from '@/domain/summary';
 import type { Currency } from '@/domain/types';
-import { monthFlow, monthOf, shiftMonth, type Ledger, type MonthKey } from '@/flow/month';
+import { monthFlow, monthOf, shiftMonth, transactionsIn, type Ledger, type MonthKey } from '@/flow/month';
 
 /** The full months runway is averaged over, newest first. */
 export function runwayMonths(now: Date): [MonthKey, MonthKey, MonthKey] {
@@ -25,13 +25,17 @@ export function runway(ledger: Ledger, summary: Summary, currency: Currency, fx:
   }
   if (!outs.length) return { cashCents: summary.cashCents, monthlyOutCents: null, months: null, basisMonths: 0 };
   const monthlyOutCents = Math.round(outs.reduce((a, b) => a + b, 0) / outs.length);
-  return { cashCents: summary.cashCents, monthlyOutCents, months: monthlyOutCents > 0 ? summary.cashCents / monthlyOutCents : null, basisMonths: outs.length };
+  if (monthlyOutCents <= 0) return { cashCents: summary.cashCents, monthlyOutCents: null, months: null, basisMonths: 0 };
+  return { cashCents: summary.cashCents, monthlyOutCents, months: summary.cashCents / monthlyOutCents, basisMonths: outs.length };
 }
 
 export function runwayWords(months: number | null): string {
   if (months === null) return 'No spending logged in the last three months';
   if (months >= 36) return 'More than 3 years on cash';
-  if (months >= 12) return `About ${Math.round(months / 12 * 10) / 10} years on cash`;
+  if (months >= 12) {
+    const years = Math.round(months / 12 * 10) / 10;
+    return `About ${years} ${years === 1 ? 'year' : 'years'} on cash`;
+  }
   if (months < 1) return 'Less than a month on cash';
   return `About ${Math.round(months)} ${Math.round(months) === 1 ? 'month' : 'months'} on cash`;
 }
@@ -40,13 +44,17 @@ export type LimitRow = { category: CloudCategory; limitCents: number | null; spe
 
 /** Spending this month per expense category against its monthly limit, in the portfolio currency. */
 export function limits(s: CloudSnapshot, currency: Currency, fx: FxRate | null, now: Date): LimitRow[] {
-  const flow = monthFlow(s, monthOf(now.getTime()), currency, fx, now);
-  const spent = new Map(flow.outgoing.map((l) => [l.label, l.cents]));
+  const spent = new Map<string, number>();
+  for (const tx of transactionsIn(s.transactions, monthOf(now.getTime()), now)) {
+    if (tx.kind !== 'expense' || !tx.categoryId) continue;
+    const cents = convertCents(Math.abs(tx.amountMinor), tx.currency, currency, fx);
+    if (cents !== null) spent.set(tx.categoryId, (spent.get(tx.categoryId) ?? 0) + cents);
+  }
   return s.categories
     .filter((c) => c.kind === 'expense')
     .map((c) => {
       const limitCents = c.monthlyLimit == null ? null : convertCents(Math.round(c.monthlyLimit * 100), c.budgetCurrency ?? currency, currency, fx);
-      const spentCents = spent.get(c.name) ?? 0;
+      const spentCents = spent.get(c.id) ?? 0;
       return { category: c, limitCents, spentCents, share: limitCents ? spentCents / limitCents : null };
     })
     .sort((a, b) => (b.share ?? -1) - (a.share ?? -1) || b.spentCents - a.spentCents);

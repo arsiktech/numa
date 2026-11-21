@@ -37,7 +37,9 @@ export const submit = mutation({
 export const recent = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    const rows = await ctx.db.query("feedback").order("desc").take(Math.min(Math.max(args.limit ?? 50, 1), 200));
+    const raw = args.limit;
+    const limit = Math.min(Math.max(typeof raw === "number" && Number.isFinite(raw) ? Math.floor(raw) : 50, 1), 200);
+    const rows = await ctx.db.query("feedback").order("desc").take(limit);
     return rows.map(r => ({ at: r.sentAt, kind: r.kind, message: r.message, platform: r.platform, appVersion: r.appVersion }));
   },
 });

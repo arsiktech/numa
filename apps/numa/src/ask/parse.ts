@@ -111,17 +111,26 @@ export function parseDate(text: string, now: Date, prefer: 'past' | 'future'): {
   m = /\bin (\d{1,3}) days?\b/i.exec(text);
   if (m) return { at: noon(new Date(now.getTime() + Number(m[1]) * DAY)), match: m[0] };
   const monthRe = '(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*';
-  m = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+${monthRe}\\b`, 'i').exec(text);
-  let day: number | null = null, month: number | null = null;
-  if (m) { day = Number(m[1]); month = MONTHS.indexOf(m[2].toLowerCase()); }
+  m = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+${monthRe}(?:,?\\s+(\\d{4}))?\\b`, 'i').exec(text);
+  let day: number | null = null, month: number | null = null, explicitYear: number | null = null;
+  if (m) { day = Number(m[1]); month = MONTHS.indexOf(m[2].toLowerCase()); explicitYear = m[3] ? Number(m[3]) : null; }
   else {
-    m = new RegExp(`\\b${monthRe}\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`, 'i').exec(text);
-    if (m) { month = MONTHS.indexOf(m[1].toLowerCase()); day = Number(m[2]); }
+    m = new RegExp(`\\b${monthRe}\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`, 'i').exec(text);
+    if (m) { month = MONTHS.indexOf(m[1].toLowerCase()); day = Number(m[2]); explicitYear = m[3] ? Number(m[3]) : null; }
   }
   if (!m || day === null || month === null || day < 1 || day > 31) return null;
-  let at = noon(new Date(now.getFullYear(), month, day));
-  if (prefer === 'past' && at > now.getTime() + DAY) at = noon(new Date(now.getFullYear() - 1, month, day));
-  if (prefer === 'future' && at < now.getTime() - DAY) at = noon(new Date(now.getFullYear() + 1, month, day));
+  const makeDate = (y: number) => {
+    const d = new Date(y, month!, day!, 12);
+    return d.getMonth() === month ? d.getTime() : null;
+  };
+  if (explicitYear !== null) {
+    const at = makeDate(explicitYear);
+    return at === null ? null : { at, match: m[0] };
+  }
+  let at = makeDate(now.getFullYear());
+  if (at === null) return null;
+  if (prefer === 'past' && at > now.getTime() + DAY) at = makeDate(now.getFullYear() - 1) ?? at;
+  if (prefer === 'future' && at < now.getTime() - DAY) at = makeDate(now.getFullYear() + 1) ?? at;
   return { at, match: m[0] };
 }
 

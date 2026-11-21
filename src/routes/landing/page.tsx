@@ -10,7 +10,7 @@ const steps = [
 ];
 
 /** Public promises describe the core product available without optional AI providers. */
-export function LandingPage() {
+function LandingPage() {
   return (
     <div className="nm-site">
       <header className="nm-site-container">

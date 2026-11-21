@@ -69,12 +69,12 @@ function Sits({ party }: { party: Party }) {
   const loans = useLoans();
   if (loans.status !== 'ready') return null;
   const subjects = new Set(party.records.map((r) => r.subject));
-  const places = loans.loans.filter((l) => subjects.has(l.key)).flatMap((l) => l.deployed.map((p) => ({ p, result: l.deployed.length === 1 ? l.resultCents : null })));
+  const places = loans.loans.filter((l) => subjects.has(l.key)).flatMap((l) => l.deployed.map((p) => ({ loanKey: l.key, p, result: l.deployed.length === 1 ? l.resultCents : null })));
   if (!places.length) return null;
   return (
     <Card title={party.owed === 'toYou' ? 'Where it went' : 'Where the money sits'}>
-      {places.map(({ p, result }, i) => (
-        <View key={p.key} style={{ minHeight: 54, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: i === places.length - 1 ? 0 : 1, borderBottomColor: c.line2 }}>
+      {places.map(({ loanKey, p, result }, i) => (
+        <View key={`${loanKey}:${p.key}`} style={{ minHeight: 54, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: i === places.length - 1 ? 0 : 1, borderBottomColor: c.line2 }}>
           <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
             <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{p.name}</Txt>
             {p.detail && <Txt v="small" c="ink2" numberOfLines={1}>{p.detail}</Txt>}
@@ -91,7 +91,7 @@ function Sits({ party }: { party: Party }) {
 
 function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, { status: 'ready' }> }) {
   const { c } = useTheme();
-  const { money } = useMoney();
+  const { money, mask } = useMoney();
   const toast = useToast();
   const writes = useDebtWrites(state.portfolioId);
   const [form, setForm] = useState<'payment' | 'debt' | null>(null);
@@ -144,8 +144,8 @@ function Detail({ party, state }: { party: Party; state: Extract<MoneyMapState, 
               <View key={e.id} style={{ minHeight: 48, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: i === history.length - 1 ? 0 : 1, borderBottomColor: c.line2 }}>
                 <Txt v="figureSm" c="ink3" style={{ width: 62, fontSize: 12 }}>{dayText(e.occurredAt, state.now)}</Txt>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Txt v="body">{KIND_WORDS[e.kind]}{e.amount !== null && e.unit ? ` ${unitText(e.amount, e.unit)}` : ''}</Txt>
-                  {e.unit && (e.interestPart || e.feePart) ? <Txt v="small" c="ink2" numberOfLines={2}>{`Principal ${unitText(e.principalPart ?? 0, e.unit)} · Interest ${unitText(e.interestPart ?? 0, e.unit)} · Fees ${unitText(e.feePart ?? 0, e.unit)}`}</Txt> : null}
+                  <Txt v="body">{KIND_WORDS[e.kind]}{e.amount !== null && e.unit ? ` ${mask(unitText(e.amount, e.unit))}` : ''}</Txt>
+                  {e.unit && (e.interestPart || e.feePart) ? <Txt v="small" c="ink2" numberOfLines={2}>{`Principal ${mask(unitText(e.principalPart ?? 0, e.unit))} · Interest ${mask(unitText(e.interestPart ?? 0, e.unit))} · Fees ${mask(unitText(e.feePart ?? 0, e.unit))}`}</Txt> : null}
                   {(e.note || party.records.length > 1) && <Txt v="small" c="ink2" numberOfLines={2}>{[e.note, party.records.length > 1 ? record?.name : null].filter(Boolean).join(' · ')}</Txt>}
                 </View>
                 <Pressable onPress={() => removeEvent(e)} accessibilityRole="button" accessibilityLabel={`Remove ${KIND_WORDS[e.kind]} from ${dayText(e.occurredAt, state.now)}`} hitSlop={6}

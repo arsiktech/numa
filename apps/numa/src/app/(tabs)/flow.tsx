@@ -102,13 +102,13 @@ const useCloudLedger = (portfolioId: string | null, start: number, end: number) 
 const useNoLedger = (): ReturnType<typeof useCloudLedger> => undefined;
 
 function FlowView({ data }: { data: FlowData }) {
-  // Keyed by source, so the ledger hook never changes under a mounted screen.
-  return <CurrencyScope currency={data.currency}><Inner key={data.demo ? 'demo' : 'cloud'} data={data} useLedger={data.demo ? useNoLedger : useCloudLedger} /></CurrencyScope>;
+  // Keyed by source and space, so the ledger hook and selected month reset cleanly on space switches.
+  return <CurrencyScope currency={data.currency}><Inner key={`${data.demo ? 'demo' : 'cloud'}:${data.portfolioId ?? ''}`} data={data} useLedger={data.demo ? useNoLedger : useCloudLedger} /></CurrencyScope>;
 }
 
 function Inner({ data, useLedger }: { data: FlowData; useLedger: typeof useCloudLedger }) {
   const { c } = useTheme();
-  const { money, hidden } = useMoney();
+  const { money, mask, hidden } = useMoney();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
   const [month, setMonth] = useState<MonthKey>(data.months[data.months.length - 1]);
@@ -229,7 +229,7 @@ function Inner({ data, useLedger }: { data: FlowData; useLedger: typeof useCloud
             const row = (
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }} numberOfLines={1}>{t.description}</Txt>
-                  <Txt v="small" c="ink2" numberOfLines={1}>{[focused ? null : t.categoryId ? names.get(t.categoryId) : null, shortDay(t.occurredAt, data.now), ...detail.meta].filter(Boolean).join(' · ')}</Txt>
+                  <Txt v="small" c="ink2" numberOfLines={1}>{[focused ? null : t.categoryId ? names.get(t.categoryId) : null, shortDay(t.occurredAt, data.now), ...detail.meta.map((m) => (hidden ? mask(m) : m))].filter(Boolean).join(' · ')}</Txt>
                 </View>
             );
             const amount = <Txt v="figure" style={{ color: income ? c.upInk : c.ink }}>{cents === null ? '—' : (income ? '+' : '−') + money(cents, { cents: cents % 100 !== 0 }).replace('−', '')}</Txt>;

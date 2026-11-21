@@ -37,7 +37,7 @@ export type LogPosition = { group: Group; name: string; cents: number };
 export type WealthLog = {
   rows: LogRow[];
   /** The newest readable row's positions, for setting up today. */
-  latest: { takenAt: number; positions: LogPosition[] } | null;
+  latest: { takenAt: number; currency?: Currency; positions: LogPosition[] } | null;
 };
 
 const TOP = (label: string): Group | 'total' | 'liquidTotal' | 'subtotals' | 'date' | null => {
@@ -69,8 +69,9 @@ export function isWealthLog(table: string[][]): boolean {
 
 function columnsOf(table: string[][]): { columns: Column[]; dateCol: number; totalCol: number; bodyStart: number } {
   const head = table[0];
-  const sub = table[1] && !parseDay(table[1][0] ?? '') ? table[1] : null;
   const width = Math.max(...table.map((r) => r.length));
+  const dateIdx = head.findIndex((h) => TOP(h ?? '') === 'date');
+  const sub = table[1] && !parseDay(table[1][dateIdx >= 0 ? dateIdx : 0] ?? '') ? table[1] : null;
   const columns: Column[] = [];
   let dateCol = -1, totalCol = -1;
   let current: ReturnType<typeof TOP> = null;
@@ -150,7 +151,7 @@ export function readWealthLog(table: string[][], ctx: { currency: Currency; exis
     const key = dayKey(takenAt);
     const duplicate = existing.has(key) || seen.has(key);
     seen.add(key);
-    if (!latest || takenAt > latest.takenAt) latest = { takenAt, positions };
+    if (!latest || takenAt > latest.takenAt) latest = { takenAt, currency, positions };
     return { ...out, problem: null, duplicate };
   });
   return { rows, latest };
@@ -187,20 +188,21 @@ export type TodaySetup = {
 export function todayFromLatest(latest: NonNullable<WealthLog['latest']>, ctx: Pick<AskContext, 'assets' | 'liabilities'> & { currency: Currency }): TodaySetup {
   const drafts: (AssetDraft | DebtDraft)[] = [];
   const needQuantity: LogPosition[] = [];
+  const currency = latest.currency ?? ctx.currency;
   for (const p of latest.positions) {
     const label = nice(p.name, p.group);
     if (p.cents < 0 || p.group === 'debt') {
       const name = p.group === 'debt' ? label : `${label} ${p.group === 'liquid' ? 'owed' : 'borrowed'}`;
       const kind: CloudLiability['kind'] = p.group === 'debt' ? 'other' : p.group === 'liquid' ? 'other' : 'loan';
       const existing = ctx.liabilities.find((l) => l.name.toLowerCase() === name.toLowerCase()) ?? null;
-      drafts.push({ type: 'debt', name: existing?.name ?? name, debtKind: existing?.kind ?? kind, amountCents: Math.abs(p.cents), currency: ctx.currency, dueDate: existing?.dueDate ?? null,
+      drafts.push({ type: 'debt', name: existing?.name ?? name, debtKind: existing?.kind ?? kind, amountCents: Math.abs(p.cents), currency, dueDate: existing?.dueDate ?? null,
         existing: existing ? { id: existing.id, name: existing.name, kind: existing.kind, balanceCents: Math.round(existing.balance * 100), currency: existing.currency, dueDate: existing.dueDate } : null });
       continue;
     }
     if (p.group === 'crypto' || p.group === 'stocks') { needQuantity.push(p); continue; }
     const name = p.group === 'liquid' && CURRENCY_NAMES.has(label) ? `${label} cash` : label;
     const existing = ctx.assets.find((a) => a.name.toLowerCase() === name.toLowerCase()) ?? null;
-    drafts.push({ type: 'asset', name: existing?.name ?? name, assetKind: existing?.kind ?? (p.group === 'liquid' ? 'cash' : hardKind(p.name)), amountCents: p.cents, currency: ctx.currency,
+    drafts.push({ type: 'asset', name: existing?.name ?? name, assetKind: existing?.kind ?? (p.group === 'liquid' ? 'cash' : hardKind(p.name)), amountCents: p.cents, currency,
       existing: existing ? { id: existing.id, name: existing.name, kind: existing.kind, balanceCents: Math.round(existing.balance * 100), currency: existing.currency } : null });
   }
   return { drafts, needQuantity: needQuantity.sort((a, b) => b.cents - a.cents) };

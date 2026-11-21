@@ -91,7 +91,7 @@ function QuickSignIn({ busy, last, onApple, onGoogle }: { busy: boolean; last: S
     let live = true;
     appleSignInAvailable().then((ok) => {
       if (live) setApple(ok);
-    });
+    }).catch(() => undefined);
     return () => { live = false; };
   }, []);
   useEffect(() => {
@@ -238,7 +238,7 @@ export default function SignIn() {
       } else {
         const result = await signIn('password', { email: cleanEmail, password, flow, ...(flow === 'signUp' ? { name: cleanEmail.split('@')[0] } : {}) });
         // Accounts that still need email verification get a code instead of a session.
-        if (!result.signingIn) setStep('verify');
+        if (!result.signingIn) go('verify');
         else set('lastSignIn', 'password');
       }
     } catch (e) {
@@ -297,6 +297,11 @@ export default function SignIn() {
                   </View>
                   <Field label="Email" value={email} onChangeText={setEmail} onBlur={() => setEmailTouched(true)} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" inputMode="email" />
                   <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={flow === 'signUp' ? 'new-password' : 'current-password'} textContentType={flow === 'signUp' ? 'newPassword' : 'password'} onSubmitEditing={submit} />
+                  {flow === 'signUp' && (
+                    <Txt v="small" c={password.length > 0 && signUpIssue ? 'down' : 'ink3'}>
+                      {password.length > 0 && signUpIssue ? signUpIssue : 'At least 10 characters, with 3 of: uppercase, lowercase, number, symbol.'}
+                    </Txt>
+                  )}
                   {flow === 'signIn' && (
                     <Pressable disabled={busy} onPress={() => go('resetEmail')} accessibilityRole="button" style={({ pressed }) => ({ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
                       <Txt v="small" c="ink2" style={{ fontFamily: 'Manrope_700Bold' }}>Forgot password?</Txt>

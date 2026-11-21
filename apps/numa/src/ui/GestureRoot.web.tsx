@@ -13,7 +13,7 @@ export function GestureRoot({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!needs) return;
     let live = true;
-    void import('react-native-gesture-handler').then((mod) => { if (live) setHandler(() => mod.GestureHandlerRootView); });
+    void import('react-native-gesture-handler').then((mod) => { if (live) setHandler(() => mod.GestureHandlerRootView); }).catch(() => undefined);
     return () => { live = false; };
   }, [needs]);
   if (!needs || !Handler) return <View style={{ flex: 1 }}>{children}</View>;

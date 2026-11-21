@@ -41,6 +41,9 @@ export const consume = mutation({
     }
 
     const now = args.now ?? Date.now();
+    if (!Number.isFinite(now)) {
+      throw new ConvexError({ code: "INVALID_RATE_LIMIT", message: "now must be finite" });
+    }
     const windowStart = Math.floor(now / args.windowMs) * args.windowMs;
     const key = bucketKey(args.route, args.identityHash, windowStart);
     const existing = await ctx.db
@@ -67,8 +70,8 @@ export const consume = mutation({
       };
     }
 
-    if (existing.count >= existing.limit) {
-      await ctx.db.patch(existing._id, { updatedAt: now });
+    if (existing.count >= args.limit) {
+      await ctx.db.patch(existing._id, { limit: args.limit, updatedAt: now });
       return {
         allowed: false,
         remaining: 0,
@@ -105,6 +108,9 @@ export const preview = query({
   handler: async (ctx, args) => {
     requireServerSecret(args.serverSecret);
     const now = args.now ?? Date.now();
+    if (!Number.isFinite(now)) {
+      throw new ConvexError({ code: "INVALID_RATE_LIMIT", message: "now must be finite" });
+    }
     const windowStart = Math.floor(now / args.windowMs) * args.windowMs;
     const key = bucketKey(args.route, args.identityHash, windowStart);
     const bucket = await ctx.db

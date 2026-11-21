@@ -73,6 +73,7 @@ export function NumaPassword<DataModel extends GenericDataModel>(
       let user: GenericDoc<DataModel, "users">;
 
       if (flow === "signUp") {
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Invalid email");
         if (secret === undefined) throw new Error("Missing password for sign up");
         const created = await createAccount(ctx, {
           provider,

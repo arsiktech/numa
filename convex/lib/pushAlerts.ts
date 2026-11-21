@@ -11,11 +11,22 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export type Alert = { key: string; title: string; body: string; url: string; rank: number };
 
+const clockFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function formatterFor(timeZone: string): Intl.DateTimeFormat {
+  let formatter = clockFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-GB", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    if (clockFormatters.size >= 64) clockFormatters.clear();
+    clockFormatters.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 /** The hour and day where the person is, from their device's time zone. Unknown zones fall back to UTC. */
 export function localClock(now: number, timeZone: string): { hour: number; day: string; minutesIntoDay: number } {
   try {
-    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
-      .formatToParts(new Date(now)).map((p) => [p.type, p.value]));
+    const parts = Object.fromEntries(formatterFor(timeZone).formatToParts(new Date(now)).map((p) => [p.type, p.value]));
     const hour = Number(parts.hour), minute = Number(parts.minute);
     if (Number.isFinite(hour) && Number.isFinite(minute)) return { hour, day: `${parts.year}-${parts.month}-${parts.day}`, minutesIntoDay: hour * 60 + minute };
   } catch { /* fall through */ }

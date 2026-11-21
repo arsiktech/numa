@@ -146,9 +146,18 @@ export default async function handler(
   let client: ConvexHttpClient;
   try {
     client = getConvexClient();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    response.status(500).json({ error: message });
+  } catch {
+    response.status(500).json({ error: "Service unavailable" });
+    return;
+  }
+
+  const ipRateLimit = await consumeRateLimit(request, response, {
+    route: "/api/webhooks/transaction:ip",
+    limit: 60,
+    windowMs: 60_000
+  });
+  if (!ipRateLimit.allowed) {
+    response.status(ipRateLimit.status).json({ error: ipRateLimit.error });
     return;
   }
 
@@ -196,16 +205,9 @@ export default async function handler(
   if (result.ok === false) {
     // Token miss / scope mismatch / membership revoked all collapse to 401
     // here — we deliberately don't leak which one to the caller.
-    const reason = result.reason;
-    const status = reason === "wrong_scope" ? 403 : 401;
-    response.status(status).json({
+    response.status(401).json({
       ok: false,
-      error:
-        reason === "invalid_token"
-          ? "Invalid token"
-          : reason === "wrong_scope"
-            ? "Token does not have add-transaction scope"
-            : "Token issuer no longer has edit access on the portfolio"
+      error: "Unauthorized"
     });
     return;
   }

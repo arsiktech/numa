@@ -35,6 +35,7 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'dow
 /** One debt's terms, what has been paid, and the interest worked out from them. Interest accrued is not part of what is owed. */
 export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiability; events: DebtEvent[]; now: number; onEdit: () => void }) {
   const { c } = useTheme();
+  const { mask } = useMoney();
   const terms = termsOf(loan);
   const coin = !inCurrency(loan);
   const unit = unitOf(loan);
@@ -76,7 +77,7 @@ export function LoanTermsCard({ loan, events, now, onEdit }: { loan: CloudLiabil
       {a.status === 'unsupported-history' && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>Interest cannot be worked out. {a.reason}</Txt>}
       {a.status === 'incomplete' && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>Add {a.missing} to work out interest.</Txt>}
       {a.status === 'ok' && !a.reconciles && (
-        <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>The history says {money(a.historyPrincipal)} is outstanding but the balance is {money(loan.balance)}, so the interest may be off. Add the missing payments to the history, or correct the balance.</Txt>
+        <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>The history says {mask(money(a.historyPrincipal))} is outstanding but the balance is {mask(money(loan.balance))}, so the interest may be off. Add the missing payments to the history, or correct the balance.</Txt>
       )}
       {paid.total > 0 && <Row label="Paid so far" value={`${money(paid.total)}${paid.interest > 0 || paid.fees > 0 ? ` (principal ${money(paid.principal)}, interest ${money(paid.interest)}, fees ${money(paid.fees)})` : ''}`} />}
       {unlabelled > 0 && <Txt v="small" c="warn" style={{ paddingVertical: 4 }}>{unlabelled} {unlabelled === 1 ? 'payment has' : 'payments have'} no currency and {unlabelled === 1 ? 'is' : 'are'} left out of Paid so far.</Txt>}
@@ -103,6 +104,7 @@ const REPRICES = ['principal', 'startedAt', 'interestRate', 'interestTerms'] as 
  */
 export function LoanTermsForm({ loan, events, now, onDone }: { loan: CloudLiability; events: DebtEvent[]; portfolioId: string; now: number; onDone: () => void }) {
   const { c } = useTheme();
+  const { mask } = useMoney();
   const toast = useToast();
   const save = useTermsWrite();
   const t = termsOf(loan);
@@ -181,9 +183,9 @@ export function LoanTermsForm({ loan, events, now, onDone }: { loan: CloudLiabil
     const before = accrual(t, list, loan.balance, calendarToday(now));
     const after = accrual(next, list, loan.balance, calendarToday(now));
     if (before.status !== 'ok') return null;
-    if (after.status !== 'ok') return `Interest will no longer be worked out. So far it was ${money(before.accrued)}.`;
+    if (after.status !== 'ok') return `Interest will no longer be worked out. So far it was ${mask(money(before.accrued))}.`;
     if (Math.abs(after.accrued - before.accrued) <= 0.005) return null;
-    return `This recalculates the interest for months that have already passed: accrued so far goes from ${money(before.accrued)} to ${money(after.accrued)}. Check it against what you have already paid.`;
+    return `This recalculates the interest for months that have already passed: accrued so far goes from ${mask(money(before.accrued))} to ${mask(money(after.accrued))}. Check it against what you have already paid.`;
   })();
   const awaiting = repricing !== null && confirmedKey === changesKey;
   // A synchronous guard against a double tap, and one request id per set of changes, so a retry counts once.

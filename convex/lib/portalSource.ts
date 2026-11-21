@@ -27,6 +27,12 @@ export function checkPortalUrl(raw: string): string | null {
   return url.toString();
 }
 
+function parsePortalNumber(raw: unknown): number {
+  if (typeof raw === "number") return raw;
+  if (typeof raw === "string" && raw.trim() !== "") return Number(raw);
+  return NaN;
+}
+
 /** The `company_balance` result: the shortfall when the portal could give a complete difference. */
 export function readCompanyBalance(text: string, now: number): PortalReading {
   let data: unknown;
@@ -34,7 +40,7 @@ export function readCompanyBalance(text: string, now: number): PortalReading {
   const d = data as { asOf?: unknown; summary?: unknown; difference?: { amount?: { amount?: unknown; currency?: unknown } } | null };
   const amount = d.difference?.amount?.amount;
   const currency = d.difference?.amount?.currency;
-  const value = typeof amount === "string" || typeof amount === "number" ? Number(amount) : NaN;
+  const value = parsePortalNumber(amount);
   if (!Number.isFinite(value) || (currency !== "EUR" && currency !== "USD")) {
     return { status: "incomplete", message: clip(typeof d.summary === "string" && d.summary ? d.summary : "The portal couldn't give a complete difference") };
   }
@@ -56,9 +62,9 @@ export function readInvestors(text: string, ids: string[], now: number): PortalR
   for (const id of ids) {
     const row = rows.find((r) => r.id === id);
     if (!row) return { status: "incomplete", message: "An investor this follows is no longer in the portal" };
-    const value = Number(row.totalOwed?.amount);
+    const value = parsePortalNumber(row.totalOwed?.amount);
     const cur = row.totalOwed?.currency;
-    if (!row.totalOwed || !Number.isFinite(value) || (cur !== "EUR" && cur !== "USD") || (currency && cur !== currency)) {
+    if (!row.totalOwed || !Number.isFinite(value) || value < 0 || (cur !== "EUR" && cur !== "USD") || (currency && cur !== currency)) {
       return { status: "incomplete", message: clip(`The portal doesn't know what is owed to ${typeof row.name === "string" ? row.name : "an investor"} yet`) };
     }
     currency = cur;

@@ -33,7 +33,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ maxWidth: 480, width: '100%', minHeight: 52, borderRadius: 16, paddingLeft: 16, paddingRight: 6, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.ink, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } }}>
             <Txt v="body" c="bg" style={{ flex: 1 }}>{toast.text}</Txt>
             {toast.action && (
-              <Pressable onPress={async () => { const a = toast.action!; setToast(null); await a.onPress(); }} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}>
+              <Pressable onPress={async () => { const a = toast.action!; setToast(null); try { await a.onPress(); } catch { /* handled by action */ } }} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}>
                 <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_800ExtraBold' }}>{toast.action.label}</Txt>
               </Pressable>
             )}

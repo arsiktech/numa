@@ -351,10 +351,15 @@ function AskView({ source }: { source: AskSource }) {
             <TextInput value={text} onChangeText={setText} onSubmitEditing={() => send()} returnKeyType="send" autoFocus onFocus={() => { setAskFocused(true); syncKeyboard(); }} onBlur={() => setAskFocused(false)} placeholder={ready ? 'Coffee 4.50, or ask anything' : 'Loading your money…'} editable={ready}
               placeholderTextColor={c.ink3} accessibilityLabel="Ask or add anything" submitBehavior="submit" testID="ask-input"
               style={{ flex: 1, minWidth: 0, color: c.ink, fontFamily: Platform.OS === 'web' ? webFont('Manrope_500Medium') : 'Manrope_500Medium', fontSize: 16, minHeight: 44, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}) }} />
-            <Pressable onPress={() => send()} disabled={!text.trim() || !ready || thinking || consentBusy} accessibilityRole="button" accessibilityLabel="Send" testID="ask-send" style={({ pressed }) => ({ minWidth: 44, minHeight: 44, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: text.trim() && ready ? c.ink : 'transparent', opacity: pressed && text.trim() && ready ? 0.72 : 1 })}>
-              <Txt v="small" c={text.trim() && ready ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Send</Txt>
-              <Svg width={16} height={16} viewBox="0 0 24 24"><Path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" stroke={c.bg} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
-            </Pressable>
+            {(() => {
+              const canSend = Boolean(text.trim()) && ready && !thinking && !consentBusy;
+              return (
+                <Pressable onPress={() => send()} disabled={!canSend} accessibilityRole="button" accessibilityLabel="Send" testID="ask-send" style={({ pressed }) => ({ minWidth: 44, minHeight: 44, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: canSend ? c.ink : 'transparent', opacity: pressed && canSend ? 0.72 : 1 })}>
+                  <Txt v="small" c={canSend ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Send</Txt>
+                  <Svg width={16} height={16} viewBox="0 0 24 24"><Path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" stroke={canSend ? c.bg : c.ink3} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" /></Svg>
+                </Pressable>
+              );
+            })()}
           </View>
         </View>}
       </View>

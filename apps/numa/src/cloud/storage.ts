@@ -9,9 +9,15 @@ export type KeyValueStorage = {
 };
 
 const native: KeyValueStorage = {
-  getItem: (key) => SecureStore.getItemAsync(key),
-  setItem: (key, value) => SecureStore.setItemAsync(key, value),
-  removeItem: (key) => SecureStore.deleteItemAsync(key),
+  async getItem(key) {
+    try { return await SecureStore.getItemAsync(key); } catch { return null; }
+  },
+  async setItem(key, value) {
+    try { await SecureStore.setItemAsync(key, value); } catch { /* locked keystore or size cap: keep in memory only */ }
+  },
+  async removeItem(key) {
+    try { await SecureStore.deleteItemAsync(key); } catch { /* nothing stored */ }
+  },
 };
 
 const web: KeyValueStorage = {

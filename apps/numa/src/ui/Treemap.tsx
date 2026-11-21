@@ -22,7 +22,7 @@ function Drawing({ tile, rect, geometry, selected, total, sameColor }: {
   const { c } = useTheme();
   const { short, mask } = useMoney();
   const fill = tile.color === 'down' ? c.down : c[tile.color];
-  const ink = tile.color === 'down' ? '#FFFFFF' : c[onCategory[tile.color]];
+  const ink = tile.color === 'down' ? c.onDown : c[onCategory[tile.color]];
   const share = total > 0 && Number.isFinite(total) ? tile.cents / total : 0;
   const style = useAnimatedStyle(() => {
     const offset = 1 + rect.index * 4;

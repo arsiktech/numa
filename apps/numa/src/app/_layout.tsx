@@ -24,7 +24,7 @@ import { FeedbackButton } from '@/feedback/FeedbackButton';
 import { ToastProvider } from '@/ui/Toast';
 import { isKnownPath, routeMeta } from './routes';
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 // A page opened straight from its address (a reload, a bookmark, a link) gets Home beneath it, so
 // Back goes Home. The web build loads routes on demand and cannot read this before the layout has

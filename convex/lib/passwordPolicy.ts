@@ -155,12 +155,10 @@ function normalizeForSequence(value: string) {
 function hasObviousSequence(normalized: string) {
   if (normalized.length < 4) return false;
   return SEQUENCES.some((sequence) => {
-    for (let size = 4; size <= sequence.length; size += 1) {
-      for (let start = 0; start <= sequence.length - size; start += 1) {
-        const chunk = sequence.slice(start, start + size);
-        if (normalized.includes(chunk) || normalized.includes(reverse(chunk))) {
-          return true;
-        }
+    for (let start = 0; start <= sequence.length - 4; start += 1) {
+      const chunk = sequence.slice(start, start + 4);
+      if (normalized.includes(chunk) || normalized.includes(reverse(chunk))) {
+        return true;
       }
     }
     return false;

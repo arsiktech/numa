@@ -1,6 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireMember, requireUser } from "./lib/access";
+import { requirePodMember } from "./lib/podAccess";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { auditedPayloadMatches } from "./lib/aiAudit";
@@ -174,6 +175,9 @@ export const createDraft = mutation({
     const userId = await requireUser(ctx);
     if (args.portfolioId) {
       await requireMember(ctx, args.portfolioId);
+    }
+    if (args.podId) {
+      await requirePodMember(ctx, args.podId);
     }
     return await createAiActionDraft(ctx, userId, args);
   }

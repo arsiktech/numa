@@ -284,9 +284,9 @@ export async function fetchPublicWallet(address: string, addressType: "bitcoin" 
   if (etherfiResult === null) defiFailed.add("optimism");
   else if (etherfiResult) defiPositions.push(...etherfiResult);
   const defiFailedChains: string[] = defiJobs.map((job) => job.id).filter((id) => defiFailed.has(id));
-  // A Compound market or a Morpho vault is also a token in the wallet; it is counted once, as the position.
-  const inDefi = new Set(defiPositions.map((p) => p.positionAddress).filter(Boolean));
-  tokens = tokens.filter((t) => !t.tokenAddress || !inDefi.has(t.tokenAddress));
+  // A Compound market or a Morpho vault is also a token in the wallet; it is counted once, as the position, on that chain.
+  const inDefi = new Set(defiPositions.filter((p) => p.positionAddress).map((p) => `${p.chain}:${p.positionAddress}`));
+  tokens = tokens.filter((t) => !t.tokenAddress || !inDefi.has(`${t.chain}:${t.tokenAddress}`));
   const ids: string[] = tokenJobs.map((job) => job.id);
   const chains = ids.filter((id) => !tokenFailedChains.includes(id) || (defiJobs.length > 0 && !defiFailedChains.includes(id)));
   const failedChains = ids.filter((id) => tokenFailedChains.includes(id) || defiFailedChains.includes(id));

@@ -16,7 +16,11 @@ export function AlertsSection() {
   const unregister = useMutation(cloud.unregisterDevice);
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { void savedPushToken().then(setToken); }, []);
+  useEffect(() => {
+    let live = true;
+    void savedPushToken().then((t) => { if (live) setToken(t); }).catch(() => undefined);
+    return () => { live = false; };
+  }, []);
   const registered = useQuery(cloud.deviceRegistered, token ? { token } : 'skip') ?? false;
   if (!pushSupported) return null;
 

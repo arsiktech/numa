@@ -160,12 +160,12 @@ function HomeView({ model, range, setRange, canSignIn }: { model: HomeModel; ran
   }
   return (
     <CurrencyScope currency={model.currency}>
-      <Ready key={`${model.scope}:${model.currency}`} model={model} range={range} setRange={setRange} lens={lens} setLens={setLens} shell={shell} wide={wide} />
+      <Ready key={`${model.scope}:${model.currency}`} model={model} range={range} setRange={setRange} lens={lens} shell={shell} wide={wide} />
     </CurrencyScope>
   );
 }
 
-function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<HomeModel, { status: 'ready' }>; range: Range; setRange: (r: Range) => void; lens: Lens; setLens: (l: Lens) => void; shell: (children: React.ReactNode) => React.ReactNode; wide: boolean }) {
+function Ready({ model, range, setRange, lens, shell, wide }: { model: Extract<HomeModel, { status: 'ready' }>; range: Range; setRange: (r: Range) => void; lens: Lens; shell: (children: React.ReactNode) => React.ReactNode; wide: boolean }) {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
   const { mask, money } = useMoney();

@@ -18,6 +18,7 @@ export default function DayScreen() {
 }
 
 function Cloud({ takenAt, focus }: { takenAt: number; focus?: DayGroup }) {
+  const { c } = useTheme();
   const cloud = useCloudData();
   if (cloud.status !== 'ready') {
     return <Screen><View style={{ marginTop: 60, alignItems: 'center' }}>{cloud.status === 'error' ? <Txt v="body" c="ink2">{cloud.message}</Txt> : <ActivityIndicator accessibilityLabel="Loading" />}</View></Screen>;
@@ -33,7 +34,7 @@ function Cloud({ takenAt, focus }: { takenAt: number; focus?: DayGroup }) {
         <Txt v="title" accessibilityRole="header">{longDay(day.takenAt)}</Txt>
         <NetWorth cents={day.netCents} />
         {!day.detailed && (
-          <View style={{ marginTop: 16, padding: 14, borderRadius: 16, gap: 6 }}>
+          <View style={{ marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: c.s1, gap: 6 }}>
             <Txt v="body" c="ink2">Only the totals were saved for this date. Import your wealth log again to add what was in each part.</Txt>
             <Link href="/import" asChild>
               <Pressable accessibilityRole="link" style={{ minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start' }}>

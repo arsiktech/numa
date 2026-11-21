@@ -38,19 +38,26 @@ export const inviteByEmail = mutation({
   handler: async (ctx, args) => {
     const { userId: invitedByUserId } = await requireOwner(ctx, args.portfolioId);
     const email = args.email.trim().toLowerCase();
-    if (!email) {
-      throw new ConvexError({ code: "INVALID_ARGUMENT", message: "Email required" });
+    if (!email || !email.includes("@")) {
+      throw new ConvexError({ code: "INVALID_ARGUMENT", message: "Valid email required" });
+    }
+    if (!Number.isInteger(args.ownershipBps) || args.ownershipBps < 0 || args.ownershipBps > 10000) {
+      throw new ConvexError({ code: "INVALID_ARGUMENT", message: "Ownership basis points must be an integer from 0 to 10000" });
+    }
+    const displayName = args.displayName.trim();
+    if (!displayName || displayName.length > 80) {
+      throw new ConvexError({ code: "INVALID_ARGUMENT", message: "Display name must contain 1–80 characters" });
     }
 
-    // Look up a user with this email. `authTables` indexes the `users` table
-    // by "email".
-    const matchedUser = await ctx.db
+    // Look up a verified user with this email. Multiple rows can share an email
+    // (e.g., an unverified signup alongside a verified OAuth account).
+    const matchedUsers = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", email))
-      .unique();
-    const matchedUserId: Id<"users"> | null = verifiedInvitationEmail(matchedUser)
-      ? (matchedUser!._id as Id<"users">)
-      : null;
+      .collect();
+    const verifiedUsers = matchedUsers.filter((user) => Boolean(verifiedInvitationEmail(user)));
+    const matchedUserId: Id<"users"> | null =
+      verifiedUsers.length === 1 ? (verifiedUsers[0]._id as Id<"users">) : null;
 
     if (matchedUserId) {
       // Avoid duplicates.
@@ -67,10 +74,21 @@ export const inviteByEmail = mutation({
         userId: matchedUserId,
         ownershipBps: args.ownershipBps,
         role: args.role,
-        displayName: args.displayName,
+        displayName,
         joinedAt: Date.now()
       });
       return { kind: "member" as const, id };
+    }
+
+    // Avoid duplicate pending invites for the same portfolio + email.
+    const existingInvite = await ctx.db
+      .query("invites")
+      .withIndex("by_email", (q) => q.eq("invitedEmail", email))
+      .filter((q) => q.eq(q.field("portfolioId"), args.portfolioId))
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .first();
+    if (existingInvite) {
+      return { kind: "invite" as const, id: existingInvite._id };
     }
 
     // No user yet — write a pending invite.
@@ -79,7 +97,7 @@ export const inviteByEmail = mutation({
       invitedEmail: email,
       ownershipBps: args.ownershipBps,
       role: args.role,
-      displayName: args.displayName,
+      displayName,
       invitedByUserId,
       invitedAt: Date.now(),
       status: "pending"
@@ -101,6 +119,7 @@ export const updateMembership = mutation({
     })
   },
   handler: async (ctx, args) => {
+    await requireUser(ctx);
     const membership = await ctx.db.get(args.id);
     if (!membership) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Membership not found" });
@@ -115,9 +134,20 @@ export const updateMembership = mutation({
       });
     }
     const patch: Record<string, unknown> = {};
-    if (args.patch.ownershipBps !== undefined) patch.ownershipBps = args.patch.ownershipBps;
+    if (args.patch.ownershipBps !== undefined) {
+      if (!Number.isInteger(args.patch.ownershipBps) || args.patch.ownershipBps < 0 || args.patch.ownershipBps > 10000) {
+        throw new ConvexError({ code: "INVALID_ARGUMENT", message: "Ownership basis points must be an integer from 0 to 10000" });
+      }
+      patch.ownershipBps = args.patch.ownershipBps;
+    }
     if (args.patch.role !== undefined) patch.role = args.patch.role;
-    if (args.patch.displayName !== undefined) patch.displayName = args.patch.displayName;
+    if (args.patch.displayName !== undefined) {
+      const displayName = args.patch.displayName.trim();
+      if (!displayName || displayName.length > 80) {
+        throw new ConvexError({ code: "INVALID_ARGUMENT", message: "Display name must contain 1–80 characters" });
+      }
+      patch.displayName = displayName;
+    }
     await ctx.db.patch(args.id, patch);
   }
 });
@@ -128,6 +158,7 @@ export const updateMembership = mutation({
 export const removeMembership = mutation({
   args: { id: v.id("memberships") },
   handler: async (ctx, args) => {
+    await requireUser(ctx);
     const membership = await ctx.db.get(args.id);
     if (!membership) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Membership not found" });
@@ -175,6 +206,7 @@ export const redeemInvitesForMe = mutation({
 
     let redeemed = 0;
     for (const invite of pending) {
+      if (!(await ctx.db.get(invite.portfolioId))) continue;
       // Skip if user is somehow already a member.
       const existing = await ctx.db
         .query("memberships")

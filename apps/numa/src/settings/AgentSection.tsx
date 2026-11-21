@@ -30,7 +30,8 @@ export function AgentSection() {
   const [confirming, setConfirming] = useState<string | null>(null);
   // The shared clock ticks every minute, so "used 3 min ago" stays current.
   const cloudData = useCloudData();
-  const now = cloudData.status === 'ready' ? cloudData.now : 0;
+  const [fallbackNow] = useState(() => Date.now());
+  const now = cloudData.status === 'ready' ? cloudData.now : fallbackNow;
 
   async function create() {
     setBusy(true);
@@ -50,7 +51,8 @@ export function AgentSection() {
       return;
     }
     // The share sheet sends it straight to the Claude or ChatGPT app, or copies it.
-    await Share.share({ message: prompt });
+    try { await Share.share({ message: prompt }); }
+    catch { toast({ text: 'Couldn’t open the share sheet. Select the text above and copy it.' }); }
   }
 
   async function remove(agent: CloudAgent) {
@@ -87,7 +89,7 @@ export function AgentSection() {
           {confirming === a.id ? (
             <View style={{ flexDirection: 'row', gap: 4 }}>
               <Pressable onPress={() => remove(a)} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.down, justifyContent: 'center' }}>
-                <Txt v="body" style={{ color: '#FFFFFF', fontFamily: 'Manrope_700Bold' }}>Disconnect</Txt>
+                <Txt v="body" style={{ color: c.onDown, fontFamily: 'Manrope_700Bold' }}>Disconnect</Txt>
               </Pressable>
               <Pressable onPress={() => setConfirming(null)} accessibilityRole="button" style={{ minHeight: 40, paddingHorizontal: 10, justifyContent: 'center' }}>
                 <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Keep</Txt>

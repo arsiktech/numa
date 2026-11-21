@@ -7,7 +7,7 @@ const checks = [];
 
 async function main() {
   const html = await fetchText("/");
-  assert(/<title>\s*Numa\b/i.test(html), "Production HTML includes the Numa title");
+  assert(/<title>[^<]*\bNuma\b/i.test(html), "Production HTML includes the Numa title");
 
   const assetPaths = [
     ...html.matchAll(/(?:src|href)="([^"]+\.js)"/g)
@@ -16,7 +16,7 @@ async function main() {
 
   const bundles = await Promise.all(assetPaths.map((assetPath) => fetchText(assetPath)));
   const joinedBundles = bundles.join("\n");
-  const hasConvexCloudUrl = /https:\/\/[a-z0-9-]+\.convex\.cloud/i.test(joinedBundles);
+  const hasConvexCloudUrl = /https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)?\.convex\.cloud/i.test(joinedBundles);
   const hasLocalConvexUrl = /https?:\/\/127\.0\.0\.1:321[01]/.test(joinedBundles);
   assert(!hasLocalConvexUrl, "Production bundle does not contain local Convex URLs");
 

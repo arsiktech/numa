@@ -136,12 +136,7 @@ type SpaceRow = { id: string; name: string; defaultCurrency: string };
 async function resolveSpace(io: AgentIo, args: Json): Promise<Space> {
   const wanted = text(args, "space_id", false);
   const spaces = (await io.query("spaces:listMine", {})) as SpaceRow[];
-  let id = wanted;
-  if (!id) {
-    const boot = (await io.mutation("mobile:bootstrap", {})) as { selectedPortfolioId: string | null };
-    id = boot.selectedPortfolioId ?? spaces[0]?.id;
-  }
-  const space = spaces.find((s) => s.id === id);
+  const space = wanted ? spaces.find((s) => s.id === wanted) : spaces[0];
   if (!space) throw new AgentInputError(wanted ? `No space with id ${wanted}. Use list_spaces.` : "This account has no space yet. Open Numa Pro once to create one.");
   return { id: space.id, currency: space.defaultCurrency, name: space.name };
 }
@@ -222,8 +217,9 @@ export const AGENT_TOOLS: AgentTool[] = [
     async run(io, args) {
       const space = await resolveSpace(io, args);
       const want = Array.isArray(args.sections) && args.sections.length ? new Set(args.sections as string[]) : new Set<string>(SECTIONS);
-      const snap = await snapshotOf(io, space);
-      const [wallets, loans, debtHistory] = await Promise.all([
+      const needsSnapshot = ["assets", "liabilities", "holdings", "goals", "categories", "recurring", "revenue"].some((k) => want.has(k));
+      const [snap, wallets, loans, debtHistory] = await Promise.all([
+        needsSnapshot ? snapshotOf(io, space) : undefined,
         want.has("wallets") ? walletsOf(io, space) : undefined,
         want.has("loans") ? io.query("loanLinks:listForPortfolio", { portfolioId: space.id }) : undefined,
         want.has("debt_history") ? io.query("debtEvents:listForPortfolio", { portfolioId: space.id }) : undefined,
@@ -232,7 +228,7 @@ export const AGENT_TOOLS: AgentTool[] = [
       for (const key of SECTIONS) {
         if (!want.has(key)) continue;
         out[key] = key === "wallets" ? (wallets ?? []).map((w) => walletSummary(w, true))
-          : key === "loans" ? loans : key === "debt_history" ? debtHistory : snap[key];
+          : key === "loans" ? loans : key === "debt_history" ? debtHistory : snap![key];
       }
       return out;
     },
@@ -260,8 +256,10 @@ export const AGENT_TOOLS: AgentTool[] = [
     async run(io, args) {
       const space = await resolveSpace(io, args);
       const from = date(args, "from"), to = date(args, "to");
+      const start = from === undefined ? undefined : (typeof args.from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.from) ? from - 12 * 3_600_000 : from);
+      const end = to === undefined ? undefined : (typeof args.to === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.to) ? to + 12 * 3_600_000 : to);
       const snap = await snapshotOf(io, space);
-      return { space: { id: space.id, currency: space.currency }, points: snap.wealthSnapshots.filter((p) => (from === undefined || p.takenAt >= from - 12 * 3_600_000) && (to === undefined || p.takenAt <= to + 12 * 3_600_000)) };
+      return { space: { id: space.id, currency: space.currency }, points: snap.wealthSnapshots.filter((p) => (start === undefined || p.takenAt >= start) && (end === undefined || p.takenAt <= end)) };
     },
   },
   {

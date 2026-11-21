@@ -32,7 +32,11 @@ export function MoneyMapTeaser() {
           <Txt v="figure" style={{ color: c.down }}>{money(map.youOweCents)}</Txt>
         </View>
       </View>
-      <Txt v="small" c="ink3" numberOfLines={1}>{[...map.people, ...map.owedToYou].slice(0, 4).map((p) => p.name).join(', ')}{map.protocols.length ? ` and ${map.protocols.length} protocol${map.protocols.length === 1 ? '' : 's'}` : ''}</Txt>
+      <Txt v="small" c="ink3" numberOfLines={1}>{(() => {
+        const names = [...map.people, ...map.owedToYou].slice(0, 4).map((p) => p.name).join(', ');
+        const protos = map.protocols.length ? `${map.protocols.length} protocol${map.protocols.length === 1 ? '' : 's'}` : '';
+        return names && protos ? `${names} and ${protos}` : names || protos;
+      })()}</Txt>
     </Pressable>
   );
 }

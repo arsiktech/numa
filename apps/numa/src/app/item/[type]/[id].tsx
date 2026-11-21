@@ -16,6 +16,7 @@ import { formatMoney } from '@/domain/money';
 import type { Currency } from '@/domain/types';
 import { openLoan } from '@/loans/LoansSection';
 import { PortalSource } from '@/loans/PortalSource';
+import { parseQuantity } from '@/sources/csv';
 import { useTheme } from '@/theme/theme';
 import { Field, Seg, toCents } from '@/ui/form';
 import { toneColor } from '@/ui/ItemRow';
@@ -156,7 +157,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
     try {
       const p = deletePlan(item.type, item.id, fieldsOf(item), portfolioId, acquiredAt);
       await navigationWrite(p.apply);
-      if (navigation.isFocused()) router.back();
+      if (navigation.isFocused()) { if (router.canGoBack()) router.back(); else router.replace('/'); }
       toast({ text: `${item.name} deleted`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch {
       setBusy(false);
@@ -186,7 +187,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
                 <Field label="Name" value={(form as HoldingFields).name} onChangeText={(t) => set({ name: t })} />
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                <Field label="Units" numeric value={text.qty} onChangeText={(t) => { setText((x) => ({ ...x, qty: t })); const n = Number(t.replace(',', '.')); set({ quantity: Number.isFinite(n) ? n : 0 }); }} />
+                <Field label="Units" numeric value={text.qty} onChangeText={(t) => { setText((x) => ({ ...x, qty: t })); set({ quantity: parseQuantity(t) ?? 0 }); }} />
                 <Field label="You paid in total" numeric value={text.amount} onChangeText={(t) => { setText((x) => ({ ...x, amount: t })); set({ costBasisCents: toCents(t) ?? 0 }); }} />
               </View>
               <Seg label="Kind" options={[['stock', 'Stock'], ['etf', 'Fund'], ['crypto', 'Crypto']]} value={(form as HoldingFields).kind === 'index' ? 'etf' : (form as HoldingFields).kind} onChange={(k) => set({ kind: k })} />
@@ -232,7 +233,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
           <Txt v="body" c="ink2">It leaves your totals now. You can undo for a few seconds.</Txt>
           <View style={{ flexDirection: 'row', gap: 4 }}>
             <Pressable onPress={remove} disabled={busy} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: c.down, justifyContent: 'center' }}>
-              {busy ? <ActivityIndicator color="#FFFFFF" /> : <Txt v="body" style={{ color: '#FFFFFF', fontFamily: 'Manrope_700Bold' }}>Delete</Txt>}
+              {busy ? <ActivityIndicator color={c.onDown} /> : <Txt v="body" style={{ color: c.onDown, fontFamily: 'Manrope_700Bold' }}>Delete</Txt>}
             </Pressable>
             <Pressable onPress={() => setConfirming(false)} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
               <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Cancel</Txt>

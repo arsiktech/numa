@@ -1,19 +1,18 @@
 /** Splits pasted spreadsheet cells or a CSV file into rows. Handles quotes, and tab, comma or semicolon separators. */
 export function parseTable(text: string): string[][] {
-  const lines = text.replace(/\r\n?/g, '\n').split('\n').filter((l) => l.trim() !== '');
-  if (!lines.length) return [];
-  const first = lines[0];
+  const body = text.replace(/\r\n?/g, '\n');
+  const first = body.split('\n').find((l) => l.trim() !== '');
+  if (!first) return [];
   const sep = first.includes('\t') ? '\t' : (first.match(/;/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? ';' : ',';
   const rows: string[][] = [];
   let row: string[] = [], cell = '', quoted = false;
-  const body = lines.join('\n');
   for (let i = 0; i < body.length; i++) {
     const ch = body[i];
     if (quoted) {
       if (ch === '"' && body[i + 1] === '"') { cell += '"'; i++; }
       else if (ch === '"') quoted = false;
       else cell += ch;
-    } else if (ch === '"' && cell === '') quoted = true;
+    } else if (ch === '"' && cell.trim() === '') { cell = ''; quoted = true; }
     else if (ch === sep) { row.push(cell.trim()); cell = ''; }
     else if (ch === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; }
     else cell += ch;
@@ -52,8 +51,11 @@ export function parseAmount(raw: string): { cents: number; currency: 'EUR' | 'US
  */
 export function parseQuantity(raw: string): number | null {
   const s = raw.trim().replace(/\s/g, '');
-  if (!s) return null;
-  const normal = /^[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(s) || s.includes('.') ? s.replace(/,/g, '') : s.replace(',', '.');
+  if (!s || /^[−-]|^\(.*\)$/.test(s)) return null;
+  const lastDot = s.lastIndexOf('.'), lastComma = s.lastIndexOf(',');
+  const normal = lastDot >= 0 && lastComma >= 0
+    ? (lastComma > lastDot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, ''))
+    : (/^[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(s) || s.includes('.') ? s.replace(/,/g, '') : s.replace(',', '.'));
   const value = Number(normal.replace(/[^\d.]/g, ''));
   return Number.isFinite(value) && value > 0 ? value : null;
 }

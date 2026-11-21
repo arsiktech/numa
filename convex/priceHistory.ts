@@ -88,20 +88,26 @@ export const refreshDue = internalAction({
   handler: async (ctx): Promise<number> => {
     if (process.env.NUMA_QUOTES_OFFLINE === "1") return 0;
     const symbols: string[] = await ctx.runQuery(internal.marketQuotes.listQuoteSymbols, {});
-    let refreshed = 0;
-    for (const range of ["1D", "1W", "1M", "1Y"] as const) {
-      for (const symbol of symbols.slice(0, 20)) {
+    const targetSymbols = symbols.slice(0, 20);
+    const ranges = ["1D", "1W", "1M", "1Y"] as const;
+    const entries = ranges.flatMap((range) =>
+      targetSymbols.map((symbol) => {
         const kind = isCryptoSymbol(symbol) ? "crypto" as const : "stock" as const;
-        const key = `${kind}:${symbol}:${range}`;
-        const [row] = await ctx.runQuery(internal.priceHistory.cached, { keys: [key] });
-        if (row && Date.now() - row.fetchedAt < GRID[range].ttl) continue;
-        const fresh = await fetchSeries(symbol, kind, range, Date.now(), get).catch(() => null);
-        if (fresh) {
-          await ctx.runMutation(internal.priceHistory.store, { key, ...fresh, fetchedAt: Date.now() });
-          refreshed += 1;
-        }
-        if (refreshed >= 12) return refreshed;
+        return { range, symbol, kind, key: `${kind}:${symbol}:${range}` };
+      })
+    );
+    const existingRows = await ctx.runQuery(internal.priceHistory.cached, { keys: entries.map((e) => e.key) });
+    let refreshed = 0;
+    for (let i = 0; i < entries.length; i += 1) {
+      const { range, symbol, kind, key } = entries[i];
+      const row = existingRows[i];
+      if (row && Date.now() - row.fetchedAt < GRID[range].ttl) continue;
+      const fresh = await fetchSeries(symbol, kind, range, Date.now(), get).catch(() => null);
+      if (fresh) {
+        await ctx.runMutation(internal.priceHistory.store, { key, ...fresh, fetchedAt: Date.now() });
+        refreshed += 1;
       }
+      if (refreshed >= 12) return refreshed;
     }
     return refreshed;
   },

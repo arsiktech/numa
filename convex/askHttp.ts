@@ -27,17 +27,39 @@ export const stream = httpAction(async (ctx, request) => {
   if (request.method !== "POST") return new Response(null, { status: 405, headers });
   const userId = await getAuthUserId(ctx);
   if (!userId) return new Response(null, { status: 401, headers });
-  let body: { expectedUserId?: string; message?: string; context?: string; history?: { role: "user" | "assistant"; text: string }[] };
-  try { body = await request.json(); } catch { return new Response(null, { status: 400, headers }); }
-  const message = (body.message ?? "").trim();
+  let rawBody: unknown;
+  try { rawBody = await request.json(); } catch { return new Response(null, { status: 400, headers }); }
+  if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+    return new Response(null, { status: 400, headers });
+  }
+  const body = rawBody as { expectedUserId?: unknown; message?: unknown; context?: unknown; history?: unknown };
+  if (typeof body.expectedUserId !== "string" || typeof body.message !== "string") {
+    return new Response(null, { status: 400, headers });
+  }
+  if (body.context !== undefined && typeof body.context !== "string") {
+    return new Response(null, { status: 400, headers });
+  }
+  const message = body.message.trim();
   const context = body.context ?? "";
-  const history = Array.isArray(body.history) ? body.history : [];
+  if (body.history !== undefined && !Array.isArray(body.history)) {
+    return new Response(null, { status: 400, headers });
+  }
+  const rawHistory = body.history ?? [];
+  const history: { role: "user" | "assistant"; text: string }[] = [];
+  for (const item of rawHistory) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return new Response(null, { status: 400, headers });
+    const turn = item as { role?: unknown; text?: unknown };
+    if ((turn.role !== "user" && turn.role !== "assistant") || typeof turn.text !== "string") {
+      return new Response(null, { status: 400, headers });
+    }
+    history.push({ role: turn.role, text: turn.text });
+  }
   if (!body.expectedUserId || body.expectedUserId !== userId || !message || message.length > ASK_LIMITS.message || context.length > ASK_LIMITS.context || history.length > 20) {
     return new Response(null, { status: 400, headers });
   }
   const sharing = await ctx.runQuery(internal.privacy.statusFor, { userId });
   if (!sharing || sharing.userId !== userId || !sharing.allowed || sharing.requiredVersion !== AI_SHARING_VERSION) {
-    return json({ status: "declined", reason: "permission-required" }, headers);
+    return json({ status: "declined", reason: sharing?.reason ?? "permission-required" }, headers);
   }
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return json({ status: "unavailable" }, headers);
@@ -77,8 +99,10 @@ export const stream = httpAction(async (ctx, request) => {
         const text = state.text.trim();
         const proposals = proposalsFrom(state, ASK_LIMITS.proposals);
         send(text || proposals.length ? { type: "done", status: "ok", text, proposals } : { type: "done", status: "unavailable" });
-      } catch {
-        send({ type: "done", status: "unavailable" });
+      } catch (error) {
+        const status = error instanceof Anthropic.APIError ? error.status : undefined;
+        console.warn("askHttp.stream provider error", status ?? "network");
+        send({ type: "done", status: status === 429 || status === 529 ? "busy" : "unavailable" });
       } finally {
         controller.close();
       }

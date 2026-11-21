@@ -120,8 +120,12 @@ export function mobileLiability(liability: Doc<"liabilities"> & { owedPriceAt?: 
   };
 }
 
-export function mobileHolding(holding: Doc<"holdings">, quote: Doc<"marketQuotes"> | null) {
-  const valuation = valueDashboardHolding(holding, quote, holding.currency);
+export function mobileHolding(
+  holding: Doc<"holdings">,
+  quote: Doc<"marketQuotes"> | null,
+  rates?: Record<"USD" | "EUR", number>
+) {
+  const valuation = valueDashboardHolding(holding, quote, holding.currency, undefined, undefined, rates);
   return {
     id: holding._id,
     portfolioId: holding.portfolioId,
@@ -185,11 +189,16 @@ export function mobileRecurring(row: Doc<"recurring">) {
 }
 
 /** Business spaces only: a personal space must not show a misleading zero ARR. */
-export function mobileRecurringRevenue(portfolio: Doc<"portfolios">, recurring: Doc<"recurring">[], now = Date.now()) {
+export function mobileRecurringRevenue(
+  portfolio: Doc<"portfolios">,
+  recurring: Doc<"recurring">[],
+  now = Date.now(),
+  rates?: Record<"USD" | "EUR", number>
+) {
   if (spaceKind(portfolio) !== "business") return null;
   return computeRecurringRevenue(
     recurring.map(row => ({ ...row, id: row._id })),
-    { currency: portfolio.defaultCurrency, now }
+    { currency: portfolio.defaultCurrency, now, ...(rates ? { rates } : {}) }
   );
 }
 
@@ -257,16 +266,30 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
       ? ctx.db.query("wealthSnapshots").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).collect()
       : ctx.db.query("wealthSnapshots").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).order("desc").take(2000)
   ]);
-  const quotesBySymbol = new Map((await ctx.db.query("marketQuotes").collect()).map((quote) => [quote.symbol.toUpperCase(), quote]));
+  const neededSymbols = [...new Set([
+    ...holdings.map((h) => h.symbol.toUpperCase()),
+    ...liabilities.flatMap((l) => (l.owedSymbol ? [l.owedSymbol.toUpperCase()] : []))
+  ])];
+  const quoteRows = await Promise.all(
+    neededSymbols.map((symbol) =>
+      ctx.db.query("marketQuotes").withIndex("by_symbol", (q) => q.eq("symbol", symbol)).unique()
+    )
+  );
+  const quotesBySymbol = new Map(
+    quoteRows
+      .filter((quote): quote is Doc<"marketQuotes"> => quote !== null)
+      .map((quote) => [quote.symbol.toUpperCase(), quote])
+  );
   const fxRow = await ctx.db.query("priceHistory").withIndex("by_key", (q) => q.eq("key", "fx:EURUSD")).unique();
   const fxUsdPerEur = fxRow && fxRow.p[0] > 0 ? fxRow.p[0] : undefined;
+  const fxRates = fxUsdPerEur ? { EUR: 1, USD: fxUsdPerEur } : undefined;
   const oldest = since === undefined ? null : await ctx.db.query("transactions").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).order("asc").take(1);
   const oldestTransactionAt = oldest ? oldest[0]?.occurredAt ?? null : transactions.reduce<number | null>((min, tx) => min === null || tx.occurredAt < min ? tx.occurredAt : min, null);
   const holdingsWithQuotes = holdings.map((holding) => ({
     holding,
     quote: quotesBySymbol.get(holding.symbol.toUpperCase()) ?? null
   }));
-  const mobileHoldings = holdingsWithQuotes.map(({ holding, quote }) => mobileHolding(holding, quote));
+  const mobileHoldings = holdingsWithQuotes.map(({ holding, quote }) => mobileHolding(holding, quote, fxRates));
   const valuedLiabilities = liabilities.map((liability) =>
     valueLiability(liability, liability.owedSymbol ? quotesBySymbol.get(liability.owedSymbol.toUpperCase()) ?? null : null));
   return {
@@ -297,7 +320,7 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
     holdings: mobileHoldings,
     goals: goals.map(mobileGoal),
     recurring: recurring.sort((a, b) => a.nextRunAt - b.nextRunAt).map(mobileRecurring),
-    revenue: mobileRecurringRevenue(portfolio, recurring),
+    revenue: mobileRecurringRevenue(portfolio, recurring, undefined, fxRates),
     wealthSnapshots: snapshots.sort((a, b) => a.takenAt - b.takenAt).map(mobileWealthSnapshot),
     oldestTransactionAt
   };

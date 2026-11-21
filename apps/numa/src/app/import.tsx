@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { bindUndo, CREATED, plan, type Op } from '@/ask/plan';
@@ -48,6 +48,7 @@ function Importer() {
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<{ imported: number; failed: number[]; undo: Op[] } | null>(null);
   const [undone, setUndone] = useState(false);
+  const undoingRef = useRef(false);
 
   const table = useMemo(() => (text.trim() ? parseTable(text) : []), [text]);
   const log = useMemo(() => {
@@ -80,10 +81,11 @@ function Importer() {
   /** Opens the first tab Numa understands: a wealth log, or a table whose columns it recognises. */
   function load(next: Loaded) {
     const s = cloud.status === 'ready' ? cloud.snapshot : null;
+    const currency = cloud.status === 'ready' ? cloud.data.currency : 'EUR';
     const known = next.tabs.findIndex((t) => {
       const tbl = parseTable(t.csv);
       if (isWealthLog(tbl)) return true;
-      return !!s && !!previewImport(tbl, { currency: 'EUR', now: new Date(), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings, existingTx: [] }).kind;
+      return !!s && !!previewImport(tbl, { currency, now: new Date(), categories: s.categories, assets: s.assets, liabilities: s.liabilities, holdings: s.holdings, existingTx: [] }).kind;
     });
     const tab = known < 0 ? 0 : known;
     setLoaded({ ...next, tab });
@@ -115,7 +117,11 @@ function Importer() {
     setBusy(null);
     setResult({ imported: undo.length, failed, undo });
     if (clear) { setText(''); setLoaded(null); }
-    toast({ text: `Imported ${undo.length}`, action: { label: 'Undo', onPress: () => undoAll(undo) } });
+    if (undo.length > 0) {
+      toast({ text: `Imported ${undo.length}`, action: { label: 'Undo', onPress: () => undoAll(undo) } });
+    } else {
+      toast({ text: 'Nothing could be imported.' });
+    }
   }
 
   async function importAll() {
@@ -153,18 +159,25 @@ function Importer() {
   async function setUpToday(drafts: NonNullable<NonNullable<typeof log>['today']>['drafts']) {
     if (cloud.status !== 'ready') return;
     const items: { line: number; apply: Op; undo: Op }[] = [];
+    const failed: number[] = [];
     drafts.forEach((d, i) => {
       const p = plan(d, cloud.portfolioId, cloud.fx, Date.now());
-      if (!('error' in p)) items.push({ line: i + 1, ...p });
+      if ('error' in p) failed.push(i + 1); else items.push({ line: i + 1, ...p });
     });
-    await runAll(items);
+    await runAll(items, failed);
   }
 
   async function undoAll(ops: Op[]) {
-    let left = 0;
-    for (const op of [...ops].reverse()) { try { await navigationWrite(op); } catch { left += 1; } }
-    setUndone(true);
-    toast({ text: left ? `Undone, except ${left} that changed since` : 'Import undone' });
+    if (undoingRef.current || undone || !ops.length) return;
+    undoingRef.current = true;
+    try {
+      let left = 0;
+      for (const op of [...ops].reverse()) { try { await navigationWrite(op); } catch { left += 1; } }
+      setUndone(true);
+      toast({ text: left ? `Undone, except ${left} that changed since` : 'Import undone' });
+    } finally {
+      undoingRef.current = false;
+    }
   }
 
   return (
@@ -292,7 +305,7 @@ function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView
             {log.today.drafts.map((d, i) => {
               const x = describe({ draft: d });
               return (
-                <View key={`${d.type}-${d.name}`} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === log.today!.drafts.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
+                <View key={`${d.type}-${d.name}-${i}`} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: i === log.today!.drafts.length - 1 ? 0 : 1, borderBottomColor: c.line }}>
                   <Txt v="body" numberOfLines={1} style={{ flex: 1 }}>{x.title}</Txt>
                   <Txt v="figureSm" style={{ fontSize: 14 }}>{x.amount}</Txt>
                 </View>
@@ -301,7 +314,7 @@ function WealthLogPreview({ log, now, busy, onHistory, onToday }: { log: LogView
           </View>
           {log.today.needQuantity.length > 0 && (
             <Txt v="small" c="ink2" style={{ marginTop: 10 }}>
-              Not set up yet, because they need how many you hold so their value follows the price: {log.today.needQuantity.map((p) => `${p.name} ${formatMoney(p.cents, log.rows[0]?.currency ?? 'EUR')}`).join(', ')}. Add them in Ask, like “I own 0.5 BTC”, or track a wallet in Settings.
+              Not set up yet, because they need how many you hold so their value follows the price: {log.today.needQuantity.map((p) => `${p.name} ${formatMoney(p.cents, log.latest?.currency ?? log.rows[0]?.currency ?? 'EUR')}`).join(', ')}. Add them in Ask, like “I own 0.5 BTC”, or track a wallet in Settings.
             </Txt>
           )}
           {button(`Set up ${log.today.drafts.length} ${log.today.drafts.length === 1 ? 'entry' : 'entries'}`, () => onToday(log.today!.drafts), !log.today.drafts.length || !!busy)}

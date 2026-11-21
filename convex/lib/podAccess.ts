@@ -101,12 +101,15 @@ export async function userIdForEmail(ctx: AnyCtx, email: string) {
   const matched = await ctx.db
     .query("users")
     .withIndex("email", (q) => q.eq("email", email))
-    .unique();
-  if (!matched) return undefined;
-  if (verifiedInvitationEmail(matched)) return matched._id;
+    .collect();
+  if (matched.length === 0) return undefined;
+  const verified = matched.filter((user) => Boolean(verifiedInvitationEmail(user)));
+  if (verified.length === 1) return verified[0]._id;
+  if (verified.length > 1) return undefined;
   // The existing authenticated owner is already identified by user id, not this address.
   // Preserve self-invite/duplicate rejection without granting a different unverified user access.
-  return matched._id === await requireUser(ctx) ? matched._id : undefined;
+  const currentUserId = await requireUser(ctx);
+  return matched.some((user) => user._id === currentUserId) ? currentUserId : undefined;
 }
 
 export async function assertNoDuplicatePodEmail(

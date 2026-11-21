@@ -30,7 +30,7 @@ function Row({ dot, name, tag, detail, cents, onPress, last }: { dot: keyof Pale
   const { money } = useMoney();
   return (
     <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'link' : undefined} accessibilityLabel={`${name}, ${cents === null ? 'no value' : money(cents)}. ${detail}`}
-      style={{ minHeight: 56, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: last ? 0 : 0, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line2 }}>
+      style={{ minHeight: 56, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line2 }}>
       <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: c[dot] as string }} />
       <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -83,7 +83,7 @@ function Map({ map }: { map: MoneyMap }) {
             {map.owedToYouCents > 0 && <View style={{ flexGrow: map.owedToYouCents, flexBasis: 0, backgroundColor: c.catBlue }} />}
             {map.youOweCents > 0 && <View style={{ flexGrow: map.youOweCents, flexBasis: 0, backgroundColor: c.down }} />}
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, gap: 8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 6, gap: 8 }}>
             <Txt v="small" c="ink2">Yours {money(map.ownCents)}</Txt>
             <Txt v="small" c="ink2">Owed to you {money(map.owedToYouCents)}</Txt>
             <Txt v="small" c="ink2">You owe {money(map.youOweCents)}</Txt>

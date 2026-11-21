@@ -60,12 +60,13 @@ function CloudPlan() {
       limits: limits(snapshot, home.currency, fx, date),
     };
   }, [cloud, past]);
+  const { c } = useTheme();
   if (cloud.status === 'error') return (
     <Shell>
       <View style={{ marginTop: 24, gap: 12 }}>
         <Txt v="body" c="ink2">{cloud.message}</Txt>
-        <Pressable onPress={cloud.retry} accessibilityRole="button" style={({ pressed }) => ({ alignSelf: 'flex-start', minHeight: 48, paddingHorizontal: 16, borderRadius: 999, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
-          <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Try again</Txt>
+        <Pressable onPress={cloud.retry} accessibilityRole="button" style={({ pressed }) => ({ alignSelf: 'flex-start', minHeight: 48, paddingHorizontal: 16, borderRadius: 999, backgroundColor: c.ink, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
+          <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_700Bold' }}>Try again</Txt>
         </Pressable>
       </View>
     </Shell>
@@ -208,7 +209,6 @@ function GoalForm({ data, onDone }: { data: PlanData; onDone: () => void }) {
 }
 
 function Limits({ data }: { data: PlanData }) {
-  const { c } = useTheme();
   if (data.demo) return null;
   return (
     <View style={{ marginTop: 30 }}>
@@ -217,10 +217,11 @@ function Limits({ data }: { data: PlanData }) {
       <Hint id="plan-limits" text="Tap a category to set its monthly limit." />
       {data.limits.length === 0 && <Txt v="body" c="ink2" style={{ marginTop: 8 }}>No spending categories yet.</Txt>}
       {data.limits.map((l, i) => <LimitRowView key={l.category.id} row={l} last={i === data.limits.length - 1} />)}
-      <View style={{ height: 1, backgroundColor: c.line, opacity: 0 }} />
     </View>
   );
 }
+
+const formatLimitInput = (cents: number | null) => (cents ? (cents % 100 === 0 ? (cents / 100).toFixed(0) : (cents / 100).toFixed(2)) : '');
 
 function LimitRowView({ row, last }: { row: LimitRow; last: boolean }) {
   const { c } = useTheme();
@@ -229,19 +230,31 @@ function LimitRowView({ row, last }: { row: LimitRow; last: boolean }) {
   const navigationWrite = useNavigationWriter();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(row.limitCents ? (row.limitCents / 100).toFixed(0) : '');
+  const [busy, setBusy] = useState(false);
+  const [text, setText] = useState(() => formatLimitInput(row.limitCents));
   const tone = row.share === null ? 'ok' : row.share > 1 ? 'over' : row.share >= 0.8 ? 'warn' : 'ok';
+  const parsedCents = toCents(text);
+  const canSave = parsedCents !== null && parsedCents > 0 && !busy;
+  const toggleEdit = () => {
+    setEditing((e) => {
+      if (!e) setText(formatLimitInput(row.limitCents));
+      return !e;
+    });
+  };
   const save = async (cents: number | null) => {
+    if (busy) return;
+    setBusy(true);
     const p = limitPlan(row.category as CloudCategory, cents);
     try {
       await (cents === null ? navigationWrite : run)(p.apply);
       setEditing(false);
       toast({ text: cents === null ? `${row.category.name} limit removed` : `${row.category.name} limit set`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch { toast({ text: 'Couldn’t save that limit.' }); }
+    finally { setBusy(false); }
   };
   return (
     <View style={{ paddingVertical: 14, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
-      <Pressable onPress={() => setEditing((e) => !e)} accessibilityRole="button" accessibilityLabel={`${row.category.name}. ${row.limitCents === null ? 'No limit' : `${Math.round((row.share ?? 0) * 100)} percent of limit`}. Edit limit`}>
+      <Pressable onPress={toggleEdit} accessibilityRole="button" accessibilityLabel={`${row.category.name}. ${row.limitCents === null ? 'No limit' : `${Math.round((row.share ?? 0) * 100)} percent of limit`}. Edit limit`}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
           <Txt v="body" style={{ fontFamily: 'Manrope_600SemiBold' }}>{row.category.name}</Txt>
           <Txt v="figureSm" style={{ fontSize: 14, color: tone === 'over' ? c.down : tone === 'warn' ? c.warn : c.ink }}>{row.limitCents === null ? money(row.spentCents) : `${money(row.spentCents)} of ${money(row.limitCents)}`}</Txt>
@@ -251,8 +264,8 @@ function LimitRowView({ row, last }: { row: LimitRow; last: boolean }) {
       {editing && (
         <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
           <View style={{ width: 160 }}><Field label="Monthly limit" numeric value={text} onChangeText={setText} /></View>
-          <Pressable disabled={!toCents(text)} onPress={() => save(toCents(text))} accessibilityRole="button" style={{ minHeight: 48, paddingHorizontal: 16, borderRadius: 999, backgroundColor: toCents(text) ? c.ink : 'transparent', borderWidth: toCents(text) ? 0 : 1, borderColor: c.stroke, justifyContent: 'center' }}><Txt v="body" c={toCents(text) ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt></Pressable>
-          {row.limitCents !== null && <Pressable onPress={() => save(null)} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold', color: c.down }}>Remove</Txt></Pressable>}
+          <Pressable disabled={!canSave} onPress={() => save(parsedCents)} accessibilityRole="button" style={{ minHeight: 48, paddingHorizontal: 16, borderRadius: 999, backgroundColor: canSave ? c.ink : 'transparent', borderWidth: canSave ? 0 : 1, borderColor: c.stroke, justifyContent: 'center' }}><Txt v="body" c={canSave ? 'bg' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }}>Save</Txt></Pressable>
+          {row.limitCents !== null && <Pressable disabled={busy} onPress={() => save(null)} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold', color: c.down }}>Remove</Txt></Pressable>}
         </View>
       )}
     </View>

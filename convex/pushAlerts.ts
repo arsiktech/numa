@@ -153,6 +153,7 @@ export const sendDue = internalAction({
       // The message is the same for every alert, so each device gets it once; every alert key is still recorded below.
       const messages = target.tokens.map((to) => ({ to, title: "Numa Pro", body: "Open Numa Pro to review your alerts.", sound: "default", data: { url: "/" } }));
       const dead = new Set<string>();
+      let sentCount: number;
       try {
         const response = await fetch("https://exp.host/--/api/v2/push/send", {
           method: "POST",
@@ -162,13 +163,16 @@ export const sendDue = internalAction({
         });
         if (!response.ok) { console.warn("push send failed", response.status); continue; }
         const tickets = ((await response.json()) as { data?: Ticket[] }).data ?? [];
-        tickets.forEach((t, i) => { if (t.status === "error" && t.details?.error === "DeviceNotRegistered") dead.add(messages[i].to); });
-        delivered += tickets.filter((t) => t.status === "ok").length;
+        tickets.forEach((t, i) => { if (i < messages.length && t.status === "error" && t.details?.error === "DeviceNotRegistered") dead.add(messages[i].to); });
+        sentCount = tickets.filter((t) => t.status === "ok").length;
+        delivered += sentCount;
       } catch {
         console.warn("push send failed", "network");
         continue;
       }
-      await ctx.runMutation(internal.pushAlerts.recordSent, { userId: target.userId, keys: send.map((a) => a.key), now, deadTokens: [...dead] });
+      if (sentCount > 0 || dead.size > 0) {
+        await ctx.runMutation(internal.pushAlerts.recordSent, { userId: target.userId, keys: sentCount > 0 ? send.map((a) => a.key) : [], now, deadTokens: [...dead] });
+      }
     }
     return delivered;
   },

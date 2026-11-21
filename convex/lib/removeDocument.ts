@@ -1,6 +1,6 @@
 import type { Id, TableNames } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { requireEditor } from "./access";
+import { requireEditor, requireUser } from "./access";
 import { withMutationReceipt, type ReceiptResult } from "./mutationReceipts";
 
 /**
@@ -20,15 +20,14 @@ export async function removePortfolioDocument<T extends TableNames>(
   /** Rows that belong to this document, deleted with it inside the same receipt. */
   deleteDependents?: () => Promise<void>
 ): Promise<ReceiptResult<T> | undefined> {
+  await requireUser(ctx);
   const existing = await ctx.db.get(id);
   if (!existing) return undefined;
-  const { userId } = await requireEditor(
-    ctx,
-    (existing as unknown as { portfolioId: Id<"portfolios"> }).portfolioId
-  );
+  const portfolioId = (existing as unknown as { portfolioId: Id<"portfolios"> }).portfolioId;
+  const { userId } = await requireEditor(ctx, portfolioId);
   return await withMutationReceipt(ctx, userId, clientMutationId, auditLabel, async () => {
     await deleteDependents?.();
     await ctx.db.delete(id);
     return id;
-  });
+  }, String(portfolioId));
 }

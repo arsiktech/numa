@@ -1,6 +1,6 @@
 import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireMember, requireOwner } from "./lib/access";
+import { requireMember, requireOwner, requireUser } from "./lib/access";
 
 /**
  * List all pending invites tied to a portfolio. Members of the portfolio
@@ -25,6 +25,7 @@ export const listOutboundForPortfolio = query({
 export const revokeInvite = mutation({
   args: { id: v.id("invites") },
   handler: async (ctx, args) => {
+    await requireUser(ctx);
     const invite = await ctx.db.get(args.id);
     if (!invite) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Invite not found" });

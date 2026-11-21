@@ -24,13 +24,15 @@ export function PriceChart({ symbol, kind, now }: { symbol: string; kind: 'crypt
   const [preview, setPreview] = useState<number | null>(null);
   const [pinned, setPinned] = useState<number | null>(null);
   const key = `${range}|${symbol}`;
+  const cached = store[key];
   useEffect(() => {
+    if (cached !== undefined) return;
     let alive = true;
     fetchSeries({ range, symbols: [{ symbol, kind }] })
       .then((r) => { if (alive) setStore((all) => ({ ...all, [key]: r[symbol.toUpperCase()] ?? 'none' })); })
       .catch(() => { if (alive) setStore((all) => ({ ...all, [key]: 'none' })); });
     return () => { alive = false; };
-  }, [key, range, symbol, kind, fetchSeries]);
+  }, [cached, key, range, symbol, kind, fetchSeries]);
 
   const s = store[key];
   const rangeAvailable = s && s !== 'none' && s.p.length > 1;
@@ -39,7 +41,7 @@ export function PriceChart({ symbol, kind, now }: { symbol: string; kind: 'crypt
   const values = rangeAvailable ? s.p : [];
   const shown = rangeAvailable ? values[at ?? values.length - 1] : null;
   const change = rangeAvailable ? changeLabel(shown!, values[0]) : null;
-  const up = rangeAvailable ? values[values.length - 1] >= values[0] : true;
+  const up = rangeAvailable ? shown! >= values[0] : true;
   const pick = (r: PriceRange) => { setRange(r); setPreview(null); setPinned(null); };
 
   return (
@@ -61,7 +63,7 @@ export function PriceChart({ symbol, kind, now }: { symbol: string; kind: 'crypt
       <View style={{ flexDirection: 'row', gap: 4, marginTop: 6 }} accessibilityRole="tablist">
         {RANGES.map((r) => (
           <Pressable key={r} onPress={() => pick(r)} accessibilityRole="tab" aria-selected={range === r} accessibilityLabel={`Price ${WORDS[r]}`}
-            style={{ minWidth: 48, minHeight: 36, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent' }}>
+            style={{ minWidth: 48, minHeight: 44, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: range === r ? c.s2 : 'transparent' }}>
             <Txt v="small" c={range === r ? 'ink' : 'ink3'} style={{ fontFamily: 'Manrope_700Bold' }} maxFontSizeMultiplier={1.4}>{r}</Txt>
           </Pressable>
         ))}

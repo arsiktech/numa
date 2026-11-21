@@ -1,4 +1,4 @@
-import { normalizeProposal, type AskProposal } from "./askProposals";
+import { PROPOSE_ENTRY_TOOL, normalizeProposal, type AskProposal } from "./askProposals";
 
 export type AskDeltaState = { text: string; tools: { name: string; json: string }[] };
 
@@ -21,6 +21,7 @@ export function proposalsFrom(state: AskDeltaState, limit: number): AskProposal[
   const proposals: AskProposal[] = [];
   for (const tool of state.tools) {
     if (proposals.length >= limit) break;
+    if (tool.name !== PROPOSE_ENTRY_TOOL.name) continue;
     let input: unknown;
     try { input = JSON.parse(tool.json || "{}"); } catch { input = null; }
     const proposal = normalizeProposal(input);

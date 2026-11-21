@@ -487,7 +487,7 @@ export async function fluidLending(chain: Chain, owner: string, get: Get): Promi
   const out: DefiPosition[] = [];
   for (const p of body.data) {
     const a = p.token?.asset, raw = Number(p.underlyingAssets ?? 0), price = Number(a?.price);
-    if (!a || !(raw > 0) || typeof a.decimals !== "number" || !(price > 0)) continue; // Unpriced or empty.
+    if (!a || !Number.isFinite(raw) || !(raw > 0) || typeof a.decimals !== "number" || !Number.isFinite(price) || !(price > 0)) continue; // Unpriced or empty.
     const usd = round((raw / 10 ** a.decimals) * price);
     if (usd < MIN_POSITION_USD) continue;
     out.push({

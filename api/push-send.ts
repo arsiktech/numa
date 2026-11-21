@@ -22,6 +22,7 @@
  *   5. Returns { delivered, failed, removed }.
  */
 
+import { timingSafeEqual } from "node:crypto";
 import webpush from "web-push";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
@@ -113,22 +114,19 @@ export default async function handler(
 
   const expectedSecret = process.env.NUMA_PUSH_INTERNAL_SECRET;
   if (!expectedSecret) {
-    response.status(500).json({
-      error: "Server is not configured (NUMA_PUSH_INTERNAL_SECRET missing)."
-    });
+    response.status(500).json({ error: "Push service is not configured." });
     return;
   }
-  const providedSecret = readHeader(request.headers, "x-numa-push-secret");
-  if (providedSecret !== expectedSecret) {
+  const providedSecret = readHeader(request.headers, "x-numa-push-secret") ?? "";
+  const providedBuf = Buffer.from(providedSecret, "utf8");
+  const expectedBuf = Buffer.from(expectedSecret, "utf8");
+  if (providedBuf.length !== expectedBuf.length || !timingSafeEqual(providedBuf, expectedBuf)) {
     response.status(401).json({ error: "Unauthorized" });
     return;
   }
 
   if (!configureVapidOnce()) {
-    response.status(500).json({
-      error:
-        "Server is not configured (NUMA_PUSH_VAPID_PUBLIC / NUMA_PUSH_VAPID_PRIVATE missing)."
-    });
+    response.status(500).json({ error: "Push service is not configured." });
     return;
   }
 
@@ -168,9 +166,8 @@ export default async function handler(
   let client: ConvexHttpClient;
   try {
     client = getConvexClient();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    response.status(500).json({ error: message });
+  } catch {
+    response.status(500).json({ error: "Push service is not configured." });
     return;
   }
 
@@ -180,9 +177,8 @@ export default async function handler(
       userId: userId as Id<"users">,
       serverSecret: expectedSecret
     })) as PushSubscriptionRow[];
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    response.status(502).json({ error: "Convex query failed", message });
+  } catch {
+    response.status(502).json({ error: "Failed to look up push subscriptions." });
     return;
   }
 

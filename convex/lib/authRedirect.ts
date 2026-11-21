@@ -15,7 +15,7 @@ function originOf(url: string): string | null {
 
 export function allowedRedirect(redirectTo: string, siteUrl: string): string {
   if (APP_SCHEMES.some((s) => redirectTo === s || redirectTo.startsWith(`${s}?`) || redirectTo.startsWith(`${s}/`))) return redirectTo;
-  if (redirectTo.startsWith("?") || (redirectTo.startsWith("/") && !redirectTo.startsWith("//"))) return `${siteUrl}${redirectTo}`;
+  if (redirectTo.startsWith("?") || (redirectTo.startsWith("/") && !redirectTo.startsWith("//") && !redirectTo.startsWith("/\\"))) return `${siteUrl}${redirectTo}`;
   const origin = originOf(redirectTo);
   if (!origin) throw new Error(`Invalid redirectTo: ${redirectTo}`);
   if (siteUrl && origin === originOf(siteUrl)) return redirectTo;

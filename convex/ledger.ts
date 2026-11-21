@@ -136,8 +136,9 @@ export const upsertAccount = mutation({
           const existing = await ctx.db
             .query("ledgerAccounts")
             .withIndex("by_ref", (q) => q.eq("refType", args.refType).eq("refId", args.refId))
+            .filter((q) => q.eq(q.field("portfolioId"), args.portfolioId))
             .first();
-          if (existing && String(existing.portfolioId) === String(args.portfolioId)) {
+          if (existing) {
             await assertAccountDefinitionChange(ctx, existing, patch);
             await ctx.db.patch(existing._id, patch);
             return existing._id;

@@ -1,4 +1,4 @@
-import type { CloudAsset, CloudLiability, CloudSnapshot } from '@/cloud/api';
+import type { CloudAsset, CloudLiability, CloudSnapshot, CloudWallet } from '@/cloud/api';
 import type { Currency } from '@/domain/types';
 import { convertCents, type FxRate } from './fx';
 import { groupNames, type Item, type ItemType } from './items';
@@ -117,7 +117,7 @@ export function moneyMap(s: CloudSnapshot, items: Item[], currency: Currency, fx
   }
   const protocols = [...byProtocol.values()].map((g) => {
     const ltv = g.collateralUsd > 0 ? `${Math.round((g.debtUsd / g.collateralUsd) * 100)}% of collateral` : 'No collateral on this chain';
-    const detail = g.health.length === 1 ? `${g.records[0].name.split(' · ')[1]} · health ${g.health[0].toFixed(2)}` : `${g.records.length === 1 ? g.records[0].name.split(' · ')[1] : `${g.records.length} loans`} · ${ltv}`;
+    const detail = g.records.length === 1 && g.health.length === 1 ? `${g.records[0].name.split(' · ')[1]} · health ${g.health[0].toFixed(2)}` : `${g.records.length === 1 ? g.records[0].name.split(' · ')[1] : `${g.records.length} loans`} · ${ltv}`;
     return party('byYou', 'protocol', g.name, g.records, detail);
   }).sort(byCents);
 
@@ -129,14 +129,17 @@ export function moneyMap(s: CloudSnapshot, items: Item[], currency: Currency, fx
     if (i.group === 'debts') continue;
     if (i.type === 'asset' && (i.raw as CloudAsset).owedBy?.trim()) continue;
     if (i.type === 'wallet') {
-      const w = s.wallets?.find((x) => x.id === i.id);
-      const protos = [...new Set((w?.snapshot?.defiPositions ?? []).filter((p) => p.assetValueUsd > 0).map((p) => p.protocol))];
+      const w = i.raw as CloudWallet;
+      if (!w.includeInNetWorth) continue;
+      const protos = [...new Set((w.snapshot?.defiPositions ?? []).filter((p) => p.assetValueUsd > 0).map((p) => p.protocol))];
       const coins = (i.pieces ?? []).filter((p) => (p.valueCents ?? 0) > 0).sort((a, b) => (b.valueCents ?? 0) - (a.valueCents ?? 0)).map((p) => p.unit ?? p.name);
       if (i.valueCents === null) ownUnknown += 1;
-      spots.push({ key: `wallet:${i.id}`, name: i.name, detail: [list(protos), list(coins)].filter(Boolean).join(' · ') || i.freshness.text, cents: i.valueCents, pledged: (w?.snapshot?.debtValueUsd ?? 0) > 0, open: { pathname: '/item/[type]/[id]', params: { type: 'wallet', id: i.id } } });
+      spots.push({ key: `wallet:${i.id}`, name: i.name, detail: [list(protos), list(coins)].filter(Boolean).join(' · ') || i.freshness.text, cents: i.valueCents, pledged: (w.snapshot?.debtValueUsd ?? 0) > 0, open: { pathname: '/item/[type]/[id]', params: { type: 'wallet', id: i.id } } });
       continue;
     }
-    rest.set(i.group, [...(rest.get(i.group) ?? []), i]);
+    const bucket = rest.get(i.group);
+    if (bucket) bucket.push(i);
+    else rest.set(i.group, [i]);
   }
   for (const [group, xs] of rest) {
     const s2 = sum(xs.map((x) => ({ cents: x.valueCents })));

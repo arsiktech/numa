@@ -89,8 +89,11 @@ export function readGoogleIdToken(idToken: unknown, clientId: string, now: numbe
 
 /** Where the person lands afterwards, carrying only the outcome word. */
 export function returnWithResult(returnTo: string, result: LinkResult): string {
-  const sep = returnTo.includes("?") ? "&" : "?";
-  return `${returnTo}${sep}googleLink=${result}`;
+  const hashIndex = returnTo.indexOf("#");
+  const base = hashIndex >= 0 ? returnTo.slice(0, hashIndex) : returnTo;
+  const hash = hashIndex >= 0 ? returnTo.slice(hashIndex) : "";
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}googleLink=${result}${hash}`;
 }
 
 export function readCookie(header: string | null, name: string): string | null {

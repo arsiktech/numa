@@ -6,7 +6,7 @@
  * schedule, never cash received. Amounts are summed in integer cents; a rule in
  * another currency without a usable rate is reported, never silently zero.
  */
-import { majorUnits, minorUnits } from "./finance";
+import { MAX_MINOR_UNITS, majorUnits, minorUnits } from "./finance";
 
 export type RevenueType = "subscription" | "retainer";
 export type RevenueCadence = "weekly" | "monthly" | "quarterly" | "yearly";
@@ -57,12 +57,12 @@ export type RevenueRates = Partial<Record<string, number>>;
 function annualMinor(rule: RevenueRule, currency: string, rates: RevenueRates | undefined): number | "no_rate" | "invalid_amount" {
   let minor: number;
   try { minor = minorUnits(rule.amount) * PER_YEAR[rule.cadence]; } catch { return "invalid_amount"; }
-  if (!Number.isSafeInteger(minor) || minor <= 0) return "invalid_amount";
+  if (!Number.isSafeInteger(minor) || minor <= 0 || minor > MAX_MINOR_UNITS) return "invalid_amount";
   if (rule.currency === currency) return minor;
   const from = rates?.[rule.currency], to = rates?.[currency];
   if (!from || !to || !Number.isFinite(from) || !Number.isFinite(to) || from <= 0 || to <= 0) return "no_rate";
   const converted = Math.round((minor / from) * to);
-  return Number.isSafeInteger(converted) && converted > 0 ? converted : "no_rate";
+  return Number.isSafeInteger(converted) && converted > 0 && converted <= MAX_MINOR_UNITS ? converted : "no_rate";
 }
 
 function sourceName(rule: RevenueRule) {

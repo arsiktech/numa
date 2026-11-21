@@ -4,6 +4,7 @@ import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated'
 
 import { formatMoney } from '@/domain/money';
 import type { Currency } from '@/domain/types';
+import { parseQuantity } from '@/sources/csv';
 import { useTheme } from '@/theme/theme';
 import { IconCheck } from '@/ui/icons';
 import { Field, Seg, toCents } from '@/ui/form';
@@ -51,7 +52,7 @@ function Editor({ draft, onChange }: { draft: Draft; onChange: (d: Draft) => voi
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {draft.type === 'transaction' && <Field label="What for" value={draft.description} onChangeText={(t) => onChange({ ...draft, description: t })} />}
         {(draft.type === 'asset' || draft.type === 'debt') && !draft.existing && <Field label="Name" value={draft.name} onChangeText={(t) => onChange({ ...draft, name: t })} />}
-        {draft.type === 'holding' && <Field label={`How many ${draft.symbol}`} numeric value={qty} onChangeText={(t) => { setQty(t); const n = Number(t.replace(',', '.')); onChange({ ...draft, quantity: Number.isFinite(n) ? n : 0 }); }} />}
+        {draft.type === 'holding' && <Field label={`How many ${draft.symbol}`} numeric value={qty} onChangeText={(t) => { setQty(t); onChange({ ...draft, quantity: parseQuantity(t) ?? 0 }); }} />}
         <Field label={draft.type === 'holding' ? 'Price paid each' : 'Amount'} numeric value={amount} onChangeText={setMoney} />
       </View>
       {currency}

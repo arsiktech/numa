@@ -115,7 +115,8 @@ export function valueDashboardHolding(
   quote: DashboardQuote | null,
   targetCurrency: MobileDashboardCurrency,
   nowMs = Date.now(),
-  quoteStaleMs = DEFAULT_QUOTE_STALE_MS
+  quoteStaleMs = DEFAULT_QUOTE_STALE_MS,
+  rates: Record<MobileDashboardCurrency, number> = BACKEND_FX_RATES
 ): DashboardHoldingValuation {
   assertCurrency(holding.currency);
   minorUnits(holding.costBasis);
@@ -129,8 +130,8 @@ export function valueDashboardHolding(
   const quoteUpdatedAt = quote?.updatedAt ?? null;
   const quoteStale =
     hasQuote && quoteUpdatedAt !== null ? quoteUpdatedAt > nowMs || nowMs - quoteUpdatedAt >= quoteStaleMs : false;
-  const marketValue = convertCurrency(rawMarketValue, rawMarketValueCurrency, targetCurrency);
-  const costBasis = convertCurrency(holding.costBasis, holding.currency, targetCurrency);
+  const marketValue = convertCurrency(rawMarketValue, rawMarketValueCurrency, targetCurrency, rates);
+  const costBasis = convertCurrency(holding.costBasis, holding.currency, targetCurrency, rates);
   return {
     marketPrice: unitPrice(
       hasQuote
@@ -183,7 +184,7 @@ export function buildMobileDashboard(input: MobileDashboardInput) {
     0
   );
   const holdingValuations = input.holdings.map(({ holding, quote }) =>
-    valueDashboardHolding(holding, quote, currency, nowMs, input.quoteStaleMs)
+    valueDashboardHolding(holding, quote, currency, nowMs, input.quoteStaleMs, rates)
   );
   const manualInvested = input.assets.filter(isManualFund)
     .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency, rates)), 0);

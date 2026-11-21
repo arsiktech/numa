@@ -159,7 +159,14 @@ export const addEvent = mutation({
         message: "Holding does not belong to this portfolio"
       });
     }
-    if (args.quantity <= 0 || args.unitPrice < 0 || args.total < 0) {
+    if (
+      !Number.isFinite(args.quantity) ||
+      !Number.isFinite(args.unitPrice) ||
+      !Number.isFinite(args.total) ||
+      args.quantity <= 0 ||
+      args.unitPrice < 0 ||
+      args.total < 0
+    ) {
       throw new ConvexError({
         code: "INVALID_ARGUMENT",
         message: "Holding event amounts must be positive"

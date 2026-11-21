@@ -53,7 +53,7 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
     setBusy('remove');
     try {
       await writes.remove(w.id);
-      router.back();
+      if (router.canGoBack()) router.back(); else router.replace('/');
       toast({ text: `${w.label} removed`, action: { label: 'Undo', onPress: async () => {
         try { const id = await writes.add(portfolioId, w.address, w.addressType === 'bitcoin' ? 'bitcoin' : 'evm', w.label); void writes.refresh(id); }
         catch { toast({ text: 'Couldn’t undo that.' }); }
@@ -138,7 +138,7 @@ export function WalletDetail({ item, now, editable }: { item: Item; now: number;
           <Txt v="body" c="ink2">It leaves your totals now. The wallet itself isn’t touched.</Txt>
           <View style={{ flexDirection: 'row', gap: 4 }}>
             <Pressable onPress={remove} disabled={busy !== null} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: c.down, justifyContent: 'center' }}>
-              {busy === 'remove' ? <ActivityIndicator color="#FFFFFF" /> : <Txt v="body" style={{ color: '#FFFFFF', fontFamily: 'Manrope_700Bold' }}>Remove</Txt>}
+              {busy === 'remove' ? <ActivityIndicator color={c.onDown} /> : <Txt v="body" style={{ color: c.onDown, fontFamily: 'Manrope_700Bold' }}>Remove</Txt>}
             </Pressable>
             <Pressable onPress={() => setConfirming(false)} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
               <Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Cancel</Txt>

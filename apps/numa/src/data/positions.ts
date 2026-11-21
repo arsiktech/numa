@@ -75,6 +75,7 @@ const placeOf = (r: { location?: string | null }): Pick<Piece, 'where'> => (r.lo
 
 /** What one record contributes, as pieces. Plain records are one piece of themselves. */
 function piecesOf(item: Item): Piece[] {
+  if (item.type === 'wallet' && !(item.raw as CloudWallet).includeInNetWorth) return [];
   if (item.pieces) return item.pieces;
   if (item.type === 'holding') {
     const h = item.raw as CloudHolding;
@@ -143,7 +144,7 @@ function collect(items: Item[], group: GroupId, piecesOf: (item: Item) => Piece[
     for (const piece of piecesOf(item)) {
       let pos = byKey.get(piece.key);
       if (!pos) {
-        pos = { key: piece.key, group, name: piece.name, unit: piece.unit, quantity: piece.quantity === null ? null : 0, valueCents: 0, unknown: 0, places: [] };
+        pos = { key: piece.key, group, name: piece.name, unit: piece.unit, quantity: piece.quantity === null ? null : 0, valueCents: null, unknown: 0, places: [] };
         byKey.set(piece.key, pos);
       }
       // One unknown amount makes the total amount unknown; values add up and unknowns are counted.
@@ -190,16 +191,16 @@ export function familiesOf(positions: Position[]): Family[] {
     const u = p.unit ? UNDERLYING[p.unit.toUpperCase()] : undefined;
     if (!u) { out.push({ key: p.key, name: p.name, unit: p.unit, quantity: p.quantity, valueCents: p.valueCents, unknown: p.unknown, members: [p] }); continue; }
     let f = by.get(u.family);
-    if (!f) { f = { key: `fam:${u.family}`, name: FAMILY_NAMES[u.family], unit: u.family === 'BTC' || u.family === 'ETH' ? u.family : null, quantity: 0, valueCents: 0, unknown: 0, members: [] }; by.set(u.family, f); out.push(f); }
+    if (!f) { f = { key: `fam:${u.family}`, name: FAMILY_NAMES[u.family], unit: u.family === 'BTC' || u.family === 'ETH' ? u.family : null, quantity: 0, valueCents: null, unknown: 0, members: [] }; by.set(u.family, f); out.push(f); }
     f.members.push(p);
     f.quantity = f.quantity === null || !u.peg || p.quantity === null ? null : f.quantity + p.quantity;
-    f.valueCents = (f.valueCents ?? 0) + (p.valueCents ?? 0);
+    if (p.valueCents !== null) f.valueCents = (f.valueCents ?? 0) + p.valueCents;
     f.unknown += p.unknown;
   }
   // A family of one is just that position, under its own name.
-  const flat = out.map((f) => (f.members.length === 1 ? { ...f, key: f.members[0].key, name: f.members[0].name, unit: f.members[0].unit, quantity: f.members[0].quantity } : f));
+  const flat = out.map((f) => (f.members.length === 1 ? { ...f, key: f.members[0].key, name: f.members[0].name, unit: f.members[0].unit, quantity: f.members[0].quantity, valueCents: f.members[0].valueCents } : f));
   for (const f of flat) if (f.unit === null) f.quantity = null;
-  return flat.sort((a, b) => (b.valueCents ?? 0) - (a.valueCents ?? 0));
+  return flat.sort((a, b) => (b.valueCents ?? -1) - (a.valueCents ?? -1));
 }
 
 /** One place things sit: a wallet, a protocol inside it, an account. What it holds and its value. */
@@ -220,14 +221,14 @@ export function spotsOf(items: Item[], group: GroupId): Spot[] {
       // A wallet's own tokens sit in the wallet; what it lent or pooled sits in that protocol.
       const name = item.type === 'wallet' ? piece.where ?? `${item.name} · Wallet` : piece.where ?? item.name;
       let spot = by.get(name);
-      if (!spot) { spot = { key: name, name, items: [], assets: [], valueCents: 0, unknown: 0 }; by.set(name, spot); }
+      if (!spot) { spot = { key: name, name, items: [], assets: [], valueCents: null, unknown: 0 }; by.set(name, spot); }
       if (!spot.items.some((i) => i.id === item.id)) spot.items.push({ id: item.id, type: item.type });
       const label = piece.unit ?? piece.name;
       if (!spot.assets.includes(label)) spot.assets.push(label);
       if (piece.valueCents === null) spot.unknown += 1; else spot.valueCents = (spot.valueCents ?? 0) + piece.valueCents;
     }
   }
-  return [...by.values()].sort((a, b) => (b.valueCents ?? 0) - (a.valueCents ?? 0));
+  return [...by.values()].sort((a, b) => (b.valueCents ?? -1) - (a.valueCents ?? -1));
 }
 
 /**

@@ -1,7 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
-    "src/main.tsx",
     "src/App.tsx",
     "src/routes/**/page.tsx",
     "convex/*.ts",
@@ -16,11 +15,8 @@
     "api/**/*.ts"
   ],
   "ignore": [
-    "convex/_generated/**",
     "**/*.test.ts",
-    "**/*.test.tsx",
-    "src/test/**",
-    "ios/**"
+    "**/*.test.tsx"
   ],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": false,

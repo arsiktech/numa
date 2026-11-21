@@ -94,7 +94,7 @@ function SignInMethods() {
 
   useEffect(() => {
     let live = true;
-    appleSignInAvailable().then((ok) => { if (live) setAppleHere(ok); });
+    appleSignInAvailable().then((ok) => { if (live) setAppleHere(ok); }).catch(() => undefined);
     return () => { live = false; };
   }, []);
 
@@ -122,14 +122,15 @@ function SignInMethods() {
 
   async function add() {
     setBusy('add'); setNote(null); setConfirming(false);
+    let leaving = false;
     try {
       const result = await linkGoogle(startLink);
-      if (result === 'leaving') return;
+      if (result === 'leaving') { leaving = true; return; }
       setNote(noteFor(result));
     } catch (e) {
       if (needsFreshSignIn(e)) setConfirming(true);
       else setNote({ text: signInMethodErrorText(e), tone: 'error' });
-    } finally { setBusy(null); }
+    } finally { if (!leaving) setBusy(null); }
   }
 
   /** A fresh sign-in with a method the account already has, then straight on to Google. */

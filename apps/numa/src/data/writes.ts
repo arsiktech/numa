@@ -50,7 +50,7 @@ export function useWriter(): (op: Op, clientMutationId?: string) => Promise<stri
     const id = await intents(op, async (receipt) => {
       check(op);
       const result = await all[op.fn]({ ...op.args, clientMutationId: receipt } as never);
-      return typeof result === 'string' ? result : result.id;
+      return typeof result === 'string' ? result : result && typeof result === 'object' && 'id' in result ? result.id : '';
     }, clientMutationId);
     if (current.current !== scope) throw staleWriteError();
     return id;

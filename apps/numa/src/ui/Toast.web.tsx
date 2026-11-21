@@ -27,11 +27,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {toast && (
-        <View pointerEvents="box-none" style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 96, alignItems: 'center', zIndex: 50, ...(reduce ? {} : { animationDuration: '200ms', animationName: 'numa-fade', animationTimingFunction: 'cubic-bezier(.22,1,.36,1)' } as object) }}>
+        <View key={toast.id} pointerEvents="box-none" style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 96, alignItems: 'center', zIndex: 50, ...(reduce ? {} : { animationDuration: '200ms', animationName: 'numa-fade', animationTimingFunction: 'cubic-bezier(.22,1,.36,1)' } as object) }}>
           <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={{ maxWidth: 480, width: '100%', minHeight: 48, borderRadius: 18, paddingLeft: 16, paddingRight: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.ink }}>
             <Txt v="body" c="bg" style={{ flex: 1 }}>{toast.text}</Txt>
             {toast.action && (
-              <Pressable onPress={async () => { const a = toast.action!; setToast(null); await a.onPress(); }} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
+              <Pressable onPress={async () => { const a = toast.action!; setToast(null); try { await a.onPress(); } catch { /* handled by action */ } }} accessibilityRole="button" style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', opacity: pressed ? 0.72 : 1 })}>
                 <Txt v="body" c="bg" style={{ fontFamily: 'Manrope_800ExtraBold' }}>{toast.action.label}</Txt>
               </Pressable>
             )}

@@ -15,7 +15,7 @@ const boundedString = (max: number) => z.string().max(max);
 const finiteNumber = z.number().finite();
 
 const ChatMessageSchema = z.strictObject({
-  role: z.enum(["user", "assistant", "system"]),
+  role: z.enum(["user", "assistant"]),
   content: boundedString(AI_MESSAGE_CONTENT_LIMIT).min(1)
 });
 
@@ -121,8 +121,13 @@ const ReceiptMemberSchema = z.strictObject({
   displayName: boundedString(AI_CONTEXT_NAME_LIMIT)
 });
 
+const RECEIPT_DATA_URL_RE = /^data:image\/(?:png|jpe?g|webp|gif|heic|heif);base64,[A-Za-z0-9+/=\s]+$/i;
+
 export const ReceiptBodySchema = z.strictObject({
-  image: boundedString(6_000_000).min(100).optional(),
+  image: boundedString(6_000_000)
+    .min(100)
+    .refine((value) => RECEIPT_DATA_URL_RE.test(value), "Image must be a base64 image data URL")
+    .optional(),
   text: boundedString(AI_RECEIPT_TEXT_LIMIT).trim().min(1).optional(),
   portfolioContext: z.strictObject({
     portfolioName: boundedString(AI_CONTEXT_NAME_LIMIT).optional(),

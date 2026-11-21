@@ -72,7 +72,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
     try {
       const p = txDeletePlan(tx, portfolioId);
       await navigationWrite(p.apply);
-      if (navigation.isFocused()) router.back();
+      if (navigation.isFocused()) { if (router.canGoBack()) router.back(); else router.replace('/'); }
       toast({ text: `${tx.description} deleted`, action: { label: 'Undo', onPress: async () => { try { await navigationWrite(p.undo); } catch { toast({ text: 'Couldn’t undo that.' }); } } } });
     } catch { setBusy(false); setConfirming(false); setError('Couldn’t delete. Try again.'); }
   }
@@ -115,7 +115,7 @@ function Detail({ tx, now, portfolioId, categories }: { tx: CloudTransaction; no
           <Txt v="body" c="ink2">It leaves this month’s flow now. You can undo for a few seconds.</Txt>
           <View style={{ flexDirection: 'row', gap: 4 }}>
             <Pressable onPress={remove} disabled={busy} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: c.down, justifyContent: 'center' }}>
-              {busy ? <ActivityIndicator color="#FFFFFF" /> : <Txt v="body" style={{ color: '#FFFFFF', fontFamily: 'Manrope_700Bold' }}>Delete</Txt>}
+              {busy ? <ActivityIndicator color={c.onDown} /> : <Txt v="body" style={{ color: c.onDown, fontFamily: 'Manrope_700Bold' }}>Delete</Txt>}
             </Pressable>
             <Pressable onPress={() => setConfirming(false)} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}><Txt v="body" style={{ fontFamily: 'Manrope_700Bold' }}>Cancel</Txt></Pressable>
           </View>

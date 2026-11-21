@@ -22,14 +22,14 @@ const TIP_W = 136;
 export const dayText = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 /** One day's bar: rounded, grows up from the baseline (down, for a day that lost), each a beat after the last. */
-function Bar({ x, w, value, scale, fill, index, faded }: { x: number; w: number; value: number; scale: number; fill: string; index: number; faded: boolean }) {
+function Bar({ x, w, value, scale, baseY, fill, index, faded }: { x: number; w: number; value: number; scale: number; baseY: number; fill: string; index: number; faded: boolean }) {
   const reduce = useReducedMotion();
   const grow = useSharedValue(reduce ? 1 : 0);
   useEffect(() => {
     grow.value = reduce ? 1 : withDelay(Math.min(index, 60) * 22, withTiming(1, { duration: duration.roll, easing: Easing.bezier(...curves.soft) }));
   }, [reduce, grow, index]);
   const h = Math.max(2, Math.abs(value) * scale);
-  const props = useAnimatedProps(() => ({ height: h * grow.value, y: value >= 0 ? BASE - h * grow.value : BASE }));
+  const props = useAnimatedProps(() => ({ height: h * grow.value, y: value >= 0 ? baseY - h * grow.value : baseY }));
   return <AnimatedRect x={x} width={w} rx={Math.min(w / 2, 8)} fill={fill} opacity={faded ? 0.3 : 1} animatedProps={props} />;
 }
 
@@ -52,7 +52,9 @@ export function EarningsChart({ series, selected, onSelect }: { series: Earnings
   const step = n ? width / n : 0;
   const bw = Math.max(2, Math.min(18, step * 0.6));
   const top = Math.max(1, ...series.map((d) => d.netCents)), bottom = Math.min(0, ...series.map((d) => d.netCents));
-  const scale = (BASE - BAR_TOP) / (top - bottom);
+  const barSpan = BASE - BAR_TOP;
+  const scale = barSpan / (top - bottom);
+  const baseY = bottom < 0 ? BAR_TOP + top * scale : BASE;
   const totals = series.map((d) => d.totalCents);
   const hi = Math.max(1, ...totals), lo = Math.min(0, ...totals);
   const ry = (v: number) => RUN_BOTTOM - ((v - lo) / (hi - lo)) * (RUN_BOTTOM - RUN_TOP);
@@ -83,9 +85,9 @@ export function EarningsChart({ series, selected, onSelect }: { series: Earnings
             <Line x1={0} x2={width} y1={60} y2={60} stroke={c.line} strokeWidth={1} />
             <Line x1={0} x2={width} y1={110} y2={110} stroke={c.line} strokeWidth={1} />
             {area !== '' && <AnimatedPath d={area} fill="url(#earnArea)" animatedProps={areaProps} />}
-            <Line x1={0} x2={width} y1={BASE} y2={BASE} stroke={c.line2} strokeWidth={1} strokeDasharray="2 5" />
+            <Line x1={0} x2={width} y1={baseY} y2={baseY} stroke={c.line2} strokeWidth={1} strokeDasharray="2 5" />
             {series.map((d, i) => (
-              <Bar key={d.day} x={cx(i) - bw / 2} w={bw} value={d.netCents} scale={scale} index={i} faded={selected !== null && selected !== i}
+              <Bar key={d.day} x={cx(i) - bw / 2} w={bw} value={d.netCents} scale={scale} baseY={baseY} index={i} faded={selected !== null && selected !== i}
                 fill={d.netCents >= 0 ? 'url(#earnBar)' : c.down} />
             ))}
             {n > 1 && <AnimatedPath d={line} fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" strokeOpacity={pick ? 0.35 : 1} strokeDasharray={[len, len]} animatedProps={lineProps} />}

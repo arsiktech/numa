@@ -19,20 +19,19 @@ const FX_KEY = 'numa.fx.v1';
 const CloudContext = createContext<CloudData | null>(null);
 
 /** The ECB euro-dollar rate. A current saved rate shows at once; today's replaces it when it arrives. */
-function useFx(): { fx: FxRate | null; settled: boolean } {
+function useFx(): FxRate | null {
   const shared = useQuery(cloud.fxRate, {});
   const [local, setLocal] = useState<FxRate | null>(null);
-  const [settled, setSettled] = useState(false);
-  const fx = local ?? shared ?? null;
+  const fx = local && shared ? (local.asOf >= shared.asOf ? local : shared) : (local ?? shared ?? null);
   useEffect(() => {
     let alive = true;
     void loadFx(
       { readSaved: () => storage.getItem(FX_KEY), fetchRate: () => fetchFxRate(), save: (raw) => void storage.setItem(FX_KEY, raw), now: Date.now() },
-      (rate) => { if (alive) { setLocal(rate); setSettled(true); } },
+      (rate) => { if (alive) setLocal(rate); },
     );
     return () => { alive = false; };
   }, []);
-  return { fx, settled };
+  return fx;
 }
 
 const toWallet = ({ _id, snapshot, ...w }: CloudWalletDoc): CloudWallet => ({ ...w, id: _id, snapshot: snapshot ?? null });
@@ -47,7 +46,7 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
   const [boot, setBoot] = useState<CloudBootstrap | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const { fx } = useFx();
+  const fx = useFx();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -66,7 +65,8 @@ export function CloudDataProvider({ children }: { children: ReactNode }) {
   const prefs = usePrefs();
   const spaces = useQuery(cloud.listSpaces, boot ? {} : 'skip');
   const chosen = spaces?.find((s) => s.id === prefs.space) ?? null;
-  const portfolioId = spaces === undefined || !prefs.ready ? null : (chosen?.id ?? boot?.selectedPortfolioId ?? spaces[0]?.id ?? null);
+  const bootSpace = spaces?.find((s) => s.id === boot?.selectedPortfolioId) ?? null;
+  const portfolioId = spaces === undefined || !prefs.ready ? null : (chosen?.id ?? bootSpace?.id ?? spaces[0]?.id ?? null);
   const space = spaces?.find((s) => s.id === portfolioId) ?? null;
   const { set } = prefs;
   const selectSpace = useCallback((id: string) => set('space', id), [set]);

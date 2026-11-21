@@ -31,7 +31,7 @@ describe('positions', () => {
     const [btc, ...rest] = positionsOf(items, 'crypto');
     expect(btc).toMatchObject({ key: 'BTC', name: 'Bitcoin', quantity: 1.5, valueCents: 9_000_000 + 4_000_000, unknown: 0 });
     expect(btc.places.map((p) => [p.where, p.detail, p.quantity])).toEqual([['Your record', 'Live', 1], ['Ledger', 'bc1qxy…0wlh · Base', 0.5]]);
-    expect(rest.map((p) => [p.key, p.valueCents])).toEqual([['lent:Aave V3', 80_000], ['USDC', 10_000], ['XYZ', 0]]);
+    expect(rest.map((p) => [p.key, p.valueCents])).toEqual([['lent:Aave V3', 80_000], ['USDC', 10_000], ['XYZ', null]]);
     expect(rest.find((p) => p.key === 'XYZ')).toMatchObject({ unknown: 1, quantity: 9 });
   });
 

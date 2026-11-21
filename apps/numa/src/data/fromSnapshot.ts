@@ -1,6 +1,6 @@
 import type { CloudAsset, CloudHolding, CloudSnapshot } from '@/cloud/api';
 import type { Attention, CategoryId, Currency, Debt, Holding, Liquidity, MonthFlow } from '@/domain/types';
-import { monthFlow, monthOf as monthOfMs } from '@/flow/month';
+import { monthFlow, monthOf as monthOfMs, transactionsIn } from '@/flow/month';
 import { convertCents, type FxRate } from './fx';
 import type { Point, PointParts } from './series';
 import { walletHolding } from './wallets';
@@ -127,14 +127,23 @@ export function fromSnapshot(s: CloudSnapshot, fx: FxRate | null, now: Date): Ho
   }
   history.sort((a, b) => a.t - b.t);
 
-  const { unconverted: monthUnconverted, ...month } = monthFlow(s, monthOfMs(now.getTime()), currency, fx, now);
+  const currentMonth = monthOfMs(now.getTime());
+  const { unconverted: monthUnconverted, ...month } = monthFlow(s, currentMonth, currency, fx, now);
   unconverted.push(...monthUnconverted);
+
+  const spentByCategory = new Map<string, number>();
+  for (const tx of transactionsIn(s.transactions, currentMonth, now)) {
+    if (tx.kind !== 'expense' || !tx.categoryId) continue;
+    const cents = convertCents(Math.abs(tx.amountMinor), tx.currency, currency, fx);
+    if (cents !== null) spentByCategory.set(tx.categoryId, (spentByCategory.get(tx.categoryId) ?? 0) + cents);
+  }
 
   // Spending limits speak up at 80% and when passed.
   for (const cat of s.categories) {
     if (cat.kind !== 'expense' || cat.monthlyLimit == null) continue;
     const limit = convertCents(Math.round(cat.monthlyLimit * 100), cat.budgetCurrency ?? currency, currency, fx);
-    const spent = month.outgoing.find((l) => l.label === cat.name)?.cents ?? 0;
+    if (limit === null) { unconverted.push(cat.name); continue; }
+    const spent = spentByCategory.get(cat.id) ?? 0;
     if (!limit || spent < limit * 0.8) continue;
     const over = spent > limit;
     attention.push({

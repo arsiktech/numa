@@ -6,7 +6,7 @@ import { useTheme } from '@/theme/theme';
 import { useMoney } from './money';
 import { Txt } from './Txt';
 
-export const amountText = (n: number) => (Math.abs(n) >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : String(Math.round(n * 1e8) / 1e8));
+export const amountText = (n: number) => (Math.abs(n) >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : (Math.round(n * 1e8) / 1e8).toFixed(8).replace(/\.?0+$/, '') || '0');
 export const quantityText = (q: number | null, unit: string | null) => (q === null || !unit ? null : `${amountText(q)} ${unit}`);
 
 /** One asset in a group: how much, where it sits, and its share. Opens where exactly. */

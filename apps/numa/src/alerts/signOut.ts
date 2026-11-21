@@ -1,5 +1,6 @@
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useMutation } from 'convex/react';
+import { useCallback } from 'react';
 
 import { cloud } from '@/cloud/api';
 import { forgetPushToken, savedPushToken } from './push';
@@ -18,7 +19,7 @@ export async function signOutWithPushCleanup({ saved, unregister, forget, signOu
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         await Promise.race([
-          unregister({ token }),
+          unregister({ token }).catch(() => undefined),
           new Promise<void>(resolve => { timer = setTimeout(resolve, 1500); }),
         ]);
       } finally { clearTimeout(timer); }
@@ -33,5 +34,5 @@ export async function signOutWithPushCleanup({ saved, unregister, forget, signOu
 export function usePhoneSignOut() {
   const { signOut } = useAuthActions();
   const unregister = useMutation(cloud.unregisterDevice);
-  return () => signOutWithPushCleanup({ saved: savedPushToken, unregister, forget: forgetPushToken, signOut });
+  return useCallback(() => signOutWithPushCleanup({ saved: savedPushToken, unregister, forget: forgetPushToken, signOut }), [unregister, signOut]);
 }

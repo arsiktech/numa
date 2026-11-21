@@ -665,9 +665,11 @@ export const deleteForAppleRevocation = internalMutation({
     if (old) await ctx.db.patch(id, { expiresAt });
     await ctx.scheduler.runAt(expiresAt, makeFunctionReference<"mutation", { id: Id<"appleDeletionGuards"> }>("appleLifecycle:cleanupGuard"), { id });
     const subjectHash = await sha256Hex(event.subject);
+    const seenUsers = new Set<string>();
     for (const provider of ["apple-native", "apple"]) {
       const account = await ctx.db.query("authAccounts").withIndex("providerAndAccountId", q => q.eq("provider", provider).eq("providerAccountId", event.subject)).unique();
-      if (!account || account._creationTime > event.at || !await ctx.db.get(account.userId)) continue;
+      if (!account || seenUsers.has(String(account.userId)) || account._creationTime > event.at || !await ctx.db.get(account.userId)) continue;
+      seenUsers.add(String(account.userId));
       const tokens = await ctx.db.query("appleCredentials").withIndex("by_user", q => q.eq("userId", account.userId)).take(3);
       // A delayed notification cannot delete an account reauthorized after its event.
       if (tokens.some(row => row.subjectHash === subjectHash && row.updatedAt > event.at)) continue;

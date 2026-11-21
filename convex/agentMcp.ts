@@ -46,7 +46,8 @@ function secretFrom(request: Request): string | null {
   const bearer = auth?.match(/^Bearer\s+(\S+)$/i)?.[1];
   if (bearer) return bearer;
   const tail = new URL(request.url).pathname.replace(/^\/mcp\/?/, "");
-  return tail ? decodeURIComponent(tail) : null;
+  if (!tail) return null;
+  try { return decodeURIComponent(tail); } catch { return null; }
 }
 
 /** A Convex Auth token for the agent's session, valid for five minutes. */
@@ -78,14 +79,19 @@ export const mcp = httpAction(async (ctx, request) => {
 
   const secret = secretFrom(request);
   if (!secret || secret.length > 200) return json(rpcError(null, -32001, REFUSALS.unknown[1]), 401, { "www-authenticate": "Bearer" });
-  const auth: AgentAuth = await ctx.runMutation(internal.agentAccess.authenticate, { tokenHash: await sha256Hex(secret) });
+
+  let body: unknown;
+  let validJson = true;
+  try { body = await request.json(); } catch { validJson = false; }
+  const batchCost = validJson && Array.isArray(body) ? Math.min(20, Math.max(1, body.length)) : 1;
+
+  const auth: AgentAuth = await ctx.runMutation(internal.agentAccess.authenticate, { tokenHash: await sha256Hex(secret), cost: batchCost });
   if (!auth.ok) {
     const [status, message] = REFUSALS[auth.reason];
     return json(rpcError(null, -32001, message), status, status === 401 ? { "www-authenticate": "Bearer" } : {});
   }
 
-  let body: unknown;
-  try { body = await request.json(); } catch { return json(rpcError(null, -32700, "The request is not valid JSON."), 400); }
+  if (!validJson) return json(rpcError(null, -32700, "The request is not valid JSON."), 400);
   const batch = Array.isArray(body);
   const messages = (batch ? body : [body]) as RpcRequest[];
   if (!messages.length || messages.length > 20) return json(rpcError(null, -32600, "Send between 1 and 20 messages."), 400);
@@ -127,7 +133,11 @@ export const mcp = httpAction(async (ctx, request) => {
           const exists = toolsFor("full").some((t) => t.name === name);
           return rpcError(m.id, -32602, exists ? "This agent can only read. The user can reconnect it with full access in Numa Pro." : `Unknown tool ${name}.`);
         }
-        const args = (m.params?.arguments ?? {}) as Record<string, unknown>;
+        const rawArgs = m.params?.arguments;
+        if (rawArgs !== undefined && (typeof rawArgs !== "object" || rawArgs === null || Array.isArray(rawArgs))) {
+          return rpcError(m.id, -32602, "Tool arguments must be an object.");
+        }
+        const args = (rawArgs ?? {}) as Record<string, unknown>;
         let result: { content: Array<{ type: "text"; text: string }>; structuredContent?: unknown; isError?: boolean };
         let error: string | undefined;
         try {

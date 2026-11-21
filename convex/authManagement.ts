@@ -29,7 +29,7 @@ export const methods = query({
     return {
       hasPassword: providers.has("password"),
       hasGoogle: providers.has("google"),
-      hasApple: providers.has("apple"),
+      hasApple: providers.has("apple") || providers.has("apple-native"),
       googleAvailable: Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
       appleAvailable: Boolean(process.env.AUTH_APPLE_ID && process.env.AUTH_APPLE_SECRET)
     };

@@ -112,8 +112,13 @@ export function previewImport(table: string[][], ctx: AskContext & { existingTx:
 
 /** The days a preview's transactions fall on, as times from the first day's start to the day after the last. Null when it has no transactions. */
 export function transactionSpan(rows: ImportRow[]): { start: number; end: number } | null {
-  const times = rows.flatMap((r) => (r.draft?.type === 'transaction' ? [r.draft.occurredAt] : []));
-  if (!times.length) return null;
+  let min = Infinity, max = -Infinity;
+  for (const r of rows) {
+    if (r.draft?.type !== 'transaction') continue;
+    if (r.draft.occurredAt < min) min = r.draft.occurredAt;
+    if (r.draft.occurredAt > max) max = r.draft.occurredAt;
+  }
+  if (!Number.isFinite(min)) return null;
   const day = (ms: number, plus: number) => { const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + plus).getTime(); };
-  return { start: day(Math.min(...times), 0), end: day(Math.max(...times), 1) };
+  return { start: day(min, 0), end: day(max, 1) };
 }

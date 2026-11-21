@@ -99,7 +99,8 @@ export const recentActivity = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const limit = Math.min(100, Math.max(1, Math.floor(args.limit ?? 30)));
+    const rawLimit = args.limit;
+    const limit = Math.min(100, Math.max(1, Math.floor(typeof rawLimit === "number" && Number.isFinite(rawLimit) ? rawLimit : 30)));
     const rows = await ctx.db.query("agentActivity").withIndex("by_user_at", (q) => q.eq("userId", userId)).order("desc").take(limit);
     const names = new Map<string, string>();
     for (const row of rows) {
@@ -114,24 +115,25 @@ export type AgentAuth =
   | { ok: true; userId: Id<"users">; sessionId: Id<"authSessions">; connectionId: Id<"agentConnections">; access: Doc<"agentConnections">["access"] }
   | { ok: false; reason: "unknown" | "disconnected" | "expired" | "account" | "limited" };
 
-async function consumeCall(ctx: MutationCtx, connectionId: Id<"agentConnections">, now: number): Promise<boolean> {
+async function consumeCall(ctx: MutationCtx, connectionId: Id<"agentConnections">, now: number, cost: number): Promise<boolean> {
   const windowMs = 60_000;
   const windowStart = Math.floor(now / windowMs) * windowMs;
   const key = `agent-mcp:${connectionId}:${windowStart}`;
   const bucket = await ctx.db.query("rateLimitBuckets").withIndex("by_key", (q) => q.eq("key", key)).unique();
   if (!bucket) {
-    await ctx.db.insert("rateLimitBuckets", { key, route: "agent-mcp", identityHash: String(connectionId), windowStart, windowMs, limit: CALLS_PER_MINUTE, count: 1, updatedAt: now, expiresAt: rateLimitExpiresAt(windowStart, windowMs) });
+    if (cost > CALLS_PER_MINUTE) return false;
+    await ctx.db.insert("rateLimitBuckets", { key, route: "agent-mcp", identityHash: String(connectionId), windowStart, windowMs, limit: CALLS_PER_MINUTE, count: cost, updatedAt: now, expiresAt: rateLimitExpiresAt(windowStart, windowMs) });
     return true;
   }
-  if (bucket.count >= CALLS_PER_MINUTE) return false;
-  await ctx.db.patch(bucket._id, { count: bucket.count + 1, updatedAt: now });
+  if (bucket.count + cost > CALLS_PER_MINUTE) return false;
+  await ctx.db.patch(bucket._id, { count: bucket.count + cost, updatedAt: now });
   return true;
 }
 
 /** Checks an agent's secret on every call, and counts the call. */
 export const authenticate = internalMutation({
-  args: { tokenHash: v.string() },
-  handler: async (ctx, { tokenHash }): Promise<AgentAuth> => {
+  args: { tokenHash: v.string(), cost: v.optional(v.number()) },
+  handler: async (ctx, { tokenHash, cost }): Promise<AgentAuth> => {
     const row = await ctx.db.query("agentConnections").withIndex("by_hash", (q) => q.eq("tokenHash", tokenHash)).unique();
     if (!row) return { ok: false, reason: "unknown" };
     if (row.revokedAt !== undefined) return { ok: false, reason: "disconnected" };
@@ -139,7 +141,8 @@ export const authenticate = internalMutation({
     const session = await ctx.db.get(row.sessionId);
     if (!session || session.expirationTime <= now) return { ok: false, reason: "expired" };
     try { await assertExistingAccount(ctx, row.userId); } catch { return { ok: false, reason: "account" }; }
-    if (!(await consumeCall(ctx, row._id, now))) return { ok: false, reason: "limited" };
+    const units = typeof cost === "number" && Number.isFinite(cost) ? Math.min(20, Math.max(1, Math.floor(cost))) : 1;
+    if (!(await consumeCall(ctx, row._id, now, units))) return { ok: false, reason: "limited" };
     if (row.lastUsedAt === undefined || now - row.lastUsedAt > 60_000) await ctx.db.patch(row._id, { lastUsedAt: now });
     return { ok: true, userId: row.userId, sessionId: row.sessionId, connectionId: row._id, access: row.access };
   },

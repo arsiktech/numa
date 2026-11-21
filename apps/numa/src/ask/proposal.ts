@@ -3,9 +3,12 @@ import type { AskContext, Draft } from './parse';
 import { sameName } from './parse';
 
 const toCents = (major: number | null) => (major === null ? 0 : Math.round(major * 100));
-const noon = (iso: string) => {
+const noon = (iso: string): number | null => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
   const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d, 12).getTime();
+  const dt = new Date(y, m - 1, d, 12);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+  return dt.getTime();
 };
 
 /**
@@ -17,9 +20,10 @@ export function proposalToDraft(p: AskProposal, ctx: AskContext): Draft | null {
   const today = ctx.now.getTime();
   if (p.kind === 'expense' || p.kind === 'income') {
     const category = p.category ? ctx.categories.find((c) => c.kind === p.kind && c.name.toLowerCase() === p.category!.toLowerCase()) ?? null : null;
+    const parsedAt = p.date ? noon(p.date) : null;
     return {
       type: 'transaction', kind: p.kind, description: p.name, amountCents: toCents(p.amount), currency: p.currency ?? ctx.currency,
-      occurredAt: p.date ? Math.min(noon(p.date), today) : today, categoryId: category?.id ?? null, categoryName: category?.name ?? null,
+      occurredAt: parsedAt !== null ? Math.min(parsedAt, today) : today, categoryId: category?.id ?? null, categoryName: category?.name ?? null,
     };
   }
   if (p.kind === 'account') {
@@ -32,9 +36,10 @@ export function proposalToDraft(p: AskProposal, ctx: AskContext): Draft | null {
   }
   if (p.kind === 'debt') {
     const existing = ctx.liabilities.find((l) => sameName(l.name, p.name)) ?? null;
+    const parsedDue = p.date ? noon(p.date) : null;
     return {
       type: 'debt', name: existing?.name ?? p.name, debtKind: existing?.kind ?? p.debtKind ?? 'other', amountCents: toCents(p.amount),
-      currency: p.currency ?? existing?.currency ?? ctx.currency, dueDate: p.date ? noon(p.date) : existing?.dueDate ?? null,
+      currency: p.currency ?? existing?.currency ?? ctx.currency, dueDate: parsedDue ?? existing?.dueDate ?? null,
       existing: existing ? { id: existing.id, name: existing.name, kind: existing.kind, balanceCents: Math.round(existing.balance * 100), currency: existing.currency, dueDate: existing.dueDate } : null,
     };
   }

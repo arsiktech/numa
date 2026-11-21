@@ -83,7 +83,11 @@ async function applyTo(ctx: MutationCtx, record: Record, kind: Kind, amount: num
       if (unit.toUpperCase() !== d.owedSymbol.toUpperCase()) throw bad(`This debt is owed in ${d.owedSymbol}`);
       const quantity = Math.round((d.owedQuantity + delta) * 1e8) / 1e8;
       if (quantity < 0) throw bad("That is more than is owed");
-      const price = d.owedQuantity > 0 ? d.balance / d.owedQuantity : 0;
+      let price = d.owedQuantity > 0 ? d.balance / d.owedQuantity : 0;
+      if (price === 0 && quantity > 0) {
+        const quote = await ctx.db.query("marketQuotes").withIndex("by_symbol", (q) => q.eq("symbol", d.owedSymbol!.toUpperCase())).unique();
+        if (quote && Number.isFinite(quote.price) && quote.price > 0) price = quote.price;
+      }
       await ctx.db.patch(d._id, { owedQuantity: quantity, balance: cents(quantity * price), updatedAt: Date.now() });
       return;
     }
