@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { seedStarterCategories } from "./lib/starterCategories";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation, mutationWithoutHistory } from "./lib/functions";
 import type { Id } from "./_generated/dataModel";
 import { requireUser, requireOwner } from "./lib/access";
 import { withMutationReceipt } from "./lib/mutationReceipts";
@@ -149,7 +150,7 @@ export const update = mutation({
  *
  * Cascade order: child rows first, then memberships, then invites, then the portfolio itself.
  */
-export const remove = mutation({
+export const remove = mutationWithoutHistory({
   args: { id: v.id("portfolios"), clientMutationId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const { userId } = await requireOwner(ctx, args.id);
@@ -270,6 +271,12 @@ export const remove = mutation({
           .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))
           .collect();
         for (const row of invites) await ctx.db.delete(row._id);
+
+        const history = await ctx.db
+          .query("recordChanges")
+          .withIndex("by_portfolio_at", (q) => q.eq("portfolioId", portfolioId))
+          .collect();
+        for (const row of history) await ctx.db.delete(row._id);
 
         await ctx.db.delete(portfolioId);
         return portfolioId;

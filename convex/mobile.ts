@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { activePodMembership } from "./lib/invitationAuthority";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { ensureUser, requireMember, requireUser, type AnyCtx } from "./lib/access";
 import { cleanRequired, friendlyDisplayName } from "./lib/inputGuards";

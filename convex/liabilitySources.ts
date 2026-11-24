@@ -1,7 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internalAction, internalQuery, query } from "./_generated/server";
+import { internalMutationBy, mutation } from "./lib/functions";
 import { requireEditor, requireMember } from "./lib/access";
 import { checkPortalUrl, fetchPortal, type Metric, type Post } from "./lib/portalSource";
 
@@ -137,7 +138,7 @@ const readingValidator = v.union(
 );
 
 /** Writes a reading: a complete one sets the record; any other only records why it didn't. */
-export const save = internalMutation({
+export const save = internalMutationBy("Company portal")({
   args: { sourceId: v.id("liabilitySources"), reading: readingValidator, checkedAt: v.number() },
   handler: async (ctx, { sourceId, reading, checkedAt }): Promise<boolean> => {
     const row = await ctx.db.get(sourceId);

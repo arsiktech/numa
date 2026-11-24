@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import { requireEditor, requireMember } from "./lib/access";
 import { interestAddProblem } from "./lib/loanAccrual";
 import { cleanSplit, roundAmount } from "./lib/loanTerms";

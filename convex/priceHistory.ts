@@ -1,7 +1,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
-import { action, internalAction, internalMutation, internalQuery, query } from "./_generated/server";
+import { action, internalAction, internalQuery, query } from "./_generated/server";
+import { internalMutation } from "./lib/functions";
 import { rateLimitExpiresAt } from "./lib/privacyRetention";
 import { isCryptoSymbol } from "./lib/marketQuoteProviders";
 import { GRID, fetchSeries, type ChartRange, type Get, type Series } from "./lib/priceHistory";

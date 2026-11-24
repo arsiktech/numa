@@ -1,7 +1,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
-import { action, internalMutation } from "./_generated/server";
+import { action } from "./_generated/server";
+import { internalMutation } from "./lib/functions";
 import { classifyExport, classifyWorkbook, exportUrl, MAX_SHEET_BYTES, parseSheetLink, redirectTarget, type SheetFetch } from "./lib/googleSheets";
 import { rateLimitExpiresAt } from "./lib/privacyRetention";
 

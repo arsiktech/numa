@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { internalQuery, mutation } from "./_generated/server";
+import { internalQuery } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import { requireUser } from "./lib/access";
 import { normalizeClientMutationId } from "./lib/mutationReceipts";
 

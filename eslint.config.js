@@ -90,6 +90,19 @@ export default tseslint.config(
     }
   },
   {
+    // Every write to assets, debts, holdings and wallets must land in the change history, so
+    // mutations come from lib/functions (see lib/recordHistory.ts), never straight from Convex.
+    files: ["convex/**/*.ts"],
+    ignores: ["**/*.test.ts", "convex/_generated/**"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [{
+        group: ["**/_generated/server"],
+        importNames: ["mutation", "internalMutation"],
+        message: "Import mutation and internalMutation from convex/lib/functions so changes are recorded in the history."
+      }] }]
+    }
+  },
+  {
     files: ["src/services/**/*.{ts,tsx}"],
     rules: {
       // Service modules intentionally export providers, hooks, and action

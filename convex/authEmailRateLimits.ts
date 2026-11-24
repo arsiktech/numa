@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { rateLimitExpiresAt } from "./lib/privacyRetention";
-import { internalMutation } from "./_generated/server";
+import { internalMutation } from "./lib/functions";
 import {
   AUTH_EMAIL_RATE_LIMIT,
   AUTH_EMAIL_GLOBAL_RATE_LIMIT,

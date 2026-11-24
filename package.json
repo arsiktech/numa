@@ -43,7 +43,8 @@
     "verify:production:convex": "node scripts/verify-production.mjs --require-convex",
     "handoff:bundle": "git bundle create artifacts/numa-mvp.bundle --all && git bundle verify artifacts/numa-mvp.bundle",
     "video:still": "remotion still remotion/index.ts NumaLaunch artifacts/screenshots/numa-video-still.png --frame=120 --image-format=png",
-    "video:render": "remotion render remotion/index.ts NumaLaunch artifacts/numa-launch.mp4"
+    "video:render": "remotion render remotion/index.ts NumaLaunch artifacts/numa-launch.mp4",
+    "verify:history:local": "node scripts/verify-record-history-local.mjs"
   },
   "dependencies": {
     "@ai-sdk/gateway": "4.0.14",

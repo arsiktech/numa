@@ -144,7 +144,9 @@ async function resolveSpace(io: AgentIo, args: Json): Promise<Space> {
 function write(io: AgentIo, args: Json) {
   const given = text(args, "request_id", false);
   if (given !== undefined && given.length > 80) throw new AgentInputError("request_id must be at most 80 characters");
-  return { clientMutationId: io.requestId(given) };
+  const reason = text(args, "reason", false)?.trim();
+  if (reason !== undefined && reason.length > 500) throw new AgentInputError("reason must be at most 500 characters");
+  return { clientMutationId: io.requestId(given), ...(reason ? { reason } : {}) };
 }
 
 type Snapshot = {
@@ -176,12 +178,30 @@ function walletSummary(w: WalletDoc, detail: boolean) {
   };
 }
 
+type HistoryRow = {
+  at: number; recordType: string; recordId: string; recordName: string; action: string; field?: string;
+  oldValue?: unknown; newValue?: unknown; values?: Record<string, unknown>; reason?: string;
+  actor: { kind: "app" | "agent" | "system"; name?: string };
+};
+
+/** One change-history row as an agent reads it. */
+function historyEntry(e: HistoryRow) {
+  return {
+    at: iso(e.at), record: { type: e.recordType, id: e.recordId, name: e.recordName }, action: e.action,
+    ...(e.field !== undefined ? { field: e.field } : {}),
+    ...("oldValue" in e ? { old: e.oldValue } : {}), ...("newValue" in e ? { new: e.newValue } : {}),
+    ...(e.values ? { values: e.values } : {}),
+    by: e.actor.name ? { kind: e.actor.kind, name: e.actor.name } : { kind: e.actor.kind },
+    ...(e.reason ? { reason: e.reason } : {}),
+  };
+}
+
 const snapshotOf = (io: AgentIo, space: Space) => io.query("mobile:portfolioSnapshot", { portfolioId: space.id }) as Promise<Snapshot>;
 const walletsOf = (io: AgentIo, space: Space) => io.query("cryptoWallets:listForPortfolio", { portfolioId: space.id }) as Promise<WalletDoc[]>;
 
 const SECTIONS = ["assets", "liabilities", "holdings", "goals", "categories", "recurring", "revenue", "wallets", "loans", "debt_history"] as const;
 
-export const AGENT_TOOLS: AgentTool[] = [
+const TOOLS: AgentTool[] = [
   {
     name: "get_overview", title: "Overview", write: false,
     description: "Start here. Net worth and its parts for a space, this month's income and spending, tracked wallets, goals and the latest saved history point. Amounts are in the space currency unless named _usd.",
@@ -260,6 +280,31 @@ export const AGENT_TOOLS: AgentTool[] = [
       const end = to === undefined ? undefined : (typeof args.to === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args.to) ? to + 12 * 3_600_000 : to);
       const snap = await snapshotOf(io, space);
       return { space: { id: space.id, currency: space.currency }, points: snap.wealthSnapshots.filter((p) => (start === undefined || p.takenAt >= start) && (end === undefined || p.takenAt <= end)) };
+    },
+  },
+  {
+    name: "get_ledger", title: "Change history", write: false,
+    description: "Every change to assets, debts, holdings and tracked wallets, newest first: what was created, changed (field, old and new value) or deleted, debt events added or removed, when, by whom (the app, which connected agent, or Numa itself) and the reason given. Deleted records stay in it, so a deleted record's id still works.",
+    inputSchema: schema({
+      space_id: spaceId, record: str("Only this record's history: its id, even if it was deleted."),
+      type: str("Only this kind of record.", { enum: ["asset", "liability", "holding", "wallet"] }),
+      from: str("First day, like 2026-11-01, or an exact time."), to: str("Last day, or an exact time."),
+      limit: num("At most this many, up to 500. Default 100.", { minimum: 1, maximum: 500 }), cursor: str("next_cursor from an earlier call, for the next page."),
+    }),
+    async run(io, args) {
+      const space = await resolveSpace(io, args);
+      const bareDay = (key: string) => typeof args[key] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(args[key] as string);
+      const from = date(args, "from"), to = date(args, "to");
+      const result = await io.query("recordHistory:list", {
+        portfolioId: space.id,
+        ...(text(args, "record", false) ? { recordId: text(args, "record") } : {}),
+        ...(args.type !== undefined ? { recordType: oneOf(args, "type", ["asset", "liability", "holding", "wallet"] as const) } : {}),
+        ...(from === undefined ? {} : { from: bareDay("from") ? from - 12 * 3_600_000 : from }),
+        ...(to === undefined ? {} : { to: bareDay("to") ? to + 12 * 3_600_000 - 1 : to }),
+        limit: Math.min(500, Math.max(1, Math.floor(amount(args, "limit", false) ?? 100))),
+        ...(text(args, "cursor", false) ? { cursor: text(args, "cursor") } : {}),
+      }) as { entries: HistoryRow[]; cursor: string | null };
+      return { space: { id: space.id, name: space.name }, entries: result.entries.map(historyEntry), next_cursor: result.cursor };
     },
   },
   {
@@ -556,6 +601,12 @@ export const AGENT_TOOLS: AgentTool[] = [
   },
 ];
 
+const reason = str("Optional: why this change is made, like \"paid back in cash\". Kept with the change in get_ledger. At most 500 characters.");
+/** Every tool that saves something also takes a reason, kept in the change history. */
+export const AGENT_TOOLS: AgentTool[] = TOOLS.map((t) => t.inputSchema.properties.request_id
+  ? { ...t, inputSchema: { ...t.inputSchema, properties: { ...t.inputSchema.properties, reason } } }
+  : t);
+
 export const toolsFor = (access: AgentAccess) => AGENT_TOOLS.filter((t) => access === "full" || !t.write);
 
 /** What a connected agent is told when it first connects. */
@@ -565,5 +616,6 @@ export const AGENT_INSTRUCTIONS = [
   "Amounts are in major units (12.50 means twelve fifty) in the space currency unless a field ends in _usd.",
   "A missing price or value is unknown, not zero: say so instead of guessing.",
   "Every change you make is saved at once, shown in the app, and listed for the user under Settings, Agents. Before deleting or making large changes, confirm with the user.",
+  "Changes to assets, debts, holdings and wallets are kept in a change history under your connection's name; send a short reason with a change when you know why it is made. get_ledger reads the history.",
   "Numa never moves money. Wallets are tracked by public address only; never ask for private keys or seed phrases.",
 ].join(" ");

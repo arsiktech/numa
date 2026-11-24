@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Id, TableNames } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import { requireEditor, requireMember } from "./lib/access";
 import { checkLoanLinks, parseKey, type OtherLinks, type ParsedKey } from "./lib/loanLinks";
 import { withMutationReceipt } from "./lib/mutationReceipts";

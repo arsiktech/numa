@@ -6,6 +6,7 @@ export const SPACE_EXPORT_SECTIONS = [
   "portfolio", "membership", "categories", "transactions", "assets", "liabilities", "liabilitySources",
   "holdings", "holdingEvents", "cryptoWallets", "defiReadings", "loanLinks", "debtEvents", "wealthSnapshots", "settlements",
   "goals", "recurring", "ledgerAccounts", "ledgerTransactions", "ledgerLines", "aiActionDrafts", "cashTransfers", "activeDays", "feedback",
+  "recordChanges",
 ] as const;
 const sectionValidator = v.union(...SPACE_EXPORT_SECTIONS.map(section => v.literal(section)));
 const scopeArgs = { expectedUserId: v.id("users"), portfolioId: v.id("portfolios"), requestId: v.string() };
@@ -67,6 +68,7 @@ export const page = query({
         case "cryptoWallets": return ctx.db.query("cryptoWallets").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "defiReadings": return ctx.db.query("defiReadings").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "loanLinks": return ctx.db.query("loanLinks").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
+        case "recordChanges": return ctx.db.query("recordChanges").withIndex("by_portfolio_at", q => q.eq("portfolioId", id)).paginate(options);
         case "debtEvents": return ctx.db.query("debtEvents").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "wealthSnapshots": return ctx.db.query("wealthSnapshots").withIndex("by_portfolio_export", q => q.eq("portfolioId", id)).paginate(options);
         case "settlements": return ctx.db.query("settlements").withIndex("by_portfolio_export", q => q.eq("portfolioId", id)).paginate(options);

@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import { requireUser } from "./lib/access";
 import { normalizeClientMutationId, withMutationReceipt } from "./lib/mutationReceipts";
 import { avatarDigest, normalizeAvatarPNG } from "./lib/avatarImage";
