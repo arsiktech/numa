@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { query, type MutationCtx } from "./_generated/server";
+import { internalMutationWithoutHistory } from "./lib/functions";
 import { requireMember } from "./lib/access";
 import { recordTypeValidator } from "./lib/recordHistory";
 
@@ -38,5 +41,29 @@ export const list = query({
     const page = await rows.order("desc").paginate({ cursor: args.cursor ?? null, numItems: limit });
     const entries = page.page.filter(e => args.recordType === undefined || e.recordType === args.recordType);
     return { entries, cursor: page.isDone ? null : page.continueCursor };
+  },
+});
+
+const PURGE_BATCH = 1000;
+
+/**
+ * Deletes a removed space's history a batch at a time, so a long history can't push the space delete
+ * past Convex's per-transaction limits. Schedules the next batch while rows remain.
+ */
+export async function purgeSpaceHistory(ctx: MutationCtx, portfolioId: Id<"portfolios">): Promise<void> {
+  const rows = await ctx.db
+    .query("recordChanges")
+    .withIndex("by_portfolio_at", (q) => q.eq("portfolioId", portfolioId))
+    .take(PURGE_BATCH);
+  for (const row of rows) await ctx.db.delete(row._id);
+  if (rows.length === PURGE_BATCH) await ctx.scheduler.runAfter(0, internal.recordHistory.purgeSpace, { portfolioId });
+}
+
+export const purgeSpace = internalMutationWithoutHistory({
+  args: { portfolioId: v.id("portfolios") },
+  handler: async (ctx, { portfolioId }) => {
+    const portfolio = await ctx.db.get(portfolioId);
+    if (portfolio) return; // the space came back or was never deleted: keep its history
+    await purgeSpaceHistory(ctx, portfolioId);
   },
 });

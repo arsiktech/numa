@@ -71,7 +71,7 @@ async function makeLink(page, name, readOnly) {
   const readLink = await makeLink(page, 'Reader', true);
   const readTools = (await rpc(readLink, 'tools/list', {})).body.result.tools.map((t) => t.name);
   const refused = await call(readLink, 'add_transaction', { kind: 'expense', amount: 1, description: 'nope' });
-  check('a read-only link can read but not change anything', readTools.length === 5 && !readTools.includes('add_transaction') && refused.error && /only read/.test(refused.error.message));
+  check('a read-only link can read but not change anything', readTools.length === 6 && readTools.includes('get_ledger') && !readTools.includes('add_transaction') && refused.error && /only read/.test(refused.error.message));
   await page.getByRole('button', { name: 'Done' }).click();
 
   await page.reload();

@@ -45,6 +45,7 @@ function fixture() {
         },
         filter: (callback: any) => { predicates.push(callback({ field: (key: string) => key, eq: (key: string, value: unknown) => (row: any) => row[key] === value })); return query; },
         collect,
+        take: async (n: number) => (await collect()).slice(0, n),
         first: async () => (await collect())[0] ?? null,
         unique: async () => { const values = await collect(); if (values.length > 1) throw new Error("Not unique"); return values[0] ?? null; }
       };

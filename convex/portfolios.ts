@@ -5,6 +5,7 @@ import { mutation, mutationWithoutHistory } from "./lib/functions";
 import type { Id } from "./_generated/dataModel";
 import { requireUser, requireOwner } from "./lib/access";
 import { withMutationReceipt } from "./lib/mutationReceipts";
+import { purgeSpaceHistory } from "./recordHistory";
 
 const portfolioTypeValidator = v.union(
   v.literal("personal"),
@@ -272,13 +273,8 @@ export const remove = mutationWithoutHistory({
           .collect();
         for (const row of invites) await ctx.db.delete(row._id);
 
-        const history = await ctx.db
-          .query("recordChanges")
-          .withIndex("by_portfolio_at", (q) => q.eq("portfolioId", portfolioId))
-          .collect();
-        for (const row of history) await ctx.db.delete(row._id);
-
         await ctx.db.delete(portfolioId);
+        await purgeSpaceHistory(ctx, portfolioId);
         return portfolioId;
       }
     );

@@ -6,7 +6,7 @@ import { add as addEvent, remove as removeEvent } from "./debtEvents";
 import { add as addWallet, update as updateWallet, remove as removeWallet } from "./cryptoWallets";
 import { remove as removePortfolio } from "./portfolios";
 import { save as saveReading } from "./liabilitySources";
-import { list } from "./recordHistory";
+import { list, purgeSpace } from "./recordHistory";
 import { AGENT_TOOLS, type AgentIo } from "./lib/agentTools";
 
 const getLedger = AGENT_TOOLS.find(t => t.name === "get_ledger")!;
@@ -147,5 +147,24 @@ describe("change history", () => {
     expect(f.all("recordChanges").some(r => r.portfolioId === "second")).toBe(true);
     await f.call(removePortfolio, { id: "second", clientMutationId: "s2" });
     expect(f.all("recordChanges").filter(r => r.portfolioId === "second")).toEqual([]);
+  });
+
+  it("clears a long history of a deleted space in batches", async () => {
+    const { f } = fixture();
+    for (let i = 0; i < 1500; i++) f.seed("recordChanges", `old${i}`, { portfolioId: "gone", at: i, recordType: "asset", recordId: "a", recordName: "Cash", action: "created", actor: { kind: "app" } });
+    await f.call(purgeSpace, { portfolioId: "gone" });
+    expect(f.all("recordChanges").filter(r => r.portfolioId === "gone")).toHaveLength(500);
+    expect(f.jobs.filter((j: any) => !j.canceled && j.args?.portfolioId === "gone")).toHaveLength(1);
+    await f.call(purgeSpace, { portfolioId: "gone" });
+    expect(f.all("recordChanges").filter(r => r.portfolioId === "gone")).toEqual([]);
+    expect(f.jobs.filter((j: any) => !j.canceled && j.args?.portfolioId === "gone")).toHaveLength(1);
+  });
+
+  it("keeps the history of a space that still exists", async () => {
+    const { f } = fixture();
+    await f.call(upsertAsset, { portfolioId: "pf", name: "Cash", kind: "cash", balance: 1, currency: "EUR", clientMutationId: "k1" });
+    const before = f.all("recordChanges").length;
+    await f.call(purgeSpace, { portfolioId: "pf" });
+    expect(f.all("recordChanges")).toHaveLength(before);
   });
 });
