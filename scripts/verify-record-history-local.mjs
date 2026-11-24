@@ -87,7 +87,10 @@ assert.equal((await tool("get_ledger", { from: "2001-01-01", to: "2001-12-31" })
 pass("get_ledger filters by type and by date");
 
 // Cleanup: removing the throwaway space removes its history too (read straight from the local table).
-const storedRows = () => execFileSync("npx", ["convex", "data", "recordChanges", "--format", "jsonLines", "--limit", "8000"], { encoding: "utf8", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } })
+// A deploy key in the environment would point the Convex CLI at that deployment instead of the local one.
+const localCliEnv = { ...process.env, CONVEX_AGENT_MODE: "anonymous" };
+delete localCliEnv.CONVEX_DEPLOY_KEY;
+const storedRows = () => execFileSync("npx", ["convex", "data", "recordChanges", "--format", "jsonLines", "--limit", "8000"], { encoding: "utf8", env: localCliEnv })
   .split("\n").filter(line => line.startsWith("{")).map(line => JSON.parse(line)).filter(row => row.portfolioId === portfolioId);
 assert.ok(storedRows().length >= assetHistory.length + debtHistory.length);
 await app.mutation("portfolios:remove", { id: portfolioId, clientMutationId: randomUUID() });
