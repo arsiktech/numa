@@ -1,3 +1,4 @@
+import { includeCountedWallets, type CountedWallet } from "../../apps/numa/src/domain/countedWallets";
 import { isManualFund, addMoney, assertCurrency, assertTimestamp, financeMonth, majorUnits, minorUnits } from "./finance";
 
 export type MobileDashboardCurrency = "USD" | "EUR";
@@ -72,6 +73,8 @@ export interface MobileDashboardInput {
   quoteStaleMs?: number;
   /** Dollars per euro from the shared rate, when one has been stored. */
   fxUsdPerEur?: number;
+  /** Tracked public wallets. Counted ones join liquid (coins and deposits) and owed (borrowings). */
+  wallets?: CountedWallet[];
 }
 
 const QUOTE_CURRENCY: MobileDashboardCurrency = "USD";
@@ -173,13 +176,13 @@ export function buildMobileDashboard(input: MobileDashboardInput) {
   const expenses = monthTransactions
     .filter((tx) => tx.kind === "expense")
     .reduce((sum, tx) => addMoney(sum, convertCurrency(tx.amount, tx.currency, currency, rates)), 0);
-  const liquid = input.assets
+  const cashLiquid = input.assets
     .filter((asset) => asset.kind === "cash")
     .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency, rates)), 0);
   const hardAssets = input.assets
     .filter((asset) => asset.kind !== "cash" && !isManualFund(asset))
     .reduce((sum, asset) => addMoney(sum, convertCurrency(asset.balance, asset.currency, currency, rates)), 0);
-  const debt = input.liabilities.reduce(
+  const recordedDebt = input.liabilities.reduce(
     (sum, liability) => addMoney(sum, convertCurrency(liability.balance, liability.currency, currency, rates)),
     0
   );
@@ -201,8 +204,18 @@ export function buildMobileDashboard(input: MobileDashboardInput) {
   const cashflowDriver = addMoney(income, -expenses);
   const sharedDriver = 0;
   const monthDelta = addMoney(cashflowDriver, marketDriver, sharedDriver);
-  const manualDriver = addMoney(liquid, manualInvested, hardAssets, -debt);
-  const netWorth = addMoney(liquid, invested, hardAssets, -debt);
+  // "Manual" stays cash, funds, property and recorded debts. Wallets are not a manual edit.
+  const manualDriver = addMoney(cashLiquid, manualInvested, hardAssets, -recordedDebt);
+  const withWallets = includeCountedWallets({
+    liquidCents: minorUnits(cashLiquid),
+    investedCents: minorUnits(invested),
+    hardCents: minorUnits(hardAssets),
+    oweCents: minorUnits(recordedDebt)
+  }, input.wallets ?? [], currency, rates.USD);
+  if (withWallets === "unconverted") throw new Error("Wallet value is unavailable");
+  const liquid = majorUnits(withWallets.liquidCents);
+  const debt = majorUnits(withWallets.oweCents);
+  const netWorth = majorUnits(withWallets.netCents);
 
   return {
     currency,

@@ -30,7 +30,7 @@ import { formatMoney, formatMoneyCompact } from "@/lib/money";
 import { AI_ENABLED } from "@/lib/aiEnabled";
 import { pageEnter } from "@/lib/motion";
 import type { CurrencyCode, NetWorthGoal } from "@/lib/types";
-import { cryptoCapitalAmounts } from "@/lib/cryptoWallets";
+import { withWallets } from "@/lib/withWallets";
 import { useCryptoWalletSync } from "@/features/crypto/useCryptoWalletSync";
 
 function isGoalDone(item: { current: number; target: number }) {
@@ -59,14 +59,7 @@ export default function GoalsPage() {
     label: string;
   } | null>(null);
   const [celebrateMsg, setCelebrateMsg] = useState<string | null>(null);
-  const baseNetWorth = rollupNetWorth(assets, holdings, liabilities, quotes, { rates, currency });
-  const cryptoCapital = cryptoCapitalAmounts(cryptoSync.wallets, rates, currency);
-  const netWorth = {
-    ...baseNetWorth,
-    invested: baseNetWorth.invested + cryptoCapital.assets,
-    liabilities: baseNetWorth.liabilities + cryptoCapital.debts,
-    netWorth: baseNetWorth.netWorth + cryptoCapital.net
-  };
+  const netWorth = withWallets(rollupNetWorth(assets, holdings, liabilities, quotes, { rates, currency }), cryptoSync.wallets, currency, rates);
   const progress = useMemo(
     () =>
       goals.map((goal) => ({

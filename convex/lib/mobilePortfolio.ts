@@ -252,7 +252,8 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
     holdings,
     goals,
     recurring,
-    snapshots
+    snapshots,
+    cryptoWallets
   ] = await Promise.all([
     ctx.db.query("categories").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect(),
     ctx.db.query("transactions").withIndex("by_portfolio_time", (q) => since === undefined ? q.eq("portfolioId", portfolioId) : q.eq("portfolioId", portfolioId).gte("occurredAt", since)).collect(),
@@ -264,7 +265,8 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
     ctx.db.query("recurring").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect(),
     since === undefined
       ? ctx.db.query("wealthSnapshots").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).collect()
-      : ctx.db.query("wealthSnapshots").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).order("desc").take(2000)
+      : ctx.db.query("wealthSnapshots").withIndex("by_portfolio_time", (q) => q.eq("portfolioId", portfolioId)).order("desc").take(2000),
+    ctx.db.query("cryptoWallets").withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId)).collect()
   ]);
   const neededSymbols = [...new Set([
     ...holdings.map((h) => h.symbol.toUpperCase()),
@@ -301,7 +303,8 @@ export async function buildPortfolioSnapshot(ctx: AnyCtx, portfolioId: Id<"portf
       liabilities: valuedLiabilities,
       holdings: holdingsWithQuotes,
       goals,
-      fxUsdPerEur
+      fxUsdPerEur,
+      wallets: cryptoWallets
     }),
     categories: categories.sort((a, b) => a.sortOrder - b.sortOrder).map(category => mobileCategory(category, portfolio.defaultCurrency)),
     transactions: transactions.sort((a, b) => b.occurredAt - a.occurredAt).map(mobileTransaction),

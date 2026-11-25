@@ -33,7 +33,12 @@ ledger helpers. Existing `/pod` settlement math and data are unchanged.
 ## Separate sources — never add them together
 
 **Native app balances still come from legacy transactions/assets/liabilities and
-holdings.** Legacy `income` maps to earned income and `expense` to spending.
+holdings, plus tracked public wallets that are counted in net worth.** A counted
+wallet's coins and deposits are liquid and what it has borrowed is owed, converted
+from US dollars with the snapshot's euro rate, one wallet at a time — the same
+figures the app shows. A wallet that has not been checked yet is left out, not
+stored as zero. Saved wealth snapshots are not rewritten when this rule changes.
+Legacy `income` maps to earned income and `expense` to spending.
 They are not reclassified from descriptions, categories or historical guesses.
 `monthCashflow` is recorded income minus expenses, not financing-inclusive bank
 movement or net-worth change. Legacy `monthDelta` is retained for compatibility,

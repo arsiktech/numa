@@ -10,13 +10,16 @@ const quote = { symbol: "SPY", price: 112, changePercent: 1, provider: "stooq" a
 it("captures actual market value with verified conversion, not cost basis", () => {
   expect(buildAutoSnapshot({ ...data, holdings: [holding] }, { SPY: quote }, { EUR: 1, USD: 1.12 }, now)).toMatchObject({ invested: 200, liquid: 100.01, netWorth: 300.01 });
 });
-it("skips missing, stale, mock, unknown-FX and incomplete-wallet valuations", () => {
+it("skips missing, stale, mock and unknown-FX valuations, and a wallet with no rate", () => {
   const invested = { ...data, holdings: [holding] };
   for (const quotes of [{}, { SPY: { ...quote, provider: "mock" as const } }, { SPY: { ...quote, updatedAt: now - 40 * 3600000 } }]) {
     expect(buildAutoSnapshot(invested, quotes, { EUR: 1, USD: 1.12 }, now)).toBeNull();
   }
   expect(buildAutoSnapshot(invested, { SPY: quote }, { EUR: 1 }, now)).toBeNull();
-  expect(buildAutoSnapshot({ ...data, cryptoWallets: [{ includeInNetWorth: true } as CryptoWallet] }, {}, { EUR: 1 }, now)).toBeNull();
+  // No check yet: the cash is still saved, and the wallet is not treated as zero.
+  expect(buildAutoSnapshot({ ...data, cryptoWallets: [{ includeInNetWorth: true } as CryptoWallet] }, {}, { EUR: 1 }, now)).toMatchObject({ netWorth: 100.01, liquid: 100.01 });
+  // A value in dollars cannot be saved into euros without a rate.
+  expect(buildAutoSnapshot({ ...data, cryptoWallets: [{ includeInNetWorth: true, snapshot: { totalValueUsd: 10, debtValueUsd: 0 } } as CryptoWallet] }, {}, { EUR: 1 }, now)).toBeNull();
 });
 it("allows same-currency cash and reconciles rounded components", () => {
   expect(buildAutoSnapshot(data, {}, { EUR: 1 }, now)).toMatchObject({ netWorth: 100.01, invested: 0 });
