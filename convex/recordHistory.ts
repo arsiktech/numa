@@ -1,10 +1,10 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { query, type MutationCtx } from "./_generated/server";
+import { internalAction, query, type MutationCtx } from "./_generated/server";
 import { internalMutationWithoutHistory } from "./lib/functions";
 import { requireMember } from "./lib/access";
-import { recordTypeValidator } from "./lib/recordHistory";
+import { recordNameOf, recordTypeOf, recordTypeValidator, recordValues, TRACKED_TABLES, type Tracked } from "./lib/recordHistory";
 
 const MAX = 500;
 
@@ -65,5 +65,74 @@ export const purgeSpace = internalMutationWithoutHistory({
     const portfolio = await ctx.db.get(portfolioId);
     if (portfolio) return; // the space came back or was never deleted: keep its history
     await purgeSpaceHistory(ctx, portfolioId);
+  },
+});
+
+/**
+ * Records deleted from a space, newest first, one row each: the entry that deleted it, with the
+ * record's fields at that moment. Read its whole history with `list` and its id.
+ */
+export const deleted = query({
+  args: { portfolioId: v.id("portfolios"), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    await requireMember(ctx, args.portfolioId);
+    const limit = Math.max(1, Math.min(MAX, Math.floor(args.limit ?? 100)));
+    const rows = await ctx.db
+      .query("recordChanges")
+      .withIndex("by_action", (q) => q.eq("portfolioId", args.portfolioId).eq("action", "deleted"))
+      .order("desc")
+      .take(limit);
+    const seen = new Set<string>();
+    return rows.filter((row) => (seen.has(row.recordId) ? false : (seen.add(row.recordId), true)));
+  },
+});
+
+const BACKFILL_PAGE = 200;
+export const BACKFILL_ACTOR = { kind: "system" as const, name: "Backfill" };
+
+/**
+ * One page of the backfill: an "Added" entry for each record in `table` that has none, dated when
+ * the record was created. Records that already have one are left alone, so running it again adds nothing.
+ */
+export const backfillPage = internalMutationWithoutHistory({
+  args: { table: v.union(...TRACKED_TABLES.map((t) => v.literal(t))), cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { table, cursor }) => {
+    const page = await ctx.db.query(table as Tracked).paginate({ cursor, numItems: BACKFILL_PAGE });
+    let added = 0;
+    for (const doc of page.page) {
+      const row = doc as unknown as Record<string, unknown> & { _id: string; _creationTime: number; portfolioId: Id<"portfolios"> };
+      const has = await ctx.db
+        .query("recordChanges")
+        .withIndex("by_record", (q) => q.eq("portfolioId", row.portfolioId).eq("recordId", row._id))
+        .filter((q) => q.eq(q.field("action"), "created"))
+        .first();
+      if (has) continue;
+      const createdAt = typeof row.createdAt === "number" && Number.isFinite(row.createdAt) ? row.createdAt : row._creationTime;
+      await ctx.db.insert("recordChanges", {
+        portfolioId: row.portfolioId, at: createdAt, recordType: recordTypeOf(table as Tracked), recordId: row._id,
+        recordName: recordNameOf(table as Tracked, row), action: "created", values: recordValues(table as Tracked, row), actor: BACKFILL_ACTOR,
+      });
+      added++;
+    }
+    return { scanned: page.page.length, added, cursor: page.isDone ? null : page.continueCursor };
+  },
+});
+
+/** Runs the backfill over every kept record. Safe to run more than once. `npx convex run recordHistory:backfill` */
+export const backfill = internalAction({
+  args: {},
+  handler: async (ctx): Promise<{ scanned: number; added: number; byTable: Record<string, { scanned: number; added: number }> }> => {
+    const byTable: Record<string, { scanned: number; added: number }> = {};
+    let scanned = 0, added = 0;
+    for (const table of TRACKED_TABLES) {
+      const tally = { scanned: 0, added: 0 };
+      let cursor: string | null = null;
+      do {
+        const page: { scanned: number; added: number; cursor: string | null } = await ctx.runMutation(internal.recordHistory.backfillPage, { table, cursor });
+        tally.scanned += page.scanned; tally.added += page.added; cursor = page.cursor;
+      } while (cursor !== null);
+      byTable[table] = tally; scanned += tally.scanned; added += tally.added;
+    }
+    return { scanned, added, byTable };
   },
 });

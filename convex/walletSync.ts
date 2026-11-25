@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalAction, internalQuery } from "./_generated/server";
-import { internalMutation } from "./lib/functions";
+import { internalMutationBy } from "./lib/functions";
 import { cryptoWalletSnapshotValidator } from "./lib/cryptoValidators";
 import type { Post } from "./lib/defiPositions";
 import { BLOCKSCOUT_PRO } from "./lib/evm";
@@ -97,7 +97,8 @@ export const dueWallets = internalQuery({
 
 const refsValidator = v.object({ ETH: v.optional(v.number()), BTC: v.optional(v.number()), EUR: v.optional(v.number()) });
 
-export const saveSnapshot = internalMutation({
+/** Scheduled readings are recorded in history as "Wallet sync"; a refresh someone asked for is theirs. */
+export const saveSnapshot = internalMutationBy("Wallet sync")({
   args: { walletId: v.id("cryptoWallets"), snapshot: cryptoWalletSnapshotValidator, refs: v.optional(refsValidator) },
   handler: async (ctx, { walletId, snapshot, refs }): Promise<boolean> => {
     const wallet = await ctx.db.get(walletId);

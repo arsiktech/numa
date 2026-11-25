@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actorLabel, describeChange, historyWhen, presentHistory } from "./recordHistory";
+import { actorLabel, describeChange, historyWhen, presentHistory, recordTypeLabel } from "./recordHistory";
 import type { Doc } from "../../convex/_generated/dataModel";
 
 const at = (hours: number, minutes: number) => new Date(2026, 10, 25, hours, minutes).getTime();
@@ -27,6 +27,11 @@ describe("record history lines", () => {
     })).toBe("Repaid €1,500 · balance €10,500");
   });
 
+  it("shows a wallet reading as its value in dollars, and names record types", () => {
+    expect(describeChange({ action: "changed", field: "value", oldValue: 1000, newValue: 1250.5, recordType: "wallet", values: { currency: "USD" } })).toBe("Value $1,000 → $1,250.50");
+    expect(describeChange({ action: "changed", field: "value", newValue: 1000, recordType: "wallet", values: { currency: "USD" } })).toBe("Value $1,000");
+    expect([recordTypeLabel("asset"), recordTypeLabel("liability"), recordTypeLabel("holding"), recordTypeLabel("wallet")]).toEqual(["Asset", "Debt", "Holding", "Wallet"]);
+  });
   it("names who made it", () => {
     expect(actorLabel({ kind: "app" })).toBe("You");
     expect(actorLabel({ kind: "agent", name: "Assistant" })).toBe("Assistant");

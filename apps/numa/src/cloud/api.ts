@@ -286,6 +286,7 @@ export const cloud = {
   removeDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt | null>('debtEvents:remove'),
   portalSources: makeFunctionReference<'query', { portfolioId: string }, PortalSource[]>('liabilitySources:listForPortfolio'),
   recordHistory: makeFunctionReference<'query', { portfolioId: string; recordId?: string; recordType?: 'asset' | 'liability' | 'holding' | 'wallet'; limit?: number; cursor?: string | null }, { entries: RecordChange[]; cursor: string | null }>('recordHistory:list'),
+  deletedRecords: makeFunctionReference<'query', { portfolioId: string; limit?: number }, RecordChange[]>('recordHistory:deleted'),
   followPortal: makeFunctionReference<'mutation', { liabilityId: string; url: string; key?: string }, { id: string }>('liabilitySources:connect'),
   unfollowPortal: makeFunctionReference<'mutation', { liabilityId?: string; assetId?: string }, null>('liabilitySources:disconnect'),
   setLoanLinks: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; loanKey: string; targets: CloudLoanLink['targets'] }>, Receipt | null>('loanLinks:set'),

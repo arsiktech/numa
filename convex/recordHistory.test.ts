@@ -6,7 +6,8 @@ import { add as addEvent, remove as removeEvent } from "./debtEvents";
 import { add as addWallet, update as updateWallet, remove as removeWallet } from "./cryptoWallets";
 import { remove as removePortfolio } from "./portfolios";
 import { save as saveReading } from "./liabilitySources";
-import { list, purgeSpace } from "./recordHistory";
+import { backfillPage, deleted, list, purgeSpace } from "./recordHistory";
+import { saveSnapshot } from "./walletSync";
 import { AGENT_TOOLS, type AgentIo } from "./lib/agentTools";
 
 const getLedger = AGENT_TOOLS.find(t => t.name === "get_ledger")!;
@@ -92,7 +93,7 @@ describe("change history", () => {
     expect(entries[0]).toMatchObject({ field: "balance", old: 10, new: 12.5, by: { kind: "system", name: "Company portal" } });
   });
 
-  it("covers holdings and wallets, skips wallet readings, and filters by type and time", async () => {
+  it("covers holdings and wallets, and filters by type and time", async () => {
     const { f, history, ledger } = fixture();
     const holding = await f.call(upsertHolding, { portfolioId: "pf", symbol: "BTC", name: "Bitcoin", kind: "crypto", quantity: 1, costBasis: 50000, currency: "EUR", acquiredAt: 0, clientMutationId: "h1" });
     await f.call(upsertHolding, { id: holding.id, portfolioId: "pf", symbol: "BTC", name: "Bitcoin", kind: "crypto", quantity: 1.5, costBasis: 50000, currency: "EUR", acquiredAt: 0, clientMutationId: "h2" });
@@ -147,6 +148,68 @@ describe("change history", () => {
     expect(f.all("recordChanges").some(r => r.portfolioId === "second")).toBe(true);
     await f.call(removePortfolio, { id: "second", clientMutationId: "s2" });
     expect(f.all("recordChanges").filter(r => r.portfolioId === "second")).toEqual([]);
+  });
+
+  it("records a wallet's value when a reading changes it, and nothing for a same or partial reading", async () => {
+    const { f, ledger } = fixture();
+    const wallet = await f.call(addWallet, { portfolioId: "pf", address: "0x000000000000000000000000000000000000dEaD", addressType: "evm", label: "Ledger", includeInNetWorth: true, clientMutationId: "wv1" });
+    const walletId = typeof wallet === "string" ? wallet : wallet.id;
+    const reading = (total: number, updatedAt: number, partial = false) => ({
+      provider: "public", addressType: "evm", tokenValueUsd: total, defiValueUsd: 0, debtValueUsd: 0, totalValueUsd: total,
+      tokens: [], defiPositions: [], chains: ["eth"], failedChains: partial ? ["base"] : [], tokensFetchedAt: updatedAt, updatedAt, partial,
+    });
+    f.signIn(null);
+    await f.call(saveSnapshot, { walletId, snapshot: reading(1000.004, 10) });
+    await f.call(saveSnapshot, { walletId, snapshot: reading(1000.001, 11) }); // the same to the cent
+    await f.call(saveSnapshot, { walletId, snapshot: reading(400, 12, true) }); // a chain failed: not a value
+    await f.call(saveSnapshot, { walletId, snapshot: reading(1250.5, 13) });
+    f.signIn("user");
+    const entries = (await ledger({ record: walletId })).entries;
+    expect(entries.map(e => [e.action, e.field ?? null, e.old ?? null, e.new ?? null])).toEqual([
+      ["changed", "value", 1000, 1250.5], ["changed", "value", null, 1000], ["created", null, null, null],
+    ]);
+    expect(entries[0]).toMatchObject({ values: { currency: "USD" }, by: { kind: "system", name: "Wallet sync" } });
+  });
+
+  it("lists deleted records, newest first, with their history still readable", async () => {
+    const { f, history } = fixture();
+    const asset = await f.call(upsertAsset, { portfolioId: "pf", name: "Old car", kind: "vehicle", balance: 3000, currency: "EUR", clientMutationId: "d1" });
+    const debt = await f.call(upsertLiability, { portfolioId: "pf", name: "Car loan", kind: "loan", balance: 900, currency: "EUR", clientMutationId: "d2" });
+    await f.call(upsertAsset, { portfolioId: "pf", name: "Kept", kind: "cash", balance: 1, currency: "EUR", clientMutationId: "d3" });
+    await f.call(deleteAsset, { id: asset.id, clientMutationId: "d4" });
+    await f.call(deleteLiability, { id: debt.id, clientMutationId: "d5" });
+    const gone = await f.call(deleted, { portfolioId: "pf" });
+    expect(gone.map((r: any) => [r.recordName, r.recordType])).toEqual([["Car loan", "liability"], ["Old car", "asset"]]);
+    expect(gone[0].values).toMatchObject({ balance: 900, currency: "EUR" });
+    expect((await history({ recordId: debt.id })).map(r => r.action)).toEqual(["deleted", "created"]);
+    f.seed("portfolios", "other", { name: "Other", ownerId: "someone", defaultCurrency: "EUR", type: "personal" });
+    await expect(f.call(deleted, { portfolioId: "other" })).rejects.toThrow();
+  });
+
+  it("backfills one Added entry per existing record, dated when it was made, and adds nothing the second time", async () => {
+    const { f } = fixture();
+    f.seed("assets", "a-old", { portfolioId: "pf", name: "Flat", kind: "real_estate", balance: 100, currency: "EUR", createdAt: 1_600_000_000_000 });
+    f.seed("liabilities", "l-old", { portfolioId: "pf", name: "Card", kind: "credit_card", balance: 5, currency: "EUR" });
+    f.seed("holdings", "h-old", { portfolioId: "pf", symbol: "VWCE", name: "World", kind: "etf", quantity: 2, costBasis: 200, currency: "EUR" });
+    f.seed("cryptoWallets", "w-old", { portfolioId: "pf", address: "bc1qexample", addressType: "bitcoin", label: "Cold", includeInNetWorth: true, createdAt: 5, updatedAt: 5, snapshot: { totalValueUsd: 42.5, partial: false } });
+    const fresh = await f.call(upsertAsset, { portfolioId: "pf", name: "New", kind: "cash", balance: 1, currency: "EUR", clientMutationId: "b1" });
+    const run = async () => {
+      let added = 0;
+      for (const table of ["assets", "liabilities", "holdings", "cryptoWallets"] as const) {
+        let cursor: string | null = null;
+        do { const page: any = await f.call(backfillPage, { table, cursor }); added += page.added; cursor = page.cursor; } while (cursor !== null);
+      }
+      return added;
+    };
+    expect(await run()).toBe(4);
+    expect(await run()).toBe(0);
+    const created = f.all("recordChanges").filter(r => r.action === "created");
+    expect(created).toHaveLength(5);
+    expect(created.filter(r => r.recordId === fresh.id)).toHaveLength(1);
+    const flat = created.find(r => r.recordId === "a-old")!;
+    expect(flat).toMatchObject({ at: 1_600_000_000_000, recordType: "asset", recordName: "Flat", actor: { kind: "system", name: "Backfill" }, values: { balance: 100 } });
+    expect(created.find(r => r.recordId === "l-old")!.at).toBe(f.rows.get("l-old")._creationTime);
+    expect(created.find(r => r.recordId === "w-old")!).toMatchObject({ recordType: "wallet", recordName: "Cold", values: { value: 42.5, currency: "USD" } });
   });
 
   it("clears a long history of a deleted space in batches", async () => {

@@ -874,7 +874,8 @@ export default defineSchema({
   recordChanges: defineTable(recordChangeFields)
     .index("by_portfolio_at", ["portfolioId", "at"])
     .index("by_record", ["portfolioId", "recordId", "at"])
-    .index("by_type", ["portfolioId", "recordType", "at"]),
+    .index("by_type", ["portfolioId", "recordType", "at"])
+    .index("by_action", ["portfolioId", "action", "at"]),
 
   // Market price history behind the chart (public market data, no personal data), one row per
   // symbol and range, refreshed when it is older than the range needs.

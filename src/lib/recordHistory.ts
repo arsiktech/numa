@@ -8,10 +8,10 @@ const FIELD_LABELS: Record<string, string> = {
   owedBy: "Owed by", costBasis: "Cost", acquiredAt: "Bought", investmentType: "Type", interestRate: "APR", dueDate: "Due",
   owedSymbol: "Owed in", owedQuantity: "Quantity owed", counterparty: "Owed to", principal: "Principal", startedAt: "Started",
   dueKind: "Repayment", interestTerms: "Interest", interestDueDay: "Interest day", symbol: "Symbol", quantity: "Quantity",
-  address: "Address", addressType: "Network", includeInNetWorth: "In net worth",
+  address: "Address", addressType: "Network", includeInNetWorth: "In net worth", value: "Value",
 };
 const DATE_FIELDS = new Set(["acquiredAt", "dueDate", "startedAt"]);
-const MONEY_FIELDS = new Set(["balance", "costBasis", "principal"]);
+const MONEY_FIELDS = new Set(["balance", "costBasis", "principal", "value"]);
 const EVENT_LABELS: Record<string, string> = {
   borrowed: "Borrowed", repaid: "Repaid", lent: "Lent", received: "Received", note: "Note", capitalized: "Interest added",
 };
@@ -41,7 +41,8 @@ export function historyWhen(ms: number, now = Date.now()): string {
 export const day = historyWhen;
 
 export function money(value: number, currency?: string | null): string {
-  const grouped = Math.abs(value).toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+  const cents = !Number.isInteger(Math.round(value * 100) / 100);
+  const grouped = Math.abs(value).toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: cents ? 2 : 0 });
   const sign = value < 0 ? "−" : "";
   if (currency && SYMBOLS[currency]) return `${sign}${SYMBOLS[currency]}${grouped}`;
   return `${sign}${grouped}${currency ? ` ${currency}` : ""}`;
@@ -95,6 +96,10 @@ export function describeChange(change: HistoryLine): string {
 }
 
 /** Who made it: the app, a connected agent by name, or Numa itself. */
+const TYPE_LABELS: Record<string, string> = { asset: "Asset", liability: "Debt", holding: "Holding", wallet: "Wallet" };
+/** "Asset", "Debt", "Holding" or "Wallet". */
+export const recordTypeLabel = (type: string | undefined) => TYPE_LABELS[type ?? ""] ?? "Record";
+
 export function actorLabel(actor: Change["actor"]): string {
   if (actor.kind === "agent") return actor.name ?? "Agent";
   if (actor.kind === "system") return actor.name ?? "Numa";

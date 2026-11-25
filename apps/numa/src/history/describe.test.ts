@@ -1,4 +1,4 @@
-import { actorLabel, describeChange, historyWhen, presentHistory } from './describe';
+import { actorLabel, describeChange, historyWhen, presentHistory, recordTypeLabel } from './describe';
 import type { RecordChange } from './describe';
 
 const at = (hours: number, minutes: number) => new Date(2026, 10, 25, hours, minutes).getTime();
@@ -45,4 +45,9 @@ test('merges an applied repayment with the balance it left', () => {
   const rows = presentHistory([event, balance]);
   expect(rows).toHaveLength(1);
   expect(describeChange(rows[0]!)).toBe('Repaid €1,500 · balance €10,500');
+});
+
+test('a wallet reading reads as its value in dollars', () => {
+  expect(describeChange({ action: 'changed', field: 'value', oldValue: 1000, newValue: 1250.5, recordType: 'wallet', values: { currency: 'USD' } })).toBe('Value $1,000 → $1,250.50');
+  expect(recordTypeLabel('liability')).toBe('Debt');
 });

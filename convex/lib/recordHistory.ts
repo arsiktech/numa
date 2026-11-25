@@ -9,6 +9,7 @@ import type { MutationCtx } from "../_generated/server";
  * scheduled jobs are all recorded the same way, and a deleted record keeps its history.
  *
  * Whole-space and whole-account deletion use the plain builders and erase history with the rest.
+ * Nothing else ever deletes history: it is kept for as long as the space exists.
  */
 
 export const historyValue = v.union(v.string(), v.number(), v.boolean(), v.null());
@@ -48,19 +49,34 @@ export const recordChangeFields = {
   reason: v.optional(v.string()),
 };
 
-type Tracked = "assets" | "liabilities" | "holdings" | "cryptoWallets";
+export type Tracked = "assets" | "liabilities" | "holdings" | "cryptoWallets";
 
-/** What is recorded for each table. Fields left out (timestamps, sync leases, wallet readings) change on their own. */
-const TRACKED: Record<Tracked, { type: RecordType; name: string; fields: readonly string[] }> = {
+/** What is recorded for each table. Fields left out (timestamps, sync leases) change on their own; a wallet's value is derived from its reading. */
+type TrackedSpec = {
+  type: RecordType; name: string; fields: readonly string[];
+  /** Fields worked out from the row (a wallet's value from its latest reading). Left out when unknown, so an unknown reading records nothing. */
+  derived?: (row: Row) => Row;
+  /** Patching one of these may change a derived field. */
+  derivedFrom?: readonly string[];
+};
+/** A wallet's value is its latest complete reading, in US dollars to the cent. A partial reading says nothing about the value. */
+const walletValue = (row: Row): Row => {
+  const snapshot = row.snapshot as { totalValueUsd?: unknown; partial?: unknown } | undefined;
+  if (!snapshot || snapshot.partial || typeof snapshot.totalValueUsd !== "number" || !Number.isFinite(snapshot.totalValueUsd)) return {};
+  return { value: Math.round(snapshot.totalValueUsd * 100) / 100, currency: "USD" };
+};
+const TRACKED: Record<Tracked, TrackedSpec> = {
   assets: { type: "asset", name: "name", fields: ["name", "kind", "investmentType", "balance", "currency", "notes", "location", "owedBy", "costBasis", "acquiredAt"] },
   liabilities: { type: "liability", name: "name", fields: [
     "name", "kind", "balance", "currency", "interestRate", "dueDate", "notes", "owedSymbol", "owedQuantity", "counterparty",
     "principal", "startedAt", "dueKind", "interestTerms", "interestDueDay",
   ] },
   holdings: { type: "holding", name: "name", fields: ["symbol", "name", "kind", "quantity", "costBasis", "currency", "acquiredAt", "location"] },
-  cryptoWallets: { type: "wallet", name: "label", fields: ["label", "address", "addressType", "includeInNetWorth"] },
+  cryptoWallets: { type: "wallet", name: "label", fields: ["label", "address", "addressType", "includeInNetWorth"], derived: walletValue, derivedFrom: ["snapshot"] },
 };
-const TRACKED_TABLES = Object.keys(TRACKED) as Tracked[];
+export const TRACKED_TABLES = Object.keys(TRACKED) as Tracked[];
+export const recordTypeOf = (table: Tracked) => TRACKED[table].type;
+export const recordNameOf = (table: Tracked, row: Row) => nameOf(table, row);
 const EVENT_FIELDS = ["kind", "amount", "unit", "principalPart", "interestPart", "feePart", "applied", "occurredAt", "note"] as const;
 const SUBJECT_TABLE = { liability: "liabilities", asset: "assets" } as const;
 
@@ -97,14 +113,33 @@ function valuesOf(row: Row, fields: readonly string[]): Record<string, HistoryVa
 const nameOf = (table: Tracked, row: Row) => String(row[TRACKED[table].name] ?? "");
 
 /** The history entries for one write to a tracked table. Pure: same rows in, same entries out. */
+/** A record's fields as history keeps them, derived ones included. */
+export function recordValues(table: Tracked, row: Row): Record<string, HistoryValue> {
+  const { fields, derived } = TRACKED[table];
+  const extra = derived ? derived(row) : {};
+  return { ...valuesOf(row, fields), ...valuesOf(extra, Object.keys(extra)) };
+}
+
 export function changesFor(table: Tracked, id: string, before: Row | null, after: Row | null): ChangeDraft[] {
-  const { type, fields } = TRACKED[table];
+  const { type, fields, derived } = TRACKED[table];
   const row = after ?? before;
   if (!row) return [];
   const base = { portfolioId: row.portfolioId as Id<"portfolios">, recordType: type, recordId: id, recordName: nameOf(table, row) };
-  if (!before) return [{ ...base, action: "created", values: valuesOf(row, fields) }];
-  if (!after) return [{ ...base, action: "deleted", values: valuesOf(before, fields) }];
+  if (!before) return [{ ...base, action: "created", values: recordValues(table, row) }];
+  if (!after) return [{ ...base, action: "deleted", values: recordValues(table, before) }];
   const changes: ChangeDraft[] = [];
+  if (derived) {
+    const was = derived(before), now = derived(after);
+    for (const field of Object.keys(now)) {
+      if (field === "currency") continue;
+      const oldValue = asValue(was[field]), newValue = asValue(now[field]);
+      if (newValue === undefined || oldValue === newValue) continue;
+      changes.push({
+        ...base, action: "changed", field, ...(oldValue === undefined ? {} : { oldValue }), newValue,
+        ...(typeof now.currency === "string" ? { values: { currency: now.currency } } : {}),
+      });
+    }
+  }
   const MONEY_FIELDS = new Set(["balance", "costBasis", "principal"]);
   for (const field of fields) {
     const oldValue = asValue(before[field]);
@@ -161,7 +196,26 @@ export function withRecordHistory(ctx: MutationCtx, reason?: string, systemName?
   let actor: Promise<HistoryActor> | undefined;
   const tableIs = (table: Tracked | "debtEvents", id: AnyId) => typeof db.normalizeId === "function" && db.normalizeId(table, id) !== null;
   const trackedTable = (id: AnyId): Tracked | null => TRACKED_TABLES.find(t => tableIs(t, id)) ?? null;
-  const save = async (drafts: ChangeDraft[]) => {
+  /**
+   * A derived value with nothing before it (the last reading was partial) is compared with the last value
+   * history kept, so a partial reading in between neither hides the old value nor repeats the same one.
+   */
+  const settleDerived = async (drafts: ChangeDraft[]) => {
+    const out: ChangeDraft[] = [];
+    for (const draft of drafts) {
+      if (draft.action !== "changed" || draft.field !== "value" || draft.recordType !== "wallet" || draft.oldValue !== undefined) { out.push(draft); continue; }
+      const last = await db.query("recordChanges")
+        .withIndex("by_record", q => q.eq("portfolioId", draft.portfolioId).eq("recordId", draft.recordId))
+        .order("desc")
+        .filter(q => q.eq(q.field("field"), "value"))
+        .first();
+      if (last?.newValue === draft.newValue) continue;
+      out.push(last?.newValue === undefined ? draft : { ...draft, oldValue: last.newValue });
+    }
+    return out;
+  };
+  const save = async (input: ChangeDraft[]) => {
+    const drafts = input.some(d => d.field === "value" && d.recordType === "wallet") ? await settleDerived(input) : input;
     if (!drafts.length) return;
     actor ??= resolveActor(ctx, systemName);
     const who = await actor;
@@ -221,7 +275,7 @@ export function withRecordHistory(ctx: MutationCtx, reason?: string, systemName?
       const fields = Object.keys((value ?? {}) as Row);
       // A patch that touches nothing recorded (a wallet reading, a sync lease, a timestamp) is not read twice.
       const table = trackedTable(id);
-      if (table && !fields.some(f => TRACKED[table].fields.includes(f))) return write();
+      if (table && !fields.some(f => TRACKED[table].fields.includes(f) || TRACKED[table].derivedFrom?.includes(f))) return write();
       await update(id, write, before => {
         const after: Row = { ...before };
         for (const [key, v] of Object.entries(value as Row)) { if (v === undefined) delete after[key]; else after[key] = v; }
