@@ -244,7 +244,7 @@ describe("numa engine money context", () => {
       fxRates: { EUR: 1, USD: 1 }
     });
 
-    expect(context).toMatchObject({ netWorth: 130, invested: 150, liabilities: 20 });
+    expect(context).toMatchObject({ netWorth: 130, liquid: 150, invested: 0, liabilities: 20 });
     expect(context.onChainWallets[0]).toMatchObject({
       label: "Main wallet",
       totalUsd: 130,
@@ -328,8 +328,8 @@ describe("numa engine money context", () => {
     });
 
     expect(context).toMatchObject({
-      liquid: 50,
-      invested: 75,
+      liquid: 125,
+      invested: 0,
       liabilities: 10,
       netWorth: 115
     });

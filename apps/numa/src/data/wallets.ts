@@ -1,6 +1,7 @@
 import type { CloudWallet } from '@/cloud/api';
+import { countedWalletsCents } from '../../../../convex/lib/countedWallets';
 import type { Attention, Currency, Debt, Holding } from '@/domain/types';
-import { convertCents, type FxRate } from './fx';
+import type { FxRate } from './fx';
 
 const HOUR = 3_600_000;
 /** Balances are checked every 30 minutes; after this long the value is called out as old. */
@@ -37,10 +38,10 @@ export function walletHolding(w: CloudWallet, currency: Currency, fx: FxRate | n
   const base = { id: w.id, name: w.label, category: 'crypto' as const, liquidity: { kind: 'liquid' } as const };
   const s = w.snapshot;
   if (!s) return { ...base, valuation: { kind: 'missing', lastKnownCents: null, lastKnownAt: null } };
-  const debtUsd = s.debtValueUsd ?? 0;
-  const valueCents = convertCents(Math.round((s.totalValueUsd + debtUsd) * 100), 'USD', currency, fx);
-  const debtCents = convertCents(Math.round(debtUsd * 100), 'USD', currency, fx);
-  if (valueCents === null || debtCents === null) return 'unconverted';
+  const share = countedWalletsCents([w], currency, fx?.usdPerEur ?? null);
+  if (share === 'unconverted') return 'unconverted';
+  const valueCents = share.ownedCents;
+  const debtCents = share.owedCents;
   if (debtCents > 0) debts.push({ id: walletLoanId(w.id), name: `${w.label} loan`, balanceCents: debtCents });
   const asOf = new Date(s.updatedAt).toISOString();
   const raisedAt = new Date(now).toISOString();

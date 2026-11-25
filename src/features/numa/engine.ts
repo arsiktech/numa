@@ -12,10 +12,10 @@ import type {
 } from "@/lib/types";
 import { rollupNetWorth } from "@/lib/analytics";
 import {
-  cryptoCapitalAmounts,
   cryptoWalletLabelForAi,
   walletSnapshotIsFresh
 } from "@/lib/cryptoWallets";
+import { withWallets } from "@/lib/withWallets";
 import { UNKNOWN_FX_RATES } from "@/lib/fx";
 import {
   AI_CONTEXT_CHAIN_LIMIT,
@@ -109,15 +109,10 @@ export function buildContext({
   fxRates
 }: NumaChatContextInput) {
   const rates = fxRates ?? UNKNOWN_FX_RATES;
-  const breakdown = rollupNetWorth(assets, holdings, liabilities, quotes, {
+  const breakdown = withWallets(rollupNetWorth(assets, holdings, liabilities, quotes, {
     rates,
     currency: portfolio.defaultCurrency
-  });
-  const cryptoCapital = cryptoCapitalAmounts(
-    cryptoWallets ?? [],
-    rates,
-    portfolio.defaultCurrency
-  );
+  }), cryptoWallets ?? [], portfolio.defaultCurrency, rates);
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   // The chat API still validates with z.enum(["EUR","USD"]); narrow non-supported
   // currencies down to EUR for the chat context so the user gets a useful reply
@@ -128,10 +123,10 @@ export function buildContext({
       name: boundedContextString(portfolio.name, AI_CONTEXT_NAME_LIMIT),
       defaultCurrency: apiCurrency
     },
-    netWorth: Math.round(breakdown.netWorth + cryptoCapital.net),
+    netWorth: Math.round(breakdown.netWorth),
     liquid: Math.round(breakdown.liquid),
-    invested: Math.round(breakdown.invested + cryptoCapital.assets),
-    liabilities: Math.round(breakdown.liabilities + cryptoCapital.debts),
+    invested: Math.round(breakdown.invested),
+    liabilities: Math.round(breakdown.liabilities),
     categories: categories.slice(0, 100).map((c) => ({
       id: boundedContextString(c.id, AI_CONTEXT_ID_LIMIT),
       name: boundedContextString(c.name, AI_CONTEXT_NAME_LIMIT),

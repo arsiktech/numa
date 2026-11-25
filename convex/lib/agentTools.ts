@@ -204,7 +204,7 @@ const SECTIONS = ["assets", "liabilities", "holdings", "goals", "categories", "r
 const TOOLS: AgentTool[] = [
   {
     name: "get_overview", title: "Overview", write: false,
-    description: "Start here. Net worth and its parts for a space, this month's income and spending, tracked wallets, goals and the latest saved history point. Amounts are in the space currency unless named _usd.",
+    description: "Start here. Net worth and its parts for a space, this month's income and spending, tracked wallets, goals and the latest saved history point. Totals include every tracked wallet that is counted in net worth: coins and deposits are in liquid, borrowings are in owed. Amounts are in the space currency unless named _usd.",
     inputSchema: schema({ space_id: spaceId }),
     async run(io, args) {
       const space = await resolveSpace(io, args);
@@ -216,7 +216,7 @@ const TOOLS: AgentTool[] = [
         as_of: iso(io.now()),
         totals: { net_worth: d.netWorth, liquid: d.liquid, invested: d.invested, hard_assets: d.hardAssets, owed: d.liabilities },
         this_month: { income: d.monthIncome, spending: d.monthExpenses, kept: d.monthCashflow },
-        note: "totals do not include tracked wallets; each wallet's value is listed in US dollars under wallets.",
+        note: "Totals are in the space currency and already include every checked wallet that is counted in net worth (coins and deposits in liquid, borrowings in owed). The wallet rows below are those same balances in US dollars — do not add them on top. A wallet that has not been checked yet is left out, not counted as zero. A saved history point keeps the numbers it was stored with.",
         wallets: wallets.map((w) => walletSummary(w, false)),
         counts: { assets: snap.assets.length, liabilities: snap.liabilities.length, holdings: snap.holdings.length, transactions: snap.transactions.length, goals: snap.goals.length },
         goals: snap.goals,
@@ -271,7 +271,7 @@ const TOOLS: AgentTool[] = [
   },
   {
     name: "get_history", title: "Net worth history", write: false,
-    description: "Saved net worth over time, oldest first, each point split into liquid, invested, hard assets and owed, with positions where they were saved.",
+    description: "Saved net worth over time, oldest first, each point split into liquid, invested, hard assets and owed, with positions where they were saved. Points saved from now on include tracked wallets the same way the overview does. Older points stay as they were stored.",
     inputSchema: schema({ space_id: spaceId, from: str("First day, like 2025-01-01."), to: str("Last day.") }),
     async run(io, args) {
       const space = await resolveSpace(io, args);
@@ -583,7 +583,7 @@ const TOOLS: AgentTool[] = [
   {
     name: "save_history_point", title: "Save a net worth history point", write: true,
     description: "Add a past or current net worth point to the history chart. net_worth must equal liquid + invested + hard_assets - owed.",
-    inputSchema: schema({ space_id: spaceId, date: str("Day, like 2025-06-30."), net_worth: num("Net worth."), liquid: num("Cash and easy-to-sell."), invested: num("Stocks, funds, crypto."), hard_assets: num("Property, vehicles, things."), owed: num("Total debts, positive.", { minimum: 0 }), currency, label: str("Optional note."), request_id: requestId }, ["date", "net_worth", "liquid", "invested", "hard_assets", "owed"]),
+    inputSchema: schema({ space_id: spaceId, date: str("Day, like 2025-06-30."), net_worth: num("Net worth."), liquid: num("Cash, plus coins and deposits in tracked wallets."), invested: num("Stocks, funds and other recorded holdings."), hard_assets: num("Property, vehicles, things."), owed: num("Total debts, including what tracked wallets have borrowed.", { minimum: 0 }), currency, label: str("Optional note."), request_id: requestId }, ["date", "net_worth", "liquid", "invested", "hard_assets", "owed"]),
     async run(io, args) {
       const space = await resolveSpace(io, args);
       return io.mutation("wealthSnapshots:add", {
@@ -614,6 +614,7 @@ export const AGENT_INSTRUCTIONS = [
   "You are connected to the user's Numa Pro account: their net worth, cash, investments, crypto wallets, debts, income, spending, goals and history.",
   "Start with get_overview. Use get_records for ids before changing or deleting something.",
   "Amounts are in major units (12.50 means twelve fifty) in the space currency unless a field ends in _usd.",
+  "Overview totals already include tracked wallets that are counted in net worth. Do not add the wallet rows on top of those totals.",
   "A missing price or value is unknown, not zero: say so instead of guessing.",
   "Every change you make is saved at once, shown in the app, and listed for the user under Settings, Agents. Before deleting or making large changes, confirm with the user.",
   "Changes to assets, debts, holdings and wallets are kept in a change history under your connection's name; send a short reason with a change when you know why it is made. get_ledger reads the history.",

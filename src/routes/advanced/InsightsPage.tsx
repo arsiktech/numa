@@ -22,7 +22,7 @@ import { formatMoney } from "@/lib/money";
 import { pageEnter } from "@/lib/motion";
 import { rangeForSelection } from "@/lib/period";
 import type { CurrencyCode } from "@/lib/types";
-import { cryptoCapitalAmounts } from "@/lib/cryptoWallets";
+import { withWallets } from "@/lib/withWallets";
 import { useCryptoWalletSync } from "@/features/crypto/useCryptoWalletSync";
 
 interface Insight {
@@ -48,14 +48,7 @@ export default function InsightsPage() {
   const { rates } = useFxRates();
   const monthRange = useMemo(() => rangeForSelection({ preset: "month" }), []);
   const cashflow = rollupCashflow(transactions, monthRange, { rates, currency });
-  const baseNetWorth = rollupNetWorth(assets, holdings, liabilities, {}, { rates, currency });
-  const cryptoCapital = cryptoCapitalAmounts(cryptoSync.wallets, rates, currency);
-  const netWorth = {
-    ...baseNetWorth,
-    invested: baseNetWorth.invested + cryptoCapital.assets,
-    liabilities: baseNetWorth.liabilities + cryptoCapital.debts,
-    netWorth: baseNetWorth.netWorth + cryptoCapital.net
-  };
+  const netWorth = withWallets(rollupNetWorth(assets, holdings, liabilities, {}, { rates, currency }), cryptoSync.wallets, currency, rates);
   const duplicates = findDuplicateTransactions(transactions);
   const monthName = useMemo(
     () => new Intl.DateTimeFormat(undefined, { month: "long" }).format(new Date()),

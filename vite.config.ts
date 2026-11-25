@@ -3,7 +3,7 @@ import path from "node:path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
-import { loadEnv, type HtmlTagDescriptor, type UserConfig } from "vite";
+import { loadEnv, type HtmlTagDescriptor, type Plugin, type UserConfig } from "vite";
 
 const devFallbackFxRates = {
   EUR: 1,
@@ -231,6 +231,21 @@ function numaPreconnectConvex(env: Record<string, string>) {
   };
 }
 
+/** `@/` is the legacy web `src`, except inside the Expo app, where it is that app's own src. */
+function numaAlias(): Plugin {
+  const legacy = path.resolve(import.meta.dirname, "src");
+  const app = path.resolve(import.meta.dirname, "apps/numa/src");
+  return {
+    name: "numa-alias",
+    enforce: "pre",
+    resolveId(source: string, importer: string | undefined) {
+      if (!source.startsWith("@/")) return null;
+      const root = importer?.includes(`${path.sep}apps${path.sep}numa${path.sep}`) ? app : legacy;
+      return this.resolve(path.resolve(root, source.slice(2)), importer, { skipSelf: true });
+    }
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   return {
@@ -241,6 +256,7 @@ export default defineConfig(({ mode }) => {
   // Vite's type leaves `tsconfig` out, but passes it through to the oxc transform.
   ...(process.env.VITEST ? { oxc: { tsconfig: false } as unknown as UserConfig["oxc"] } : {}),
   plugins: [
+    numaAlias(),
     numaDevApiFallbacks(),
     numaPreconnectConvex(env),
     react(),
@@ -287,11 +303,6 @@ export default defineConfig(({ mode }) => {
       }
     })
   ],
-  resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "src")
-    }
-  },
   server: {
     port: 5173,
     strictPort: true
