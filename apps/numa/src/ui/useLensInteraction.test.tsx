@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler/jestSetup';
 import { useLayoutEffect } from 'react';
 import { Pressable } from 'react-native';
-import { PointerType, State, type GestureStateManager, type GestureTouchEvent, type PanGesture } from 'react-native-gesture-handler';
+import { PointerType, State, type GestureTouchEvent, type LegacyGestureStateManager as GestureStateManager, type LegacyPanGesture as PanGesture } from 'react-native-gesture-handler';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { barRects } from './lens';
@@ -46,6 +46,8 @@ jest.mock('react-native-reanimated', () => {
   }
   return {
     __esModule: true,
+    // gesture-handler 3 wraps its detector with Reanimated's createAnimatedComponent at import.
+    default: { createAnimatedComponent: <T,>(component: T) => component },
     useSharedValue, useAnimatedReaction,
     runOnJS: <Args extends unknown[], Result>(fn: (...args: Args) => Result) => fn,
     setGestureState: jest.fn(),

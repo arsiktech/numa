@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, Tabs, type TabTriggerSlotProps } from 'expo-router/ui';
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, type ReactNode, type ComponentRef } from 'react';
 import { Platform, Pressable, View, useWindowDimensions, type View as RNView, type ViewProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,7 +24,7 @@ const sideRow = (pressed: boolean, backgroundColor = 'transparent'): ViewStyle =
 
 type ItemProps = TabTriggerSlotProps & { label: string; icon: (color: string) => ReactNode; wide: boolean };
 
-const NavItem = forwardRef<RNView, ItemProps>(function NavItem({ isFocused, label, icon, wide, ...props }, ref) {
+const NavItem = forwardRef<ComponentRef<typeof RNView>, ItemProps>(function NavItem({ isFocused, label, icon, wide, ...props }, ref) {
   const { c } = useTheme();
   const color = isFocused ? c.ink : c.ink3;
   if (wide) {
@@ -65,7 +65,7 @@ export function MiniWordmark() {
 type ContainerProps = ViewProps & { wide: boolean; bottom: number };
 
 /** Receives TabList's props through asChild, so the triggers stay direct descendants the router can find. */
-const NavContainer = forwardRef<RNView, ContainerProps>(function NavContainer({ wide, bottom, style, children, ...props }, ref) {
+const NavContainer = forwardRef<ComponentRef<typeof RNView>, ContainerProps>(function NavContainer({ wide, bottom, style, children, ...props }, ref) {
   const { c } = useTheme();
   if (wide) {
     return (

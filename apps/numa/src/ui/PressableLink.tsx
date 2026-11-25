@@ -1,5 +1,5 @@
 import { Link, type Href } from 'expo-router';
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, type ReactNode, type ComponentRef } from 'react';
 import { Pressable, type PressableProps, type View, type ViewStyle } from 'react-native';
 
 type InnerProps = Omit<PressableProps, 'style' | 'children'> & {
@@ -10,7 +10,7 @@ type InnerProps = Omit<PressableProps, 'style' | 'children'> & {
   style?: unknown;
 };
 
-const Inner = forwardRef<View, InnerProps>(function Inner({ look, style: _merged, ...props }, ref) {
+const Inner = forwardRef<ComponentRef<typeof View>, InnerProps>(function Inner({ look, style: _merged, ...props }, ref) {
   return <Pressable ref={ref} accessibilityRole="link" {...props} style={({ pressed }) => look(pressed)} />;
 });
 

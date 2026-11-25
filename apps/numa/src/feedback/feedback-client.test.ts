@@ -1,7 +1,14 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment node
  */
+import { JSDOM } from 'jsdom';
+
 import { feedbackCloneSkips } from './feedback-client';
+
+// React Native 0.88's Jest setup redefines `window`, which the jsdom test environment
+// does not allow, so this test builds its own document. feedbackCloneSkips only reads
+// node.ownerDocument.defaultView, so behaviour is the same as in a browser page.
+const { document } = new JSDOM('<!doctype html><html><body></body></html>').window;
 
 test('the screenshot clone skips nodes that are not shown', () => {
   const shown = document.createElement('p');

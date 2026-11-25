@@ -1,52 +1,38 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const { createRequire } = require('node:module');
 const { test } = require('node:test');
 
-// Exercise the actual Expo CLI consumers when overriding their Zod major version.
+// SDK 57's Expo CLI validated dev-tools plugins with Zod, so this file exercised those
+// schemas under the Zod override. From SDK 58 the CLI uses plain JSON schemas and no
+// longer depends on Zod. Keep guarding the two things that still matter: the CLI does
+// not pull Zod back in, and every installed Zod is the patched override version.
 const fromExpo = createRequire(require.resolve('expo/package.json'));
 const cliPackage = fromExpo.resolve('@expo/cli/package.json');
-const fromCli = createRequire(cliPackage);
-const cliServer = path.join(path.dirname(cliPackage), 'build/src/start/server');
-const { PluginSchema, DevToolsPluginOutputSchema } = require(path.join(cliServer, 'DevToolsPlugin.schema.js'));
-const { createMCPDevToolsExtensionSchema } = require(path.join(cliServer, 'createMCPDevToolsExtensionSchema.js'));
+const cli = JSON.parse(fs.readFileSync(cliPackage, 'utf8'));
+const appPackage = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 
-const plugin = {
-  packageName: 'example-devtools',
-  packageRoot: '/example',
-  cliExtensions: {
-    description: 'Synthetic compatibility fixture',
-    entryPoint: 'example.cjs',
-    commands: [{
-      name: 'inspect',
-      title: 'Inspect fixture',
-      environments: ['cli', 'mcp'],
-      parameters: [
-        { name: 'label', type: 'text' },
-        { name: 'count', type: 'number' },
-        { name: 'approved', type: 'confirm' },
-      ],
-    }],
-  },
-};
+function installedZodVersions(dir, found = new Set()) {
+  const modules = path.join(dir, 'node_modules');
+  if (!fs.existsSync(modules)) return found;
+  for (const entry of fs.readdirSync(modules)) {
+    const scoped = entry.startsWith('@') ? fs.readdirSync(path.join(modules, entry)).map((name) => path.join(entry, name)) : [entry];
+    for (const name of scoped) {
+      const pkgDir = path.join(modules, name);
+      if (name === 'zod') found.add(JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8')).version);
+      installedZodVersions(pkgDir, found);
+    }
+  }
+  return found;
+}
 
-test('Expo CLI resolves the patched Zod package', () => {
-  assert.equal(fromCli('zod/package.json').version, '4.6.7');
+test('Expo CLI no longer depends on Zod', () => {
+  assert.equal(cli.dependencies?.zod, undefined);
+  assert.equal(cli.optionalDependencies?.zod, undefined);
 });
 
-test('Expo plugin and output schemas preserve valid and invalid parsing', () => {
-  assert.equal(PluginSchema.safeParse(plugin).success, true);
-  assert.equal(PluginSchema.safeParse({ ...plugin, packageName: '' }).success, false);
-  assert.equal(PluginSchema.safeParse({ ...plugin, cliExtensions: { ...plugin.cliExtensions, commands: [] } }).success, false);
-  assert.equal(DevToolsPluginOutputSchema.safeParse([{ type: 'text', text: 'Fixture output', level: 'info' }]).success, true);
-  assert.equal(DevToolsPluginOutputSchema.safeParse([{ type: 'text', text: 'Fixture output', level: 'invalid' }]).success, false);
-});
-
-test('Expo MCP command schema preserves parameter types and strict keys', () => {
-  const schema = createMCPDevToolsExtensionSchema(plugin);
-  assert.equal(schema.safeParse({ command: 'inspect', label: 'fixture', count: 1, approved: true }).success, true);
-  assert.equal(schema.safeParse({ command: 'inspect' }).success, true);
-  assert.equal(schema.safeParse({ command: 'unknown' }).success, false);
-  assert.equal(schema.safeParse({ command: 'inspect', count: '1' }).success, false);
-  assert.equal(schema.safeParse({ command: 'inspect', unexpected: true }).success, false);
+test('every installed Zod is the patched override version', () => {
+  const versions = installedZodVersions(path.join(__dirname, '..'));
+  for (const version of versions) assert.equal(version, appPackage.overrides.zod);
 });
