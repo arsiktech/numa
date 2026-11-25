@@ -11,6 +11,7 @@ import { AISharingSection } from '@/settings/AISharingSection';
 import { AlertsSection } from '@/settings/AlertsSection';
 import { FeedbackSection } from '@/settings/FeedbackSection';
 import { Action, Row, Section } from '@/settings/rows';
+import { SharedBalancesSection } from '@/settings/SharedBalancesSection';
 import { SpaceSection } from '@/settings/SpaceSection';
 import { WalletSection } from '@/settings/WalletSection';
 import { usePrefs, type ThemeChoice } from '@/state/prefs';
@@ -44,6 +45,7 @@ export default function Settings() {
         {session.kind === 'signedIn' && <DeletionBanner />}
         {session.kind === 'signedIn' && <SpaceSection />}
         {session.kind === 'signedIn' && <AgentSection />}
+        {session.kind === 'signedIn' && <SharedBalancesSection />}
         {session.kind === 'signedIn' && <AISharingSection />}
 
         <Section title="APPEARANCE" />

@@ -39,6 +39,8 @@ export type CloudAsset = {
   costBasis?: number | null;
   acquiredAt?: number | null;
   updatedAt: number;
+  /** Set when this record follows a household counterparty. The key is not included. */
+  sharedSync?: { householdId: string; unitId: string; checkedAt: number; readingAt?: number | null; stale: boolean } | null;
 };
 
 export type CloudLiability = {
@@ -66,6 +68,8 @@ export type CloudLiability = {
   /** Who it is owed to; debts to one party group together. */
   counterparty?: string | null;
   updatedAt: number;
+  /** Set when this record follows a household counterparty. The key is not included. */
+  sharedSync?: { householdId: string; unitId: string; checkedAt: number; readingAt?: number | null; stale: boolean } | null;
 };
 
 export type CloudHolding = {
@@ -228,6 +232,9 @@ type WithReceipt<T> = T & { clientMutationId: string };
 /** A debt kept in step with a company portal; the portal's key never comes back from the server. */
 export type PortalSource = { liabilityId: string | null; assetId: string | null; label: string | null; host: string; status: 'ok' | 'incomplete' | 'failed' | null; message: string | null; checkedAt: number | null; readingAt: number | null };
 
+/** A household whose balances this space copies. The key never comes back from the server. */
+export type SharedLink = { id: string; householdId: string; status: 'ok' | 'stale' | null; message: string | null; checkedAt: number | null; readingAt: number | null };
+
 /** One way into the account. `label` is that method's own address when known. */
 export type CloudSignInMethod = { id: string; kind: 'apple' | 'google' | 'password'; label: string | null; removable: boolean };
 export type CloudSignInMethods = {
@@ -285,6 +292,10 @@ export const cloud = {
   setLoanTerms: makeFunctionReference<'mutation', WithReceipt<{ id: string; principal?: number | null; startedAt?: number | null; dueKind?: 'fixed' | 'flexible' | null; interestTerms?: 'none' | 'simple' | 'manual' | null; interestRate?: number | null; interestDueDay?: number | null; dueDate?: number | null; note?: { text: string; occurredAt: number } }>, Receipt>('liabilities:setTerms'),
   removeDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt | null>('debtEvents:remove'),
   portalSources: makeFunctionReference<'query', { portfolioId: string }, PortalSource[]>('liabilitySources:listForPortfolio'),
+  sharedLinks: makeFunctionReference<'query', { portfolioId: string }, SharedLink[]>('sharedLinks:listForPortfolio'),
+  connectShared: makeFunctionReference<'mutation', { portfolioId: string; householdId: string; token: string }, { id: string }>('sharedLinks:connect'),
+  syncShared: makeFunctionReference<'mutation', { id: string }, null>('sharedLinks:syncNow'),
+  disconnectShared: makeFunctionReference<'mutation', { id: string }, null>('sharedLinks:disconnect'),
   recordHistory: makeFunctionReference<'query', { portfolioId: string; recordId?: string; recordType?: 'asset' | 'liability' | 'holding' | 'wallet'; limit?: number; cursor?: string | null }, { entries: RecordChange[]; cursor: string | null }>('recordHistory:list'),
   deletedRecords: makeFunctionReference<'query', { portfolioId: string; limit?: number }, RecordChange[]>('recordHistory:deleted'),
   followPortal: makeFunctionReference<'mutation', { liabilityId: string; url: string; key?: string }, { id: string }>('liabilitySources:connect'),
