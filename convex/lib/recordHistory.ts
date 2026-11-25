@@ -105,11 +105,18 @@ export function changesFor(table: Tracked, id: string, before: Row | null, after
   if (!before) return [{ ...base, action: "created", values: valuesOf(row, fields) }];
   if (!after) return [{ ...base, action: "deleted", values: valuesOf(before, fields) }];
   const changes: ChangeDraft[] = [];
+  const MONEY_FIELDS = new Set(["balance", "costBasis", "principal"]);
   for (const field of fields) {
     const oldValue = asValue(before[field]);
     const newValue = asValue(after[field]);
     if (oldValue === newValue) continue;
-    changes.push({ ...base, action: "changed", field, ...(oldValue === undefined ? {} : { oldValue }), ...(newValue === undefined ? {} : { newValue }) });
+    const currency = MONEY_FIELDS.has(field) ? asValue(after.currency) ?? asValue(before.currency) : undefined;
+    changes.push({
+      ...base, action: "changed", field,
+      ...(oldValue === undefined ? {} : { oldValue }),
+      ...(newValue === undefined ? {} : { newValue }),
+      ...(typeof currency === "string" ? { values: { currency } } : {}),
+    });
   }
   return changes;
 }
