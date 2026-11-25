@@ -5,14 +5,14 @@ import { AGENT_TOOLS, AgentInputError, toMs, toolsFor, type AgentIo } from "./li
 const NOW = Date.UTC(2026, 9, 17, 9);
 const tool = (name: string) => AGENT_TOOLS.find((t) => t.name === name)!;
 
-function fakeIo(snapshot: Record<string, unknown> = {}) {
+function fakeIo(snapshot: Record<string, unknown> = {}, wallets: unknown[] = []) {
   const calls: Array<[string, string, Record<string, unknown>]> = [];
   const spaces = [{ id: "p1", name: "Personal", defaultCurrency: "EUR" }, { id: "p2", name: "Studio", defaultCurrency: "USD" }];
   const io: AgentIo = {
     query: async (path, args) => {
       calls.push(["query", path, args]);
       if (path === "spaces:listMine") return spaces;
-      if (path === "cryptoWallets:listForPortfolio") return [];
+      if (path === "cryptoWallets:listForPortfolio") return wallets;
       if (path === "mobile:portfolioSnapshot") return snapshot;
       throw new Error(`unexpected ${path}`);
     },
@@ -173,6 +173,38 @@ describe("agent tools", () => {
     });
     const out = (await tool("get_overview").run(f.io, {})) as Record<string, unknown>;
     expect(out).toMatchObject({ space: { id: "p1", currency: "EUR" }, totals: { net_worth: 1000, owed: 100 }, this_month: { kept: 30 }, counts: { holdings: 2 }, latest_history_point: { netWorth: 900 } });
+  });
+
+  it("shows a wallet's gross assets beside its net value and leaves the totals unchanged", async () => {
+    const totals = { net_worth: 1000, liquid: 400, invested: 500, hard_assets: 200, owed: 100 };
+    const dash = { currency: "EUR", netWorth: 1000, liquid: 400, invested: 500, hardAssets: 200, liabilities: 100, monthIncome: 50, monthExpenses: 20, monthCashflow: 30 };
+    const frame = {
+      _id: "w1", label: "Frame", address: "0x0000000000000000000000000000000000000001", addressType: "evm", includeInNetWorth: true,
+      snapshot: { totalValueUsd: 73_000, debtValueUsd: 36_000, tokens: [{ symbol: "ETH" }], defiPositions: [], failedChains: [], updatedAt: NOW, partial: false },
+    };
+    const aside = { ...frame, _id: "w2", label: "Left out", includeInNetWorth: false, snapshot: { ...frame.snapshot, partial: true, totalValueUsd: 9_999 } };
+    const waiting = { _id: "w3", label: "Waiting", address: frame.address, addressType: "evm", includeInNetWorth: true };
+    const snap = { dashboard: dash, assets: [{}], liabilities: [], holdings: [], transactions: [], goals: [], wealthSnapshots: [] };
+    const overview = (await tool("get_overview").run(fakeIo(snap, [frame, aside, waiting]).io, {})) as {
+      totals: typeof totals; note: string; wallets: Array<{ label: string; value_usd: number | null; assets_usd: number | null; borrowed_usd: number }>;
+    };
+    const row = overview.wallets[0]!;
+    expect(overview.totals).toEqual(totals);
+    expect(row).toMatchObject({ label: "Frame", value_usd: 73_000, borrowed_usd: 36_000 });
+    expect(row.assets_usd).toBe(row.value_usd! + row.borrowed_usd);
+    expect(overview.wallets[2]).toMatchObject({ label: "Waiting", value_usd: null, assets_usd: null, borrowed_usd: 0 });
+    expect(overview.note).toContain("value_usd is already net of borrowing");
+    expect(overview.note).toContain("Do not add value_usd and borrowed_usd");
+    expect(overview.note).not.toContain("incomplete");
+
+    const records = (await tool("get_records").run(fakeIo(snap, [frame]).io, { sections: ["wallets"] })) as { wallets: Array<{ assets_usd: number; value_usd: number; borrowed_usd: number; tokens: unknown[] }> };
+    expect(records.wallets[0]!.assets_usd).toBe(records.wallets[0]!.value_usd + records.wallets[0]!.borrowed_usd);
+    expect(records.wallets[0]!.tokens).toEqual([{ symbol: "ETH" }]);
+
+    const partial = { ...frame, snapshot: { ...frame.snapshot, partial: true } };
+    const flagged = (await tool("get_overview").run(fakeIo(snap, [partial]).io, {})) as { totals: typeof totals; note: string };
+    expect(flagged.totals).toEqual(totals);
+    expect(flagged.note).toContain("Frame is incomplete, so the totals may be partial");
   });
 
   it("links a loan to where its money went as typed targets, with a receipt id", async () => {

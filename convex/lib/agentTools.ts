@@ -170,12 +170,20 @@ const iso = (ms: number | undefined | null) => (typeof ms === "number" ? new Dat
 
 function walletSummary(w: WalletDoc, detail: boolean) {
   const s = w.snapshot;
+  const value = s ? s.totalValueUsd : null;
+  const borrowed = s?.debtValueUsd ?? 0;
   return {
     id: w._id, label: w.label, address: w.address, type: w.addressType, counted_in_net_worth: w.includeInNetWorth,
-    value_usd: s ? s.totalValueUsd : null, borrowed_usd: s?.debtValueUsd ?? 0,
+    // value_usd is already net of borrowing. assets_usd is the gross (tokens plus lending supplied).
+    value_usd: value, assets_usd: value === null ? null : value + borrowed, borrowed_usd: borrowed,
     checked_at: iso(s?.updatedAt), incomplete: s ? s.partial : null, unreachable_chains: s?.failedChains ?? [],
     ...(detail && s ? { tokens: s.tokens, lending: s.defiPositions ?? [] } : {}),
   };
+}
+
+/** Counted wallets whose last check was incomplete, so the overview total may be missing part of them. */
+function incompleteCounted(wallets: WalletDoc[]) {
+  return wallets.filter((w) => w.includeInNetWorth && w.snapshot?.partial);
 }
 
 type HistoryRow = {
@@ -204,19 +212,23 @@ const SECTIONS = ["assets", "liabilities", "holdings", "goals", "categories", "r
 const TOOLS: AgentTool[] = [
   {
     name: "get_overview", title: "Overview", write: false,
-    description: "Start here. Net worth and its parts for a space, this month's income and spending, tracked wallets, goals and the latest saved history point. Totals include every tracked wallet that is counted in net worth: coins and deposits are in liquid, borrowings are in owed. Amounts are in the space currency unless named _usd.",
+    description: "Start here. Net worth and its parts for a space, this month's income and spending, tracked wallets, goals and the latest saved history point. Totals include every tracked wallet that is counted in net worth: coins and deposits are in liquid, borrowings are in owed. On a wallet, value_usd is already net of borrowing, borrowed_usd is what was subtracted, and assets_usd is the gross (value_usd + borrowed_usd). Do not add value_usd and borrowed_usd. Amounts are in the space currency unless named _usd.",
     inputSchema: schema({ space_id: spaceId }),
     async run(io, args) {
       const space = await resolveSpace(io, args);
       const [snap, wallets] = await Promise.all([snapshotOf(io, space), walletsOf(io, space)]);
       const d = snap.dashboard;
       const last = snap.wealthSnapshots[snap.wealthSnapshots.length - 1];
+      const gaps = incompleteCounted(wallets);
+      const partial = gaps.length
+        ? ` Counted ${gaps.length === 1 ? "wallet" : "wallets"} ${gaps.map((w) => w.label).join(", ")} ${gaps.length === 1 ? "is" : "are"} incomplete, so the totals may be partial.`
+        : "";
       return {
         space: { id: space.id, name: space.name, currency: d.currency },
         as_of: iso(io.now()),
         totals: { net_worth: d.netWorth, liquid: d.liquid, invested: d.invested, hard_assets: d.hardAssets, owed: d.liabilities },
         this_month: { income: d.monthIncome, spending: d.monthExpenses, kept: d.monthCashflow },
-        note: "Totals are in the space currency and already include every checked wallet that is counted in net worth (coins and deposits in liquid, borrowings in owed). The wallet rows below are those same balances in US dollars — do not add them on top. A wallet that has not been checked yet is left out, not counted as zero. A saved history point keeps the numbers it was stored with.",
+        note: "Totals are in the space currency and already include every checked wallet that is counted in net worth (coins and deposits in liquid, borrowings in owed). Do not add the wallet rows on top. On each wallet, value_usd is already net of borrowing; borrowed_usd is what was subtracted, and assets_usd is the gross (value_usd + borrowed_usd). Do not add value_usd and borrowed_usd. A wallet that has not been checked yet is left out, not counted as zero. A saved history point keeps the numbers it was stored with." + partial,
         wallets: wallets.map((w) => walletSummary(w, false)),
         counts: { assets: snap.assets.length, liabilities: snap.liabilities.length, holdings: snap.holdings.length, transactions: snap.transactions.length, goals: snap.goals.length },
         goals: snap.goals,
@@ -232,7 +244,7 @@ const TOOLS: AgentTool[] = [
   },
   {
     name: "get_records", title: "Get records", write: false,
-    description: "Everything recorded in a space: assets (cash and property), liabilities, holdings (stocks, funds, crypto) with live values, goals, categories with spending limits, recurring income, business revenue, wallets with their tokens and lending, and loans with where their money went. Use sections to fetch only some.",
+    description: "Everything recorded in a space: assets (cash and property), liabilities, holdings (stocks, funds, crypto) with live values, goals, categories with spending limits, recurring income, business revenue, wallets with their tokens and lending, and loans with where their money went. On a wallet, value_usd is already net of borrowing and assets_usd is the gross (value_usd + borrowed_usd). Do not add value_usd and borrowed_usd. Use sections to fetch only some.",
     inputSchema: schema({ space_id: spaceId, sections: { type: "array", items: { type: "string", enum: [...SECTIONS] }, description: "Which parts to return. Leave out for all." } }),
     async run(io, args) {
       const space = await resolveSpace(io, args);
@@ -615,6 +627,7 @@ export const AGENT_INSTRUCTIONS = [
   "Start with get_overview. Use get_records for ids before changing or deleting something.",
   "Amounts are in major units (12.50 means twelve fifty) in the space currency unless a field ends in _usd.",
   "Overview totals already include tracked wallets that are counted in net worth. Do not add the wallet rows on top of those totals.",
+  "On a wallet, value_usd is already net of borrowing. assets_usd equals value_usd + borrowed_usd. Do not add value_usd and borrowed_usd.",
   "A missing price or value is unknown, not zero: say so instead of guessing.",
   "Every change you make is saved at once, shown in the app, and listed for the user under Settings, Agents. Before deleting or making large changes, confirm with the user.",
   "Changes to assets, debts, holdings and wallets are kept in a change history under your connection's name; send a short reason with a change when you know why it is made. get_ledger reads the history.",
