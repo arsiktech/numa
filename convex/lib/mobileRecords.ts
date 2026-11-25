@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation } from "./functions";
 import { requireEditor } from "./access";
 import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanParty, cleanRequired } from "./inputGuards";
+import { assertHandEditable } from "./sharedSyncGuard";
 import type { Doc } from "../_generated/dataModel";
 import { majorUnits, minorUnits } from "./finance";
 import { withMutationReceipt } from "./mutationReceipts";
@@ -207,6 +208,7 @@ const upsertAsset = mutation({
         if (!existing || String(existing.portfolioId) !== String(args.portfolioId)) {
           throw new ConvexError({ code: "NOT_FOUND", message: "Asset not found" });
         }
+        assertHandEditable(existing);
         // Native upserts resend every field, including unchanged legacy money.
         if (!Object.is(args.balance, existing.balance)) assertAssetBalance(args.balance);
         await assertCashAccountDefinitionChange(ctx, existing, args);
@@ -347,6 +349,7 @@ const upsertLiability = mutation({
         if (!existing || String(existing.portfolioId) !== String(args.portfolioId)) {
           throw new ConvexError({ code: "NOT_FOUND", message: "Liability not found" });
         }
+        assertHandEditable(existing);
         if (!Object.is(balance, existing.balance)) assertAssetBalance(balance);
         // Loan terms are worked out in the debt's own currency, so a debt with them cannot become one owed in a coin.
         if (owed?.owedSymbol && (existing.interestTerms === "simple" || existing.principal !== undefined)) {

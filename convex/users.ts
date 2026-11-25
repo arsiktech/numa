@@ -542,6 +542,11 @@ async function deletePortfolioCascade(
         .take(n),
     (n) =>
       ctx.db
+        .query("sharedLinks")
+        .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))
+        .take(n),
+    (n) =>
+      ctx.db
         .query("defiReadings")
         .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))
         .take(n),

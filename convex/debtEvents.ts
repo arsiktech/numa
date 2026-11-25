@@ -6,6 +6,7 @@ import { requireEditor, requireMember } from "./lib/access";
 import { interestAddProblem } from "./lib/loanAccrual";
 import { cleanSplit, roundAmount } from "./lib/loanTerms";
 import { withMutationReceipt } from "./lib/mutationReceipts";
+import { assertHandEditable } from "./lib/sharedSyncGuard";
 
 const kindValidator = v.union(v.literal("borrowed"), v.literal("repaid"), v.literal("lent"), v.literal("received"), v.literal("note"), v.literal("capitalized"));
 type Kind = Doc<"debtEvents">["kind"];
@@ -129,6 +130,7 @@ export const add = mutation({
     const { userId } = await requireEditor(ctx, args.portfolioId);
     const record = await recordOf(ctx, args.portfolioId, args.subject);
     if (!record) throw new ConvexError({ code: "NOT_FOUND", message: "That debt isn't in this space" });
+    assertHandEditable(record.doc);
     const owedToYou = record.table === "assets";
     if (owedToYou && !record.doc.owedBy) throw bad("Mark who owes this money first");
     if (args.kind !== "note" && (owedToYou ? !["lent", "received"].includes(args.kind) : !["borrowed", "repaid", "capitalized"].includes(args.kind))) {

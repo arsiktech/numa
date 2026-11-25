@@ -30,6 +30,15 @@ export const snapshotLine = v.object({
   amount: v.number()
 });
 
+/** Set on a record Numa Shared keeps up to date. Its amount is not a hand-entered value. */
+const sharedSync = v.optional(v.object({
+  householdId: v.string(),
+  unitId: v.string(),
+  checkedAt: v.number(),
+  readingAt: v.optional(v.number()),
+  stale: v.boolean(),
+}));
+
 export default defineSchema({
   ...authTables,
   // Optional server-only provenance. Other SDK fields/indexes stay unchanged.
@@ -299,6 +308,8 @@ export default defineSchema({
     costBasis: v.optional(v.number()),
     /** When it was bought. */
     acquiredAt: v.optional(v.number()),
+    /** Present when this receivable follows a Numa Shared counterparty. */
+    sharedSync,
     updatedAt: v.number()
   }).index("by_portfolio", ["portfolioId"]),
 
@@ -342,6 +353,8 @@ export default defineSchema({
     interestTerms: v.optional(v.union(v.literal("none"), v.literal("simple"), v.literal("manual"))),
     /** The day of the month (1 to 28) interest is due by, for simple interest. Accrual does not use it; it only says when to pay. */
     interestDueDay: v.optional(v.number()),
+    /** Present when this debt follows a Numa Shared counterparty. */
+    sharedSync,
     updatedAt: v.number()
   }).index("by_portfolio", ["portfolioId"]),
 
@@ -387,6 +400,22 @@ export default defineSchema({
     createdBy: v.id("users"),
     createdAt: v.number()
   }).index("by_portfolio", ["portfolioId"]).index("by_liability", ["liabilityId"]).index("by_asset", ["assetId"]),
+
+  /**
+   * A Numa Shared household whose balances this space copies. `token` is the read-only key and
+   * never leaves the server. One row per household. The records it keeps are marked `sharedSync`.
+   */
+  sharedLinks: defineTable({
+    portfolioId: v.id("portfolios"),
+    householdId: v.string(),
+    token: v.string(),
+    status: v.optional(v.union(v.literal("ok"), v.literal("stale"))),
+    message: v.optional(v.string()),
+    checkedAt: v.optional(v.number()),
+    readingAt: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_portfolio", ["portfolioId"]).index("by_household", ["portfolioId", "householdId"]),
 
   /**
    * What happened to a debt, newest last: money taken, paid back, lent or received, or a note. A

@@ -82,6 +82,7 @@ export function mobileAsset(asset: Doc<"assets">) {
     owedBy: asset.owedBy ?? null,
     costBasis: asset.costBasis ?? null,
     acquiredAt: asset.acquiredAt ?? null,
+    sharedSync: asset.sharedSync ?? null,
     updatedAt: asset.updatedAt
   };
 }
@@ -116,6 +117,7 @@ export function mobileLiability(liability: Doc<"liabilities"> & { owedPriceAt?: 
     owedQuantity: liability.owedQuantity ?? null,
     owedPriceAt: liability.owedPriceAt ?? null,
     counterparty: liability.counterparty ?? null,
+    sharedSync: liability.sharedSync ?? null,
     updatedAt: liability.updatedAt
   };
 }

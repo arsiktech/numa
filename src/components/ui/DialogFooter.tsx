@@ -36,6 +36,8 @@ interface DialogFooterProps {
   submitLabel: string;
   submitIcon?: ReactNode;
   busy?: boolean;
+  /** A synced record has no hand-entered amount to save. */
+  hideSubmit?: boolean;
 }
 
 /** The shared Cancel / Delete / Save footer used by every record dialog. */
@@ -47,7 +49,8 @@ export function DialogFooter({
   onClose,
   submitLabel,
   submitIcon,
-  busy
+  busy,
+  hideSubmit
 }: DialogFooterProps) {
   return (
     <div className="flex items-center justify-between gap-2 pt-2 flex-wrap">
@@ -63,10 +66,12 @@ export function DialogFooter({
         <Button type="button" variant="ghost" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="submit" variant="primary" disabled={busy}>
-          {submitIcon}
-          {submitLabel}
-        </Button>
+        {hideSubmit ? null : (
+          <Button type="submit" variant="primary" disabled={busy}>
+            {submitIcon}
+            {submitLabel}
+          </Button>
+        )}
       </div>
     </div>
   );

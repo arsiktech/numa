@@ -49,6 +49,7 @@ import { LanguageCard, PortfoliosCard } from "../Profile";
 import { DeleteAccountDialog, FailedAuditedWritesNotice, SecurityCard, WriteRecoveryNotice } from "../Security";
 import { LightSettingsSurface, ReferenceSettingsSurface } from "../Surfaces";
 import { WebhooksCard } from "../Webhooks";
+import { SharedBalancesCard } from "../SharedBalances";
 import { DeletedRecordsCard } from "@/components/features/DeletedRecords";
 import { CategoriesSettings } from "../Categories";
 export function SettingsPage() {
@@ -362,6 +363,8 @@ export function SettingsPage() {
           {cloudPushAvailable ? <CloudNotificationsCard /> : <LocalNotificationsCard />}
 
           {isCloudEnabled && currentAccount.isCloud ? <WebhooksCard /> : null}
+
+          {isCloudEnabled && currentAccount.isCloud ? <SharedBalancesCard /> : null}
 
           {isCloudEnabled && currentAccount.isCloud ? <DeletedRecordsCard /> : null}
         </div>

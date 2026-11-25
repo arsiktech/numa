@@ -556,7 +556,16 @@ export const en = {
   "period.preset.this-quarter": "This quarter",
   "period.preset.last-quarter": "Last quarter",
   "period.preset.year": "This year",
-  "period.preset.last-year": "Last year"
+  "period.preset.last-year": "Last year",
+  "settings.sharedTitle": "Shared balances",
+  "settings.sharedSubtitle": "Copy what a household owes you, and what you owe. Numa Pro only reads.",
+  "settings.sharedHousehold": "Household id",
+  "settings.sharedKey": "Numa Pro key",
+  "settings.sharedConnect": "Connect",
+  "settings.sharedSync": "Sync now",
+  "settings.sharedDisconnect": "Disconnect",
+  "settings.sharedStale": "The last read failed. The saved amount is unchanged.",
+  "settings.sharedEmpty": "No household connected yet."
 } satisfies Record<string, string>;
 
 /** Every non-English locale must provide exactly the English key set. */

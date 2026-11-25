@@ -3,7 +3,7 @@ import { query } from "./_generated/server";
 import { requireMember } from "./lib/access";
 
 export const SPACE_EXPORT_SECTIONS = [
-  "portfolio", "membership", "categories", "transactions", "assets", "liabilities", "liabilitySources",
+  "portfolio", "membership", "categories", "transactions", "assets", "liabilities", "liabilitySources", "sharedLinks",
   "holdings", "holdingEvents", "cryptoWallets", "defiReadings", "loanLinks", "debtEvents", "wealthSnapshots", "settlements",
   "goals", "recurring", "ledgerAccounts", "ledgerTransactions", "ledgerLines", "aiActionDrafts", "cashTransfers", "activeDays", "feedback",
   "recordChanges",
@@ -31,7 +31,7 @@ export const manifest = query({
       exclusions: [
         "Other spaces and /pod records are not included in this single-space export.",
         "Other users' private profiles, AI drafts and credentials are excluded. Authorized shared financial records retain participant IDs for reconciliation.",
-        "Account settings, authentication secrets, debt portal keys, provider logs, device subscriptions, invitations, ephemeral wallet-sync leases and raw attachments are not part of this financial export.",
+        "Account settings, authentication secrets, debt portal keys, Numa Shared keys, provider logs, device subscriptions, invitations, ephemeral wallet-sync leases and raw attachments are not part of this financial export.",
       ],
     };
   },
@@ -63,6 +63,7 @@ export const page = query({
         case "assets": return ctx.db.query("assets").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "liabilities": return ctx.db.query("liabilities").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "liabilitySources": return ctx.db.query("liabilitySources").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
+        case "sharedLinks": return ctx.db.query("sharedLinks").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "holdings": return ctx.db.query("holdings").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "holdingEvents": return ctx.db.query("holdingEvents").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
         case "cryptoWallets": return ctx.db.query("cryptoWallets").withIndex("by_portfolio", q => q.eq("portfolioId", id)).paginate(options);
@@ -88,6 +89,11 @@ export const page = query({
       if (args.section === "cryptoWallets") {
         const { syncLeaseId: _lease, syncLeaseUntil: _until, ...safe } = row as typeof row & { syncLeaseId?: string; syncLeaseUntil?: number };
         void _lease; void _until;
+        return safe;
+      }
+      if (args.section === "sharedLinks") {
+        const { token: _token, ...safe } = row as typeof row & { token?: string };
+        void _token;
         return safe;
       }
       if (args.section === "liabilitySources") {
