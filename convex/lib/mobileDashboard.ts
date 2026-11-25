@@ -1,4 +1,4 @@
-import { includeCountedWallets, type CountedWallet } from "../../apps/numa/src/domain/countedWallets";
+import { includeCountedWallets, type CountedWallet } from "./countedWallets";
 import { isManualFund, addMoney, assertCurrency, assertTimestamp, financeMonth, majorUnits, minorUnits } from "./finance";
 
 export type MobileDashboardCurrency = "USD" | "EUR";

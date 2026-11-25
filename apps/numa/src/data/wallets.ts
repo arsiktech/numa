@@ -1,5 +1,5 @@
 import type { CloudWallet } from '@/cloud/api';
-import { countedWalletsCents } from '@/domain/countedWallets';
+import { countedWalletsCents } from '../../../../convex/lib/countedWallets';
 import type { Attention, Currency, Debt, Holding } from '@/domain/types';
 import type { FxRate } from './fx';
 

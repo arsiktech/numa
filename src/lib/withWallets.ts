@@ -1,4 +1,4 @@
-import { foldCountedWallets } from "../../apps/numa/src/domain/countedWallets";
+import { foldCountedWallets } from "../../convex/lib/countedWallets";
 import type { NetWorthBreakdown } from "./analytics";
 import { cryptoCapitalAmounts } from "./cryptoWallets";
 import type { FxRates } from "./fx";

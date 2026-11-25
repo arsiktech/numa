@@ -3,7 +3,7 @@ import type { FxRates } from "./fx";
 import type { MarketQuote } from "./types";
 import { rollupNetWorth } from "./analytics";
 import { quoteIsCurrent } from "@/services/marketData";
-import { includeCountedWallets } from "../../apps/numa/src/domain/countedWallets";
+import { includeCountedWallets } from "../../convex/lib/countedWallets";
 import { majorUnits, minorUnits } from "../../convex/lib/finance";
 
 export function buildAutoSnapshot(data: Pick<CloudPortfolioData, "portfolio" | "assets" | "holdings" | "liabilities" | "cryptoWallets">, quotes: Record<string, MarketQuote>, rates: FxRates, now: number) {
