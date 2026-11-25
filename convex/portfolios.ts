@@ -211,6 +211,12 @@ export const remove = mutationWithoutHistory({
           .collect();
         for (const row of liabilitySources) await ctx.db.delete(row._id);
 
+        const sharedLinks = await ctx.db
+          .query("sharedLinks")
+          .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))
+          .collect();
+        for (const row of sharedLinks) await ctx.db.delete(row._id);
+
         const defiReadings = await ctx.db
           .query("defiReadings")
           .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))

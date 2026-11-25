@@ -41,6 +41,7 @@ import type * as invites from "../invites.js";
 import type * as ledger from "../ledger.js";
 import type * as liabilities from "../liabilities.js";
 import type * as liabilitySources from "../liabilitySources.js";
+import type * as sharedLinks from "../sharedLinks.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_activeDays from "../lib/activeDays.js";
 import type * as lib_agentTools from "../lib/agentTools.js";
@@ -169,6 +170,7 @@ declare const fullApi: ApiFromModules<{
   ledger: typeof ledger;
   liabilities: typeof liabilities;
   liabilitySources: typeof liabilitySources;
+  sharedLinks: typeof sharedLinks;
   "lib/access": typeof lib_access;
   "lib/activeDays": typeof lib_activeDays;
   "lib/agentTools": typeof lib_agentTools;

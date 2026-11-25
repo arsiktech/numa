@@ -172,7 +172,21 @@ describe("agent tools", () => {
       assets: [{}], liabilities: [], holdings: [{}, {}], transactions: [], goals: [], wealthSnapshots: [{ takenAt: 1, netWorth: 900 }],
     });
     const out = (await tool("get_overview").run(f.io, {})) as Record<string, unknown>;
-    expect(out).toMatchObject({ space: { id: "p1", currency: "EUR" }, totals: { net_worth: 1000, owed: 100 }, this_month: { kept: 30 }, counts: { holdings: 2 }, latest_history_point: { netWorth: 900 } });
+    expect(out).toMatchObject({ space: { id: "p1", currency: "EUR" }, totals: { net_worth: 1000, owed: 100 }, this_month: { kept: 30 }, counts: { holdings: 2 }, latest_history_point: { netWorth: 900 }, numa_shared: [] });
+  });
+
+  it("shows a Numa Shared record and its last sync without adding it to the totals", async () => {
+    const sync = { householdId: "household-one-test", unitId: "unit-other", checkedAt: NOW, readingAt: NOW, stale: true };
+    const f = fakeIo({
+      dashboard: { currency: "EUR", netWorth: 1000, liquid: 400, invested: 500, hardAssets: 200, liabilities: 100, monthIncome: 50, monthExpenses: 20, monthCashflow: 30 },
+      assets: [], liabilities: [{ id: "l1", name: "Numa Shared · Other", balance: 12.5, currency: "EUR", sharedSync: sync }],
+      holdings: [], transactions: [], goals: [], wealthSnapshots: [],
+    });
+    const out = (await tool("get_overview").run(f.io, {})) as { totals: { net_worth: number; owed: number }; note: string; numa_shared: Array<{ record: string; stale: boolean; checked_at: string }> };
+    expect(out.totals).toMatchObject({ net_worth: 1000, owed: 100 });
+    expect(out.numa_shared).toEqual([expect.objectContaining({ record: "liability:l1", stale: true, checked_at: new Date(NOW).toISOString() })]);
+    expect(out.note).toContain("Do not add them again");
+    expect(out.note).toContain("last ones saved");
   });
 
   it("shows a wallet's gross assets beside its net value and leaves the totals unchanged", async () => {

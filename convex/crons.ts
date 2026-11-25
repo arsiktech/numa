@@ -27,6 +27,9 @@ crons.interval("refresh public wallets", { minutes: 30 }, internal.walletSync.re
 // Debts that follow a company portal, read through its read-only agent link.
 crons.interval("refresh portal debts", { minutes: 30 }, internal.liabilitySources.refreshDue);
 
+// Household balances copied from Numa Shared. Read-only; a missed read keeps the last amounts.
+crons.interval("refresh shared balances", { minutes: 30 }, internal.sharedLinks.refreshDue);
+
 // Phone alerts: hourly, so quiet hours end on time. At most three a day per person.
 crons.hourly("send phone alerts", { minuteUTC: 5 }, internal.pushAlerts.sendDue);
 

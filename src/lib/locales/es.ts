@@ -553,7 +553,16 @@ const es: LocaleDict = {
   "period.preset.this-quarter": "Este trimestre",
   "period.preset.last-quarter": "Trimestre pasado",
   "period.preset.year": "Este año",
-  "period.preset.last-year": "Año pasado"
+  "period.preset.last-year": "Año pasado",
+  "settings.sharedTitle": "Saldos compartidos",
+  "settings.sharedSubtitle": "Copia lo que un hogar te debe y lo que tú debes. Numa Pro solo lee.",
+  "settings.sharedHousehold": "Id del hogar",
+  "settings.sharedKey": "Clave de Numa Pro",
+  "settings.sharedConnect": "Conectar",
+  "settings.sharedSync": "Sincronizar ahora",
+  "settings.sharedDisconnect": "Desconectar",
+  "settings.sharedStale": "La última lectura falló. El importe guardado no cambia.",
+  "settings.sharedEmpty": "Todavía no hay un hogar conectado."
 };
 
 export default es;

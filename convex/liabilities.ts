@@ -6,6 +6,7 @@ import { requireEditor, requireMember } from "./lib/access";
 import { assertTermsAfterPatch, termsPatch, validDueDate } from "./lib/loanTerms";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 import { assertAssetBalance } from "./lib/inputGuards";
+import { assertHandEditable } from "./lib/sharedSyncGuard";
 
 const currencyValidator = v.union(v.literal("USD"), v.literal("EUR"));
 const liabilityKindValidator = v.union(
@@ -86,6 +87,7 @@ export const update = mutation({
       throw new ConvexError({ code: "NOT_FOUND", message: "Liability not found" });
     }
     const { userId } = await requireEditor(ctx, existing.portfolioId);
+    assertHandEditable(existing);
     return await withMutationReceipt(
       ctx,
       userId,
@@ -146,6 +148,7 @@ export const setTerms = mutation({
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new ConvexError({ code: "NOT_FOUND", message: "Liability not found" });
     const { userId } = await requireEditor(ctx, existing.portfolioId);
+    assertHandEditable(existing);
     const { id, clientMutationId, note, ...input } = args;
     void id; void clientMutationId;
     const patch = termsPatch(input, existing, Date.now());

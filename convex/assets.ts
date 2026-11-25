@@ -6,6 +6,7 @@ import { requireEditor, requireMember } from "./lib/access";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 import { addMoney } from "./lib/finance";
 import { assertAssetBalance } from "./lib/inputGuards";
+import { assertHandEditable } from "./lib/sharedSyncGuard";
 
 const currencyValidator = v.union(v.literal("USD"), v.literal("EUR"));
 const assetKindValidator = v.union(
@@ -91,6 +92,7 @@ export const classify = mutation({
       if ((existing.investmentType ?? null) !== args.expectedInvestmentType) {
         throw new ConvexError({ code: "CONFLICT", message: "Asset classification changed. Read it again before retrying." });
       }
+      assertHandEditable(existing);
       await ctx.db.patch(args.id, { investmentType: args.investmentType ?? undefined });
       return args.id;
     }, String(args.portfolioId));
@@ -115,6 +117,7 @@ export const update = mutation({
       throw new ConvexError({ code: "NOT_FOUND", message: "Asset not found" });
     }
     const { userId } = await requireEditor(ctx, existing.portfolioId);
+    assertHandEditable(existing);
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "assets.update", async () => {
       // Metadata edits must not rewrite or reject historical sub-cent balances.
       if (args.patch.balance !== undefined && !Object.is(args.patch.balance, existing.balance)) {
@@ -157,6 +160,7 @@ export const adjustBalance = mutation({
       throw new ConvexError({ code: "NOT_FOUND", message: "Asset not found" });
     }
     const { userId } = await requireEditor(ctx, existing.portfolioId);
+    assertHandEditable(existing);
     return await withMutationReceipt(ctx, userId, args.clientMutationId, "assets.adjustBalance", async () => {
       await ctx.db.patch(args.id, {
         // FX-converted contributions may contain sub-cents; round each amount

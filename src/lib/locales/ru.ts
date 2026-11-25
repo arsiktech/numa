@@ -553,7 +553,16 @@ const ru: LocaleDict = {
   "period.preset.this-quarter": "Этот квартал",
   "period.preset.last-quarter": "Прошлый квартал",
   "period.preset.year": "Этот год",
-  "period.preset.last-year": "Прошлый год"
+  "period.preset.last-year": "Прошлый год",
+  "settings.sharedTitle": "Общие балансы",
+  "settings.sharedSubtitle": "Копирует, кто вам должен и кому должны вы. Numa Pro только читает.",
+  "settings.sharedKey": "Ключ Numa Pro",
+  "settings.sharedHousehold": "Id хозяйства",
+  "settings.sharedConnect": "Подключить",
+  "settings.sharedSync": "Обновить сейчас",
+  "settings.sharedDisconnect": "Отключить",
+  "settings.sharedStale": "Последнее чтение не удалось. Сохранённая сумма не меняется.",
+  "settings.sharedEmpty": "Хозяйство ещё не подключено."
 };
 
 export default ru;

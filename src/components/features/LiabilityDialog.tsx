@@ -72,8 +72,11 @@ export function LiabilityDialog({
     }
   }, [disarm, open, editing, portfolio.defaultCurrency, defaultKind, defaultName, defaultNotes]);
 
+  const synced = editing?.sharedSync;
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
+    if (synced) return;
     const trimmed = name.trim();
     if (!trimmed) {
       setError("Name is required.");
@@ -140,8 +143,14 @@ export function LiabilityDialog({
       description="Mortgages, credit cards, loans — anything that subtracts from net worth."
     >
       <form onSubmit={save} className="flex flex-col gap-4">
+        {synced ? (
+          <p className="text-[13px] leading-5 text-[color:var(--color-ink-2)]">
+            Synced from Numa Shared. This amount updates on its own{synced.stale ? ", and the last read failed, so this is the last saved amount" : ""}.
+          </p>
+        ) : null}
         <Field label="Name">
           <TextInput
+            disabled={Boolean(synced)}
             placeholder="Amex Gold, BBVA mortgage, Student loan…"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -207,6 +216,7 @@ export function LiabilityDialog({
           onDelete={handleDelete}
           confirmDelete={confirmDelete}
           onClose={onClose}
+          hideSubmit={Boolean(synced)}
           submitLabel={editing ? "Save changes" : "Add liability"}
           submitIcon={<CreditCard size={14} />}
         />

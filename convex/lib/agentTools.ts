@@ -205,6 +205,24 @@ function historyEntry(e: HistoryRow) {
 }
 
 const snapshotOf = (io: AgentIo, space: Space) => io.query("mobile:portfolioSnapshot", { portfolioId: space.id }) as Promise<Snapshot>;
+
+type SharedMark = { householdId: string; unitId: string; checkedAt: number; readingAt?: number | null; stale: boolean };
+function sharedRows(snap: Snapshot) {
+  const rows = [
+    ...snap.assets.map((row) => ({ kind: "asset" as const, row })),
+    ...snap.liabilities.map((row) => ({ kind: "liability" as const, row })),
+  ];
+  return rows.flatMap(({ kind, row }) => {
+    const sync = (row as { sharedSync?: SharedMark | null }).sharedSync;
+    if (!sync) return [];
+    const id = (row as { id?: string }).id;
+    return [{
+      record: `${kind}:${id}`, name: (row as { name?: string }).name, amount: (row as { balance?: number }).balance,
+      currency: (row as { currency?: string }).currency, household_id: sync.householdId, counterparty_unit_id: sync.unitId,
+      checked_at: iso(sync.checkedAt), reading_at: iso(sync.readingAt), stale: sync.stale,
+    }];
+  });
+}
 const walletsOf = (io: AgentIo, space: Space) => io.query("cryptoWallets:listForPortfolio", { portfolioId: space.id }) as Promise<WalletDoc[]>;
 
 const SECTIONS = ["assets", "liabilities", "holdings", "goals", "categories", "recurring", "revenue", "wallets", "loans", "debt_history"] as const;
@@ -223,12 +241,17 @@ const TOOLS: AgentTool[] = [
       const partial = gaps.length
         ? ` Counted ${gaps.length === 1 ? "wallet" : "wallets"} ${gaps.map((w) => w.label).join(", ")} ${gaps.length === 1 ? "is" : "are"} incomplete, so the totals may be partial.`
         : "";
+      const synced = sharedRows(snap);
+      const sharedNote = synced.length
+        ? ` Numa Shared records are already included in the totals (a liability in owed, money owed to you in assets). Do not add them again.${synced.some((row) => row.stale) ? " A Numa Shared reading failed, so those amounts are the last ones saved." : ""}`
+        : "";
       return {
         space: { id: space.id, name: space.name, currency: d.currency },
         as_of: iso(io.now()),
         totals: { net_worth: d.netWorth, liquid: d.liquid, invested: d.invested, hard_assets: d.hardAssets, owed: d.liabilities },
         this_month: { income: d.monthIncome, spending: d.monthExpenses, kept: d.monthCashflow },
-        note: "Totals are in the space currency and already include every checked wallet that is counted in net worth (coins and deposits in liquid, borrowings in owed). Do not add the wallet rows on top. On each wallet, value_usd is already net of borrowing; borrowed_usd is what was subtracted, and assets_usd is the gross (value_usd + borrowed_usd). Do not add value_usd and borrowed_usd. A wallet that has not been checked yet is left out, not counted as zero. A saved history point keeps the numbers it was stored with." + partial,
+        note: "Totals are in the space currency and already include every checked wallet that is counted in net worth (coins and deposits in liquid, borrowings in owed). Do not add the wallet rows on top. On each wallet, value_usd is already net of borrowing; borrowed_usd is what was subtracted, and assets_usd is the gross (value_usd + borrowed_usd). Do not add value_usd and borrowed_usd. A wallet that has not been checked yet is left out, not counted as zero. A saved history point keeps the numbers it was stored with." + partial + sharedNote,
+        numa_shared: synced,
         wallets: wallets.map((w) => walletSummary(w, false)),
         counts: { assets: snap.assets.length, liabilities: snap.liabilities.length, holdings: snap.holdings.length, transactions: snap.transactions.length, goals: snap.goals.length },
         goals: snap.goals,

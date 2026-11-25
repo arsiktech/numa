@@ -117,8 +117,13 @@ describe("registered financial export", () => {
     const portals = await exportSection(f, "liabilitySources");
     expect(portals).toEqual([{ ...f.rows.get("portal"), key: undefined, url: undefined, host: "portal.example.com" }]);
     expect(portals[0]).toMatchObject({ host: "portal.example.com", status: "ok", label: "Synthetic investors", investorIds: ["inv-1"] });
+    f.seed("sharedLinks", "shared", { portfolioId: "space", householdId: "household-one-test", token: "nspro_SYNTHETIC_SHARED_SECRET", status: "ok", createdBy: "user", createdAt: 1 });
+    f.seed("sharedLinks", "foreign-shared", { portfolioId: "foreign", householdId: "household-other", token: "nspro_FOREIGN_SHARED_SECRET", createdBy: "other", createdAt: 1 });
+    const shared = await exportSection(f, "sharedLinks");
+    expect(shared).toEqual([{ ...f.rows.get("shared"), token: undefined }]);
     const serialized = JSON.stringify(await Promise.all(SPACE_EXPORT_SECTIONS.map(section => exportSection(f, section))));
     expect(serialized).not.toContain("SYNTHETIC-PORTAL-SECRET"); expect(serialized).not.toContain("FOREIGN-SECRET");
+    expect(serialized).not.toContain("nspro_SYNTHETIC_SHARED_SECRET"); expect(serialized).not.toContain("nspro_FOREIGN_SHARED_SECRET");
     expect(serialized).not.toContain('"key"'); expect(serialized).not.toContain("SYNTHETIC-LINK-SECRET"); expect(serialized).not.toContain("/agent");
   });
   it("exports an empty space: every section completes, only the space and membership have rows", async () => {

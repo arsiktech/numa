@@ -183,6 +183,7 @@ export function mapAsset(a: ConvexAsset, portfolioId: string): Asset {
     balance: a.balance,
     currency: a.currency,
     notes: a.notes,
+    sharedSync: a.sharedSync ?? null,
     updatedAt: a.updatedAt
   };
 }
@@ -198,6 +199,7 @@ export function mapLiability(l: ConvexLiability, portfolioId: string): Liability
     interestRate: l.interestRate,
     dueDate: l.dueDate,
     notes: l.notes,
+    sharedSync: l.sharedSync ?? null,
     updatedAt: l.updatedAt
   };
 }

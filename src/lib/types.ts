@@ -222,6 +222,15 @@ export interface CryptoWallet {
   snapshot?: CryptoWalletSnapshot;
 }
 
+/** Set when Numa Shared keeps this record up to date. The amount is not edited by hand. */
+export interface SharedSync {
+  householdId: string;
+  unitId: string;
+  checkedAt: number;
+  readingAt?: number;
+  stale: boolean;
+}
+
 export interface Asset {
   id: string;
   portfolioId: string;
@@ -231,6 +240,7 @@ export interface Asset {
   balance: number;
   currency: CurrencyCode;
   notes?: string;
+  sharedSync?: SharedSync | null;
   updatedAt: number;
 }
 
@@ -244,6 +254,7 @@ export interface Liability {
   interestRate?: number;
   dueDate?: number;
   notes?: string;
+  sharedSync?: SharedSync | null;
   updatedAt: number;
 }
 
