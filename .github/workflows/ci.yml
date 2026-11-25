@@ -10,7 +10,7 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A healthy run finishes in about five minutes. Without a bound, a stalled
     # browser download or apt install waits until GitHub's six-hour default.
     timeout-minutes: 20
