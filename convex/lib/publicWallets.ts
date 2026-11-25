@@ -6,7 +6,7 @@
  * `failedChains`, never counted as zero.
  */
 
-import { aaveLegs, chainDrafts, etherfiCash, fluidLending, morpho, priceDrafts, priceLegs, type Draft, type Post } from "./defiPositions";
+import { aaveLegs, chainDrafts, etherfiCash, etherfiHeldTokens, fluidLending, morpho, priceDrafts, priceLegs, type Draft, type Post } from "./defiPositions";
 import { BLOCKSCOUT_PRO, explorerGet } from "./evm";
 import { fallbackTokens } from "./tokenFallback";
 
@@ -251,11 +251,12 @@ export async function fetchPublicWallet(address: string, addressType: "bitcoin" 
   const defiJobs = addressType === "evm" && call
     ? EVM_CHAINS.map((chain) => ({ id: chain.id, run: () => evmDefi(chain, address, call, get) }))
     : [];
-  const [tokenResults, defiResults, morphoResult, etherfiResult] = await Promise.all([
+  const [tokenResults, defiResults, morphoResult, etherfiResult, etherfiHeld] = await Promise.all([
     Promise.allSettled(tokenJobs.map((job) => job.run())),
     Promise.allSettled(defiJobs.map((job) => job.run())),
     defiJobs.length && post ? morpho([...EVM_CHAINS], address, post).catch(() => null) : Promise.resolve(undefined),
     defiJobs.length && call ? etherfiCash(address, call, get).catch(() => null) : Promise.resolve(undefined),
+    defiJobs.length && call ? etherfiHeldTokens(address, call, get).catch(() => null) : Promise.resolve(undefined),
   ]);
   let tokens: WalletToken[] = [];
   const defiPositions: DefiPosition[] = [];
@@ -283,6 +284,9 @@ export async function fetchPublicWallet(address: string, addressType: "bitcoin" 
   // ether.fi Cash lives on Optimism (and Scroll, which Numa doesn't otherwise read); a failure is reported on Optimism.
   if (etherfiResult === null) defiFailed.add("optimism");
   else if (etherfiResult) defiPositions.push(...etherfiResult);
+  // Wrapped stocks in an ether.fi Safe's own balance (explorers often miss them) are wallet tokens; one an explorer did list is not counted twice.
+  if (etherfiHeld === null) defiFailed.add("optimism");
+  else if (etherfiHeld) tokens.push(...etherfiHeld.filter((h) => !tokens.some((t) => t.id.toLowerCase() === h.id)));
   const defiFailedChains: string[] = defiJobs.map((job) => job.id).filter((id) => defiFailed.has(id));
   // A Compound market or a Morpho vault is also a token in the wallet; it is counted once, as the position, on that chain.
   const inDefi = new Set(defiPositions.filter((p) => p.positionAddress).map((p) => `${p.chain}:${p.positionAddress}`));

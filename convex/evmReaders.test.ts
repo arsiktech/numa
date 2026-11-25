@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { aaveLegs, aerodrome, chainDrafts, etherfiCash, fluidLending, priceDrafts, priceLegs, rangeAmounts, uniswapV4, V4 } from "./lib/defiPositions";
+import { aaveLegs, aerodrome, chainDrafts, etherfiCash, etherfiHeldTokens, fluidLending, priceDrafts, priceLegs, rangeAmounts, uniswapV4, V4 } from "./lib/defiPositions";
 import { decodeAggregate3, encodeAggregate3, MULTICALL } from "./lib/evm";
 import { keccak256, keccakHex } from "./lib/keccak";
 import { fetchPublicWallet, type Call, type Get } from "./lib/publicWallets";
@@ -200,6 +200,52 @@ describe("ether.fi Cash and Fluid", () => {
     expect(split[0].assets?.[0]).toEqual({ symbol: "weEUR", quantity: "23090", valueUsd: 26536.75 });
     expect(split[0].assets).toContainEqual({ symbol: "USDC", quantity: "5080.447881", valueUsd: 5080.45, debt: true });
     expect(split).toHaveLength(1);
+  });
+
+  describe("wrapped xStocks held directly by an ether.fi Safe", () => {
+    const SAFE = "0x1111111111111111111111111111111111111111", WNVDAX = "0xa8ddb5cd96b5222afe198316e9a57caa642850d5";
+    // The Safe's own wNVDAx balance (1.006276604426560636), which the debt manager and LendGateway never list.
+    const held = (balance: bigint): Call => async (_rpc, to, data) => {
+      if (data.startsWith("0xb334ed86")) return to === SAFE ? ret("0xdc515cb479a64552c5a11a57109c314e40a1a778") : "0x";
+      if (to === MULTICALL) return multicallAnswer(data, (t, d) => (d.startsWith("0x70a08231") ? ret(t === WNVDAX ? balance : 0n) : d.startsWith("0x313ce567") ? ret(18) : null));
+      return zero;
+    };
+    const llama = (price?: number): Get => async (url) => {
+      expect(url).toBe(`https://coins.llama.fi/prices/current/optimism:${WNVDAX}`);
+      return { coins: price === undefined ? {} : { [`optimism:${WNVDAX}`]: { price, decimals: 18, symbol: "wNVDAx" } } };
+    };
+
+    it("counts the wrapped stock at DefiLlama's price", async () => {
+      const out = await etherfiHeldTokens(SAFE, held(1_006_276_604_426_560_636n), llama(148.373971863023));
+      expect(out).toEqual([{
+        id: `optimism:${WNVDAX}`, chain: "optimism", chainName: "Optimism", tokenAddress: WNVDAX, symbol: "wNVDAx", name: "Wrapped NVIDIA xStock",
+        quantity: "1.00627660443", priceUsd: expect.closeTo(148.37, 1), valueUsd: 149.31, verified: true, suspectedSpam: false,
+      }]);
+    });
+
+    it("asks nothing about an ordinary wallet, and reports an unpriced or unreadable stock instead of counting it as zero", async () => {
+      expect(await etherfiHeldTokens(OWNER, held(5n), llama(1))).toEqual([]);
+      await expect(etherfiHeldTokens(SAFE, held(10n ** 18n), llama())).rejects.toThrow();
+      const unreadable: Call = async (rpc, to, data) => (to === MULTICALL ? multicallAnswer(data, () => null) : held(1n)(rpc, to, data));
+      await expect(etherfiHeldTokens(SAFE, unreadable, llama(1))).rejects.toThrow();
+    });
+
+    it("adds it to the wallet's value once, and flags Optimism as incomplete when it can't be read", async () => {
+      const get: Get = async (url) => {
+        if (url.startsWith("https://coins.llama.fi/")) return { coins: { [`optimism:${WNVDAX}`]: { price: 150, decimals: 18, symbol: "wNVDAx" } } };
+        if (url.includes("/addresses/") && url.endsWith("/tokens?type=ERC-20")) return { items: [] };
+        if (url.includes("/addresses/")) return { coin_balance: "0" };
+        throw new Error("unexpected " + url);
+      };
+      const call = held(2n * 10n ** 18n);
+      const s = await fetchPublicWallet(SAFE, "evm", get, 1000, call);
+      expect(s.tokens.filter((t) => t.symbol === "wNVDAx").map((t) => [t.chain, t.quantity, t.valueUsd])).toEqual([["optimism", "2", 300]]);
+      expect(s.tokenValueUsd).toBe(300);
+      const unreadable: Call = async (rpc, to, data) => (to === MULTICALL && data.includes(WNVDAX.slice(2)) ? Promise.reject(new Error("rpc down")) : call(rpc, to, data));
+      const down = await fetchPublicWallet(SAFE, "evm", get, 1000, unreadable);
+      expect(down.defiFailedChains).toContain("optimism");
+      expect(down.partial).toBe(true);
+    });
   });
 
   it("reads Fluid lending from its API and skips unpriced or empty positions", async () => {
