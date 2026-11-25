@@ -7,7 +7,7 @@
 
 import { address, explorerGet, firstWord, int, multicall, pad, uint, words } from "./evm";
 import { keccakHex } from "./keccak";
-import type { Call, DefiAsset, DefiPosition, Get } from "./publicWallets";
+import type { Call, DefiAsset, DefiPosition, Get, WalletToken } from "./publicWallets";
 
 export type Post = (url: string, body: unknown) => Promise<unknown>;
 /** A chain as the readers need it; `host` is its Blockscout explorer. */
@@ -439,6 +439,51 @@ export async function etherfiCash(owner: string, call: Call, get?: Get): Promise
       ...(gateway?.health ? { healthFactor: gateway.health } : {}),
       symbols,
       ...(assets?.length ? { assets } : {}),
+    });
+  }
+  return out;
+}
+
+/**
+ * Wrapped xStocks that ether.fi's app shows as part of an account but that sit in the Safe's own
+ * balance, not as collateral (the debt manager and the LendGateway never list them), and that
+ * public explorers often have not indexed. wNVDAx is not a collateral asset at all; the others are
+ * collateral assets that a Safe can also hold unsupplied. All on Optimism, DefiLlama prices each.
+ */
+export const ETHERFI_HELD_TOKENS = [
+  { token: "0xa8ddb5cd96b5222afe198316e9a57caa642850d5", symbol: "wNVDAx", name: "Wrapped NVIDIA xStock" },
+  { token: "0xe7e553cd128f0011777323a0b44a7b96ea1cb540", symbol: "wSPYx", name: "Wrapped SPDR S&P 500 xStock" },
+  { token: "0x4c1ae29c159838fc1b224636e28e086eb69101f7", symbol: "wQQQx", name: "Wrapped Nasdaq 100 xStock" },
+  { token: "0x461b25b99606fe169d6f0dd6816650ef6536403e", symbol: "wTBLLx", name: "Wrapped TBLL xStock" },
+] as const;
+
+/**
+ * The wrapped stocks an ether.fi Cash Safe holds directly, read with balanceOf and priced by
+ * DefiLlama. Only a Safe is asked; a held token with no price throws, so the caller reports the
+ * chain as incomplete instead of counting the stock as nothing.
+ */
+export async function etherfiHeldTokens(owner: string, call: Call, get: Get): Promise<WalletToken[]> {
+  const chain = ETHERFI_CASH.chains[0];
+  // dataProvider() names a real contract on an ether.fi Safe; anything else answers nothing or the zero address.
+  const probe = await call(chain.rpc, owner, "0xb334ed86").catch(() => "0x");
+  if (!/^0x[0-9a-f]{64}/i.test(probe) || BigInt(probe.slice(0, 66)) === 0n) return [];
+  const results = await multicall(call, chain.rpc, ETHERFI_HELD_TOKENS.flatMap((t) => [
+    { to: t.token, data: "0x70a08231" + pad(owner) }, // balanceOf
+    { to: t.token, data: "0x313ce567" }, // decimals()
+  ]));
+  const held = ETHERFI_HELD_TOKENS.map((t, i) => ({ t, raw: firstWord(results[i * 2]), decimals: firstWord(results[i * 2 + 1]) }));
+  // A token that answered nothing may simply be unreadable right now; that is a failed read, not an empty one.
+  if (held.some((h) => h.raw === null || h.decimals === null)) throw new Error("bad response");
+  const owned = held.filter((h) => h.raw! > 0n);
+  const out: WalletToken[] = [];
+  for (const h of owned) {
+    const priced = await priceLegs(chain.id, [{ token: h.t.token, raw: Number(h.raw) }], get);
+    if (!priced) throw new Error("no price");
+    if (!priced.length) continue; // Dust under a cent.
+    const qty = Number(h.raw) / 10 ** Number(h.decimals), usd = priced[0].valueUsd;
+    out.push({
+      id: `${chain.id}:${h.t.token}`, chain: chain.id, chainName: chain.name, tokenAddress: h.t.token, symbol: h.t.symbol, name: h.t.name,
+      quantity: priced[0].quantity ?? String(qty), priceUsd: usd / qty, valueUsd: usd, verified: true, suspectedSpam: false,
     });
   }
   return out;
