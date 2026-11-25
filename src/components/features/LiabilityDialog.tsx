@@ -6,6 +6,7 @@ import { DialogFooter, useConfirmDelete } from "@/components/ui/DialogFooter";
 import { useCurrentPortfolioId, usePortfolio } from "@/services/store";
 import { useDomainActions } from "@/services/domainActions";
 import { useUndo } from "@/services/undo";
+import { RecordHistory } from "@/components/features/RecordHistory";
 import type { CurrencyCode, Liability, LiabilityKind } from "@/lib/types";
 
 interface Props {
@@ -197,6 +198,7 @@ export function LiabilityDialog({
             onChange={(e) => setNotes(e.target.value)}
           />
         </Field>
+        {editing ? <RecordHistory portfolioId={editing.portfolioId} recordId={editing.id} /> : null}
         {error ? (
           <p className="text-[12.5px] text-[color:var(--color-negative)]">{error}</p>
         ) : null}

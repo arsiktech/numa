@@ -1,6 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { activePodMembership, verifiedInvitationEmail } from "./lib/invitationAuthority";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import type { Id } from "./_generated/dataModel";
 import { requireUser } from "./lib/access";
 import { withMutationReceipt } from "./lib/mutationReceipts";

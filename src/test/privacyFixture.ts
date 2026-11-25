@@ -58,7 +58,7 @@ export function privacyFixture() {
           predicates.push(expression); return query;
         },
         paginate: async (options: { cursor: string | null; numItems: number }) => {
-          const remaining = (await matching()).filter(row => options.cursor === null || row._creationTime > Number(options.cursor));
+          const remaining = (await matching()).filter(row => options.cursor === null || (descending ? row._creationTime < Number(options.cursor) : row._creationTime > Number(options.cursor)));
           const page = readRows(remaining.slice(0, options.numItems));
           return { page, isDone: remaining.length <= page.length,
             continueCursor: page.length ? String(page[page.length - 1]._creationTime) : options.cursor ?? "",

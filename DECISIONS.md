@@ -7,6 +7,30 @@ As of 2026-10-23, references below to removed repository instruction files are
 historical provenance, not current entry points. Execution guidance stays private.
 Use [README.md](README.md) for current implementation and verification routing.
 
+## 2026-11-24 - Every change to a kept record is in the change history
+
+Status: accepted. Source: owner request, 24 Nov 2026.
+
+Creates, edits (field, old and new value), renames, deletes and debt events on
+assets, debts, holdings and tracked wallets are written to `recordChanges` in
+the same transaction, with who made the change (the app, a connected agent by
+its connection name, or a scheduled job) and an optional reason. Recording
+lives in the database wrapper in `convex/lib/recordHistory.ts`, so a new write
+path cannot skip it: mutations come from `convex/lib/functions.ts` (enforced by
+lint). History outlives the record. Deleting the whole space or account erases
+it with the rest, using the builders that do not record. Sync leases and
+timestamps are not recorded. Agents read it with `get_ledger`.
+
+25 Nov 2026, owner answers: company-portal updates stay in the history ("Company
+portal"); a wallet's value is recorded when a complete reading changes it, to the
+cent in US dollars ("Wallet sync" when scheduled); a partial reading records
+nothing. Deleted records are listed read-only under Settings, Deleted (web and
+iOS). Records from before the history get one "Added" entry from
+`recordHistory:backfill` (actor "Backfill", dated `createdAt` or the row's
+creation time), which skips records that already have one, so it is safe to run
+again. History is kept forever: nothing deletes it except deleting the whole
+space or account.
+
 ## 2026-09-10 - Autonomous work with proportional verification
 
 Status: accepted. Source: user requested a repo cleanup for GPT-6 Astra to

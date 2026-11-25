@@ -1,5 +1,5 @@
 /** First path segment the app itself can show. Static pages live outside this shell. */
-const KNOWN = new Set(['', 'sign-in', 'auth', 'ask', 'settings', 'holdings', 'import', 'password', 'delete-account', 'earnings', 'movers', 'money-map', 'flow', 'plan', 'day', 'item', 'loan', 'person', 'position', 'tx']);
+const KNOWN = new Set(['', 'sign-in', 'auth', 'ask', 'settings', 'holdings', 'import', 'password', 'delete-account', 'earnings', 'movers', 'money-map', 'flow', 'plan', 'day', 'item', 'loan', 'person', 'position', 'tx', 'deleted']);
 
 export function isKnownPath(path: string) {
   const segment = path.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] ?? '';
@@ -25,6 +25,7 @@ const TITLES: { test: RegExp; title: string; description: string }[] = [
   { test: /^\/import\/?$/, title: 'Import', description: 'Import transactions, balances or a wealth log.' },
   { test: /^\/password\/?$/, title: 'Password', description: 'Set or change your Numa Pro password.' },
   { test: /^\/delete-account\/?$/, title: 'Delete account', description: 'Schedule deletion of your Numa Pro account.' },
+  { test: /^\/deleted\/?$/, title: 'Deleted', description: 'Records deleted from this space and their history.' },
   { test: /^\/settings\/?$/, title: 'Settings', description: 'Account, currency and alerts.' },
   { test: /^\/$/, title: 'Home', description: 'Net worth, cash flow and what needs you, on every device.' },
 ];

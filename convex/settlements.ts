@@ -1,6 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { removePortfolioDocument } from "./lib/removeDocument";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import { requireEditor, requireMember } from "./lib/access";
 import { withMutationReceipt } from "./lib/mutationReceipts";
 import { exactPositiveMoney } from "./lib/finance";

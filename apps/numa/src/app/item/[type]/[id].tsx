@@ -15,6 +15,7 @@ import { shortDay } from '@/domain/freshness';
 import { formatMoney } from '@/domain/money';
 import type { Currency } from '@/domain/types';
 import { openLoan } from '@/loans/LoansSection';
+import { RecordHistory } from '@/history/RecordHistory';
 import { PortalSource } from '@/loans/PortalSource';
 import { parseQuantity } from '@/sources/csv';
 import { useTheme } from '@/theme/theme';
@@ -178,6 +179,7 @@ function Editable({ item, now }: { item: EditableItem; now: number }) {
       )}
       {item.type === 'liability' && !(item.raw as CloudLiability).owedSymbol && <PortalSource portfolioId={portfolioId} liabilityId={item.id} now={now} />}
       {item.type === 'asset' && <PortalSource portfolioId={portfolioId} assetId={item.id} now={now} />}
+      {!editing && <RecordHistory portfolioId={portfolioId} recordId={item.id} />}
       {editing && (
         <View style={{ marginTop: 22, gap: 12 }}>
           {item.type === 'holding' ? (

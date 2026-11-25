@@ -30,6 +30,7 @@ export const toolWords: Record<string, string> = {
   get_records: 'Read records',
   list_transactions: 'Read transactions',
   get_history: 'Read history',
+  get_ledger: 'Read the change history',
   add_transaction: 'Added a transaction',
   update_transaction: 'Changed a transaction',
   delete_transaction: 'Deleted a transaction',

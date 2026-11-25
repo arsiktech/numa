@@ -4,7 +4,8 @@ import { ConvexError, v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { AI_SHARING_VERSION } from "./lib/privacyPolicy";
-import { action, internalMutation, type MutationCtx } from "./_generated/server";
+import { action, type MutationCtx } from "./_generated/server";
+import { internalMutation } from "./lib/functions";
 import {
   ASK_LIMITS,
   ASK_SYSTEM_PROMPT,

@@ -1,3 +1,4 @@
+import type { RecordChange } from '@/history/describe';
 import { makeFunctionReference } from 'convex/server';
 
 import type { CloudEarning } from '@/data/earnings';
@@ -284,6 +285,8 @@ export const cloud = {
   setLoanTerms: makeFunctionReference<'mutation', WithReceipt<{ id: string; principal?: number | null; startedAt?: number | null; dueKind?: 'fixed' | 'flexible' | null; interestTerms?: 'none' | 'simple' | 'manual' | null; interestRate?: number | null; interestDueDay?: number | null; dueDate?: number | null; note?: { text: string; occurredAt: number } }>, Receipt>('liabilities:setTerms'),
   removeDebtEvent: makeFunctionReference<'mutation', WithReceipt<{ id: string }>, Receipt | null>('debtEvents:remove'),
   portalSources: makeFunctionReference<'query', { portfolioId: string }, PortalSource[]>('liabilitySources:listForPortfolio'),
+  recordHistory: makeFunctionReference<'query', { portfolioId: string; recordId?: string; recordType?: 'asset' | 'liability' | 'holding' | 'wallet'; limit?: number; cursor?: string | null }, { entries: RecordChange[]; cursor: string | null }>('recordHistory:list'),
+  deletedRecords: makeFunctionReference<'query', { portfolioId: string; limit?: number }, RecordChange[]>('recordHistory:deleted'),
   followPortal: makeFunctionReference<'mutation', { liabilityId: string; url: string; key?: string }, { id: string }>('liabilitySources:connect'),
   unfollowPortal: makeFunctionReference<'mutation', { liabilityId?: string; assetId?: string }, null>('liabilitySources:disconnect'),
   setLoanLinks: makeFunctionReference<'mutation', WithReceipt<{ portfolioId: string; loanKey: string; targets: CloudLoanLink['targets'] }>, Receipt | null>('loanLinks:set'),

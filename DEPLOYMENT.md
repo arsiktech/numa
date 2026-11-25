@@ -210,3 +210,19 @@ branches listed in its `on.push` block. It has three jobs:
 
 Node 24 (matches `package.json`; confirm the Vercel runtime setting before
 runtime-sensitive release work).
+
+---
+
+## Change history (`recordChanges`) rollback
+
+Added 25 Nov 2026 (PR #97). The table only adds rows; no existing table or field changed.
+
+- Code: `git revert -m 1 <merge sha>` on `main` and push. `convex-deploy.yml` redeploys DEV
+  and production without the history functions. The `recordChanges` rows stay in the
+  database, unused, so a later re-merge picks up where it left off.
+- iOS: the same push publishes an over-the-air update without the history screens
+  (`ship.yml`). To go back faster, republish the previous update group:
+  `npx eas-cli update:republish --group <previous group id> --platform ios` from `apps/numa`.
+- Backfill: its entries are ordinary history rows by "Backfill". Leaving them is harmless.
+  Removing them would need a one-off mutation; do not delete them by hand in the dashboard.
+- Never delete the `recordChanges` table to roll back: that loses history that cannot be rebuilt.

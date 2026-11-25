@@ -31,7 +31,7 @@ function fakeIo(snapshot: Record<string, unknown> = {}) {
 describe("agent tools", () => {
   it("offers every tool to a full connection and only reading tools to a read-only one", () => {
     expect(toolsFor("full").length).toBe(AGENT_TOOLS.length);
-    expect(toolsFor("read").map((t) => t.name)).toEqual(["get_overview", "list_spaces", "get_records", "list_transactions", "get_history"]);
+    expect(toolsFor("read").map((t) => t.name)).toEqual(["get_overview", "list_spaces", "get_records", "list_transactions", "get_history", "get_ledger"]);
     expect(new Set(AGENT_TOOLS.map((t) => t.name)).size).toBe(AGENT_TOOLS.length);
     for (const t of AGENT_TOOLS) expect(t.inputSchema.additionalProperties).toBe(false);
   });

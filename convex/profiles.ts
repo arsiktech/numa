@@ -4,7 +4,8 @@ import { avatarDataURL } from "./lib/avatarImage";
 import { normalizeClientMutationId, withMutationReceipt } from "./lib/mutationReceipts";
 import { auth } from "./auth";
 import { requireUser } from "./lib/access";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 

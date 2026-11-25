@@ -1,7 +1,7 @@
 import { makeFunctionReference } from "convex/server";
 import { sha256Hex } from "./lib/appleIdentity";
 import { v } from "convex/values";
-import { internalMutation, mutation } from "./_generated/server";
+import { internalMutationWithoutHistory, mutation, mutationWithoutHistory } from "./lib/functions";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -63,7 +63,7 @@ export function deletionCancellationDecision(
  *     memberships (of any member on that portfolio), categories,
  *     transactions, holdings, holdingEvents, assets, liabilities,
  *     wealthSnapshots, settlements, ledger rows, goals, recurring,
- *     aiActionDrafts, invites, and finally the portfolio row itself.
+ *     aiActionDrafts, invites, the change history (recordChanges), and finally the portfolio row itself.
  *  2. Memberships the user has on other people's portfolios (shared
  *     finances we don't own — we just unlink the user, the data stays).
  *  3. Money pods the user owns → cascade members/groups/expenses/
@@ -79,7 +79,7 @@ export function deletionCancellationDecision(
  *
  * Throws ConvexError("UNAUTHENTICATED") if no caller is signed in.
  */
-export const deleteMyAccount = mutation({
+export const deleteMyAccount = mutationWithoutHistory({
   args: {},
   handler: async (ctx) => {
     const userId = await requireUser(ctx, { allowDeletionStarted: true });
@@ -173,7 +173,7 @@ export const cancelMyDeletion = mutation({
  * final stage, after every other table is drained. Once the first chunk stamps
  * `deletionStartedAt`, cancellation is intentionally no longer allowed.
  */
-export const executeScheduledDeletion = internalMutation({
+export const executeScheduledDeletion = internalMutationWithoutHistory({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const profile = await ctx.db
@@ -599,6 +599,11 @@ async function deletePortfolioCascade(
       ctx.db
         .query("invites")
         .withIndex("by_portfolio", (q) => q.eq("portfolioId", portfolioId))
+        .take(n),
+    (n) =>
+      ctx.db
+        .query("recordChanges")
+        .withIndex("by_portfolio_at", (q) => q.eq("portfolioId", portfolioId))
         .take(n)
   ];
   for (const fetchPage of pages) {
@@ -654,7 +659,7 @@ async function deleteMoneyPodCascade(
 }
 
 /** Only the verified Apple notification action can invoke this internal entry. */
-export const deleteForAppleRevocation = internalMutation({
+export const deleteForAppleRevocation = internalMutationWithoutHistory({
   args: { subject: v.string(), audience: v.string(), at: v.number(), eventId: v.string() },
   handler: async (ctx, event) => {
     const receiptHash = await sha256Hex(`apple-notification:${event.eventId}`);

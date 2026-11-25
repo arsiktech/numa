@@ -1,6 +1,7 @@
 import { assertTransactionMoney } from "./lib/transactionFinance";
 import { v, ConvexError } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import type { Id } from "./_generated/dataModel";
 import { assertExistingAccount, requireEditor, requireUser } from "./lib/access";
 

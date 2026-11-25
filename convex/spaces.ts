@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/functions";
 import type { Doc } from "./_generated/dataModel";
 import { requireEditor, requireMember, requireUser } from "./lib/access";
 import { withMutationReceipt } from "./lib/mutationReceipts";

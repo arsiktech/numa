@@ -1,6 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { rateLimitExpiresAt } from "./lib/privacyRetention";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./lib/functions";
 
 declare const process: {
   env: Record<string, string | undefined>;

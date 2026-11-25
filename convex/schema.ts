@@ -3,6 +3,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { financeClassificationValidator } from "./lib/financeValidators";
 import { cardDetailsValidator } from "./lib/cardDetails";
+import { recordChangeFields } from "./lib/recordHistory";
 import {
   cryptoWalletAddressTypeValidator,
   cryptoWalletSnapshotValidator
@@ -864,6 +865,17 @@ export default defineSchema({
     .index("by_user_at", ["userId", "at"])
     .index("by_connection_at", ["connectionId", "at"])
     .index("by_expires", ["expiresAt"]),
+
+  /**
+   * The change history of assets, debts, holdings and tracked wallets: one row per created,
+   * changed or deleted record, field by field, and per debt event. Written only by
+   * lib/recordHistory.ts; it outlives the record, and goes when the space is deleted.
+   */
+  recordChanges: defineTable(recordChangeFields)
+    .index("by_portfolio_at", ["portfolioId", "at"])
+    .index("by_record", ["portfolioId", "recordId", "at"])
+    .index("by_type", ["portfolioId", "recordType", "at"])
+    .index("by_action", ["portfolioId", "action", "at"]),
 
   // Market price history behind the chart (public market data, no personal data), one row per
   // symbol and range, refreshed when it is older than the range needs.

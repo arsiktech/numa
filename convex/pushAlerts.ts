@@ -2,7 +2,8 @@ import { getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internalAction, internalQuery, query } from "./_generated/server";
+import { internalMutation, mutation } from "./lib/functions";
 import { dueAlerts, EXPO_TOKEN, limitAlerts, localClock, localMonthStart, pickToSend, type Alert } from "./lib/pushAlerts";
 
 declare const process: { env: Record<string, string | undefined> };

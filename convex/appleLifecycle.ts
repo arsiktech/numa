@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
-import { internalAction, internalMutation, internalQuery, query } from "./_generated/server";
+import { internalAction, internalQuery, query } from "./_generated/server";
+import { internalMutation } from "./lib/functions";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { assertExistingAccount } from "./lib/access";

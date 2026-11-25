@@ -10,6 +10,8 @@ describe('routes', () => {
   it('gives the main screens their own titles', () => {
     expect(routeMeta('/sign-in').title).toBe('Sign in');
     expect(routeMeta('/flow').title).toBe('Flow');
+    expect(isKnownPath('/deleted')).toBe(true);
+    expect(routeMeta('/deleted').title).toBe('Deleted');
     expect(routeMeta('/nope').title).toBe('Page not found');
   });
 });

@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation } from "../_generated/server";
+import { mutation } from "./functions";
 import { requireEditor } from "./access";
 import { assertAssetBalance, assertPositiveAmount, cleanLocation, cleanParty, cleanRequired } from "./inputGuards";
 import type { Doc } from "../_generated/dataModel";

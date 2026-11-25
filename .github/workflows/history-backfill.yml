@@ -1,0 +1,38 @@
+name: History backfill
+
+# Gives every record kept from before the change history one "Added" entry, dated when the record
+# was made, by "Backfill". Records that already have one are skipped, so running it again adds
+# nothing. Run by hand from the Actions tab. The log shows only counts.
+on:
+  workflow_dispatch:
+    inputs:
+      deployment:
+        description: Which Convex deployment
+        type: choice
+        options: [dev, production]
+        default: dev
+
+concurrency:
+  group: convex-deploy
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    env:
+      CONVEX_DEPLOY_KEY: ${{ inputs.deployment == 'production' && secrets.CONVEX_DEPLOY_KEY_PROD || secrets.CONVEX_DEPLOY_KEY_DEV }}
+    steps:
+      - name: Stop without a deploy key
+        if: env.CONVEX_DEPLOY_KEY == ''
+        run: |
+          echo "No deploy key for ${{ inputs.deployment }}; nothing run."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Backfill
+        run: npx convex run recordHistory:backfill
