@@ -92,7 +92,11 @@ function Breakdown({ report }: { report: HomeMovementReport }) {
 export default function MoversScreen() {
   const { request, clear } = useMovers();
   const navigation = useNavigation();
-  useEffect(() => navigation.addListener('beforeRemove', clear), [navigation, clear]);
+  // expo-router 58 dropped 'beforeRemove'; 'removed' fires after unmount, so unsubscribe a microtask later.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('removed', clear);
+    return () => queueMicrotask(unsubscribe);
+  }, [navigation, clear]);
   return (
     <Screen>
       {request ? <CurrencyScope currency={request.currency}><Breakdown report={request.report} /></CurrencyScope> : <View style={{ marginTop: 12, gap: 12 }}>

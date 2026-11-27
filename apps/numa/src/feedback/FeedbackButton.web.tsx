@@ -1,5 +1,5 @@
 import { usePathname } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Image, Platform, Pressable, TextInput, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,8 +67,8 @@ export function FeedbackButton() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
-  const buttonRef = useRef<View>(null);
-  const noteRef = useRef<TextInput>(null);
+  const buttonRef = useRef<ComponentRef<typeof View>>(null);
+  const noteRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [config, setConfig] = useState<FeedbackCaptureConfig | null>(null);
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');

@@ -1,5 +1,5 @@
 import { router, useNavigation } from 'expo-router';
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type ComponentRef } from 'react';
 import { Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { useTheme } from '@/theme/theme';
@@ -31,7 +31,7 @@ export const panelWidth = (width: number) => Math.round(Math.min(560, Math.max(4
 export function PanelFrame({ children }: { children: ReactNode }) {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
-  const row = useRef<View>(null);
+  const row = useRef<ComponentRef<typeof View>>(null);
   const navigation = useNavigation();
   const wide = width >= WIDE;
   // Whether a page is under this panel. It changes once, when Home is put beneath a panel that was

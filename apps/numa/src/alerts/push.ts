@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
@@ -30,7 +31,7 @@ export async function requestPushToken(): Promise<PushResult> {
   if (!pushSupported) return { error: 'Alerts aren’t available in this version of the app yet.' };
   if (!Device.isDevice) return { error: 'Alerts need a real phone, not a simulator.' };
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', { name: 'Alerts', importance: Notifications.AndroidImportance.DEFAULT });
+    await Notifications.setNotificationChannelAsync('default', { name: 'Alerts', importance: AndroidImportance.DEFAULT });
   }
   const current = await Notifications.getPermissionsAsync();
   const status = current.granted ? current : await Notifications.requestPermissionsAsync();

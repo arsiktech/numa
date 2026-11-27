@@ -10,21 +10,26 @@ type Variant = keyof typeof typeScale;
 function scaleForWeb(style: TextStyle): TextStyle {
   if (Platform.OS !== 'web') return style;
   const rem = (px: number) => `${px / 16}rem` as unknown as number;
-  const next: TextStyle = { ...style };
-  if (typeof next.fontSize === 'number') next.fontSize = rem(next.fontSize);
-  if (typeof next.lineHeight === 'number') next.lineHeight = rem(next.lineHeight);
-  if (typeof next.letterSpacing === 'number') next.letterSpacing = rem(next.letterSpacing);
-  return next;
+  return {
+    ...style,
+    ...(typeof style.fontSize === 'number' ? { fontSize: rem(style.fontSize) } : null),
+    ...(typeof style.lineHeight === 'number' ? { lineHeight: rem(style.lineHeight) } : null),
+    ...(typeof style.letterSpacing === 'number' ? { letterSpacing: rem(style.letterSpacing) } : null),
+  };
 }
 
 export function Txt({ v = 'body', c = 'ink', style, ...rest }: TextProps & { v?: Variant; c?: keyof Palette }) {
   const { c: p } = useTheme();
-  const base: TextStyle = { ...typeScale[v], color: p[c] };
-  if (v === 'figure' || v === 'figureSm' || v === 'hero' || v === 'display' || v === 'cents') base.fontVariant = ['tabular-nums'];
-  if (v === 'label') base.textTransform = 'uppercase';
+  const tabular = v === 'figure' || v === 'figureSm' || v === 'hero' || v === 'display' || v === 'cents';
+  const base: TextStyle = {
+    ...typeScale[v],
+    color: p[c],
+    ...(tabular ? { fontVariant: ['tabular-nums'] as TextStyle['fontVariant'] } : null),
+    ...(v === 'label' ? { textTransform: 'uppercase' as const } : null),
+  };
   const styles = [base, style];
   if (Platform.OS === 'web') {
-    const resolved = scaleForWeb(StyleSheet.flatten(styles));
+    const resolved = scaleForWeb(StyleSheet.flatten(styles) ?? {});
     return <Text {...rest} style={{ ...resolved, fontFamily: webFont(resolved.fontFamily) }} />;
   }
   return <Text {...rest} style={styles} />;

@@ -1,7 +1,7 @@
 import { webFont } from '@/theme/webFont';
 import { router } from 'expo-router';
 import { ConvexError } from 'convex/values';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { AppState, Dimensions, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View, type KeyboardEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -95,7 +95,7 @@ function AskView({ source }: { source: AskSource }) {
   const { mask } = useMoney();
   const insets = useSafeAreaInsets();
   // On iPhone, Ask opens as a sheet that starts below the top of the screen.
-  const sheetRef = useRef<View>(null);
+  const sheetRef = useRef<ComponentRef<typeof View>>(null);
   const [sheetTop, setSheetTop] = useState(0);
   const measureSheet = () => {
     if (Platform.OS !== 'ios') return;
@@ -131,7 +131,7 @@ function AskView({ source }: { source: AskSource }) {
   const [recovered, setRecovered] = useState(recoveryScope === null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const nextId = useRef(1);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const ready = source.status === 'ready' && recovered;
   const thinking = messages.some((m) => m.role === 'numa' && m.pending);
 
